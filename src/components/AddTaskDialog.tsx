@@ -14,9 +14,10 @@ import { toast } from 'sonner';
 
 interface AddTaskDialogProps {
   onAddTask: (task: Task) => void;
+  selectedProjectId?: string | null;
 }
 
-export const AddTaskDialog = ({ onAddTask }: AddTaskDialogProps) => {
+export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogProps) => {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -64,7 +65,8 @@ export const AddTaskDialog = ({ onAddTask }: AddTaskDialogProps) => {
       timer: {
         totalSeconds: 0,
         isRunning: false
-      }
+      },
+      projectId: selectedProjectId || undefined
     };
 
     onAddTask(newTask);
