@@ -157,7 +157,7 @@ const Index = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="min-h-screen flex flex-col w-full relative">
+      <div className="min-h-screen flex w-full relative">
         <DarkVeil
           hueShift={108}
           noiseIntensity={0}
@@ -169,49 +169,50 @@ const Index = () => {
         />
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
 
-        {/* Hero Section - Hidden on mobile/tablet */}
-        <div className="hidden lg:block">
-          <HeroSection onTasksCreated={() => {
-            fetchTasks();
-            setProjectRefreshTrigger(prev => prev + 1);
-          }} />
-        </div>
+        <div className="flex flex-1 relative w-full flex-col">
+          {/* Brain Dump - Always visible */}
+          <div className="w-full relative z-[5]">
+            <HeroSection onTasksCreated={() => {
+              fetchTasks();
+              setProjectRefreshTrigger(prev => prev + 1);
+            }} />
+          </div>
 
-        <div className="flex flex-1 relative w-full">
-          {/* Sidebar */}
-          <ProjectSidebar
-            selectedProjectId={selectedProjectId}
-            onSelectProject={setSelectedProjectId}
-            onSelectSpecialList={setSelectedSpecialList}
-            selectedSpecialList={selectedSpecialList}
-            projectRefreshTrigger={projectRefreshTrigger}
-          />
+          <div className="flex flex-1 relative w-full">
+            {/* Sidebar */}
+            <ProjectSidebar
+              selectedProjectId={selectedProjectId}
+              onSelectProject={setSelectedProjectId}
+              onSelectSpecialList={setSelectedSpecialList}
+              selectedSpecialList={selectedSpecialList}
+              projectRefreshTrigger={projectRefreshTrigger}
+            />
 
-          {/* Main Content */}
-          <div className="flex-1 relative z-10">
-            <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4">
-              {/* Header */}
-              <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-                  <SidebarTrigger className="relative z-10" />
-                  <div className="flex-1">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2 drop-shadow-lg">
-                      Brain Manager
-                    </h1>
-                    <p className="text-sm sm:text-base text-muted-foreground drop-shadow hidden sm:block">
-                      Organize your work with timers and visual planning
-                    </p>
+            {/* Main Content */}
+            <div className="flex-1 relative z-10 w-full">
+              <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4">
+                {/* Header */}
+                <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                    <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px]" />
+                    <div className="flex-1">
+                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2 drop-shadow-lg">
+                        Brain Manager
+                      </h1>
+                      <p className="text-sm sm:text-base text-muted-foreground drop-shadow hidden sm:block">
+                        Organize your work with timers and visual planning
+                      </p>
+                    </div>
                   </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleSignOut} 
+                    className="gap-2 self-end sm:self-auto min-h-[44px]"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sign Out</span>
+                  </Button>
                 </div>
-                <Button 
-                  variant="outline" 
-                  onClick={handleSignOut} 
-                  className="gap-2 self-end sm:self-auto min-h-[44px]"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </Button>
-              </div>
 
           {/* Actions Bar */}
           <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
@@ -353,6 +354,7 @@ const Index = () => {
               <GanttChart tasks={filteredTasks} />
             </div>
           )}
+              </div>
             </div>
           </div>
         </div>
