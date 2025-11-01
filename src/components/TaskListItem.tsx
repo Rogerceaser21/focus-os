@@ -51,10 +51,71 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   return (
     <>
       <div 
-        className="group w-full border border-white/10 bg-card/50 backdrop-blur-sm rounded-lg p-4 hover:border-primary/50 transition-all duration-300 cursor-pointer"
+        className="group w-full border border-white/10 bg-card/50 backdrop-blur-sm rounded-lg p-3 sm:p-4 hover:border-primary/50 transition-all duration-300 cursor-pointer"
         onClick={() => setIsEditOpen(true)}
       >
-        <div className="flex flex-col md:flex-row md:items-center gap-4 w-full">
+        {/* Mobile/Tablet Layout */}
+        <div className="flex flex-col gap-3 lg:hidden">
+          {/* Title */}
+          <h3 className="font-semibold text-base sm:text-lg text-foreground line-clamp-2">
+            {task.title}
+          </h3>
+          
+          {/* Description */}
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {task.description || 'No description'}
+          </p>
+
+          {/* Badges Row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className={priorityColors[task.priority]}>
+              {task.priority}
+            </Badge>
+            <Badge className={statusColors[task.status]}>
+              {task.status}
+            </Badge>
+            {task.dueDate && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Calendar className="w-4 h-4" />
+                <span>{format(new Date(task.dueDate), 'MMM d')}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Timer and Controls */}
+          <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+            <span className="text-base font-mono text-muted-foreground">
+              {formatTime(timer.totalSeconds)}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleStartStop}
+                className="h-10 w-10 p-0 touch-target"
+              >
+                {timer.isRunning ? (
+                  <Pause className="h-5 w-5" />
+                ) : (
+                  <Play className="h-5 w-5" />
+                )}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReset}
+                className="h-10 w-10 p-0 touch-target"
+              >
+                <RotateCcw className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Layout */}
+        <div className="hidden lg:flex lg:items-center gap-4 w-full">
           {/* Left: Title and Description */}
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-foreground truncate mb-1">
