@@ -93,7 +93,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
           Add Task
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:rounded-lg w-full sm:max-w-2xl mx-0 sm:mx-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
         </DialogHeader>
@@ -120,7 +120,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <Label htmlFor="priority">Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
@@ -151,7 +151,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div>
               <Label>Start Date</Label>
               <Popover>

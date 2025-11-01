@@ -94,7 +94,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-full mx-0 sm:mx-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Edit Task</DialogTitle>
         </DialogHeader>
@@ -121,7 +121,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority)}>
@@ -152,7 +152,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label>Start Date</Label>
               <Popover>
