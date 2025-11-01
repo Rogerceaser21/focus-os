@@ -76,7 +76,7 @@ const Index = () => {
   return (
     <div className="min-h-screen relative">
       <DarkVeil 
-        hueShift={260}
+        hueShift={108}
         noiseIntensity={0}
         scanlineIntensity={0}
         speed={0.3}
