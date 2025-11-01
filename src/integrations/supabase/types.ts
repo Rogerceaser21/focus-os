@@ -14,7 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      projects: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          description: string | null
+          due_date: string | null
+          end_date: string | null
+          id: string
+          image_url: string | null
+          priority: string
+          project_id: string | null
+          start_date: string | null
+          status: string
+          timer_is_running: boolean
+          timer_start_time: number | null
+          timer_total_seconds: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          end_date?: string | null
+          id?: string
+          image_url?: string | null
+          priority?: string
+          project_id?: string | null
+          start_date?: string | null
+          status?: string
+          timer_is_running?: boolean
+          timer_start_time?: number | null
+          timer_total_seconds?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          end_date?: string | null
+          id?: string
+          image_url?: string | null
+          priority?: string
+          project_id?: string | null
+          start_date?: string | null
+          status?: string
+          timer_is_running?: boolean
+          timer_start_time?: number | null
+          timer_total_seconds?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
