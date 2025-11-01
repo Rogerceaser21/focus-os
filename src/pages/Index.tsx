@@ -75,7 +75,7 @@ const Index = () => {
   return <div className="min-h-screen relative">
       <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />
       <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
-      <div className="container mx-auto py-8 px-4 relative z-10">
+      <div className="container mx-auto pt-[70px] pb-8 px-4 relative z-10">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2 drop-shadow-lg">Brain Manager</h1>
