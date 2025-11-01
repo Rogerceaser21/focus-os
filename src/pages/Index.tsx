@@ -168,7 +168,7 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
 
         {/* Hero Section */}
-        <HeroSection />
+        <HeroSection onTasksCreated={fetchTasks} />
 
         <div className="flex flex-1 relative w-full">
           {/* Sidebar */}
