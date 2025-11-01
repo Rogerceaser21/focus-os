@@ -87,33 +87,33 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
                   {task.title}
                 </h3>
               )}
-              
-              {isEditingDescription ? (
-                <Textarea
-                  value={editedDescription}
-                  onChange={(e) => setEditedDescription(e.target.value)}
-                  onBlur={handleDescriptionBlur}
-                  autoFocus
-                  className="text-sm mt-1 min-h-[60px] py-1 px-2 -mx-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none"
-                />
-              ) : (
-                <p 
-                  className="text-sm text-muted-foreground mt-1 line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
-                  onClick={() => setIsEditingDescription(true)}
-                >
-                  {task.description || 'Click to add description...'}
-                </p>
-              )}
             </div>
-          <div className="flex gap-2 shrink-0">
-            <Badge variant="outline" className={priorityColors[task.priority]}>
-              {task.priority}
-            </Badge>
-            <Badge variant="outline" className={statusColors[task.status]}>
-              {task.status}
-            </Badge>
+            <div className="flex gap-2 shrink-0">
+              <Badge variant="outline" className={priorityColors[task.priority]}>
+                {task.priority}
+              </Badge>
+              <Badge variant="outline" className={statusColors[task.status]}>
+                {task.status}
+              </Badge>
+            </div>
           </div>
-        </div>
+
+          {isEditingDescription ? (
+            <Textarea
+              value={editedDescription}
+              onChange={(e) => setEditedDescription(e.target.value)}
+              onBlur={handleDescriptionBlur}
+              autoFocus
+              className="text-sm min-h-[60px] py-1 px-2 -mx-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
+            />
+          ) : (
+            <p 
+              className="text-sm text-muted-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+              onClick={() => setIsEditingDescription(true)}
+            >
+              {task.description || 'Click to add description...'}
+            </p>
+          )}
 
         {task.imageUrl && (
           <img 
