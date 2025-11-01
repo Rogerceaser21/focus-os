@@ -66,7 +66,7 @@ const TrueFocus = ({
           <span
             key={index}
             ref={el => (wordRefs.current[index] = el)}
-            className="relative text-[3rem] font-black cursor-pointer"
+            className="relative text-2xl font-black cursor-pointer"
             style={{
               filter: manualMode
                 ? isActive
@@ -99,31 +99,31 @@ const TrueFocus = ({
         }}
       >
         <span
-          className="absolute w-4 h-4 border-[3px] rounded-[3px] top-[-10px] left-[-10px] border-r-0 border-b-0"
+          className="absolute w-3 h-3 border-[2px] rounded-[2px] top-[-6px] left-[-6px] border-r-0 border-b-0"
           style={{
             borderColor: 'var(--border-color)',
-            filter: 'drop-shadow(0 0 4px var(--border-color))'
+            filter: 'drop-shadow(0 0 3px var(--border-color))'
           }}
         ></span>
         <span
-          className="absolute w-4 h-4 border-[3px] rounded-[3px] top-[-10px] right-[-10px] border-l-0 border-b-0"
+          className="absolute w-3 h-3 border-[2px] rounded-[2px] top-[-6px] right-[-6px] border-l-0 border-b-0"
           style={{
             borderColor: 'var(--border-color)',
-            filter: 'drop-shadow(0 0 4px var(--border-color))'
+            filter: 'drop-shadow(0 0 3px var(--border-color))'
           }}
         ></span>
         <span
-          className="absolute w-4 h-4 border-[3px] rounded-[3px] bottom-[-10px] left-[-10px] border-r-0 border-t-0"
+          className="absolute w-3 h-3 border-[2px] rounded-[2px] bottom-[-6px] left-[-6px] border-r-0 border-t-0"
           style={{
             borderColor: 'var(--border-color)',
-            filter: 'drop-shadow(0 0 4px var(--border-color))'
+            filter: 'drop-shadow(0 0 3px var(--border-color))'
           }}
         ></span>
         <span
-          className="absolute w-4 h-4 border-[3px] rounded-[3px] bottom-[-10px] right-[-10px] border-l-0 border-t-0"
+          className="absolute w-3 h-3 border-[2px] rounded-[2px] bottom-[-6px] right-[-6px] border-l-0 border-t-0"
           style={{
             borderColor: 'var(--border-color)',
-            filter: 'drop-shadow(0 0 4px var(--border-color))'
+            filter: 'drop-shadow(0 0 3px var(--border-color))'
           }}
         ></span>
       </motion.div>
