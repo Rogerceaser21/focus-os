@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { Task } from '@/types/task';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Play, Pause, RotateCcw, Clock, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { format } from 'date-fns';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
 
 interface TaskCardProps {
   task: Task;
@@ -26,6 +30,11 @@ const statusColors = {
 
 export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
   const { timer, startTimer, stopTimer, resetTimer, formatTime } = useTimer(task.timer);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(task.title);
+  const [editedDescription, setEditedDescription] = useState(task.description || '');
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const handleTimerUpdate = (action: 'start' | 'stop' | 'reset') => {
     if (action === 'start') startTimer();
@@ -35,16 +44,67 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
     onUpdate({ ...task, timer });
   };
 
+  const handleTitleBlur = () => {
+    setIsEditingTitle(false);
+    if (editedTitle.trim() && editedTitle !== task.title) {
+      onUpdate({ ...task, title: editedTitle.trim() });
+    } else {
+      setEditedTitle(task.title);
+    }
+  };
+
+  const handleDescriptionBlur = () => {
+    setIsEditingDescription(false);
+    if (editedDescription !== task.description) {
+      onUpdate({ ...task, description: editedDescription.trim() || undefined });
+    }
+  };
+
+  const handleDateClick = () => {
+    setShowEditDialog(true);
+  };
+
   return (
-    <Card className="p-4 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10">
-      <div className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-foreground truncate">{task.title}</h3>
-            {task.description && (
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
-            )}
-          </div>
+    <>
+      <Card className="p-4 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              {isEditingTitle ? (
+                <Input
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onBlur={handleTitleBlur}
+                  onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
+                  autoFocus
+                  className="font-semibold h-auto py-1 px-2 -mx-2"
+                />
+              ) : (
+                <h3 
+                  className="font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+                  onClick={() => setIsEditingTitle(true)}
+                >
+                  {task.title}
+                </h3>
+              )}
+              
+              {isEditingDescription ? (
+                <Textarea
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  onBlur={handleDescriptionBlur}
+                  autoFocus
+                  className="text-sm mt-1 min-h-[60px] py-1 px-2 -mx-2"
+                />
+              ) : (
+                <p 
+                  className="text-sm text-muted-foreground mt-1 line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+                  onClick={() => setIsEditingDescription(true)}
+                >
+                  {task.description || 'Click to add description...'}
+                </p>
+              )}
+            </div>
           <div className="flex gap-2 shrink-0">
             <Badge variant="outline" className={priorityColors[task.priority]}>
               {task.priority}
@@ -65,7 +125,10 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
 
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           {task.dueDate && (
-            <div className="flex items-center gap-1">
+            <div 
+              className="flex items-center gap-1 cursor-pointer hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+              onClick={handleDateClick}
+            >
               <Calendar className="h-4 w-4" />
               <span>{format(task.dueDate, 'MMM d, yyyy')}</span>
             </div>
@@ -110,5 +173,13 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
         </div>
       </div>
     </Card>
+    
+    <EditTaskDialog 
+      task={task}
+      open={showEditDialog}
+      onOpenChange={setShowEditDialog}
+      onUpdateTask={onUpdate}
+    />
+    </>
   );
 };
