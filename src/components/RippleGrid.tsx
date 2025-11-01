@@ -192,11 +192,13 @@ void main() {
       mouseInfluenceRef.current = 0.0;
     };
 
+    const container = containerRef.current;
+
     window.addEventListener('resize', resize);
-    if (mouseInteraction) {
-      containerRef.current.addEventListener('mousemove', handleMouseMove);
-      containerRef.current.addEventListener('mouseenter', handleMouseEnter);
-      containerRef.current.addEventListener('mouseleave', handleMouseLeave);
+    if (mouseInteraction && container) {
+      container.addEventListener('mousemove', handleMouseMove);
+      container.addEventListener('mouseenter', handleMouseEnter);
+      container.addEventListener('mouseleave', handleMouseLeave);
     }
     resize();
 
@@ -221,13 +223,15 @@ void main() {
 
     return () => {
       window.removeEventListener('resize', resize);
-      if (mouseInteraction && containerRef.current) {
-        containerRef.current.removeEventListener('mousemove', handleMouseMove);
-        containerRef.current.removeEventListener('mouseenter', handleMouseEnter);
-        containerRef.current.removeEventListener('mouseleave', handleMouseLeave);
+      if (mouseInteraction && container) {
+        container.removeEventListener('mousemove', handleMouseMove);
+        container.removeEventListener('mouseenter', handleMouseEnter);
+        container.removeEventListener('mouseleave', handleMouseLeave);
       }
       renderer.gl.getExtension('WEBGL_lose_context')?.loseContext();
-      containerRef.current?.removeChild(gl.canvas);
+      if (container && gl.canvas) {
+        container.removeChild(gl.canvas);
+      }
     };
   }, []);
 
@@ -268,7 +272,7 @@ void main() {
     mouseInteractionRadius
   ]);
 
-  return <div ref={containerRef} className="w-full h-full relative overflow-hidden [&_canvas]:block" />;
+  return <div ref={containerRef} className="w-full h-full relative overflow-hidden [&_canvas]:block pointer-events-auto" />;
 };
 
 export default RippleGrid;
