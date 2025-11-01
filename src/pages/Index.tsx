@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Search, LayoutList, GanttChartSquare } from 'lucide-react';
+import DarkVeil from '@/components/DarkVeil';
 
 // Mock data
 const initialTasks: Task[] = [
@@ -73,8 +74,17 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto py-8 px-4">
+    <div className="min-h-screen relative">
+      <DarkVeil 
+        hueShift={180}
+        noiseIntensity={0.03}
+        scanlineIntensity={0.1}
+        speed={0.3}
+        scanlineFrequency={0.5}
+        warpAmount={0.2}
+        resolutionScale={0.8}
+      />
+      <div className="container mx-auto py-8 px-4 relative z-10">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Task Manager</h1>
