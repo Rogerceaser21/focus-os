@@ -6,6 +6,7 @@ import { Plus, Folder, ListTodo, Calendar } from 'lucide-react';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { toast } from 'sonner';
 import AnimatedList from './AnimatedList';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +16,10 @@ import {
   SidebarHeader,
   useSidebar,
 } from '@/components/ui/sidebar';
+import {
+  Sheet,
+  SheetContent,
+} from '@/components/ui/sheet';
 
 interface ProjectSidebarProps {
   selectedProjectId: string | null;
@@ -85,8 +90,102 @@ export const ProjectSidebar = ({
     onSelectProject(null);
   };
 
-  const { open: sidebarOpen } = useSidebar();
+  const { open: sidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
+  const isActuallyMobile = useIsMobile();
 
+  const sidebarContent = (
+    <>
+      <div className="border-b p-4">
+        <h2 className="font-semibold text-lg mb-3">Projects</h2>
+        <Button onClick={() => setIsCreateOpen(true)} size="sm" className="w-full gap-2">
+          <Plus className="h-4 w-4" />
+          New Project
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-2 space-y-1">
+          {/* Special Lists */}
+          <Button
+            variant={selectedSpecialList === 'today' ? 'secondary' : 'ghost'}
+            className="w-full justify-start gap-2"
+            onClick={() => {
+              handleSelectSpecial('today');
+              if (isActuallyMobile) setOpenMobile(false);
+            }}
+          >
+            <Calendar className="h-4 w-4" />
+            Today's To-Do
+          </Button>
+          
+          <Button
+            variant={selectedSpecialList === 'unassigned' ? 'secondary' : 'ghost'}
+            className="w-full justify-start gap-2"
+            onClick={() => {
+              handleSelectSpecial('unassigned');
+              if (isActuallyMobile) setOpenMobile(false);
+            }}
+          >
+            <ListTodo className="h-4 w-4" />
+            Unassigned
+          </Button>
+        </div>
+
+        {/* Projects with AnimatedList */}
+        {projects.length > 0 && (
+          <div className="mt-4">
+            <div className="px-4 mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground">My Projects</h3>
+            </div>
+            <div className="px-2">
+              <AnimatedList
+                items={projects}
+                onItemSelect={(project) => {
+                  handleSelectProject(project.id);
+                  if (isActuallyMobile) setOpenMobile(false);
+                }}
+                showGradients={true}
+                enableArrowNavigation={false}
+                displayScrollbar={false}
+                className="w-full"
+                renderItem={(project, isSelected) => (
+                  <Button
+                    variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                    className="w-full justify-start gap-2"
+                  >
+                    <Folder 
+                      className="h-4 w-4" 
+                      style={{ color: project.color }}
+                    />
+                    <span className="truncate">{project.name}</span>
+                  </Button>
+                )}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <CreateProjectDialog 
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        onCreate={handleCreateProject}
+      />
+    </>
+  );
+
+  // On mobile, use Sheet overlay
+  if (isActuallyMobile) {
+    return (
+      <Sheet open={openMobile} onOpenChange={setOpenMobile}>
+        <SheetContent side="left" className="w-[280px] p-0 bg-card/50 backdrop-blur-sm">
+          {sidebarContent}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // On desktop, use standard Sidebar
   return (
     <Sidebar className="border-r bg-card/50 backdrop-blur-sm">
       <SidebarHeader className="border-b p-4">
