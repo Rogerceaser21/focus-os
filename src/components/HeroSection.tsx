@@ -3,7 +3,7 @@ import TrueFocus from './TrueFocus';
 
 const HeroSection = () => {
   return (
-    <div className="relative w-full h-[400px] overflow-hidden z-[5]">
+    <div className="relative w-full h-[70px] overflow-hidden z-[5]">
       {/* Ripple Grid Background */}
       <div className="absolute inset-0">
         <RippleGrid
