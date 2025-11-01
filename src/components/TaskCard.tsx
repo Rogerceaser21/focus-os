@@ -12,16 +12,16 @@ interface TaskCardProps {
 }
 
 const priorityColors = {
-  low: 'bg-muted text-muted-foreground',
-  medium: 'bg-primary/20 text-primary',
-  high: 'bg-accent/20 text-accent',
-  urgent: 'bg-destructive/20 text-destructive'
+  low: 'bg-muted/50 text-muted-foreground border-muted-foreground/20',
+  medium: 'bg-info/20 text-info border-info/30',
+  high: 'bg-warning/20 text-warning border-warning/30',
+  urgent: 'bg-destructive/20 text-destructive border-destructive/30'
 };
 
 const statusColors = {
-  'todo': 'bg-muted text-muted-foreground',
-  'in-progress': 'bg-primary/20 text-primary',
-  'completed': 'bg-green-500/20 text-green-700 dark:text-green-400'
+  'todo': 'bg-muted/50 text-muted-foreground border-muted-foreground/20',
+  'in-progress': 'bg-primary/20 text-primary border-primary/30',
+  'completed': 'bg-success/20 text-success border-success/30'
 };
 
 export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
@@ -36,7 +36,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
   };
 
   return (
-    <Card className="p-4 hover:shadow-md transition-shadow">
+    <Card className="p-4 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10">
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">

@@ -76,19 +76,20 @@ const Index = () => {
   return (
     <div className="min-h-screen relative">
       <DarkVeil 
-        hueShift={180}
-        noiseIntensity={0.03}
-        scanlineIntensity={0.1}
-        speed={0.3}
-        scanlineFrequency={0.5}
-        warpAmount={0.2}
-        resolutionScale={0.8}
+        hueShift={200}
+        noiseIntensity={0.05}
+        scanlineIntensity={0.15}
+        speed={0.4}
+        scanlineFrequency={1}
+        warpAmount={0.3}
+        resolutionScale={0.6}
       />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/60 to-background/80 pointer-events-none z-[1]" />
       <div className="container mx-auto py-8 px-4 relative z-10">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Task Manager</h1>
-          <p className="text-muted-foreground">Organize your work with timers and visual planning</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2 drop-shadow-lg">Task Manager</h1>
+          <p className="text-muted-foreground drop-shadow">Organize your work with timers and visual planning</p>
         </div>
 
         {/* Actions Bar */}
@@ -99,14 +100,14 @@ const Index = () => {
               placeholder="Search tasks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 bg-card/80 backdrop-blur-sm border-2"
             />
           </div>
           <div className="flex gap-2">
             <Button
               variant={viewMode === 'list' ? 'default' : 'outline'}
               onClick={() => setViewMode('list')}
-              className="gap-2"
+              className="gap-2 border-2"
             >
               <LayoutList className="h-4 w-4" />
               List
@@ -114,7 +115,7 @@ const Index = () => {
             <Button
               variant={viewMode === 'gantt' ? 'default' : 'outline'}
               onClick={() => setViewMode('gantt')}
-              className="gap-2"
+              className="gap-2 border-2"
             >
               <GanttChartSquare className="h-4 w-4" />
               Gantt

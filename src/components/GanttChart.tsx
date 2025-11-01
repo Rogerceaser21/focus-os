@@ -36,15 +36,15 @@ export const GanttChart = ({ tasks }: GanttChartProps) => {
   };
 
   const priorityColors = {
-    low: 'bg-muted',
-    medium: 'bg-primary',
-    high: 'bg-accent',
+    low: 'bg-muted/80',
+    medium: 'bg-info',
+    high: 'bg-warning',
     urgent: 'bg-destructive'
   };
 
   if (tasksWithDates.length === 0) {
     return (
-      <Card className="p-8">
+      <Card className="p-8 bg-card/80 backdrop-blur-sm border-2">
         <p className="text-center text-muted-foreground">
           No tasks with dates to display in Gantt view
         </p>
@@ -53,8 +53,8 @@ export const GanttChart = ({ tasks }: GanttChartProps) => {
   }
 
   return (
-    <Card className="p-6 overflow-x-auto">
-      <h3 className="text-lg font-semibold mb-4">Gantt Chart - {format(monthStart, 'MMMM yyyy')}</h3>
+    <Card className="p-6 overflow-x-auto bg-card/80 backdrop-blur-sm border-2">
+      <h3 className="text-lg font-semibold mb-4 text-foreground">Gantt Chart - {format(monthStart, 'MMMM yyyy')}</h3>
       
       {/* Timeline Header */}
       <div className="mb-4">

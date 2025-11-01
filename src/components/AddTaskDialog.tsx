@@ -86,7 +86,7 @@ export const AddTaskDialog = ({ onAddTask }: AddTaskDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button className="gap-2 border-2 shadow-lg shadow-primary/20">
           <Plus className="h-4 w-4" />
           Add Task
         </Button>
