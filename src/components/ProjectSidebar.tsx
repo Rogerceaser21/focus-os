@@ -21,20 +21,22 @@ interface ProjectSidebarProps {
   onSelectProject: (projectId: string | null) => void;
   onSelectSpecialList: (list: 'unassigned' | 'today' | null) => void;
   selectedSpecialList: 'unassigned' | 'today' | null;
+  projectRefreshTrigger?: number;
 }
 
 export const ProjectSidebar = ({ 
   selectedProjectId, 
   onSelectProject, 
   onSelectSpecialList,
-  selectedSpecialList 
+  selectedSpecialList,
+  projectRefreshTrigger 
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, [projectRefreshTrigger]);
 
   const fetchProjects = async () => {
     const { data, error } = await supabase

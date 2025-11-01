@@ -25,6 +25,7 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | null>(null);
+  const [projectRefreshTrigger, setProjectRefreshTrigger] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -168,7 +169,10 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
 
         {/* Hero Section */}
-        <HeroSection onTasksCreated={fetchTasks} />
+        <HeroSection onTasksCreated={() => {
+          fetchTasks();
+          setProjectRefreshTrigger(prev => prev + 1);
+        }} />
 
         <div className="flex flex-1 relative w-full">
           {/* Sidebar */}
@@ -177,6 +181,7 @@ const Index = () => {
             onSelectProject={setSelectedProjectId}
             onSelectSpecialList={setSelectedSpecialList}
             selectedSpecialList={selectedSpecialList}
+            projectRefreshTrigger={projectRefreshTrigger}
           />
 
           {/* Main Content */}
