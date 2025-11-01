@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import DarkVeil from '@/components/DarkVeil';
 import HeroSection from '@/components/HeroSection';
 import { startOfDay, endOfDay } from 'date-fns';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -153,50 +154,52 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      <DarkVeil
-        hueShift={108}
-        noiseIntensity={0}
-        scanlineIntensity={0}
-        speed={0.3}
-        scanlineFrequency={0}
-        warpAmount={0.4}
-        resolutionScale={0.6}
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
-
-      {/* Hero Section */}
-      <HeroSection />
-
-      <div className="flex flex-1 relative">
-      {/* Sidebar */}
-      <div className="w-64 relative z-10 flex-shrink-0">
-        <ProjectSidebar
-          selectedProjectId={selectedProjectId}
-          onSelectProject={setSelectedProjectId}
-          onSelectSpecialList={setSelectedSpecialList}
-          selectedSpecialList={selectedSpecialList}
+    <SidebarProvider defaultOpen={true}>
+      <div className="min-h-screen flex flex-col w-full relative">
+        <DarkVeil
+          hueShift={108}
+          noiseIntensity={0}
+          scanlineIntensity={0}
+          speed={0.3}
+          scanlineFrequency={0}
+          warpAmount={0.4}
+          resolutionScale={0.6}
         />
-      </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
 
-      {/* Main Content */}
-      <div className="flex-1 relative z-10">
-        <div className="container mx-auto py-8 px-4">
-          {/* Header */}
-          <div className="mb-8 flex justify-between items-start">
-            <div>
-              <h1 className="text-4xl font-bold text-foreground mb-2 drop-shadow-lg">
-                Brain Manager
-              </h1>
-              <p className="text-muted-foreground drop-shadow">
-                Organize your work with timers and visual planning
-              </p>
-            </div>
-            <Button variant="outline" onClick={handleSignOut} className="gap-2">
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </Button>
-          </div>
+        {/* Hero Section */}
+        <HeroSection />
+
+        <div className="flex flex-1 relative w-full">
+          {/* Sidebar */}
+          <ProjectSidebar
+            selectedProjectId={selectedProjectId}
+            onSelectProject={setSelectedProjectId}
+            onSelectSpecialList={setSelectedSpecialList}
+            selectedSpecialList={selectedSpecialList}
+          />
+
+          {/* Main Content */}
+          <div className="flex-1 relative z-10">
+            <div className="container mx-auto py-8 px-4">
+              {/* Header */}
+              <div className="mb-8 flex justify-between items-start">
+                <div className="flex items-center gap-4">
+                  <SidebarTrigger className="relative z-10" />
+                  <div>
+                    <h1 className="text-4xl font-bold text-foreground mb-2 drop-shadow-lg">
+                      Brain Manager
+                    </h1>
+                    <p className="text-muted-foreground drop-shadow">
+                      Organize your work with timers and visual planning
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" onClick={handleSignOut} className="gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </Button>
+              </div>
 
           {/* Actions Bar */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -290,10 +293,11 @@ const Index = () => {
               <GanttChart tasks={filteredTasks} />
             </div>
           )}
+            </div>
+          </div>
         </div>
       </div>
-      </div>
-    </div>
+    </SidebarProvider>
   );
 };
 

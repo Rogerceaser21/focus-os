@@ -2,10 +2,19 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Folder, ListTodo, Calendar } from 'lucide-react';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { toast } from 'sonner';
+import AnimatedList from './AnimatedList';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  useSidebar,
+} from '@/components/ui/sidebar';
 
 interface ProjectSidebarProps {
   selectedProjectId: string | null;
@@ -74,62 +83,77 @@ export const ProjectSidebar = ({
     onSelectProject(null);
   };
 
+  const { open: sidebarOpen } = useSidebar();
+
   return (
-    <div className="flex flex-col h-full border-r bg-card/50 backdrop-blur-sm">
-      <div className="p-4 border-b">
+    <Sidebar className="border-r bg-card/50 backdrop-blur-sm">
+      <SidebarHeader className="border-b p-4">
         <h2 className="font-semibold text-lg mb-3">Projects</h2>
         <Button onClick={() => setIsCreateOpen(true)} size="sm" className="w-full gap-2">
           <Plus className="h-4 w-4" />
-          New Project
+          {sidebarOpen && "New Project"}
         </Button>
-      </div>
+      </SidebarHeader>
 
-      <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
-          {/* Special Lists */}
-          <Button
-            variant={selectedSpecialList === 'today' ? 'secondary' : 'ghost'}
-            className="w-full justify-start gap-2"
-            onClick={() => handleSelectSpecial('today')}
-          >
-            <Calendar className="h-4 w-4" />
-            Today's To-Do
-          </Button>
-          
-          <Button
-            variant={selectedSpecialList === 'unassigned' ? 'secondary' : 'ghost'}
-            className="w-full justify-start gap-2"
-            onClick={() => handleSelectSpecial('unassigned')}
-          >
-            <ListTodo className="h-4 w-4" />
-            Unassigned
-          </Button>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent className="p-2 space-y-1">
+            {/* Special Lists */}
+            <Button
+              variant={selectedSpecialList === 'today' ? 'secondary' : 'ghost'}
+              className="w-full justify-start gap-2"
+              onClick={() => handleSelectSpecial('today')}
+            >
+              <Calendar className="h-4 w-4" />
+              {sidebarOpen && "Today's To-Do"}
+            </Button>
+            
+            <Button
+              variant={selectedSpecialList === 'unassigned' ? 'secondary' : 'ghost'}
+              className="w-full justify-start gap-2"
+              onClick={() => handleSelectSpecial('unassigned')}
+            >
+              <ListTodo className="h-4 w-4" />
+              {sidebarOpen && "Unassigned"}
+            </Button>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-          {/* Projects */}
-          <div className="pt-2 mt-2 border-t">
-            {projects.map(project => (
-              <Button
-                key={project.id}
-                variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
-                className="w-full justify-start gap-2 mb-1"
-                onClick={() => handleSelectProject(project.id)}
-              >
-                <Folder 
-                  className="h-4 w-4" 
-                  style={{ color: project.color }}
-                />
-                <span className="truncate">{project.name}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      </ScrollArea>
+        {/* Projects with AnimatedList */}
+        {sidebarOpen && projects.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="px-4">My Projects</SidebarGroupLabel>
+            <SidebarGroupContent className="px-2">
+              <AnimatedList
+                items={projects}
+                onItemSelect={(project) => handleSelectProject(project.id)}
+                showGradients={true}
+                enableArrowNavigation={false}
+                displayScrollbar={false}
+                className="w-full"
+                renderItem={(project, isSelected) => (
+                  <Button
+                    variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                    className="w-full justify-start gap-2"
+                  >
+                    <Folder 
+                      className="h-4 w-4" 
+                      style={{ color: project.color }}
+                    />
+                    <span className="truncate">{project.name}</span>
+                  </Button>
+                )}
+              />
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+      </SidebarContent>
 
       <CreateProjectDialog 
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         onCreate={handleCreateProject}
       />
-    </div>
+    </Sidebar>
   );
 };
