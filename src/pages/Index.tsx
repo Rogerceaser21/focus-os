@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Search, LayoutList, GanttChartSquare, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import DarkVeil from '@/components/DarkVeil';
+import HeroSection from '@/components/HeroSection';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const Index = () => {
@@ -152,7 +153,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen flex relative">
+    <div className="min-h-screen flex flex-col relative">
       <DarkVeil
         hueShift={108}
         noiseIntensity={0}
@@ -164,6 +165,10 @@ const Index = () => {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
 
+      {/* Hero Section */}
+      <HeroSection />
+
+      <div className="flex flex-1 relative">
       {/* Sidebar */}
       <div className="w-64 relative z-10 flex-shrink-0">
         <ProjectSidebar
@@ -286,6 +291,7 @@ const Index = () => {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
