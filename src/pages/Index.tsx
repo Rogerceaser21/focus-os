@@ -76,15 +76,15 @@ const Index = () => {
   return (
     <div className="min-h-screen relative">
       <DarkVeil 
-        hueShift={200}
-        noiseIntensity={0.05}
-        scanlineIntensity={0.15}
-        speed={0.4}
-        scanlineFrequency={1}
-        warpAmount={0.3}
+        hueShift={260}
+        noiseIntensity={0}
+        scanlineIntensity={0}
+        speed={0.3}
+        scanlineFrequency={0}
+        warpAmount={0.4}
         resolutionScale={0.6}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/60 to-background/80 pointer-events-none z-[1]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
       <div className="container mx-auto py-8 px-4 relative z-10">
         {/* Header */}
         <div className="mb-8">
