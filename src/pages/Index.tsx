@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Task } from '@/types/task';
 import { TaskCard } from '@/components/TaskCard';
+import { TaskListItem } from '@/components/TaskListItem';
 import { GanttChart } from '@/components/GanttChart';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
@@ -254,42 +255,42 @@ const Index = () => {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="all" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6">
+              <TabsContent value="all" className="flex flex-col gap-2 mt-6">
                 {filteredTasks.map((task) => (
-                  <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />
+                  <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />
                 ))}
               </TabsContent>
 
               <TabsContent
                 value="todo"
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6"
+                className="flex flex-col gap-2 mt-6"
               >
                 {filteredTasks
                   .filter((t) => t.status === 'todo')
                   .map((task) => (
-                    <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />
+                    <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />
                   ))}
               </TabsContent>
 
               <TabsContent
                 value="in-progress"
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6"
+                className="flex flex-col gap-2 mt-6"
               >
                 {filteredTasks
                   .filter((t) => t.status === 'in-progress')
                   .map((task) => (
-                    <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />
+                    <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />
                   ))}
               </TabsContent>
 
               <TabsContent
                 value="completed"
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6"
+                className="flex flex-col gap-2 mt-6"
               >
                 {filteredTasks
                   .filter((t) => t.status === 'completed')
                   .map((task) => (
-                    <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />
+                    <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />
                   ))}
               </TabsContent>
             </Tabs>
