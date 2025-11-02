@@ -190,7 +190,7 @@ const Index = () => {
             <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} />
 
             {/* Main Content */}
-            <div className="flex-1 relative z-10 overflow-x-hidden [scrollbar-gutter:stable]">
+            <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4">
                 {/* Header */}
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
