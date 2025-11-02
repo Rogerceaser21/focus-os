@@ -256,14 +256,16 @@ const Index = () => {
               </TabsList>
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
-                <div className="mt-4 mb-2 flex items-center gap-2 px-2">
-                  <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
-                  <span 
-                    className="font-semibold text-lg"
-                    style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
-                  >
-                    {projects.find(p => p.id === selectedProjectId)?.name}
-                  </span>
+                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
+                  <div className="flex items-center gap-2 px-3 py-2">
+                    <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
+                    <span 
+                      className="font-semibold text-base"
+                      style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
+                    >
+                      {projects.find(p => p.id === selectedProjectId)?.name}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -299,14 +301,16 @@ const Index = () => {
               </TabsList>
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
-                <div className="mt-4 mb-2 flex items-center gap-2 px-2">
-                  <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
-                  <span 
-                    className="font-semibold text-lg"
-                    style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
-                  >
-                    {projects.find(p => p.id === selectedProjectId)?.name}
-                  </span>
+                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
+                  <div className="flex items-center gap-2 px-3 py-2">
+                    <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
+                    <span 
+                      className="font-semibold text-base"
+                      style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
+                    >
+                      {projects.find(p => p.id === selectedProjectId)?.name}
+                    </span>
+                  </div>
                 </div>
               )}
 
