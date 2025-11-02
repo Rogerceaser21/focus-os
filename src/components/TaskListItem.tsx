@@ -148,16 +148,17 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                   </Badge>
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50" onClick={(e) => e.stopPropagation()}>
+              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50">
                 <div className="flex flex-col gap-1">
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <Badge
                       key={priority}
                       variant="outline"
                       className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
-                      onClick={() => {
-                        onUpdate({ ...task, priority });
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setIsPriorityOpen(false);
+                        onUpdate({ ...task, priority });
                       }}
                     >
                       {priority}
@@ -259,16 +260,17 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                   </Badge>
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50" onClick={(e) => e.stopPropagation()}>
+              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50">
                 <div className="flex flex-col gap-1">
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <Badge
                       key={priority}
                       variant="outline"
                       className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
-                      onClick={() => {
-                        onUpdate({ ...task, priority });
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setIsPriorityOpen(false);
+                        onUpdate({ ...task, priority });
                       }}
                     >
                       {priority}
