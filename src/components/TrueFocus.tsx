@@ -15,7 +15,8 @@ const TrueFocus = ({
   particleDistances = [90, 10],
   particleR = 100,
   timeVariance = 300,
-  colors = [1, 2, 3, 1, 2, 3, 1, 4]
+  colors = [1, 2, 3, 1, 2, 3, 1, 4],
+  onAnimationComplete
 }) => {
   const words = sentence.split(' ');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -110,6 +111,10 @@ const TrueFocus = ({
                 // Stop animation after maxCycles
                 if (newCycles >= maxCycles) {
                   setAnimationStopped(true);
+                  // Call the completion callback if provided
+                  if (onAnimationComplete) {
+                    onAnimationComplete();
+                  }
                 }
                 return newCycles;
               });
