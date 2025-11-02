@@ -148,7 +148,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                   </Badge>
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50">
+              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50" onClick={(e) => e.stopPropagation()}>
                 <div className="flex flex-col gap-1">
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <Badge
@@ -259,7 +259,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                   </Badge>
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50">
+              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50" onClick={(e) => e.stopPropagation()}>
                 <div className="flex flex-col gap-1">
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <Badge
