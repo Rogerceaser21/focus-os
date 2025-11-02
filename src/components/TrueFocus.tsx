@@ -14,28 +14,47 @@ const TrueFocus = ({
   particleDistances = [90, 10],
   particleR = 100,
   timeVariance = 300,
-  colors = [1, 2, 3, 1, 2, 3, 1, 4]
+  colors = [1, 2, 3, 1, 2, 3, 1, 4],
+  maxCycles = 3
 }) => {
   const words = sentence.split(' ');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastActiveIndex, setLastActiveIndex] = useState(null);
+  const [completedCycles, setCompletedCycles] = useState(0);
+  const [animationStopped, setAnimationStopped] = useState(false);
   const containerRef = useRef(null);
   const wordRefs = useRef([]);
   const particleContainerRef = useRef(null);
   const [focusRect, setFocusRect] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
   useEffect(() => {
-    if (!manualMode) {
+    if (!manualMode && !animationStopped) {
       const interval = setInterval(
         () => {
-          setCurrentIndex(prev => (prev + 1) % words.length);
+          setCurrentIndex(prev => {
+            const nextIndex = (prev + 1) % words.length;
+            
+            // Check if we completed a full cycle (going back to 0)
+            if (nextIndex === 0) {
+              setCompletedCycles(cycles => {
+                const newCycles = cycles + 1;
+                // Stop animation after maxCycles
+                if (newCycles >= maxCycles) {
+                  setAnimationStopped(true);
+                }
+                return newCycles;
+              });
+            }
+            
+            return nextIndex;
+          });
         },
         (animationDuration + pauseBetweenAnimations) * 1000
       );
 
       return () => clearInterval(interval);
     }
-  }, [manualMode, animationDuration, pauseBetweenAnimations, words.length]);
+  }, [manualMode, animationDuration, pauseBetweenAnimations, words.length, animationStopped, maxCycles]);
 
   const noise = (n = 1) => n / 2 - Math.random() * n;
 
@@ -120,9 +139,11 @@ const TrueFocus = ({
       height: activeRect.height
     });
 
-    // Trigger particle animation on word change
-    makeParticles();
-  }, [currentIndex, words.length]);
+    // Trigger particle animation on word change only if animation is not stopped
+    if (!animationStopped) {
+      makeParticles();
+    }
+  }, [currentIndex, words.length, animationStopped]);
 
   const handleMouseEnter = index => {
     if (manualMode) {
