@@ -255,6 +255,18 @@ const Index = () => {
                 </TabsTrigger>
               </TabsList>
 
+              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
+                <div className="mt-4 mb-2 flex items-center gap-2 px-2">
+                  <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
+                  <span 
+                    className="font-semibold text-lg"
+                    style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
+                  >
+                    {projects.find(p => p.id === selectedProjectId)?.name}
+                  </span>
+                </div>
+              )}
+
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
                 {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
@@ -285,6 +297,18 @@ const Index = () => {
                   <span className="hidden sm:inline">Done </span>({filteredTasks.filter(t => t.status === 'completed').length})
                 </TabsTrigger>
               </TabsList>
+
+              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
+                <div className="mt-4 mb-2 flex items-center gap-2 px-2">
+                  <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
+                  <span 
+                    className="font-semibold text-lg"
+                    style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
+                  >
+                    {projects.find(p => p.id === selectedProjectId)?.name}
+                  </span>
+                </div>
+              )}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
                 {filteredTasks.map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
