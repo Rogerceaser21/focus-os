@@ -60,19 +60,17 @@ const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen }: HeroSectionP
             </>
           ) : (
             <>
-              <div className="scale-75 sm:scale-90 lg:scale-100 origin-left">
-                <TrueFocus
-                  sentence="Try Magic Plan"
-                  manualMode={false}
-                  blurAmount={8}
-                  borderColor="#4FD1C5"
-                  glowColor="rgba(79, 209, 197, 0.8)"
-                  animationDuration={0.6}
-                  pauseBetweenAnimations={1.5}
-                  maxCycles={3}
-                  onAnimationComplete={handleAnimationComplete}
-                />
-              </div>
+              <TrueFocus
+                sentence="Try Magic Plan"
+                manualMode={false}
+                blurAmount={8}
+                borderColor="#4FD1C5"
+                glowColor="rgba(79, 209, 197, 0.8)"
+                animationDuration={0.6}
+                pauseBetweenAnimations={1.5}
+                maxCycles={3}
+                onAnimationComplete={handleAnimationComplete}
+              />
               <p className="text-xs sm:text-sm text-muted-foreground drop-shadow hidden sm:block whitespace-nowrap">Click here to Start</p>
             </>
           )}
