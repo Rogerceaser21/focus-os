@@ -37,6 +37,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [isPriorityOpen, setIsPriorityOpen] = useState(false);
 
   const handleTimerUpdate = (action: 'start' | 'stop') => {
     if (action === 'start') {
@@ -106,7 +107,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
                 )}
               </div>
               <div className="flex gap-2 shrink-0">
-                <Popover>
+                <Popover open={isPriorityOpen} onOpenChange={setIsPriorityOpen}>
                   <PopoverTrigger asChild>
                     <button 
                       className="inline-flex"
@@ -117,7 +118,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
                       </Badge>
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-32 p-2 bg-card border-border z-50" onClick={(e) => e.stopPropagation()}>
+                  <PopoverContent className="w-32 p-2 bg-card border-border z-50" align="center" side="bottom" onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-1">
                       {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                         <Badge
@@ -126,6 +127,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
                           className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
                           onClick={() => {
                             onUpdate({ ...task, priority });
+                            setIsPriorityOpen(false);
                           }}
                         >
                           {priority}
