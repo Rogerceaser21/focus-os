@@ -108,11 +108,8 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
               </div>
               <div className="flex gap-2 shrink-0">
                 <Popover open={isPriorityOpen} onOpenChange={setIsPriorityOpen}>
-                  <PopoverTrigger asChild>
-                    <button 
-                      className="inline-flex"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                  <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <button className="inline-flex">
                       <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
                         {task.priority}
                       </Badge>
