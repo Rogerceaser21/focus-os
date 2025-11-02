@@ -153,6 +153,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <Badge
                       key={priority}
+                      variant="outline"
                       className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
                       onClick={() => {
                         onUpdate({ ...task, priority });
@@ -263,6 +264,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <Badge
                       key={priority}
+                      variant="outline"
                       className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
                       onClick={() => {
                         onUpdate({ ...task, priority });
