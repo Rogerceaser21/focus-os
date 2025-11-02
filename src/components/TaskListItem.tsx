@@ -137,7 +137,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           {/* Badges Row */}
           <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
             <Popover>
-              <PopoverTrigger asChild>
+              <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
                   {task.priority}
                 </Badge>
@@ -241,7 +241,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           {/* Middle: Priority and Status */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             <Popover>
-              <PopoverTrigger asChild>
+              <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
                   {task.priority}
                 </Badge>
