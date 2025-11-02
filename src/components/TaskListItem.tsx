@@ -178,15 +178,16 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
             </Badge>
             
             <button 
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
               onClick={() => setIsEditOpen(true)}
             >
               <Calendar className="w-3 h-3" />
               <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
             </button>
 
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground border border-border rounded px-2 py-1">
               <Clock className="w-3 h-3" />
+              <span className="font-mono">{formatTime(timer.totalSeconds)}</span>
             </div>
 
             <button
@@ -295,14 +296,15 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
             </Badge>
             
             <button 
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
               onClick={() => setIsEditOpen(true)}
             >
               <Calendar className="w-4 h-4" />
               <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
             </button>
 
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground border border-border rounded px-2 py-1">
+              <Clock className="w-4 h-4" />
               <span className="font-mono min-w-[60px]">{formatTime(timer.totalSeconds)}</span>
             </div>
 

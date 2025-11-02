@@ -193,10 +193,10 @@ const Index = () => {
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
               <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4">
                 {/* Header */}
-                <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
+                  <div className="flex items-center gap-2 sm:gap-4">
                     <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px]" />
-                    <div className="flex-1">
+                    <div>
                       <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2 drop-shadow-lg">
                         Brain Manager
                       </h1>
@@ -205,7 +205,7 @@ const Index = () => {
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" onClick={handleSignOut} className="gap-2 self-end sm:self-auto min-h-[44px]">
+                  <Button variant="outline" onClick={handleSignOut} className="gap-2 min-h-[44px] shrink-0">
                     <LogOut className="h-4 w-4" />
                     <span className="hidden sm:inline">Sign Out</span>
                   </Button>
