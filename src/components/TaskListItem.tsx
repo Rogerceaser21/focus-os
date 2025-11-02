@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Play, Pause, Calendar } from 'lucide-react';
+import { Play, Pause, Calendar, Clock, Image } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { EditTaskDialog } from './EditTaskDialog';
 import { useState } from 'react';
@@ -77,16 +77,16 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   return (
     <>
       <div 
-        className={`group w-full border border-white/10 bg-card/50 rounded-lg p-3 sm:p-4 hover:border-primary/50 transition-all duration-300 ${timer.isRunning ? 'border-glow-pulse' : ''}`}
+        className={`group w-full border border-white/10 bg-card/50 rounded-lg p-2 hover:border-primary/50 transition-all duration-300 ${timer.isRunning ? 'border-glow-pulse' : ''}`}
       >
         {/* Mobile/Tablet Layout */}
-        <div className="flex flex-col gap-3 lg:hidden">
-          {/* Checkbox and Title */}
-          <div className="flex items-start gap-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-col gap-2 lg:hidden">
+          {/* Line 1: Checkbox + Title + Play/Pause */}
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Checkbox
               checked={task.status === 'completed'}
               onCheckedChange={handleCheckboxChange}
-              className="mt-1 shrink-0"
+              className="shrink-0"
             />
             {isEditingTitle ? (
               <Input
@@ -95,12 +95,12 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                className="font-semibold text-base sm:text-lg h-auto py-1 px-2 -mx-2"
+                className="font-semibold text-base h-auto py-1 px-2 flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <h3 
-                className="font-semibold text-base sm:text-lg text-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors flex-1"
+                className="font-semibold text-base text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditingTitle(true);
@@ -109,21 +109,33 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                 {task.title}
               </h3>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStartStop}
+              className="h-8 w-8 p-0 shrink-0"
+            >
+              {timer.isRunning ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </Button>
           </div>
           
-          {/* Description */}
+          {/* Line 2: Description */}
           {isEditingDescription ? (
             <Textarea
               value={editedDescription}
               onChange={(e) => setEditedDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
               autoFocus
-              className="text-sm min-h-[60px] py-1 px-2 -mx-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
+              className="text-sm min-h-[40px] py-1 px-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
             <p 
-              className="text-sm text-muted-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors truncate"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditingDescription(true);
@@ -133,7 +145,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
             </p>
           )}
 
-          {/* Badges Row */}
+          {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -141,7 +153,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                   className="inline-flex"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                  <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80 text-xs`}>
                     {task.priority}
                   </Badge>
                 </button>
@@ -160,51 +172,45 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Badge className={statusColors[task.status]}>
+            
+            <Badge className={`${statusColors[task.status]} text-xs`}>
               {task.status}
             </Badge>
-            {task.dueDate && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Calendar className="w-4 h-4" />
-                <span>{format(new Date(task.dueDate), 'MMM d')}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Timer and Controls */}
-          <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-            <span className="text-base font-mono text-muted-foreground">
-              {formatTime(timer.totalSeconds)}
-            </span>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleStartStop}
-              className="h-10 w-10 p-0 touch-target"
+            
+            <button 
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setIsEditOpen(true)}
             >
-              {timer.isRunning ? (
-                <Pause className="h-5 w-5" />
-              ) : (
-                <Play className="h-5 w-5" />
-              )}
-            </Button>
+              <Calendar className="w-3 h-3" />
+              <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
+            </button>
+
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="w-3 h-3" />
+            </div>
+
+            <button
+              onClick={() => setIsEditOpen(true)}
+              className={`p-1 rounded transition-colors ${
+                task.imageUrl 
+                  ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
+                  : 'text-white/50 border border-white/30'
+              }`}
+            >
+              <Image className="w-3 h-3" />
+            </button>
           </div>
         </div>
 
         {/* Desktop Layout */}
-        <div className="hidden lg:flex lg:items-center gap-4 w-full">
-          {/* Checkbox */}
-          <div onClick={(e) => e.stopPropagation()}>
+        <div className="hidden lg:flex lg:flex-col gap-2">
+          {/* Line 1: Checkbox + Title + Play/Pause */}
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Checkbox
               checked={task.status === 'completed'}
               onCheckedChange={handleCheckboxChange}
               className="shrink-0"
             />
-          </div>
-
-          {/* Left: Title and Description */}
-          <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
             {isEditingTitle ? (
               <Input
                 value={editedTitle}
@@ -212,36 +218,52 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                className="font-semibold h-auto py-1 px-2 -mx-2 mb-1"
+                className="font-semibold h-auto py-1 px-2 flex-1"
+                onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <h3 
-                className="font-semibold text-foreground truncate mb-1 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+                className="font-semibold text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate"
                 onClick={() => setIsEditingTitle(true)}
               >
                 {task.title}
               </h3>
             )}
-            {isEditingDescription ? (
-              <Textarea
-                value={editedDescription}
-                onChange={(e) => setEditedDescription(e.target.value)}
-                onBlur={handleDescriptionBlur}
-                autoFocus
-                className="text-sm min-h-[40px] py-1 px-2 -mx-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
-              />
-            ) : (
-              <p 
-                className="text-sm text-muted-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
-                onClick={() => setIsEditingDescription(true)}
-              >
-                {task.description || 'Click to add description...'}
-              </p>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStartStop}
+              className="h-8 w-8 p-0 shrink-0"
+            >
+              {timer.isRunning ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </Button>
           </div>
 
-          {/* Middle: Priority and Status */}
-          <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* Line 2: Description */}
+          {isEditingDescription ? (
+            <Textarea
+              value={editedDescription}
+              onChange={(e) => setEditedDescription(e.target.value)}
+              onBlur={handleDescriptionBlur}
+              autoFocus
+              className="text-sm min-h-[40px] py-1 px-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <p 
+              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors truncate"
+              onClick={() => setIsEditingDescription(true)}
+            >
+              {task.description || 'Click to add description...'}
+            </p>
+          )}
+
+          {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button 
@@ -267,38 +289,33 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            
             <Badge className={statusColors[task.status]}>
               {task.status}
             </Badge>
-          </div>
+            
+            <button 
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setIsEditOpen(true)}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
+            </button>
 
-          {/* Right: Due Date, Timer, and Controls */}
-          <div className="flex items-center gap-4 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            {task.dueDate && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Calendar className="w-4 h-4" />
-                <span>{format(new Date(task.dueDate), 'MMM d')}</span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-mono text-muted-foreground min-w-[60px]">
-                {formatTime(timer.totalSeconds)}
-              </span>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleStartStop}
-                className="h-8 w-8 p-0"
-              >
-                {timer.isRunning ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </Button>
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <span className="font-mono min-w-[60px]">{formatTime(timer.totalSeconds)}</span>
             </div>
+
+            <button
+              onClick={() => setIsEditOpen(true)}
+              className={`p-1.5 rounded transition-colors ${
+                task.imageUrl 
+                  ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
+                  : 'text-white/50 border border-white/30'
+              }`}
+            >
+              <Image className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
