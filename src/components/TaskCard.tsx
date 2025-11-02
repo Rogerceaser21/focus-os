@@ -78,9 +78,9 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
 
   return (
     <>
-      <Card className={`p-4 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''}`}>
-        <div className="space-y-3">
-          <div className="flex items-start gap-3">
+      <Card className={`p-3 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''}`}>
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
             <Checkbox
               checked={task.status === 'completed'}
               onCheckedChange={handleCheckboxChange}
@@ -106,7 +106,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
                   </h3>
                 )}
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="flex gap-1.5 shrink-0">
                 <Popover open={isPriorityOpen} onOpenChange={setIsPriorityOpen}>
                   <PopoverTrigger asChild>
                     <button 
@@ -168,7 +168,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
           />
         )}
 
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
           {task.dueDate && (
             <div 
               className="flex items-center gap-1 cursor-pointer hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
@@ -184,7 +184,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-2 border-t">
+        <div className="flex items-center gap-2 pt-1.5 border-t">
           {!timer.isRunning ? (
             <Button 
               size="sm" 
