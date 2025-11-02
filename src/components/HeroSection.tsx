@@ -56,7 +56,7 @@ const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen }: HeroSectionP
           {phase === 'title' ? (
             <>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground drop-shadow-lg whitespace-nowrap">Focus Manager</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow hidden sm:block whitespace-nowrap">Plan your day, the magic way...</p>
+              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow whitespace-nowrap">Plan your day, the magic way...</p>
             </>
           ) : (
             <>
@@ -71,7 +71,7 @@ const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen }: HeroSectionP
                 maxCycles={3}
                 onAnimationComplete={handleAnimationComplete}
               />
-              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow hidden sm:block whitespace-nowrap">Click here to Start</p>
+              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow whitespace-nowrap">Click here to Start</p>
             </>
           )}
         </div>
