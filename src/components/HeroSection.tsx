@@ -47,11 +47,11 @@ const HeroSection = ({ onTasksCreated }: HeroSectionProps) => {
   return (
     <>
       <div 
-        className="relative cursor-pointer hover:opacity-80 transition-opacity min-h-[80px]"
+        className="relative cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => user && setDialogOpen(true)}
       >
         {/* Text Overlay */}
-        <div className={`absolute inset-0 flex flex-col gap-1 items-center justify-start transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`flex flex-col gap-1 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
           {phase === 'title' ? (
             <>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground drop-shadow-lg">Focus Manager</h1>
@@ -59,7 +59,7 @@ const HeroSection = ({ onTasksCreated }: HeroSectionProps) => {
             </>
           ) : (
             <>
-              <div className="scale-75 sm:scale-90 lg:scale-100">
+              <div className="scale-75 sm:scale-90 lg:scale-100 origin-left">
                 <TrueFocus
                   sentence="Try Magic Plan"
                   manualMode={false}
