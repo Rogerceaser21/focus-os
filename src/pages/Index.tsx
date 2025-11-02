@@ -2,17 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Task, Project } from '@/types/task';
+import { Task } from '@/types/task';
 import { TaskCard } from '@/components/TaskCard';
 import { TaskListItem } from '@/components/TaskListItem';
 import { GanttChart } from '@/components/GanttChart';
-import { TimeTrackingChart } from '@/components/TimeTrackingChart';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import DarkVeil from '@/components/DarkVeil';
 import HeroSection from '@/components/HeroSection';
@@ -26,9 +25,8 @@ const Index = () => {
     signOut
   } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'gantt' | 'time-tracking'>('grid');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'gantt'>('grid');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | null>(null);
   const [projectRefreshTrigger, setProjectRefreshTrigger] = useState(0);
@@ -40,7 +38,6 @@ const Index = () => {
   useEffect(() => {
     if (user) {
       fetchTasks();
-      fetchProjects();
     }
   }, [user, selectedProjectId, selectedSpecialList]);
   const fetchTasks = async () => {
@@ -81,28 +78,6 @@ const Index = () => {
       projectId: t.project_id
     })));
   };
-
-  const fetchProjects = async () => {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast.error('Failed to load projects');
-      return;
-    }
-
-    setProjects(data.map(p => ({
-      id: p.id,
-      name: p.name,
-      color: p.color,
-      timer: {
-        totalSeconds: 0,
-        isRunning: false
-      }
-    })));
-  };
   const handleAddTask = async (newTask: Task) => {
     if (!user) return;
     const {
@@ -129,14 +104,6 @@ const Index = () => {
     fetchTasks();
   };
   const handleUpdateTask = async (updatedTask: Task) => {
-    // Optimistic update: Update local state immediately to prevent list jumping
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === updatedTask.id ? updatedTask : task
-      )
-    );
-
-    // Update database in background
     const {
       error
     } = await supabase.from('tasks').update({
@@ -152,13 +119,11 @@ const Index = () => {
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime
     }).eq('id', updatedTask.id);
-    
     if (error) {
       toast.error('Failed to update task');
-      // Revert to database state if update fails
-      fetchTasks();
       return;
     }
+    fetchTasks();
   };
   const handleSignOut = async () => {
     await signOut();
@@ -185,12 +150,12 @@ const Index = () => {
           }} />
           </div>
 
-          <div className="flex flex-1 relative">
+          <div className="flex flex-1 relative w-full">
             {/* Sidebar */}
             <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} />
 
             {/* Main Content */}
-            <div className="flex-1 relative z-10 overflow-x-hidden">
+            <div className="flex-1 relative z-10 w-full">
               <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4">
                 {/* Header */}
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -230,10 +195,6 @@ const Index = () => {
                 <GanttChartSquare className="h-4 w-4" />
                 <span className="hidden sm:inline">Gantt</span>
               </Button>
-              <Button variant={viewMode === 'time-tracking' ? 'default' : 'outline'} onClick={() => setViewMode('time-tracking')} className="gap-2 border-2 flex-1 sm:flex-initial min-h-[44px] sm:min-h-0">
-                <Clock className="h-4 w-4" />
-                <span className="hidden sm:inline">Time</span>
-              </Button>
               <AddTaskDialog onAddTask={handleAddTask} selectedProjectId={selectedProjectId} />
             </div>
           </div>
@@ -255,22 +216,8 @@ const Index = () => {
                 </TabsTrigger>
               </TabsList>
 
-              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
-                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
-                  <div className="flex items-center gap-2 px-3 py-2">
-                    <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
-                    <span 
-                      className="font-semibold text-base"
-                      style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
-                    >
-                      {projects.find(p => p.id === selectedProjectId)?.name}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
-                {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} className="py-0" />)}
               </TabsContent>
 
               <TabsContent value="todo" className="flex flex-col gap-2 mt-6">
@@ -300,20 +247,6 @@ const Index = () => {
                 </TabsTrigger>
               </TabsList>
 
-              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
-                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
-                  <div className="flex items-center gap-2 px-3 py-2">
-                    <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
-                    <span 
-                      className="font-semibold text-base"
-                      style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
-                    >
-                      {projects.find(p => p.id === selectedProjectId)?.name}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
                 {filteredTasks.map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
@@ -323,16 +256,14 @@ const Index = () => {
               </TabsContent>
 
               <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {filteredTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {filteredTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} className="rounded-sm" />)}
               </TabsContent>
 
               <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
                 {filteredTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
-            </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
+            </Tabs> : <div className="mt-6">
               <GanttChart tasks={filteredTasks} />
-            </div> : <div className="mt-6">
-              <TimeTrackingChart tasks={filteredTasks} projects={projects} />
             </div>}
               </div>
             </div>
