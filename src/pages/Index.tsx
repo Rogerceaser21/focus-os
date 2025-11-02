@@ -171,14 +171,6 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
 
         <div className="flex flex-1 relative w-full flex-col">
-          {/* Brain Dump - Always visible */}
-          <div className="w-full relative z-[5]">
-            <HeroSection onTasksCreated={() => {
-            fetchTasks();
-            setProjectRefreshTrigger(prev => prev + 1);
-          }} />
-          </div>
-
           <div className="flex flex-1 relative">
             {/* Sidebar */}
             <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} />
@@ -190,10 +182,10 @@ const Index = () => {
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
                   <div className="flex items-center gap-2 sm:gap-4">
                     <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px]" />
-                    <div>
-                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2 drop-shadow-lg">Focus Manager</h1>
-                      <p className="text-sm sm:text-base text-muted-foreground drop-shadow hidden sm:block">Plan your day, the magic way...</p>
-                    </div>
+                    <HeroSection onTasksCreated={() => {
+                      fetchTasks();
+                      setProjectRefreshTrigger(prev => prev + 1);
+                    }} />
                   </div>
                   <Button variant="outline" onClick={handleSignOut} className="gap-2 min-h-[44px] shrink-0">
                     <LogOut className="h-4 w-4" />

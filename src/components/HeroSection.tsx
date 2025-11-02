@@ -47,30 +47,32 @@ const HeroSection = ({ onTasksCreated }: HeroSectionProps) => {
   return (
     <>
       <div 
-        className="relative w-full h-[180px] overflow-hidden z-[5] cursor-pointer hover:opacity-80 transition-opacity"
+        className="relative cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => user && setDialogOpen(true)}
       >
         {/* Text Overlay */}
-        <div className={`absolute inset-0 flex flex-col items-center justify-center gap-2 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`flex flex-col gap-1 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
           {phase === 'title' ? (
             <>
-              <h1 className="text-4xl font-black text-white">Focus Manager</h1>
-              <p className="text-sm text-muted-foreground">Plan your day, the magic way...</p>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground drop-shadow-lg">Focus Manager</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow hidden sm:block">Plan your day, the magic way...</p>
             </>
           ) : (
             <>
-              <TrueFocus
-                sentence="Try Magic Plan"
-                manualMode={false}
-                blurAmount={8}
-                borderColor="#4FD1C5"
-                glowColor="rgba(79, 209, 197, 0.8)"
-                animationDuration={0.6}
-                pauseBetweenAnimations={1.5}
-                maxCycles={3}
-                onAnimationComplete={handleAnimationComplete}
-              />
-              <p className="text-sm text-muted-foreground">Click here to Start</p>
+              <div className="scale-75 sm:scale-90 lg:scale-100 origin-left">
+                <TrueFocus
+                  sentence="Try Magic Plan"
+                  manualMode={false}
+                  blurAmount={8}
+                  borderColor="#4FD1C5"
+                  glowColor="rgba(79, 209, 197, 0.8)"
+                  animationDuration={0.6}
+                  pauseBetweenAnimations={1.5}
+                  maxCycles={3}
+                  onAnimationComplete={handleAnimationComplete}
+                />
+              </div>
+              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow hidden sm:block">Click here to Start</p>
             </>
           )}
         </div>
