@@ -143,7 +143,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                   className="inline-flex"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                  <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
                     {task.priority}
                   </Badge>
                 </button>
@@ -254,7 +254,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                   className="inline-flex"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                  <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
                     {task.priority}
                   </Badge>
                 </button>
