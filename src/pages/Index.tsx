@@ -129,6 +129,14 @@ const Index = () => {
     fetchTasks();
   };
   const handleUpdateTask = async (updatedTask: Task) => {
+    // Optimistic update: Update local state immediately to prevent list jumping
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === updatedTask.id ? updatedTask : task
+      )
+    );
+
+    // Update database in background
     const {
       error
     } = await supabase.from('tasks').update({
@@ -144,11 +152,13 @@ const Index = () => {
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime
     }).eq('id', updatedTask.id);
+    
     if (error) {
       toast.error('Failed to update task');
+      // Revert to database state if update fails
+      fetchTasks();
       return;
     }
-    fetchTasks();
   };
   const handleSignOut = async () => {
     await signOut();
