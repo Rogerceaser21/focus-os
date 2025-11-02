@@ -2,6 +2,9 @@ import { Task } from '@/types/task';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Play, Pause, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { EditTaskDialog } from './EditTaskDialog';
@@ -29,6 +32,10 @@ const statusColors = {
 export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(task.title);
+  const [editedDescription, setEditedDescription] = useState(task.description || '');
 
   const handleStartStop = () => {
     if (timer.isRunning) {
@@ -51,6 +58,22 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
     });
   };
 
+  const handleTitleBlur = () => {
+    setIsEditingTitle(false);
+    if (editedTitle.trim() && editedTitle !== task.title) {
+      onUpdate({ ...task, title: editedTitle.trim() });
+    } else {
+      setEditedTitle(task.title);
+    }
+  };
+
+  const handleDescriptionBlur = () => {
+    setIsEditingDescription(false);
+    if (editedDescription !== task.description) {
+      onUpdate({ ...task, description: editedDescription.trim() || undefined });
+    }
+  };
+
   return (
     <>
       <div 
@@ -66,21 +89,75 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
               onCheckedChange={handleCheckboxChange}
               className="mt-1 shrink-0"
             />
-            <h3 className="font-semibold text-base sm:text-lg text-foreground line-clamp-2">
-              {task.title}
-            </h3>
+            {isEditingTitle ? (
+              <Input
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                onBlur={handleTitleBlur}
+                onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
+                autoFocus
+                className="font-semibold text-base sm:text-lg h-auto py-1 px-2 -mx-2"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <h3 
+                className="font-semibold text-base sm:text-lg text-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors flex-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingTitle(true);
+                }}
+              >
+                {task.title}
+              </h3>
+            )}
           </div>
           
           {/* Description */}
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {task.description || 'No description'}
-          </p>
+          {isEditingDescription ? (
+            <Textarea
+              value={editedDescription}
+              onChange={(e) => setEditedDescription(e.target.value)}
+              onBlur={handleDescriptionBlur}
+              autoFocus
+              className="text-sm min-h-[60px] py-1 px-2 -mx-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <p 
+              className="text-sm text-muted-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditingDescription(true);
+              }}
+            >
+              {task.description || 'Click to add description...'}
+            </p>
+          )}
 
           {/* Badges Row */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge className={priorityColors[task.priority]}>
-              {task.priority}
-            </Badge>
+          <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                  {task.priority}
+                </Badge>
+              </PopoverTrigger>
+              <PopoverContent className="w-32 p-2 bg-card border-border">
+                <div className="flex flex-col gap-1">
+                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                    <Badge
+                      key={priority}
+                      className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
+                      onClick={() => {
+                        onUpdate({ ...task, priority });
+                      }}
+                    >
+                      {priority}
+                    </Badge>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Badge className={statusColors[task.status]}>
               {task.status}
             </Badge>
@@ -125,20 +202,66 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           </div>
 
           {/* Left: Title and Description */}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-foreground truncate mb-1">
-              {task.title}
-            </h3>
-            <p className="text-sm text-muted-foreground truncate">
-              {task.description || 'No description'}
-            </p>
+          <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+            {isEditingTitle ? (
+              <Input
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                onBlur={handleTitleBlur}
+                onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
+                autoFocus
+                className="font-semibold h-auto py-1 px-2 -mx-2 mb-1"
+              />
+            ) : (
+              <h3 
+                className="font-semibold text-foreground truncate mb-1 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+                onClick={() => setIsEditingTitle(true)}
+              >
+                {task.title}
+              </h3>
+            )}
+            {isEditingDescription ? (
+              <Textarea
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                onBlur={handleDescriptionBlur}
+                autoFocus
+                className="text-sm min-h-[40px] py-1 px-2 -mx-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
+              />
+            ) : (
+              <p 
+                className="text-sm text-muted-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+                onClick={() => setIsEditingDescription(true)}
+              >
+                {task.description || 'Click to add description...'}
+              </p>
+            )}
           </div>
 
           {/* Middle: Priority and Status */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Badge className={priorityColors[task.priority]}>
-              {task.priority}
-            </Badge>
+          <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                  {task.priority}
+                </Badge>
+              </PopoverTrigger>
+              <PopoverContent className="w-32 p-2 bg-card border-border">
+                <div className="flex flex-col gap-1">
+                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                    <Badge
+                      key={priority}
+                      className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
+                      onClick={() => {
+                        onUpdate({ ...task, priority });
+                      }}
+                    >
+                      {priority}
+                    </Badge>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Badge className={statusColors[task.status]}>
               {task.status}
             </Badge>

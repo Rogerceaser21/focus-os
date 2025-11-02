@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Play, Pause, Clock, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { format } from 'date-fns';
@@ -17,10 +18,10 @@ interface TaskCardProps {
 }
 
 const priorityColors = {
-  low: 'bg-muted/50 text-muted-foreground border-muted-foreground/20',
-  medium: 'bg-info/20 text-info border-info/30',
-  high: 'bg-warning/20 text-warning border-warning/30',
-  urgent: 'bg-destructive/20 text-destructive border-destructive/30'
+  low: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+  high: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+  urgent: 'bg-red-500/20 text-red-300 border-red-500/30',
 };
 
 const statusColors = {
@@ -105,9 +106,29 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
                 )}
               </div>
               <div className="flex gap-2 shrink-0">
-                <Badge variant="outline" className={priorityColors[task.priority]}>
-                  {task.priority}
-                </Badge>
+                <Popover>
+                  <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                      {task.priority}
+                    </Badge>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-32 p-2 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-1">
+                      {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                        <Badge
+                          key={priority}
+                          variant="outline"
+                          className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
+                          onClick={() => {
+                            onUpdate({ ...task, priority });
+                          }}
+                        >
+                          {priority}
+                        </Badge>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <Badge variant="outline" className={statusColors[task.status]}>
                   {task.status}
                 </Badge>
