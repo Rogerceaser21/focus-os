@@ -36,6 +36,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
+  const [isPriorityOpen, setIsPriorityOpen] = useState(false);
 
   const handleStartStop = () => {
     if (timer.isRunning) {
@@ -136,7 +137,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
 
           {/* Badges Row */}
           <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-            <Popover>
+            <Popover open={isPriorityOpen} onOpenChange={setIsPriorityOpen}>
               <PopoverTrigger asChild>
                 <button className="inline-flex">
                   <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
@@ -156,6 +157,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                       className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
                       onClick={() => {
                         onUpdate({ ...task, priority });
+                        setIsPriorityOpen(false);
                       }}
                     >
                       {priority}
@@ -246,7 +248,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
 
           {/* Middle: Priority and Status */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <Popover>
+            <Popover open={isPriorityOpen} onOpenChange={setIsPriorityOpen}>
               <PopoverTrigger asChild>
                 <button className="inline-flex">
                   <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
@@ -266,6 +268,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                       className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
                       onClick={() => {
                         onUpdate({ ...task, priority });
+                        setIsPriorityOpen(false);
                       }}
                     >
                       {priority}
