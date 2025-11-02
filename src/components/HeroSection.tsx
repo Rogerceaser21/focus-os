@@ -5,10 +5,11 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface HeroSectionProps {
   onTasksCreated: () => void;
+  dialogOpen: boolean;
+  setDialogOpen: (open: boolean) => void;
 }
 
-const HeroSection = ({ onTasksCreated }: HeroSectionProps) => {
-  const [dialogOpen, setDialogOpen] = useState(false);
+const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen }: HeroSectionProps) => {
   const [phase, setPhase] = useState<'title' | 'cta'>('title');
   const [isVisible, setIsVisible] = useState(true);
   const { user } = useAuth();

@@ -16,6 +16,7 @@ import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut } from 
 import { toast } from 'sonner';
 import DarkVeil from '@/components/DarkVeil';
 import HeroSection from '@/components/HeroSection';
+import { FloatingAIButton } from '@/components/FloatingAIButton';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 const Index = () => {
@@ -32,6 +33,7 @@ const Index = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | null>(null);
   const [projectRefreshTrigger, setProjectRefreshTrigger] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
@@ -169,6 +171,9 @@ const Index = () => {
       <div className="min-h-screen flex w-full relative">
         <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
+        
+        {/* Floating AI Button */}
+        <FloatingAIButton onClick={() => setDialogOpen(true)} />
 
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
@@ -182,10 +187,14 @@ const Index = () => {
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
                   <div className="flex items-center gap-2 sm:gap-4">
                     <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px]" />
-                    <HeroSection onTasksCreated={() => {
-                      fetchTasks();
-                      setProjectRefreshTrigger(prev => prev + 1);
-                    }} />
+                    <HeroSection 
+                      onTasksCreated={() => {
+                        fetchTasks();
+                        setProjectRefreshTrigger(prev => prev + 1);
+                      }}
+                      dialogOpen={dialogOpen}
+                      setDialogOpen={setDialogOpen}
+                    />
                   </div>
                   <Button variant="outline" onClick={handleSignOut} className="gap-2 min-h-[44px] shrink-0">
                     <LogOut className="h-4 w-4" />
