@@ -17,5 +17,5 @@
   top: 0;
   transform-origin: 0 60px;
   display: inline-block;
-  color: hsl(var(--primary));
+  color: white;
 }

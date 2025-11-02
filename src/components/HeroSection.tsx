@@ -18,7 +18,7 @@ const HeroSection = ({ onTasksCreated }: HeroSectionProps) => {
         onClick={() => user && setDialogOpen(true)}
       >
         <CircularText 
-          text=" Try Mag|c Plan | Click |"
+          text=" Try Mag|C Plan | Click |"
           spinDuration={11}
           onHover="speedUp"
         />
