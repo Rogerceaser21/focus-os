@@ -256,7 +256,7 @@ const Index = () => {
               </TabsList>
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
-                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
+                <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center gap-2 px-3 py-2">
                     <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
                     <span 
@@ -301,7 +301,7 @@ const Index = () => {
               </TabsList>
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
-                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
+                <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center gap-2 px-3 py-2">
                     <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
                     <span 

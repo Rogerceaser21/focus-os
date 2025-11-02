@@ -54,7 +54,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   return (
     <>
       <div 
-        className="group w-full border border-white/10 bg-card/50 backdrop-blur-sm rounded-lg p-3 sm:p-4 hover:border-primary/50 transition-all duration-300 cursor-pointer"
+        className={`group w-full border border-white/10 bg-card/50 backdrop-blur-sm rounded-lg p-3 sm:p-4 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''}`}
         onClick={() => setIsEditOpen(true)}
       >
         {/* Mobile/Tablet Layout */}
