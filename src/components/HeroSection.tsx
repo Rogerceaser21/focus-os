@@ -47,15 +47,15 @@ const HeroSection = ({ onTasksCreated }: HeroSectionProps) => {
   return (
     <>
       <div 
-        className="relative cursor-pointer hover:opacity-80 transition-opacity"
+        className="relative cursor-pointer hover:opacity-80 transition-opacity min-h-[80px]"
         onClick={() => user && setDialogOpen(true)}
       >
         {/* Text Overlay */}
-        <div className={`flex flex-col gap-1 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`absolute inset-0 flex flex-col gap-1 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
           {phase === 'title' ? (
             <>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground drop-shadow-lg">Focus Manager</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow hidden sm:block">Plan your day, the magic way...</p>
+              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow hidden sm:block text-center">Plan your day, the magic way...</p>
             </>
           ) : (
             <>
@@ -72,7 +72,7 @@ const HeroSection = ({ onTasksCreated }: HeroSectionProps) => {
                   onAnimationComplete={handleAnimationComplete}
                 />
               </div>
-              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow hidden sm:block">Click here to Start</p>
+              <p className="text-xs sm:text-sm text-muted-foreground drop-shadow hidden sm:block text-center">Click here to Start</p>
             </>
           )}
         </div>
