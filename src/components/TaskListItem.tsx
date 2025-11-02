@@ -137,12 +137,17 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           {/* Badges Row */}
           <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
             <Popover>
-              <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
-                  {task.priority}
-                </Badge>
+              <PopoverTrigger asChild>
+                <button 
+                  className="inline-flex"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                    {task.priority}
+                  </Badge>
+                </button>
               </PopoverTrigger>
-              <PopoverContent className="w-32 p-2 bg-card border-border">
+              <PopoverContent className="w-32 p-2 bg-card border-border z-50">
                 <div className="flex flex-col gap-1">
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <Badge
@@ -241,12 +246,17 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           {/* Middle: Priority and Status */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             <Popover>
-              <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
-                  {task.priority}
-                </Badge>
+              <PopoverTrigger asChild>
+                <button 
+                  className="inline-flex"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Badge className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                    {task.priority}
+                  </Badge>
+                </button>
               </PopoverTrigger>
-              <PopoverContent className="w-32 p-2 bg-card border-border">
+              <PopoverContent className="w-32 p-2 bg-card border-border z-50">
                 <div className="flex flex-col gap-1">
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <Badge
