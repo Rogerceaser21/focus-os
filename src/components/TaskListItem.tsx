@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Play, Pause, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { EditTaskDialog } from './EditTaskDialog';
@@ -36,7 +36,6 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
-  const [isPriorityOpen, setIsPriorityOpen] = useState(false);
 
   const handleStartStop = () => {
     if (timer.isRunning) {
@@ -135,9 +134,9 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           )}
 
           {/* Badges Row */}
-          <div className="flex items-center gap-2 flex-wrap relative" onClick={(e) => e.stopPropagation()}>
-            <Popover open={isPriorityOpen} onOpenChange={setIsPriorityOpen}>
-              <PopoverTrigger asChild>
+          <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button 
                   className="inline-flex"
                   onClick={(e) => e.stopPropagation()}
@@ -146,25 +145,21 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                     {task.priority}
                   </Badge>
                 </button>
-              </PopoverTrigger>
-              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50" onClick={(e) => e.stopPropagation()}>
-                <div className="flex flex-col gap-1">
-                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
-                    <Badge
-                      key={priority}
-                      variant="outline"
-                      className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
-                      onClick={() => {
-                        onUpdate({ ...task, priority });
-                        setIsPriorityOpen(false);
-                      }}
-                    >
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                  <DropdownMenuItem
+                    key={priority}
+                    onClick={() => onUpdate({ ...task, priority })}
+                    className="cursor-pointer"
+                  >
+                    <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
                       {priority}
                     </Badge>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Badge className={statusColors[task.status]}>
               {task.status}
             </Badge>
@@ -246,9 +241,9 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           </div>
 
           {/* Middle: Priority and Status */}
-          <div className="flex items-center gap-2 flex-shrink-0 relative" onClick={(e) => e.stopPropagation()}>
-            <Popover open={isPriorityOpen} onOpenChange={setIsPriorityOpen}>
-              <PopoverTrigger asChild>
+          <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button 
                   className="inline-flex"
                   onClick={(e) => e.stopPropagation()}
@@ -257,25 +252,21 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                     {task.priority}
                   </Badge>
                 </button>
-              </PopoverTrigger>
-              <PopoverContent align="center" side="bottom" className="w-32 p-2 bg-card border-border z-50" onClick={(e) => e.stopPropagation()}>
-                <div className="flex flex-col gap-1">
-                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
-                    <Badge
-                      key={priority}
-                      variant="outline"
-                      className={`${priorityColors[priority]} cursor-pointer justify-center hover:opacity-80`}
-                      onClick={() => {
-                        onUpdate({ ...task, priority });
-                        setIsPriorityOpen(false);
-                      }}
-                    >
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                  <DropdownMenuItem
+                    key={priority}
+                    onClick={() => onUpdate({ ...task, priority })}
+                    className="cursor-pointer"
+                  >
+                    <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
                       {priority}
                     </Badge>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Badge className={statusColors[task.status]}>
               {task.status}
             </Badge>
