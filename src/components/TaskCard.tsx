@@ -78,15 +78,15 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
 
   return (
     <>
-      <Card className={`p-3 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''}`}>
-        <div className="space-y-2">
+      <Card className={`p-2.5 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''}`}>
+        <div className="space-y-1.5">
           <div className="flex items-start gap-2">
             <Checkbox
               checked={task.status === 'completed'}
               onCheckedChange={handleCheckboxChange}
               className="mt-1 shrink-0"
             />
-            <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 {isEditingTitle ? (
                   <Input
@@ -153,7 +153,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
             />
           ) : (
             <p 
-              className="text-sm text-muted-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+              className="text-sm text-muted-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-0.5 -mx-2 transition-colors"
               onClick={() => setIsEditingDescription(true)}
             >
               {task.description || 'Click to add description...'}
@@ -171,7 +171,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           {task.dueDate && (
             <div 
-              className="flex items-center gap-1 cursor-pointer hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+              className="flex items-center gap-1 cursor-pointer hover:bg-accent/50 rounded px-2 py-0.5 -mx-2 transition-colors"
               onClick={handleDateClick}
             >
               <Calendar className="h-4 w-4" />
@@ -184,7 +184,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-1.5 border-t">
+        <div className="flex items-center gap-2 pt-1 border-t">
           {!timer.isRunning ? (
             <Button 
               size="sm" 
