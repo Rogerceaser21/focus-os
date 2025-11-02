@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Play, Pause, RotateCcw, Clock, Calendar } from 'lucide-react';
+import { Play, Pause, Clock, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { format } from 'date-fns';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -29,19 +29,21 @@ const statusColors = {
 };
 
 export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
-  const { timer, startTimer, stopTimer, resetTimer, formatTime } = useTimer(task.timer);
+  const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [showEditDialog, setShowEditDialog] = useState(false);
 
-  const handleTimerUpdate = (action: 'start' | 'stop' | 'reset') => {
-    if (action === 'start') startTimer();
-    else if (action === 'stop') stopTimer();
-    else if (action === 'reset') resetTimer();
-    
-    onUpdate({ ...task, timer });
+  const handleTimerUpdate = (action: 'start' | 'stop') => {
+    if (action === 'start') {
+      startTimer();
+      onUpdate({ ...task, status: 'in-progress', timer });
+    } else if (action === 'stop') {
+      stopTimer();
+      onUpdate({ ...task, timer });
+    }
   };
 
   const handleTitleBlur = () => {
@@ -161,15 +163,6 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
               Pause
             </Button>
           )}
-          <Button 
-            size="sm" 
-            variant="ghost"
-            onClick={() => handleTimerUpdate('reset')}
-            className="gap-2"
-          >
-            <RotateCcw className="h-3 w-3" />
-            Reset
-          </Button>
         </div>
       </div>
     </Card>

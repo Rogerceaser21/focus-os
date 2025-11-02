@@ -1,7 +1,7 @@
 import { Task } from '@/types/task';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, RotateCcw, Calendar } from 'lucide-react';
+import { Play, Pause, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { EditTaskDialog } from './EditTaskDialog';
 import { useState } from 'react';
@@ -26,26 +26,21 @@ const statusColors = {
 };
 
 export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
-  const { timer, startTimer, stopTimer, resetTimer, formatTime } = useTimer(task.timer);
+  const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const [isEditOpen, setIsEditOpen] = useState(false);
-
-  const handleTimerUpdate = (newTimer: typeof timer) => {
-    onUpdate({ ...task, timer: newTimer });
-  };
 
   const handleStartStop = () => {
     if (timer.isRunning) {
       stopTimer();
-      handleTimerUpdate({ ...timer, isRunning: false, startTime: undefined });
+      onUpdate({ ...task, timer: { ...timer, isRunning: false, startTime: undefined } });
     } else {
       startTimer();
-      handleTimerUpdate({ ...timer, isRunning: true, startTime: Date.now() });
+      onUpdate({ 
+        ...task, 
+        status: 'in-progress',
+        timer: { ...timer, isRunning: true, startTime: Date.now() } 
+      });
     }
-  };
-
-  const handleReset = () => {
-    resetTimer();
-    handleTimerUpdate({ totalSeconds: 0, isRunning: false, startTime: undefined });
   };
 
   return (
@@ -88,29 +83,18 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
               {formatTime(timer.totalSeconds)}
             </span>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleStartStop}
-                className="h-10 w-10 p-0 touch-target"
-              >
-                {timer.isRunning ? (
-                  <Pause className="h-5 w-5" />
-                ) : (
-                  <Play className="h-5 w-5" />
-                )}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReset}
-                className="h-10 w-10 p-0 touch-target"
-              >
-                <RotateCcw className="h-5 w-5" />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStartStop}
+              className="h-10 w-10 p-0 touch-target"
+            >
+              {timer.isRunning ? (
+                <Pause className="h-5 w-5" />
+              ) : (
+                <Play className="h-5 w-5" />
+              )}
+            </Button>
           </div>
         </div>
 
@@ -161,15 +145,6 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReset}
-                className="h-8 w-8 p-0"
-              >
-                <RotateCcw className="h-4 w-4" />
               </Button>
             </div>
           </div>
