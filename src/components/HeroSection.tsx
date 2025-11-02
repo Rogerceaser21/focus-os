@@ -47,11 +47,11 @@ const HeroSection = ({ onTasksCreated }: HeroSectionProps) => {
   return (
     <>
       <div 
-        className="relative cursor-pointer hover:opacity-80 transition-opacity"
+        className="relative min-h-[80px] cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => user && setDialogOpen(true)}
       >
         {/* Text Overlay */}
-        <div className={`flex flex-col gap-1 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`absolute inset-0 flex flex-col gap-1 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
           {phase === 'title' ? (
             <>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground drop-shadow-lg">Focus Manager</h1>
