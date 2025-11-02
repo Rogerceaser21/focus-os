@@ -1,0 +1,119 @@
+.focus-container {
+  position: relative;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.focus-word {
+  position: relative;
+  font-size: 2rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: filter 0.5s ease;
+  color: white;
+}
+
+.focus-word.manual {
+  cursor: pointer;
+}
+
+.focus-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 0;
+}
+
+.corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid;
+  border-color: var(--border-color, #4FD1C5);
+  border-radius: 2px;
+  filter: drop-shadow(0 0 3px var(--glow-color, rgba(79, 209, 197, 0.8)));
+}
+
+.corner.top-left {
+  top: -6px;
+  left: -6px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.corner.top-right {
+  top: -6px;
+  right: -6px;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.corner.bottom-left {
+  bottom: -6px;
+  left: -6px;
+  border-right: 0;
+  border-top: 0;
+}
+
+.corner.bottom-right {
+  bottom: -6px;
+  right: -6px;
+  border-left: 0;
+  border-top: 0;
+}
+
+/* Particle container */
+.particle-container {
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.particle {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  animation: particle-animation var(--time) ease-out forwards;
+  transform-origin: center;
+}
+
+.particle .point {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--color, white);
+  box-shadow: 0 0 10px var(--color, white);
+  animation: pulse 0.3s ease-out;
+}
+
+@keyframes particle-animation {
+  0% {
+    transform: translate(var(--start-x), var(--start-y)) scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--end-x), var(--end-y)) scale(var(--scale)) rotate(var(--rotate));
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.5);
+  }
+}

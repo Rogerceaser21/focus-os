@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import './GooeyNav.css';
+import './TrueFocus.css';
 
 const TrueFocus = ({
   sentence = 'True Focus',
@@ -10,12 +10,12 @@ const TrueFocus = ({
   glowColor = 'rgba(0, 255, 0, 0.6)',
   animationDuration = 0.5,
   pauseBetweenAnimations = 1,
+  maxCycles = 3,
   particleCount = 15,
   particleDistances = [90, 10],
   particleR = 100,
   timeVariance = 300,
-  colors = [1, 2, 3, 1, 2, 3, 1, 4],
-  maxCycles = 3
+  colors = [1, 2, 3, 1, 2, 3, 1, 4]
 }) => {
   const words = sentence.split(' ');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -26,35 +26,6 @@ const TrueFocus = ({
   const wordRefs = useRef([]);
   const particleContainerRef = useRef(null);
   const [focusRect, setFocusRect] = useState({ x: 0, y: 0, width: 0, height: 0 });
-
-  useEffect(() => {
-    if (!manualMode && !animationStopped) {
-      const interval = setInterval(
-        () => {
-          setCurrentIndex(prev => {
-            const nextIndex = (prev + 1) % words.length;
-            
-            // Check if we completed a full cycle (going back to 0)
-            if (nextIndex === 0) {
-              setCompletedCycles(cycles => {
-                const newCycles = cycles + 1;
-                // Stop animation after maxCycles
-                if (newCycles >= maxCycles) {
-                  setAnimationStopped(true);
-                }
-                return newCycles;
-              });
-            }
-            
-            return nextIndex;
-          });
-        },
-        (animationDuration + pauseBetweenAnimations) * 1000
-      );
-
-      return () => clearInterval(interval);
-    }
-  }, [manualMode, animationDuration, pauseBetweenAnimations, words.length, animationStopped, maxCycles]);
 
   const noise = (n = 1) => n / 2 - Math.random() * n;
 
@@ -76,7 +47,7 @@ const TrueFocus = ({
   };
 
   const makeParticles = () => {
-    if (!particleContainerRef.current) return;
+    if (!particleContainerRef.current || animationStopped) return;
     
     const element = particleContainerRef.current;
     const d = particleDistances;
@@ -126,7 +97,37 @@ const TrueFocus = ({
   };
 
   useEffect(() => {
+    if (!manualMode && !animationStopped) {
+      const interval = setInterval(
+        () => {
+          setCurrentIndex(prev => {
+            const nextIndex = (prev + 1) % words.length;
+            
+            // Check if we completed a full cycle (going back to 0)
+            if (nextIndex === 0) {
+              setCompletedCycles(cycles => {
+                const newCycles = cycles + 1;
+                // Stop animation after maxCycles
+                if (newCycles >= maxCycles) {
+                  setAnimationStopped(true);
+                }
+                return newCycles;
+              });
+            }
+            
+            return nextIndex;
+          });
+        },
+        (animationDuration + pauseBetweenAnimations) * 1000
+      );
+
+      return () => clearInterval(interval);
+    }
+  }, [manualMode, animationDuration, pauseBetweenAnimations, words.length, animationStopped, maxCycles]);
+
+  useEffect(() => {
     if (currentIndex === null || currentIndex === -1) return;
+
     if (!wordRefs.current[currentIndex] || !containerRef.current) return;
 
     const parentRect = containerRef.current.getBoundingClientRect();
@@ -139,7 +140,7 @@ const TrueFocus = ({
       height: activeRect.height
     });
 
-    // Trigger particle animation on word change only if animation is not stopped
+    // Trigger particle animation on word change only if not stopped
     if (!animationStopped) {
       makeParticles();
     }
@@ -159,11 +160,11 @@ const TrueFocus = ({
   };
 
   return (
-    <div className="relative flex gap-4 justify-center items-center flex-wrap" ref={containerRef}>
+    <div className="focus-container" ref={containerRef}>
       {/* Particle container positioned around active word */}
       <div 
         ref={particleContainerRef}
-        className="gooey-effect-container absolute"
+        className="particle-container"
         style={{
           left: `${focusRect.x + focusRect.width / 2}px`,
           top: `${focusRect.y + focusRect.height / 2}px`,
@@ -177,7 +178,7 @@ const TrueFocus = ({
           <span
             key={index}
             ref={el => (wordRefs.current[index] = el)}
-            className="relative text-2xl font-black cursor-pointer"
+            className={`focus-word ${manualMode ? 'manual' : ''} ${isActive && !manualMode ? 'active' : ''}`}
             style={{
               filter: manualMode
                 ? isActive
@@ -186,6 +187,8 @@ const TrueFocus = ({
                 : isActive
                   ? `blur(0px)`
                   : `blur(${blurAmount}px)`,
+              '--border-color': borderColor,
+              '--glow-color': glowColor,
               transition: `filter ${animationDuration}s ease`
             } as React.CSSProperties}
             onMouseEnter={() => handleMouseEnter(index)}
@@ -197,7 +200,7 @@ const TrueFocus = ({
       })}
 
       <motion.div
-        className="absolute top-0 left-0 pointer-events-none box-border border-0"
+        className="focus-frame"
         animate={{
           x: focusRect.x,
           y: focusRect.y,
@@ -208,35 +211,15 @@ const TrueFocus = ({
         transition={{
           duration: animationDuration
         }}
+        style={{
+          '--border-color': borderColor,
+          '--glow-color': glowColor
+        } as React.CSSProperties}
       >
-        <span
-          className="absolute w-3 h-3 border-[2px] rounded-[2px] top-[-6px] left-[-6px] border-r-0 border-b-0"
-          style={{
-            borderColor: 'var(--border-color)',
-            filter: 'drop-shadow(0 0 3px var(--border-color))'
-          }}
-        ></span>
-        <span
-          className="absolute w-3 h-3 border-[2px] rounded-[2px] top-[-6px] right-[-6px] border-l-0 border-b-0"
-          style={{
-            borderColor: 'var(--border-color)',
-            filter: 'drop-shadow(0 0 3px var(--border-color))'
-          }}
-        ></span>
-        <span
-          className="absolute w-3 h-3 border-[2px] rounded-[2px] bottom-[-6px] left-[-6px] border-r-0 border-t-0"
-          style={{
-            borderColor: 'var(--border-color)',
-            filter: 'drop-shadow(0 0 3px var(--border-color))'
-          }}
-        ></span>
-        <span
-          className="absolute w-3 h-3 border-[2px] rounded-[2px] bottom-[-6px] right-[-6px] border-l-0 border-t-0"
-          style={{
-            borderColor: 'var(--border-color)',
-            filter: 'drop-shadow(0 0 3px var(--border-color))'
-          }}
-        ></span>
+        <span className="corner top-left"></span>
+        <span className="corner top-right"></span>
+        <span className="corner bottom-left"></span>
+        <span className="corner bottom-right"></span>
       </motion.div>
     </div>
   );
