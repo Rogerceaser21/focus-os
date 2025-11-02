@@ -81,18 +81,17 @@ const Index = () => {
       projectId: t.project_id
     })));
   };
-
   const fetchProjects = async () => {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    const {
+      data,
+      error
+    } = await supabase.from('projects').select('*').order('created_at', {
+      ascending: false
+    });
     if (error) {
       toast.error('Failed to load projects');
       return;
     }
-
     setProjects(data.map(p => ({
       id: p.id,
       name: p.name,
@@ -130,11 +129,7 @@ const Index = () => {
   };
   const handleUpdateTask = async (updatedTask: Task) => {
     // Optimistic update: Update local state immediately to prevent list jumping
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === updatedTask.id ? updatedTask : task
-      )
-    );
+    setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
 
     // Update database in background
     const {
@@ -152,7 +147,6 @@ const Index = () => {
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime
     }).eq('id', updatedTask.id);
-    
     if (error) {
       toast.error('Failed to update task');
       // Revert to database state if update fails
@@ -197,9 +191,7 @@ const Index = () => {
                   <div className="flex items-center gap-2 sm:gap-4">
                     <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px]" />
                     <div>
-                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2 drop-shadow-lg">
-                        Brain Manager
-                      </h1>
+                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2 drop-shadow-lg">Focus Manager</h1>
                       <p className="text-sm sm:text-base text-muted-foreground drop-shadow hidden sm:block">
                         Organize your work with timers and visual planning
                       </p>
@@ -255,19 +247,18 @@ const Index = () => {
                 </TabsTrigger>
               </TabsList>
 
-              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
-                <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center gap-2 px-3 py-2">
-                    <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
-                    <span 
-                      className="font-semibold text-base"
-                      style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
-                    >
+                    <span style={{
+                      color: projects.find(p => p.id === selectedProjectId)?.color
+                    }}>📁</span>
+                    <span className="font-semibold text-base" style={{
+                      color: projects.find(p => p.id === selectedProjectId)?.color
+                    }}>
                       {projects.find(p => p.id === selectedProjectId)?.name}
                     </span>
                   </div>
-                </div>
-              )}
+                </div>}
 
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
                 {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
@@ -300,19 +291,18 @@ const Index = () => {
                 </TabsTrigger>
               </TabsList>
 
-              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (
-                <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center gap-2 px-3 py-2">
-                    <span style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}>📁</span>
-                    <span 
-                      className="font-semibold text-base"
-                      style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
-                    >
+                    <span style={{
+                      color: projects.find(p => p.id === selectedProjectId)?.color
+                    }}>📁</span>
+                    <span className="font-semibold text-base" style={{
+                      color: projects.find(p => p.id === selectedProjectId)?.color
+                    }}>
                       {projects.find(p => p.id === selectedProjectId)?.name}
                     </span>
                   </div>
-                </div>
-              )}
+                </div>}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
                 {filteredTasks.map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
