@@ -192,9 +192,7 @@ const Index = () => {
                     <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px]" />
                     <div>
                       <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2 drop-shadow-lg">Focus Manager</h1>
-                      <p className="text-sm sm:text-base text-muted-foreground drop-shadow hidden sm:block">
-                        Organize your work with timers and visual planning
-                      </p>
+                      <p className="text-sm sm:text-base text-muted-foreground drop-shadow hidden sm:block">Plan your day, the magic way...</p>
                     </div>
                   </div>
                   <Button variant="outline" onClick={handleSignOut} className="gap-2 min-h-[44px] shrink-0">
