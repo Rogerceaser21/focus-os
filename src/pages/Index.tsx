@@ -294,7 +294,7 @@ const Index = () => {
             </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
               <GanttChart tasks={filteredTasks} />
             </div> : <div className="mt-6">
-              <TimeTrackingChart tasks={filteredTasks} projects={projects} onUpdate={handleUpdateTask} />
+              <TimeTrackingChart tasks={filteredTasks} projects={projects} />
             </div>}
               </div>
             </div>

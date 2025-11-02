@@ -1,11 +1,9 @@
 import { Task, Project } from '@/types/task';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useMemo } from 'react';
 
 interface TimeTrackingChartProps {
   tasks: Task[];
   projects: Project[];
-  onUpdate: (task: Task) => void;
 }
 
 interface TaskGroup {
@@ -16,7 +14,7 @@ interface TaskGroup {
   tasks: Task[];
 }
 
-export const TimeTrackingChart = ({ tasks, projects, onUpdate }: TimeTrackingChartProps) => {
+export const TimeTrackingChart = ({ tasks, projects }: TimeTrackingChartProps) => {
   const groupedTasks = useMemo(() => {
     const groups: TaskGroup[] = [];
     const projectMap = new Map(projects.map(p => [p.id, p]));
@@ -62,13 +60,6 @@ export const TimeTrackingChart = ({ tasks, projects, onUpdate }: TimeTrackingCha
     return `${secs}s`;
   };
 
-  const handleCheckboxChange = (task: Task, checked: boolean) => {
-    onUpdate({
-      ...task,
-      status: checked ? 'completed' : 'in-progress'
-    });
-  };
-
   if (tasks.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -107,11 +98,6 @@ export const TimeTrackingChart = ({ tasks, projects, onUpdate }: TimeTrackingCha
           <div className="space-y-2 pl-6">
             {group.tasks.map((task) => (
               <div key={task.id} className="flex items-center gap-3">
-                <Checkbox
-                  checked={task.status === 'completed'}
-                  onCheckedChange={(checked) => handleCheckboxChange(task, checked as boolean)}
-                  className="shrink-0"
-                />
                 <div className="flex-1">
                   <div 
                     className={`h-10 rounded-md flex items-center px-3 text-sm transition-all ${

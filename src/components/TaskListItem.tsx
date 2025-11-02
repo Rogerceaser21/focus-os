@@ -1,6 +1,7 @@
 import { Task } from '@/types/task';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Play, Pause, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { EditTaskDialog } from './EditTaskDialog';
@@ -43,6 +44,13 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
     }
   };
 
+  const handleCheckboxChange = (checked: boolean) => {
+    onUpdate({
+      ...task,
+      status: checked ? 'completed' : 'todo'
+    });
+  };
+
   return (
     <>
       <div 
@@ -51,10 +59,17 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
       >
         {/* Mobile/Tablet Layout */}
         <div className="flex flex-col gap-3 lg:hidden">
-          {/* Title */}
-          <h3 className="font-semibold text-base sm:text-lg text-foreground line-clamp-2">
-            {task.title}
-          </h3>
+          {/* Checkbox and Title */}
+          <div className="flex items-start gap-3" onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={task.status === 'completed'}
+              onCheckedChange={handleCheckboxChange}
+              className="mt-1 shrink-0"
+            />
+            <h3 className="font-semibold text-base sm:text-lg text-foreground line-clamp-2">
+              {task.title}
+            </h3>
+          </div>
           
           {/* Description */}
           <p className="text-sm text-muted-foreground line-clamp-2">
@@ -100,6 +115,15 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
 
         {/* Desktop Layout */}
         <div className="hidden lg:flex lg:items-center gap-4 w-full">
+          {/* Checkbox */}
+          <div onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={task.status === 'completed'}
+              onCheckedChange={handleCheckboxChange}
+              className="shrink-0"
+            />
+          </div>
+
           {/* Left: Title and Description */}
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-foreground truncate mb-1">

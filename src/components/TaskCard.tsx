@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Play, Pause, Clock, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { format } from 'date-fns';
@@ -66,37 +67,51 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
     setShowEditDialog(true);
   };
 
+  const handleCheckboxChange = (checked: boolean) => {
+    onUpdate({
+      ...task,
+      status: checked ? 'completed' : 'todo'
+    });
+  };
+
   return (
     <>
       <Card className="p-4 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10">
         <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              {isEditingTitle ? (
-                <Input
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  onBlur={handleTitleBlur}
-                  onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
-                  autoFocus
-                  className="font-semibold h-auto py-1 px-2 -mx-2"
-                />
-              ) : (
-                <h3 
-                  className="font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
-                  onClick={() => setIsEditingTitle(true)}
-                >
-                  {task.title}
-                </h3>
-              )}
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <Badge variant="outline" className={priorityColors[task.priority]}>
-                {task.priority}
-              </Badge>
-              <Badge variant="outline" className={statusColors[task.status]}>
-                {task.status}
-              </Badge>
+          <div className="flex items-start gap-3">
+            <Checkbox
+              checked={task.status === 'completed'}
+              onCheckedChange={handleCheckboxChange}
+              className="mt-1 shrink-0"
+            />
+            <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                {isEditingTitle ? (
+                  <Input
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    onBlur={handleTitleBlur}
+                    onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
+                    autoFocus
+                    className="font-semibold h-auto py-1 px-2 -mx-2"
+                  />
+                ) : (
+                  <h3 
+                    className="font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+                    onClick={() => setIsEditingTitle(true)}
+                  >
+                    {task.title}
+                  </h3>
+                )}
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Badge variant="outline" className={priorityColors[task.priority]}>
+                  {task.priority}
+                </Badge>
+                <Badge variant="outline" className={statusColors[task.status]}>
+                  {task.status}
+                </Badge>
+              </div>
             </div>
           </div>
 
