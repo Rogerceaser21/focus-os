@@ -78,7 +78,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
 
   return (
     <>
-      <Card className={`p-2.5 bg-card/20 backdrop-blur-md border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''}`}>
+      <Card className={`p-2.5 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''}`}>
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
             <Checkbox

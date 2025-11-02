@@ -256,7 +256,7 @@ const Index = () => {
                 </div>}
 
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
-                {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} className="bg-inherit" />)}
+                {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} className="bg-transparent" />)}
               </TabsContent>
 
               <TabsContent value="todo" className="flex flex-col gap-2 mt-6">
