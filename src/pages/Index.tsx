@@ -169,20 +169,7 @@ const Index = () => {
   }
   return <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen flex w-full relative">
-        <LightRays
-          raysOrigin="top-center"
-          raysColor="#2b12e2"
-          raysSpeed={0.8}
-          lightSpread={1.2}
-          rayLength={2.5}
-          pulsating={false}
-          fadeDistance={1.2}
-          saturation={1.0}
-          followMouse={true}
-          mouseInfluence={0.15}
-          noiseAmount={0.05}
-          distortion={0.1}
-        />
+        <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
         
         {/* Floating AI Button */}
@@ -200,14 +187,10 @@ const Index = () => {
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
                   <div className="flex items-center gap-2 sm:gap-4">
                     <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px]" />
-                    <HeroSection 
-                      onTasksCreated={() => {
-                        fetchTasks();
-                        setProjectRefreshTrigger(prev => prev + 1);
-                      }}
-                      dialogOpen={dialogOpen}
-                      setDialogOpen={setDialogOpen}
-                    />
+                    <HeroSection onTasksCreated={() => {
+                    fetchTasks();
+                    setProjectRefreshTrigger(prev => prev + 1);
+                  }} dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} />
                   </div>
                   <Button variant="outline" onClick={handleSignOut} className="gap-2 min-h-[44px] shrink-0">
                     <LogOut className="h-4 w-4" />
@@ -273,7 +256,7 @@ const Index = () => {
                 </div>}
 
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
-                {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} className="bg-transparent" />)}
               </TabsContent>
 
               <TabsContent value="todo" className="flex flex-col gap-2 mt-6">
