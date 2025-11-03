@@ -1,5 +1,5 @@
 /* Particle container */
-.particle-container {
+.dock-particle-container {
   position: fixed;
   pointer-events: none;
   z-index: 9999;
