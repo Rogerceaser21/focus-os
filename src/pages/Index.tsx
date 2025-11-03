@@ -23,6 +23,7 @@ import Dock from '@/components/Dock';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 import { BrainDumpDialog } from '@/components/BrainDumpDialog';
 import { TaskOnlyBrainDumpDialog } from '@/components/TaskOnlyBrainDumpDialog';
+import { TodayBrainDumpDialog } from '@/components/TodayBrainDumpDialog';
 const Index = () => {
   const navigate = useNavigate();
   const {
@@ -39,6 +40,7 @@ const Index = () => {
   const [projectRefreshTrigger, setProjectRefreshTrigger] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [taskOnlyDialogOpen, setTaskOnlyDialogOpen] = useState(false);
+  const [todayDialogOpen, setTodayDialogOpen] = useState(false);
   const { triggerParticles, containerRef } = useParticleAnimation({
     particleCount: 12,
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
@@ -224,11 +226,16 @@ const Index = () => {
       }
     },
     {
-      icon: <Calendar className="w-6 h-6" />,
+      icon: (
+        <div className="flex items-center gap-1">
+          <Calendar className="w-6 h-6" />
+          <Sparkles className="w-4 h-4 text-blue-500" />
+        </div>
+      ),
       label: 'Today',
-      onClick: () => {
-        setSelectedProjectId(null);
-        setSelectedSpecialList('today');
+      onClick: (e?: React.MouseEvent<HTMLElement>) => {
+        if (e) triggerParticles(e.currentTarget);
+        setTodayDialogOpen(true);
       }
     },
     {
@@ -422,6 +429,16 @@ const Index = () => {
         userId={user?.id || ''}
         selectedProjectId={selectedProjectId}
         selectedProjectName={getSelectedProjectName()}
+      />
+
+      <TodayBrainDumpDialog
+        open={todayDialogOpen}
+        onOpenChange={setTodayDialogOpen}
+        onTasksCreated={() => {
+          fetchTasks();
+          setProjectRefreshTrigger(prev => prev + 1);
+        }}
+        userId={user?.id || ''}
       />
     </SidebarProvider>;
 };
