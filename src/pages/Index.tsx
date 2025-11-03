@@ -12,7 +12,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import LightRays from '@/components/LightRays';
 import HeroSection from '@/components/HeroSection';
@@ -239,9 +239,9 @@ const Index = () => {
       }
     },
     {
-      icon: <LogOut className="w-6 h-6" />,
-      label: 'Sign Out',
-      onClick: handleSignOut
+      icon: <Settings className="w-6 h-6" />,
+      label: 'Settings',
+      onClick: () => console.log('Settings clicked')
     }
   ];
 
