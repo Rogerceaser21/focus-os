@@ -20,6 +20,7 @@ import { FloatingAIButton } from '@/components/FloatingAIButton';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import Dock from '@/components/Dock';
+import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 const Index = () => {
   const navigate = useNavigate();
   const {
@@ -35,6 +36,11 @@ const Index = () => {
   const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | null>(null);
   const [projectRefreshTrigger, setProjectRefreshTrigger] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { triggerParticles, containerRef } = useParticleAnimation({
+    particleCount: 12,
+    colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
+    animationDuration: 0.6
+  });
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
@@ -177,7 +183,8 @@ const Index = () => {
         </div>
       ),
       label: 'Projects',
-      onClick: () => {
+      onClick: (e?: React.MouseEvent<HTMLElement>) => {
+        if (e) triggerParticles(e.currentTarget);
         const sidebar = document.querySelector('[data-sidebar="sidebar"]');
         sidebar?.dispatchEvent(new Event('click'));
       }
@@ -190,7 +197,10 @@ const Index = () => {
         </div>
       ),
       label: 'Tasks',
-      onClick: () => setDialogOpen(true)
+      onClick: (e?: React.MouseEvent<HTMLElement>) => {
+        if (e) triggerParticles(e.currentTarget);
+        setDialogOpen(true);
+      }
     },
     {
       icon: <Calendar className="w-6 h-6" />,
@@ -209,6 +219,7 @@ const Index = () => {
 
   return <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen flex w-full relative">
+        <div ref={containerRef} className="particle-container" />
         <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
         

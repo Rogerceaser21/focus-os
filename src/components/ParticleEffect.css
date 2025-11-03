@@ -1,0 +1,52 @@
+/* Particle container */
+.particle-container {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  width: 0;
+  height: 0;
+}
+
+.particle {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  animation: particle-animation var(--time) ease-out forwards;
+  transform-origin: center;
+}
+
+.particle .point {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--color, white);
+  box-shadow: 0 0 10px var(--color, white);
+  animation: pulse 0.3s ease-out;
+}
+
+@keyframes particle-animation {
+  0% {
+    transform: translate(var(--start-x), var(--start-y)) scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--end-x), var(--end-y)) scale(var(--scale)) rotate(var(--rotate));
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.5);
+  }
+}

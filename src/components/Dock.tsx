@@ -8,7 +8,7 @@ import './Dock.css';
 interface DockItemProps {
   children: ReactElement;
   className?: string;
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent<HTMLElement>) => void;
   mouseX: any;
   spring: any;
   distance: number;
@@ -42,7 +42,7 @@ function DockItem({ children, className = '', onClick, mouseX, spring, distance,
       onHoverEnd={() => isHovered.set(0)}
       onFocus={() => isHovered.set(1)}
       onBlur={() => isHovered.set(0)}
-      onClick={onClick}
+      onClick={(e) => onClick?.(e as any)}
       className={`dock-item ${className}`}
       tabIndex={0}
       role="button"
@@ -101,7 +101,7 @@ function DockIcon({ children, className = '' }: DockIconProps) {
 export interface DockItem {
   icon: React.ReactNode;
   label: string;
-  onClick: () => void;
+  onClick: (e?: React.MouseEvent<HTMLElement>) => void;
   className?: string;
 }
 
