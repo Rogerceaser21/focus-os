@@ -228,7 +228,29 @@ const Index = () => {
     }
     return '';
   };
-  const filteredTasks = tasks.filter(task => task.title.toLowerCase().includes(searchQuery.toLowerCase()) || task.description?.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredTasks = tasks.filter(task => {
+    // First, filter by search query
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    // Then filter by selected project or special list
+    if (selectedProjectId) {
+      return task.projectId === selectedProjectId;
+    } else if (selectedSpecialList === 'unassigned') {
+      return !task.projectId;
+    } else if (selectedSpecialList === 'today') {
+      // Tasks with due date = today
+      if (!task.dueDate) return false;
+      const today = new Date();
+      const taskDueDate = new Date(task.dueDate);
+      return taskDueDate.toDateString() === today.toDateString();
+    }
+    
+    // If nothing is selected, show all tasks
+    return true;
+  });
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
