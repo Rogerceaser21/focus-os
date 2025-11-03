@@ -100,7 +100,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
               />
             ) : (
               <h3 
-                className="font-semibold text-base text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate"
+                className={`font-semibold text-base text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditingTitle(true);
@@ -224,7 +224,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
               />
             ) : (
               <h3 
-                className="font-semibold text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate"
+                className={`font-semibold text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
                 onClick={() => setIsEditingTitle(true)}
               >
                 {task.title}

@@ -99,7 +99,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
                   />
                 ) : (
                   <h3 
-                    className="font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors"
+                    className={`font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
                     onClick={() => setIsEditingTitle(true)}
                   >
                     {task.title}
