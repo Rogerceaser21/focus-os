@@ -51,13 +51,13 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
       const lineHeight = parseInt(window.getComputedStyle(titleRef.current).lineHeight);
       const lines = Math.ceil(titleRef.current.scrollHeight / lineHeight);
       
-      // If content exceeds 2 lines, open full edit dialog
-      if (lines > 2) {
+      // Only check overflow if content has changed from original (user is typing)
+      if (lines > 2 && editedTitle !== task.title) {
         setIsEditingTitle(false);
         setIsEditOpen(true);
       }
     }
-  }, [editedTitle, isEditingTitle]);
+  }, [editedTitle, isEditingTitle, task.title]);
 
   // Auto-expand description textarea and detect overflow
   useEffect(() => {
@@ -68,12 +68,13 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
       const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight);
       const lines = Math.ceil(descriptionRef.current.scrollHeight / lineHeight);
       
-      if (lines > 8) {
+      // Only check overflow if content has changed from original (user is typing)
+      if (lines > 8 && editedDescription !== (task.description || '')) {
         setIsEditingDescription(false);
         setIsEditOpen(true);
       }
     }
-  }, [editedDescription, isEditingDescription]);
+  }, [editedDescription, isEditingDescription, task.description]);
 
   const handleStartStop = () => {
     if (timer.isRunning) {
