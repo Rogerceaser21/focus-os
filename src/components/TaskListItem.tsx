@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Play, Pause, Calendar, Clock, Image } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { EditTaskDialog } from './EditTaskDialog';
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 
 interface TaskListItemProps {
@@ -37,14 +37,6 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [isFading, setIsFading] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (isEditingDescription && textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
-    }
-  }, [editedDescription, isEditingDescription]);
 
   const handleStartStop = () => {
     if (timer.isRunning) {
@@ -147,25 +139,20 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           {/* Line 2: Description */}
           {isEditingDescription ? (
             <Textarea
-              ref={textareaRef}
               value={editedDescription}
               onChange={(e) => setEditedDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
               autoFocus
+              rows={1}
               className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
             <p 
-              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors line-clamp-2"
+              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate"
               onClick={(e) => {
                 e.stopPropagation();
-                const descLength = task.description?.length || 0;
-                if (descLength > 100) {
-                  setIsEditOpen(true);
-                } else {
-                  setIsEditingDescription(true);
-                }
+                setIsEditingDescription(true);
               }}
             >
               {task.description || 'Click to add description...'}
@@ -274,26 +261,18 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           {/* Line 2: Description */}
           {isEditingDescription ? (
             <Textarea
-              ref={textareaRef}
               value={editedDescription}
               onChange={(e) => setEditedDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
               autoFocus
+              rows={1}
               className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
             <p 
-              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors line-clamp-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                const descLength = task.description?.length || 0;
-                if (descLength > 100) {
-                  setIsEditOpen(true);
-                } else {
-                  setIsEditingDescription(true);
-                }
-              }}
+              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate"
+              onClick={() => setIsEditingDescription(true)}
             >
               {task.description || 'Click to add description...'}
             </p>
