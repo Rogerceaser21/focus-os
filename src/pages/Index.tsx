@@ -12,7 +12,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import LightRays from '@/components/LightRays';
 import HeroSection from '@/components/HeroSection';
@@ -170,7 +170,12 @@ const Index = () => {
   }
   const dockItems = [
     {
-      icon: <FolderKanban className="w-6 h-6" />,
+      icon: (
+        <div className="flex items-center gap-1">
+          <FolderKanban className="w-6 h-6" />
+          <Sparkles className="w-4 h-4 text-blue-500" />
+        </div>
+      ),
       label: 'Projects',
       onClick: () => {
         const sidebar = document.querySelector('[data-sidebar="sidebar"]');
@@ -178,7 +183,12 @@ const Index = () => {
       }
     },
     {
-      icon: <ListChecks className="w-6 h-6" />,
+      icon: (
+        <div className="flex items-center gap-1">
+          <ListChecks className="w-6 h-6" />
+          <Sparkles className="w-4 h-4 text-blue-500" />
+        </div>
+      ),
       label: 'Tasks',
       onClick: () => setDialogOpen(true)
     },
