@@ -185,8 +185,7 @@ const Index = () => {
       label: 'Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
-        const sidebar = document.querySelector('[data-sidebar="sidebar"]');
-        sidebar?.dispatchEvent(new Event('click'));
+        setDialogOpen(true);
       }
     },
     {
