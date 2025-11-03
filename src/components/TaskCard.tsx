@@ -38,6 +38,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
+  const [isFading, setIsFading] = useState(false);
 
   const handleTimerUpdate = (action: 'start' | 'stop') => {
     if (action === 'start') {
@@ -70,15 +71,27 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
   };
 
   const handleCheckboxChange = (checked: boolean) => {
-    onUpdate({
-      ...task,
-      status: checked ? 'completed' : 'todo'
-    });
+    if (checked) {
+      setIsFading(true);
+      
+      setTimeout(() => {
+        onUpdate({
+          ...task,
+          status: 'completed'
+        });
+        setIsFading(false);
+      }, 1000);
+    } else {
+      onUpdate({
+        ...task,
+        status: 'todo'
+      });
+    }
   };
 
   return (
     <>
-      <Card className={`p-2.5 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''}`}>
+      <Card className={`p-2.5 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}>
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
             <Checkbox
@@ -99,7 +112,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
                   />
                 ) : (
                   <h3 
-                    className={`font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
+                    className={`font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                     onClick={() => setIsEditingTitle(true)}
                   >
                     {task.title}

@@ -36,6 +36,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
+  const [isFading, setIsFading] = useState(false);
 
   const handleStartStop = () => {
     if (timer.isRunning) {
@@ -52,10 +53,22 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   };
 
   const handleCheckboxChange = (checked: boolean) => {
-    onUpdate({
-      ...task,
-      status: checked ? 'completed' : 'todo'
-    });
+    if (checked) {
+      setIsFading(true);
+      
+      setTimeout(() => {
+        onUpdate({
+          ...task,
+          status: 'completed'
+        });
+        setIsFading(false);
+      }, 1000);
+    } else {
+      onUpdate({
+        ...task,
+        status: 'todo'
+      });
+    }
   };
 
   const handleTitleBlur = () => {
@@ -77,7 +90,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   return (
     <>
       <div 
-        className={`group w-full border border-white/10 bg-card/50 rounded-lg p-2 hover:border-primary/50 transition-all duration-300 ${timer.isRunning ? 'border-glow-pulse' : ''}`}
+        className={`group w-full border border-white/10 bg-card/50 rounded-lg p-2 hover:border-primary/50 transition-all duration-300 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
       >
         {/* Mobile/Tablet Layout */}
         <div className="flex flex-col gap-2 lg:hidden">
@@ -100,7 +113,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
               />
             ) : (
               <h3 
-                className={`font-semibold text-base text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-base text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditingTitle(true);
@@ -224,7 +237,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
               />
             ) : (
               <h3 
-                className={`font-semibold text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={() => setIsEditingTitle(true)}
               >
                 {task.title}
