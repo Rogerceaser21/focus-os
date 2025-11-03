@@ -251,6 +251,23 @@ const Index = () => {
     // If nothing is selected, show all tasks
     return true;
   });
+
+  // Priority order for sorting
+  const priorityOrder = {
+    'urgent': 1,
+    'high': 2,
+    'medium': 3,
+    'low': 4
+  };
+
+  // Sort tasks by priority
+  const sortTasksByPriority = (tasksToSort: Task[]) => {
+    return [...tasksToSort].sort((a, b) => {
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+  };
+
+  const sortedTasks = sortTasksByPriority(filteredTasks);
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -376,16 +393,16 @@ const Index = () => {
           {viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">All </span>({filteredTasks.filter(t => t.status !== 'completed').length})
+                  <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
                 <TabsTrigger value="todo" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">To Do </span>({filteredTasks.filter(t => t.status === 'todo').length})
+                  <span className="hidden sm:inline">To Do </span>({sortedTasks.filter(t => t.status === 'todo').length})
                 </TabsTrigger>
                 <TabsTrigger value="in-progress" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Progress </span>({filteredTasks.filter(t => t.status === 'in-progress').length})
+                  <span className="hidden sm:inline">Progress </span>({sortedTasks.filter(t => t.status === 'in-progress').length})
                 </TabsTrigger>
                 <TabsTrigger value="completed" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Done </span>({filteredTasks.filter(t => t.status === 'completed').length})
+                  <span className="hidden sm:inline">Done </span>({sortedTasks.filter(t => t.status === 'completed').length})
                 </TabsTrigger>
               </TabsList>
 
@@ -403,33 +420,33 @@ const Index = () => {
                 </div>}
 
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
-                {filteredTasks.filter(t => t.status !== 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="flex flex-col gap-2 mt-6">
-                {filteredTasks.filter(t => t.status === 'todo').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
 
               <TabsContent value="in-progress" className="flex flex-col gap-2 mt-6">
-                {filteredTasks.filter(t => t.status === 'in-progress').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
 
               <TabsContent value="completed" className="flex flex-col gap-2 mt-6">
-                {filteredTasks.filter(t => t.status === 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
             </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">All </span>({filteredTasks.filter(t => t.status !== 'completed').length})
+                  <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
                 <TabsTrigger value="todo" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">To Do </span>({filteredTasks.filter(t => t.status === 'todo').length})
+                  <span className="hidden sm:inline">To Do </span>({sortedTasks.filter(t => t.status === 'todo').length})
                 </TabsTrigger>
                 <TabsTrigger value="in-progress" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Progress </span>({filteredTasks.filter(t => t.status === 'in-progress').length})
+                  <span className="hidden sm:inline">Progress </span>({sortedTasks.filter(t => t.status === 'in-progress').length})
                 </TabsTrigger>
                 <TabsTrigger value="completed" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Done </span>({filteredTasks.filter(t => t.status === 'completed').length})
+                  <span className="hidden sm:inline">Done </span>({sortedTasks.filter(t => t.status === 'completed').length})
                 </TabsTrigger>
               </TabsList>
 
@@ -447,24 +464,24 @@ const Index = () => {
                 </div>}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {filteredTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {filteredTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
 
               <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {filteredTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
 
               <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {filteredTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
             </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
-              <GanttChart tasks={filteredTasks} />
+              <GanttChart tasks={sortedTasks} />
             </div> : <div className="mt-6">
-              <TimeTrackingChart tasks={filteredTasks} projects={projects} />
+              <TimeTrackingChart tasks={sortedTasks} projects={projects} />
             </div>}
               </div>
             </div>
