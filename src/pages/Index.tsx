@@ -12,13 +12,14 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import LightRays from '@/components/LightRays';
 import HeroSection from '@/components/HeroSection';
 import { FloatingAIButton } from '@/components/FloatingAIButton';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import Dock from '@/components/Dock';
 const Index = () => {
   const navigate = useNavigate();
   const {
@@ -167,6 +168,35 @@ const Index = () => {
   if (!user) {
     return null;
   }
+  const dockItems = [
+    {
+      icon: <FolderKanban className="w-6 h-6" />,
+      label: 'Projects',
+      onClick: () => {
+        const sidebar = document.querySelector('[data-sidebar="sidebar"]');
+        sidebar?.dispatchEvent(new Event('click'));
+      }
+    },
+    {
+      icon: <ListChecks className="w-6 h-6" />,
+      label: 'Tasks',
+      onClick: () => setDialogOpen(true)
+    },
+    {
+      icon: <Calendar className="w-6 h-6" />,
+      label: 'Today',
+      onClick: () => {
+        setSelectedProjectId(null);
+        setSelectedSpecialList('today');
+      }
+    },
+    {
+      icon: <LogOut className="w-6 h-6" />,
+      label: 'Sign Out',
+      onClick: handleSignOut
+    }
+  ];
+
   return <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen flex w-full relative">
         <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />
@@ -182,7 +212,7 @@ const Index = () => {
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
-              <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4">
+              <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4 pb-32">
                 {/* Header */}
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
                   <div className="flex items-center gap-2 sm:gap-4">
@@ -256,7 +286,7 @@ const Index = () => {
                 </div>}
 
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
-                {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} className="bg-transparent" />)}
+                {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="flex flex-col gap-2 mt-6">
@@ -322,6 +352,11 @@ const Index = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Dock Bar */}
+        <div className="fixed bottom-4 left-0 right-0 z-50 flex justify-center pointer-events-none">
+          <Dock items={dockItems} />
         </div>
       </div>
     </SidebarProvider>;
