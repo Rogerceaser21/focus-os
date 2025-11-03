@@ -21,6 +21,8 @@ import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import Dock from '@/components/Dock';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
+import { BrainDumpDialog } from '@/components/BrainDumpDialog';
+import { TaskOnlyBrainDumpDialog } from '@/components/TaskOnlyBrainDumpDialog';
 const Index = () => {
   const navigate = useNavigate();
   const {
@@ -36,6 +38,7 @@ const Index = () => {
   const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | null>(null);
   const [projectRefreshTrigger, setProjectRefreshTrigger] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [taskOnlyDialogOpen, setTaskOnlyDialogOpen] = useState(false);
   const { triggerParticles, containerRef } = useParticleAnimation({
     particleCount: 12,
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
@@ -167,6 +170,16 @@ const Index = () => {
     await signOut();
     navigate('/auth');
   };
+
+  const getSelectedProjectName = (): string => {
+    if (selectedSpecialList === 'today') return "Today's To-Do";
+    if (selectedSpecialList === 'unassigned') return "Unassigned";
+    if (selectedProjectId) {
+      const project = projects.find(p => p.id === selectedProjectId);
+      return project?.name || 'Unknown Project';
+    }
+    return '';
+  };
   const filteredTasks = tasks.filter(task => task.title.toLowerCase().includes(searchQuery.toLowerCase()) || task.description?.toLowerCase().includes(searchQuery.toLowerCase()));
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -198,7 +211,16 @@ const Index = () => {
       label: 'Tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
-        setDialogOpen(true);
+        
+        // Validate project selection
+        if (!selectedProjectId && !selectedSpecialList) {
+          toast.error('Please select a project first', {
+            description: 'Choose a project from the sidebar to add tasks to it.'
+          });
+          return;
+        }
+        
+        setTaskOnlyDialogOpen(true);
       }
     },
     {
@@ -379,6 +401,28 @@ const Index = () => {
           <Dock items={dockItems} />
         </div>
       </div>
+      
+      <BrainDumpDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onTasksCreated={() => {
+          fetchTasks();
+          setProjectRefreshTrigger(prev => prev + 1);
+        }}
+        userId={user?.id || ''}
+      />
+
+      <TaskOnlyBrainDumpDialog
+        open={taskOnlyDialogOpen}
+        onOpenChange={setTaskOnlyDialogOpen}
+        onTasksCreated={() => {
+          fetchTasks();
+          setProjectRefreshTrigger(prev => prev + 1);
+        }}
+        userId={user?.id || ''}
+        selectedProjectId={selectedProjectId}
+        selectedProjectName={getSelectedProjectName()}
+      />
     </SidebarProvider>;
 };
 export default Index;

@@ -11,20 +11,29 @@ serve(async (req) => {
   }
 
   try {
-    const { transcription } = await req.json();
+    const { transcription, mode = "project" } = await req.json();
     
     if (!transcription) {
       throw new Error("No transcription provided");
     }
 
-    console.log('Extracting tasks from transcription...');
+    console.log('Extracting tasks from transcription...', { mode });
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a task extraction assistant. Analyze the user's voice transcription and extract:
+    // Different system prompts based on mode
+    const systemPrompt = mode === "tasks-only" 
+      ? `You are a task extraction assistant. Extract individual tasks from the transcription.
+     
+Rules:
+- Extract each distinct task as a separate item
+- Each task should be clear and actionable
+- Do NOT extract or infer a project name
+- Focus only on the tasks mentioned`
+      : `You are a task extraction assistant. Analyze the user's voice transcription and extract:
 1. A project name (if mentioned or implied)
 2. Individual tasks mentioned
 
@@ -33,6 +42,65 @@ Special rules:
 - Extract each distinct task as a separate item
 - Infer reasonable project names if not explicitly stated (e.g., "Car inspiration" from "For my car inspiration project...")
 - Each task should be clear and actionable`;
+
+    // Task schema for both modes
+    const taskSchema = {
+      type: "object",
+      properties: {
+        title: { 
+          type: "string",
+          description: "Clear, actionable task title"
+        },
+        description: {
+          type: "string",
+          description: "Optional task description with additional context"
+        },
+        priority: {
+          type: "string",
+          enum: ["low", "medium", "high", "urgent"],
+          description: "Task priority level"
+        }
+      },
+      required: ["title", "priority"],
+      additionalProperties: false
+    };
+
+    // Different function schemas based on mode
+    const functionSchema = mode === "tasks-only"
+      ? {
+          name: "extract_tasks",
+          description: "Extract tasks from voice transcription",
+          parameters: {
+            type: "object",
+            properties: {
+              tasks: {
+                type: "array",
+                items: taskSchema
+              }
+            },
+            required: ["tasks"],
+            additionalProperties: false
+          }
+        }
+      : {
+          name: "extract_project_tasks",
+          description: "Extract project name and tasks from voice transcription",
+          parameters: {
+            type: "object",
+            properties: {
+              projectName: {
+                type: "string",
+                description: "The project name, either mentioned or inferred from context"
+              },
+              tasks: {
+                type: "array",
+                items: taskSchema
+              }
+            },
+            required: ["projectName", "tasks"],
+            additionalProperties: false
+          }
+        };
 
     const body = {
       model: "google/gemini-2.5-flash",
@@ -43,47 +111,13 @@ Special rules:
       tools: [
         {
           type: "function",
-          function: {
-            name: "extract_project_tasks",
-            description: "Extract project name and tasks from voice transcription",
-            parameters: {
-              type: "object",
-              properties: {
-                projectName: {
-                  type: "string",
-                  description: "The project name, either mentioned or inferred from context"
-                },
-                tasks: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      title: { 
-                        type: "string",
-                        description: "Clear, actionable task title"
-                      },
-                      description: {
-                        type: "string",
-                        description: "Optional task description with additional context"
-                      },
-                      priority: {
-                        type: "string",
-                        enum: ["low", "medium", "high", "urgent"],
-                        description: "Task priority level"
-                      }
-                    },
-                    required: ["title", "priority"],
-                    additionalProperties: false
-                  }
-                }
-              },
-              required: ["projectName", "tasks"],
-              additionalProperties: false
-            }
-          }
+          function: functionSchema
         }
       ],
-      tool_choice: { type: "function", function: { name: "extract_project_tasks" } }
+      tool_choice: { 
+        type: "function", 
+        function: { name: mode === "tasks-only" ? "extract_tasks" : "extract_project_tasks" } 
+      }
     };
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
