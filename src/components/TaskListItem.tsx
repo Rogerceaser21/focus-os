@@ -143,7 +143,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
               onChange={(e) => setEditedDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
               autoFocus
-              className="text-sm min-h-[40px] py-1 px-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
+              className="text-sm h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
@@ -264,7 +264,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
               onChange={(e) => setEditedDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
               autoFocus
-              className="text-sm min-h-[40px] py-1 px-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
+              className="text-sm h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
