@@ -308,7 +308,7 @@ const Index = () => {
           {viewMode === 'list' ? <Tabs defaultValue="all" className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">All </span>({filteredTasks.length})
+                  <span className="hidden sm:inline">All </span>({filteredTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
                 <TabsTrigger value="todo" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">To Do </span>({filteredTasks.filter(t => t.status === 'todo').length})
@@ -335,7 +335,7 @@ const Index = () => {
                 </div>}
 
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
-                {filteredTasks.map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {filteredTasks.filter(t => t.status !== 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="flex flex-col gap-2 mt-6">
@@ -352,7 +352,7 @@ const Index = () => {
             </Tabs> : viewMode === 'grid' ? <Tabs defaultValue="all" className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">All </span>({filteredTasks.length})
+                  <span className="hidden sm:inline">All </span>({filteredTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
                 <TabsTrigger value="todo" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">To Do </span>({filteredTasks.filter(t => t.status === 'todo').length})
@@ -379,7 +379,7 @@ const Index = () => {
                 </div>}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {filteredTasks.map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {filteredTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
