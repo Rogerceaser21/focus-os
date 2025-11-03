@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Play, Pause, Calendar, Clock, Image } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { EditTaskDialog } from './EditTaskDialog';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 
 interface TaskListItemProps {
@@ -37,6 +37,37 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [isFading, setIsFading] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-expand title input and detect overflow
+  useEffect(() => {
+    if (isEditingTitle && titleRef.current) {
+      const lineHeight = parseInt(window.getComputedStyle(titleRef.current).lineHeight);
+      const lines = Math.ceil(titleRef.current.scrollHeight / lineHeight);
+      
+      if (lines > 2) {
+        setIsEditingTitle(false);
+        setIsEditOpen(true);
+      }
+    }
+  }, [editedTitle, isEditingTitle]);
+
+  // Auto-expand description textarea and detect overflow
+  useEffect(() => {
+    if (isEditingDescription && descriptionRef.current) {
+      descriptionRef.current.style.height = 'auto';
+      descriptionRef.current.style.height = descriptionRef.current.scrollHeight + 'px';
+      
+      const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight);
+      const lines = Math.ceil(descriptionRef.current.scrollHeight / lineHeight);
+      
+      if (lines > 8) {
+        setIsEditingDescription(false);
+        setIsEditOpen(true);
+      }
+    }
+  }, [editedDescription, isEditingDescription]);
 
   const handleStartStop = () => {
     if (timer.isRunning) {
@@ -103,12 +134,13 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
             />
             {isEditingTitle ? (
               <Input
+                ref={titleRef}
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                className="font-semibold text-base h-auto py-0.5 px-1.5 flex-1"
+                className="font-semibold text-base h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
@@ -139,11 +171,11 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           {/* Line 2: Description */}
           {isEditingDescription ? (
             <Textarea
+              ref={descriptionRef}
               value={editedDescription}
               onChange={(e) => setEditedDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
               autoFocus
-              rows={1}
               className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
               onClick={(e) => e.stopPropagation()}
             />
@@ -228,12 +260,13 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
             />
             {isEditingTitle ? (
               <Input
+                ref={titleRef}
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                className="font-semibold h-auto py-0.5 px-1.5 flex-1"
+                className="font-semibold h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
@@ -261,11 +294,11 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
           {/* Line 2: Description */}
           {isEditingDescription ? (
             <Textarea
+              ref={descriptionRef}
               value={editedDescription}
               onChange={(e) => setEditedDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
               autoFocus
-              rows={1}
               className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
               onClick={(e) => e.stopPropagation()}
             />
