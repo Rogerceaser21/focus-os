@@ -192,9 +192,9 @@ const Index = () => {
   const dockItems = [
     {
       icon: (
-        <div className="flex items-center gap-1">
+        <div className="relative inline-flex">
           <FolderKanban className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
+          <Sparkles className="w-2 h-2 text-blue-500 absolute -top-1 right-0 translate-x-1" />
         </div>
       ),
       label: 'Projects',
@@ -205,9 +205,9 @@ const Index = () => {
     },
     {
       icon: (
-        <div className="flex items-center gap-1">
+        <div className="relative inline-flex">
           <ListChecks className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
+          <Sparkles className="w-2 h-2 text-blue-500 absolute -top-1 right-0 translate-x-1" />
         </div>
       ),
       label: 'Tasks',
@@ -227,9 +227,9 @@ const Index = () => {
     },
     {
       icon: (
-        <div className="flex items-center gap-1">
+        <div className="relative inline-flex">
           <Calendar className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
+          <Sparkles className="w-2 h-2 text-blue-500 absolute -top-1 right-0 translate-x-1" />
         </div>
       ),
       label: 'Today',
