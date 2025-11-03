@@ -194,7 +194,7 @@ const Index = () => {
       icon: (
         <div className="flex items-start gap-0.5">
           <FolderKanban className="w-6 h-6" />
-          <Sparkles className="w-1 h-1 text-blue-500 -mt-1" />
+          <Sparkles className="text-blue-500 -mt-1" style={{ width: '3px', height: '3px' }} />
         </div>
       ),
       label: 'Projects',
@@ -207,7 +207,7 @@ const Index = () => {
       icon: (
         <div className="flex items-start gap-0.5">
           <ListChecks className="w-6 h-6" />
-          <Sparkles className="w-1 h-1 text-blue-500 -mt-1" />
+          <Sparkles className="text-blue-500 -mt-1" style={{ width: '3px', height: '3px' }} />
         </div>
       ),
       label: 'Tasks',
@@ -229,7 +229,7 @@ const Index = () => {
       icon: (
         <div className="flex items-start gap-0.5">
           <Calendar className="w-6 h-6" />
-          <Sparkles className="w-1 h-1 text-blue-500 -mt-1" />
+          <Sparkles className="text-blue-500 -mt-1" style={{ width: '3px', height: '3px' }} />
         </div>
       ),
       label: 'Today',
