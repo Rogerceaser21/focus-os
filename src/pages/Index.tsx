@@ -16,7 +16,6 @@ import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, Folder
 import { toast } from 'sonner';
 import LightRays from '@/components/LightRays';
 import HeroSection from '@/components/HeroSection';
-import { FloatingAIButton } from '@/components/FloatingAIButton';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import Dock from '@/components/Dock';
@@ -335,9 +334,6 @@ const Index = () => {
         <div ref={containerRef} className="dock-particle-container" />
         <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
-        
-        {/* Floating AI Button */}
-        <FloatingAIButton onClick={() => setDialogOpen(true)} />
 
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
