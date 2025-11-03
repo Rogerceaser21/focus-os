@@ -24,6 +24,8 @@ import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 import { BrainDumpDialog } from '@/components/BrainDumpDialog';
 import { TaskOnlyBrainDumpDialog } from '@/components/TaskOnlyBrainDumpDialog';
 import { TodayBrainDumpDialog } from '@/components/TodayBrainDumpDialog';
+import SettingsDialog from '@/components/SettingsDialog';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 const Index = () => {
   const navigate = useNavigate();
   const {
@@ -41,6 +43,11 @@ const Index = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [taskOnlyDialogOpen, setTaskOnlyDialogOpen] = useState(false);
   const [todayDialogOpen, setTodayDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  
+  const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
     particleCount: 12,
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
@@ -57,6 +64,45 @@ const Index = () => {
       fetchProjects();
     }
   }, [user, selectedProjectId, selectedSpecialList]);
+
+  // Apply user preferences on load
+  useEffect(() => {
+    if (preferences && !preferencesLoaded && projects.length > 0) {
+      // Apply default view
+      if (preferences.default_view === 'today') {
+        setSelectedSpecialList('today');
+        setSelectedProjectId(null);
+      } else if (preferences.default_view === 'unassigned') {
+        setSelectedSpecialList('unassigned');
+        setSelectedProjectId(null);
+      } else {
+        // It's a project ID - check if it still exists
+        const projectExists = projects.some(p => p.id === preferences.default_view);
+        if (projectExists) {
+          setSelectedProjectId(preferences.default_view);
+          setSelectedSpecialList(null);
+        } else {
+          // Fallback to today if project was deleted
+          setSelectedSpecialList('today');
+          setSelectedProjectId(null);
+        }
+      }
+      
+      // Apply display mode
+      const modeMap: Record<string, 'list' | 'grid' | 'gantt' | 'time-tracking'> = {
+        'list': 'list',
+        'grid': 'grid',
+        'gantt': 'gantt',
+        'time': 'time-tracking'
+      };
+      setViewMode(modeMap[preferences.default_display_mode] || 'list');
+      
+      // Apply task filter
+      setActiveTab(preferences.default_task_filter);
+      
+      setPreferencesLoaded(true);
+    }
+  }, [preferences, preferencesLoaded, projects]);
   const fetchTasks = async () => {
     let query = supabase.from('tasks').select('*').order('created_at', {
       ascending: false
@@ -241,7 +287,7 @@ const Index = () => {
     {
       icon: <Settings className="w-6 h-6" />,
       label: 'Settings',
-      onClick: () => console.log('Settings clicked')
+      onClick: () => setSettingsOpen(true)
     }
   ];
 
@@ -305,7 +351,7 @@ const Index = () => {
           </div>
 
           {/* Main Content */}
-          {viewMode === 'list' ? <Tabs defaultValue="all" className="w-full">
+          {viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">All </span>({filteredTasks.filter(t => t.status !== 'completed').length})
@@ -349,7 +395,7 @@ const Index = () => {
               <TabsContent value="completed" className="flex flex-col gap-2 mt-6">
                 {filteredTasks.filter(t => t.status === 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
-            </Tabs> : viewMode === 'grid' ? <Tabs defaultValue="all" className="w-full">
+            </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">All </span>({filteredTasks.filter(t => t.status !== 'completed').length})
@@ -439,6 +485,15 @@ const Index = () => {
           setProjectRefreshTrigger(prev => prev + 1);
         }}
         userId={user?.id || ''}
+      />
+
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        projects={projects}
+        preferences={preferences}
+        loading={prefsLoading}
+        onSave={updatePreferences}
       />
     </SidebarProvider>;
 };
