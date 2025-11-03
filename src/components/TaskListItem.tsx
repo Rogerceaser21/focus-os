@@ -90,10 +90,10 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   return (
     <>
       <div 
-        className={`group w-full border border-white/10 bg-card/50 rounded-lg p-2 hover:border-primary/50 transition-all duration-300 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
+        className={`group w-full border border-white/10 bg-card/50 rounded-lg p-1.5 hover:border-primary/50 transition-all duration-300 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
       >
         {/* Mobile/Tablet Layout */}
-        <div className="flex flex-col gap-2 lg:hidden">
+        <div className="flex flex-col gap-1 lg:hidden">
           {/* Line 1: Checkbox + Title + Play/Pause */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Checkbox
@@ -108,12 +108,12 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                className="font-semibold text-base h-auto py-1 px-2 flex-1"
+                className="font-semibold text-base h-auto py-0.5 px-1.5 flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <h3 
-                className={`font-semibold text-base text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-base text-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditingTitle(true);
@@ -148,7 +148,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
             />
           ) : (
             <p 
-              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors truncate"
+              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditingDescription(true);
@@ -217,7 +217,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
         </div>
 
         {/* Desktop Layout */}
-        <div className="hidden lg:flex lg:flex-col gap-2">
+        <div className="hidden lg:flex lg:flex-col gap-1">
           {/* Line 1: Checkbox + Title + Play/Pause */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Checkbox
@@ -232,12 +232,12 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                className="font-semibold h-auto py-1 px-2 flex-1"
+                className="font-semibold h-auto py-0.5 px-1.5 flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <h3 
-                className={`font-semibold text-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={() => setIsEditingTitle(true)}
               >
                 {task.title}
@@ -269,7 +269,7 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
             />
           ) : (
             <p 
-              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-2 py-1 transition-colors truncate"
+              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate"
               onClick={() => setIsEditingDescription(true)}
             >
               {task.description || 'Click to add description...'}
