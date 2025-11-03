@@ -191,12 +191,12 @@ const Index = () => {
   }
   const dockItems = [
     {
-      icon: (
-        <div className="flex items-center gap-1">
-          <FolderKanban className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
-        </div>
-      ),
+        icon: (
+          <div className="relative">
+            <FolderKanban className="w-6 h-6" />
+            <Sparkles className="w-2 h-2 text-blue-500 absolute -top-1 -right-1" />
+          </div>
+        ),
       label: 'Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
@@ -204,12 +204,12 @@ const Index = () => {
       }
     },
     {
-      icon: (
-        <div className="flex items-center gap-1">
-          <ListChecks className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
-        </div>
-      ),
+        icon: (
+          <div className="relative">
+            <ListChecks className="w-6 h-6" />
+            <Sparkles className="w-2 h-2 text-blue-500 absolute -top-1 -right-1" />
+          </div>
+        ),
       label: 'Tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
@@ -226,12 +226,12 @@ const Index = () => {
       }
     },
     {
-      icon: (
-        <div className="flex items-center gap-1">
-          <Calendar className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
-        </div>
-      ),
+        icon: (
+          <div className="relative">
+            <Calendar className="w-6 h-6" />
+            <Sparkles className="w-2 h-2 text-blue-500 absolute -top-1 -right-1" />
+          </div>
+        ),
       label: 'Today',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
