@@ -67,6 +67,24 @@ const Index = () => {
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
     animationDuration: 0.6
   });
+
+  // Handle clicking outside task cards to collapse them
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Check if click is outside all task cards
+      const isOutsideTaskCard = !target.closest('[data-task-card]');
+      
+      if (isOutsideTaskCard && expandedTaskIds.size > 0) {
+        setExpandedTaskIds(new Set());
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [expandedTaskIds]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');

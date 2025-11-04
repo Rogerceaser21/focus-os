@@ -115,10 +115,6 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
     } else {
       setEditedTitle(task.title);
     }
-    // Collapse card if in compact mode and was expanded for editing
-    if (globalViewMode === 'compact' && isIndividuallyExpanded) {
-      onTaskClick();
-    }
   };
 
   const handleDescriptionBlur = () => {
@@ -126,15 +122,12 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
     if (editedDescription !== task.description) {
       onUpdate({ ...task, description: editedDescription.trim() || undefined });
     }
-    // Collapse card if in compact mode and was expanded for editing
-    if (globalViewMode === 'compact' && isIndividuallyExpanded) {
-      onTaskClick();
-    }
   };
 
   return (
     <>
       <div 
+        data-task-card
         className={`group w-full border border-white/10 bg-card/50 rounded-lg p-1.5 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
         onClick={onTaskClick}
       >
