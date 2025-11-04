@@ -144,7 +144,7 @@ export const ProjectSidebar = ({
                   handleSelectProject(project.id);
                   if (isActuallyMobile) setOpenMobile(false);
                 }}
-                showGradients={true}
+                showGradients={false}
                 enableArrowNavigation={false}
                 displayScrollbar={false}
                 className="w-full"
@@ -228,7 +228,7 @@ export const ProjectSidebar = ({
               <AnimatedList
                 items={projects}
                 onItemSelect={(project) => handleSelectProject(project.id)}
-                showGradients={true}
+                showGradients={false}
                 enableArrowNavigation={false}
                 displayScrollbar={false}
                 className="w-full"
