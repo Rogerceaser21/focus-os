@@ -131,8 +131,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
         {/* Mobile/Tablet Layout */}
         <div className="flex flex-col gap-1 lg:hidden">
           {/* Line 1: Checkbox + Title + Play/Pause */}
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2">
             <Checkbox
+              onClick={(e) => e.stopPropagation()}
               checked={task.status === 'completed'}
               onCheckedChange={handleCheckboxChange}
               className="shrink-0"
@@ -150,8 +151,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3 
-                className={`font-semibold text-base text-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
-                onClick={(e) => {
+                className={`font-semibold text-base text-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                onDoubleClick={(e) => {
                   e.stopPropagation();
                   setIsEditingTitle(true);
                 }}
@@ -174,7 +175,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           </div>
           
           {/* Line 2: Description */}
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2">
             {isEditingDescription ? (
               <Textarea
                 ref={descriptionRef}
@@ -187,13 +188,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
-                className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate flex-1"
-                onClick={(e) => {
+                className="text-sm text-muted-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors truncate flex-1"
+                onDoubleClick={(e) => {
                   e.stopPropagation();
                   setIsEditingDescription(true);
                 }}
               >
-                {task.description || 'Click to add description...'}
+                {task.description || 'Double-click to add description...'}
               </p>
             )}
           </div>
@@ -261,8 +262,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
         {/* Desktop Layout */}
         <div className="hidden lg:flex lg:flex-col gap-1">
           {/* Line 1: Checkbox + Title + Play/Pause */}
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2">
             <Checkbox
+              onClick={(e) => e.stopPropagation()}
               checked={task.status === 'completed'}
               onCheckedChange={handleCheckboxChange}
               className="shrink-0"
@@ -280,8 +282,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3 
-                className={`font-semibold text-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
-                onClick={() => setIsEditingTitle(true)}
+                className={`font-semibold text-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingTitle(true);
+                }}
               >
                 {task.title}
               </h3>
@@ -301,7 +306,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           </div>
 
           {/* Line 2: Description */}
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2">
             {isEditingDescription ? (
               <Textarea
                 ref={descriptionRef}
@@ -314,10 +319,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
-                className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate flex-1"
-                onClick={() => setIsEditingDescription(true)}
+                className="text-sm text-muted-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors truncate flex-1"
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingDescription(true);
+                }}
               >
-                {task.description || 'Click to add description...'}
+                {task.description || 'Double-click to add description...'}
               </p>
             )}
           </div>
