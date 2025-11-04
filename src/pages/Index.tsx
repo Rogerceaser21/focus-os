@@ -125,7 +125,7 @@ const Index = () => {
       query = query.is('project_id', null);
     } else if (selectedSpecialList === 'today') {
       const today = new Date();
-      query = query.gte('due_date', startOfDay(today).toISOString()).lte('due_date', endOfDay(today).toISOString());
+      query = query.lte('due_date', endOfDay(today).toISOString());
     }
     const {
       data,
