@@ -326,11 +326,13 @@ const Index = () => {
     } else if (selectedSpecialList === 'unassigned') {
       return !task.projectId;
     } else if (selectedSpecialList === 'today') {
-      // Tasks with due date = today
+      // Tasks with due date = today or earlier (overdue)
       if (!task.dueDate) return false;
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Normalize to start of day
       const taskDueDate = new Date(task.dueDate);
-      return taskDueDate.toDateString() === today.toDateString();
+      taskDueDate.setHours(0, 0, 0, 0); // Normalize to start of day
+      return taskDueDate <= today; // Show tasks due today or earlier
     }
     
     // If nothing is selected, show all tasks
