@@ -61,7 +61,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
   // Auto-expand description textarea and detect overflow
   useEffect(() => {
-    if (isEditingDescription && descriptionRef.current) {
+    if (isEditingDescription && descriptionRef.current && editedDescription.trim().length > 0) {
       descriptionRef.current.style.height = 'auto';
       descriptionRef.current.style.height = descriptionRef.current.scrollHeight + 'px';
       
@@ -157,9 +157,6 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 className={`font-semibold text-base text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
-                  }
                   setIsEditingTitle(true);
                 }}
               >
@@ -197,9 +194,6 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors truncate flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
-                  }
                   setIsEditingDescription(true);
                 }}
               >
@@ -296,9 +290,6 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 className={`font-semibold text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
-                  }
                   setIsEditingTitle(true);
                 }}
               >
@@ -336,9 +327,6 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors truncate flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
-                  }
                   setIsEditingDescription(true);
                 }}
               >
