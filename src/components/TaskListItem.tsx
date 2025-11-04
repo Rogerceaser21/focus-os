@@ -14,7 +14,9 @@ import { format } from 'date-fns';
 interface TaskListItemProps {
   task: Task;
   onUpdate: (task: Task) => void;
-  defaultCardView?: 'full' | 'compact';
+  globalViewMode: 'full' | 'compact';
+  isIndividuallyExpanded: boolean;
+  onTaskClick: () => void;
 }
 
 const priorityColors = {
@@ -30,7 +32,7 @@ const statusColors = {
   'completed': 'bg-green-500/20 text-green-300 border-green-500/30',
 };
 
-export const TaskListItem = ({ task, onUpdate, defaultCardView = 'full' }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick }: TaskListItemProps) => {
   const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -38,14 +40,9 @@ export const TaskListItem = ({ task, onUpdate, defaultCardView = 'full' }: TaskL
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [isFading, setIsFading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(defaultCardView === 'full');
+  const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-
-  // Initialize expanded state from preferences
-  useEffect(() => {
-    setIsExpanded(defaultCardView === 'full');
-  }, [defaultCardView]);
 
   // Auto-expand title input and detect overflow
   useEffect(() => {
@@ -128,7 +125,8 @@ export const TaskListItem = ({ task, onUpdate, defaultCardView = 'full' }: TaskL
   return (
     <>
       <div 
-        className={`group w-full border border-white/10 bg-card/50 rounded-lg p-1.5 hover:border-primary/50 transition-all duration-300 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
+        className={`group w-full border border-white/10 bg-card/50 rounded-lg p-1.5 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
+        onClick={onTaskClick}
       >
         {/* Mobile/Tablet Layout */}
         <div className="flex flex-col gap-1 lg:hidden">
@@ -175,8 +173,8 @@ export const TaskListItem = ({ task, onUpdate, defaultCardView = 'full' }: TaskL
             </Button>
           </div>
           
-          {/* Line 2: Description + View Toggle */}
-          <div className="flex items-center gap-2">
+          {/* Line 2: Description */}
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {isEditingDescription ? (
               <Textarea
                 ref={descriptionRef}
@@ -198,16 +196,6 @@ export const TaskListItem = ({ task, onUpdate, defaultCardView = 'full' }: TaskL
                 {task.description || 'Click to add description...'}
               </p>
             )}
-            
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded border border-border hover:border-primary/50 shrink-0"
-            >
-              {isExpanded ? 'view -' : 'view +'}
-            </button>
           </div>
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
@@ -312,8 +300,8 @@ export const TaskListItem = ({ task, onUpdate, defaultCardView = 'full' }: TaskL
             </Button>
           </div>
 
-          {/* Line 2: Description + View Toggle */}
-          <div className="flex items-center gap-2">
+          {/* Line 2: Description */}
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {isEditingDescription ? (
               <Textarea
                 ref={descriptionRef}
@@ -332,16 +320,6 @@ export const TaskListItem = ({ task, onUpdate, defaultCardView = 'full' }: TaskL
                 {task.description || 'Click to add description...'}
               </p>
             )}
-            
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded border border-border hover:border-primary/50 shrink-0"
-            >
-              {isExpanded ? 'view -' : 'view +'}
-            </button>
           </div>
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}

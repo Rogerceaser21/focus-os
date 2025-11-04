@@ -12,7 +12,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +54,8 @@ const Index = () => {
   const [taskOnlyDialogOpen, setTaskOnlyDialogOpen] = useState(false);
   const [todayDialogOpen, setTodayDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [globalCardView, setGlobalCardView] = useState<'full' | 'compact'>('full');
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
@@ -111,6 +113,11 @@ const Index = () => {
       
       // Apply task filter
       setActiveTab(preferences.default_task_filter);
+      
+      // Apply task card view
+      if (preferences.default_task_card_view) {
+        setGlobalCardView(preferences.default_task_card_view);
+      }
       
       setPreferencesLoaded(true);
     }
@@ -226,6 +233,18 @@ const Index = () => {
       return;
     }
   };
+  const handleTaskClick = (taskId: string) => {
+    setExpandedTaskIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
@@ -469,6 +488,24 @@ const Index = () => {
                 <Clock className="h-4 w-4" />
                 <span className="hidden sm:inline">Time</span>
               </Button>
+              {viewMode === 'list' && (
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setGlobalCardView(prev => prev === 'full' ? 'compact' : 'full');
+                    setExpandedTaskIds(new Set());
+                  }}
+                  className="gap-2 border-2 flex-1 sm:flex-initial min-h-[44px] sm:min-h-0"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {globalCardView === 'full' ? 'view -' : 'view +'}
+                  </span>
+                  <span className="sm:hidden">
+                    {globalCardView === 'full' ? '-' : '+'}
+                  </span>
+                </Button>
+              )}
               <AddTaskDialog onAddTask={handleAddTask} selectedProjectId={selectedProjectId} />
             </div>
           </div>
@@ -553,19 +590,55 @@ const Index = () => {
                 </div>}
 
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} defaultCardView={preferences?.default_task_card_view || 'full'} />)}
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => (
+                  <TaskListItem 
+                    key={task.id} 
+                    task={task} 
+                    onUpdate={handleUpdateTask} 
+                    globalViewMode={globalCardView}
+                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
+                    onTaskClick={() => handleTaskClick(task.id)}
+                  />
+                ))}
               </TabsContent>
 
               <TabsContent value="todo" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} defaultCardView={preferences?.default_task_card_view || 'full'} />)}
+                {sortedTasks.filter(t => t.status === 'todo').map(task => (
+                  <TaskListItem 
+                    key={task.id} 
+                    task={task} 
+                    onUpdate={handleUpdateTask} 
+                    globalViewMode={globalCardView}
+                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
+                    onTaskClick={() => handleTaskClick(task.id)}
+                  />
+                ))}
               </TabsContent>
 
               <TabsContent value="in-progress" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} defaultCardView={preferences?.default_task_card_view || 'full'} />)}
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => (
+                  <TaskListItem 
+                    key={task.id} 
+                    task={task} 
+                    onUpdate={handleUpdateTask} 
+                    globalViewMode={globalCardView}
+                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
+                    onTaskClick={() => handleTaskClick(task.id)}
+                  />
+                ))}
               </TabsContent>
 
               <TabsContent value="completed" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} defaultCardView={preferences?.default_task_card_view || 'full'} />)}
+                {sortedTasks.filter(t => t.status === 'completed').map(task => (
+                  <TaskListItem 
+                    key={task.id} 
+                    task={task} 
+                    onUpdate={handleUpdateTask} 
+                    globalViewMode={globalCardView}
+                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
+                    onTaskClick={() => handleTaskClick(task.id)}
+                  />
+                ))}
               </TabsContent>
             </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">
