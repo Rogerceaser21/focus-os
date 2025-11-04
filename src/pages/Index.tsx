@@ -553,19 +553,19 @@ const Index = () => {
                 </div>}
 
               <TabsContent value="all" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} defaultCardView={preferences?.default_task_card_view || 'full'} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} defaultCardView={preferences?.default_task_card_view || 'full'} />)}
               </TabsContent>
 
               <TabsContent value="in-progress" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} defaultCardView={preferences?.default_task_card_view || 'full'} />)}
               </TabsContent>
 
               <TabsContent value="completed" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} />)}
+                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskListItem key={task.id} task={task} onUpdate={handleUpdateTask} defaultCardView={preferences?.default_task_card_view || 'full'} />)}
               </TabsContent>
             </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">

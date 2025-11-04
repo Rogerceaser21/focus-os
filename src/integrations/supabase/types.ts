@@ -110,6 +110,7 @@ export type Database = {
         Row: {
           created_at: string | null
           default_display_mode: string
+          default_task_card_view: string | null
           default_task_filter: string
           default_view: string
           id: string
@@ -119,6 +120,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           default_display_mode?: string
+          default_task_card_view?: string | null
           default_task_filter?: string
           default_view?: string
           id?: string
@@ -128,6 +130,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           default_display_mode?: string
+          default_task_card_view?: string | null
           default_task_filter?: string
           default_view?: string
           id?: string

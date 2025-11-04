@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 interface TaskListItemProps {
   task: Task;
   onUpdate: (task: Task) => void;
+  defaultCardView?: 'full' | 'compact';
 }
 
 const priorityColors = {
@@ -29,7 +30,7 @@ const statusColors = {
   'completed': 'bg-green-500/20 text-green-300 border-green-500/30',
 };
 
-export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, defaultCardView = 'full' }: TaskListItemProps) => {
   const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -37,8 +38,14 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [isFading, setIsFading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(defaultCardView === 'full');
   const titleRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+
+  // Initialize expanded state from preferences
+  useEffect(() => {
+    setIsExpanded(defaultCardView === 'full');
+  }, [defaultCardView]);
 
   // Auto-expand title input and detect overflow
   useEffect(() => {
@@ -168,85 +175,99 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
             </Button>
           </div>
           
-          {/* Line 2: Description */}
-          {isEditingDescription ? (
-            <Textarea
-              ref={descriptionRef}
-              value={editedDescription}
-              onChange={(e) => setEditedDescription(e.target.value)}
-              onBlur={handleDescriptionBlur}
-              autoFocus
-              className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <p 
-              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate"
+          {/* Line 2: Description + View Toggle */}
+          <div className="flex items-center gap-2">
+            {isEditingDescription ? (
+              <Textarea
+                ref={descriptionRef}
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                onBlur={handleDescriptionBlur}
+                autoFocus
+                className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <p 
+                className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate flex-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingDescription(true);
+                }}
+              >
+                {task.description || 'Click to add description...'}
+              </p>
+            )}
+            
+            <button
               onClick={(e) => {
                 e.stopPropagation();
-                setIsEditingDescription(true);
+                setIsExpanded(!isExpanded);
               }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded border border-border hover:border-primary/50 shrink-0"
             >
-              {task.description || 'Click to add description...'}
-            </p>
-          )}
-
-          {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
-          <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button 
-                  className="inline-flex"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80 text-xs`}>
-                    {task.priority}
-                  </Badge>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
-                {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
-                  <DropdownMenuItem
-                    key={priority}
-                    onClick={() => onUpdate({ ...task, priority })}
-                    className="cursor-pointer"
-                  >
-                    <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
-                      {priority}
-                    </Badge>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
-            <Badge className={`${statusColors[task.status]} text-xs`}>
-              {task.status}
-            </Badge>
-            
-            <button 
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
-              onClick={() => setIsEditOpen(true)}
-            >
-              <Calendar className="w-3 h-3" />
-              <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
-            </button>
-
-            <div className="flex items-center gap-1 text-xs text-muted-foreground border border-border rounded px-2 py-1">
-              <Clock className="w-3 h-3" />
-              <span className="font-mono">{formatTime(timer.totalSeconds)}</span>
-            </div>
-
-            <button
-              onClick={() => setIsEditOpen(true)}
-              className={`p-1 rounded transition-colors ${
-                task.imageUrl 
-                  ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
-                  : 'text-white/50 border border-white/30'
-              }`}
-            >
-              <Image className="w-3 h-3" />
+              {isExpanded ? 'view -' : 'view +'}
             </button>
           </div>
+
+          {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
+          {isExpanded && (
+            <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className="inline-flex"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80 text-xs`}>
+                      {task.priority}
+                    </Badge>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                    <DropdownMenuItem
+                      key={priority}
+                      onClick={() => onUpdate({ ...task, priority })}
+                      className="cursor-pointer"
+                    >
+                      <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
+                        {priority}
+                      </Badge>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <Badge className={`${statusColors[task.status]} text-xs`}>
+                {task.status}
+              </Badge>
+              
+              <button 
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
+                onClick={() => setIsEditOpen(true)}
+              >
+                <Calendar className="w-3 h-3" />
+                <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
+              </button>
+
+              <div className="flex items-center gap-1 text-xs text-muted-foreground border border-border rounded px-2 py-1">
+                <Clock className="w-3 h-3" />
+                <span className="font-mono">{formatTime(timer.totalSeconds)}</span>
+              </div>
+
+              <button
+                onClick={() => setIsEditOpen(true)}
+                className={`p-1 rounded transition-colors ${
+                  task.imageUrl 
+                    ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
+                    : 'text-white/50 border border-white/30'
+                }`}
+              >
+                <Image className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Desktop Layout */}
@@ -291,82 +312,96 @@ export const TaskListItem = ({ task, onUpdate }: TaskListItemProps) => {
             </Button>
           </div>
 
-          {/* Line 2: Description */}
-          {isEditingDescription ? (
-            <Textarea
-              ref={descriptionRef}
-              value={editedDescription}
-              onChange={(e) => setEditedDescription(e.target.value)}
-              onBlur={handleDescriptionBlur}
-              autoFocus
-              className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <p 
-              className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate"
-              onClick={() => setIsEditingDescription(true)}
-            >
-              {task.description || 'Click to add description...'}
-            </p>
-          )}
-
-          {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button 
-                  className="inline-flex"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
-                    {task.priority}
-                  </Badge>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
-                {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
-                  <DropdownMenuItem
-                    key={priority}
-                    onClick={() => onUpdate({ ...task, priority })}
-                    className="cursor-pointer"
-                  >
-                    <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
-                      {priority}
-                    </Badge>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {/* Line 2: Description + View Toggle */}
+          <div className="flex items-center gap-2">
+            {isEditingDescription ? (
+              <Textarea
+                ref={descriptionRef}
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                onBlur={handleDescriptionBlur}
+                autoFocus
+                className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <p 
+                className="text-sm text-muted-foreground cursor-text hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors truncate flex-1"
+                onClick={() => setIsEditingDescription(true)}
+              >
+                {task.description || 'Click to add description...'}
+              </p>
+            )}
             
-            <Badge className={statusColors[task.status]}>
-              {task.status}
-            </Badge>
-            
-            <button 
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
-              onClick={() => setIsEditOpen(true)}
-            >
-              <Calendar className="w-4 h-4" />
-              <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
-            </button>
-
-            <div className="flex items-center gap-1 text-sm text-muted-foreground border border-border rounded px-2 py-1">
-              <Clock className="w-4 h-4" />
-              <span className="font-mono min-w-[60px]">{formatTime(timer.totalSeconds)}</span>
-            </div>
-
             <button
-              onClick={() => setIsEditOpen(true)}
-              className={`p-1.5 rounded transition-colors ${
-                task.imageUrl 
-                  ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
-                  : 'text-white/50 border border-white/30'
-              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded border border-border hover:border-primary/50 shrink-0"
             >
-              <Image className="w-4 h-4" />
+              {isExpanded ? 'view -' : 'view +'}
             </button>
           </div>
+
+          {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
+          {isExpanded && (
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className="inline-flex"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                      {task.priority}
+                    </Badge>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                    <DropdownMenuItem
+                      key={priority}
+                      onClick={() => onUpdate({ ...task, priority })}
+                      className="cursor-pointer"
+                    >
+                      <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
+                        {priority}
+                      </Badge>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <Badge className={statusColors[task.status]}>
+                {task.status}
+              </Badge>
+              
+              <button 
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
+                onClick={() => setIsEditOpen(true)}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
+              </button>
+
+              <div className="flex items-center gap-1 text-sm text-muted-foreground border border-border rounded px-2 py-1">
+                <Clock className="w-4 h-4" />
+                <span className="font-mono min-w-[60px]">{formatTime(timer.totalSeconds)}</span>
+              </div>
+
+              <button
+                onClick={() => setIsEditOpen(true)}
+                className={`p-1.5 rounded transition-colors ${
+                  task.imageUrl 
+                    ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
+                    : 'text-white/50 border border-white/30'
+                }`}
+              >
+                <Image className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

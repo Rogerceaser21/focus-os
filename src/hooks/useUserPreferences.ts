@@ -8,6 +8,7 @@ export interface UserPreferences {
   default_view: string;
   default_display_mode: 'list' | 'grid' | 'gantt' | 'time';
   default_task_filter: 'all' | 'todo' | 'in-progress' | 'completed';
+  default_task_card_view: 'full' | 'compact';
   created_at: string;
   updated_at: string;
 }
@@ -51,7 +52,8 @@ export const useUserPreferences = () => {
           user_id: userId,
           default_view: 'today',
           default_display_mode: 'list',
-          default_task_filter: 'all'
+          default_task_filter: 'all',
+          default_task_card_view: 'full'
         })
         .select()
         .single();

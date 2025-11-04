@@ -47,6 +47,7 @@ export default function SettingsDialog({
   const [defaultView, setDefaultView] = useState<string>('today');
   const [displayMode, setDisplayMode] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
+  const [taskCardView, setTaskCardView] = useState<'full' | 'compact'>('full');
   const [saving, setSaving] = useState(false);
 
   // Initialize form with preferences when they load
@@ -55,6 +56,7 @@ export default function SettingsDialog({
       setDefaultView(preferences.default_view);
       setDisplayMode(preferences.default_display_mode);
       setTaskFilter(preferences.default_task_filter);
+      setTaskCardView(preferences.default_task_card_view || 'full');
     }
   }, [preferences]);
 
@@ -64,6 +66,7 @@ export default function SettingsDialog({
       default_view: defaultView,
       default_display_mode: displayMode,
       default_task_filter: taskFilter,
+      default_task_card_view: taskCardView,
     });
     setSaving(false);
     onOpenChange(false);
@@ -189,6 +192,30 @@ export default function SettingsDialog({
                   <RadioGroupItem value="completed" id="completed" />
                   <Label htmlFor="completed" className="font-normal cursor-pointer">
                     Done
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            {/* Task Card View Selection */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Default Task Card View</Label>
+              <p className="text-sm text-muted-foreground">
+                Choose how much detail to show in task cards by default
+              </p>
+              <RadioGroup value={taskCardView} onValueChange={(value) => setTaskCardView(value as 'full' | 'compact')}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="full" id="full-view" />
+                  <Label htmlFor="full-view" className="font-normal cursor-pointer">
+                    Full View (show all details)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="compact" id="compact-view" />
+                  <Label htmlFor="compact-view" className="font-normal cursor-pointer">
+                    Compact View (hide metadata by default)
                   </Label>
                 </div>
               </RadioGroup>
