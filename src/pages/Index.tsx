@@ -13,6 +13,17 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import LightRays from '@/components/LightRays';
 import HeroSection from '@/components/HeroSection';
@@ -45,6 +56,8 @@ const Index = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [isEditingProjectName, setIsEditingProjectName] = useState(false);
+  const [editedProjectName, setEditedProjectName] = useState('');
   
   const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
@@ -216,6 +229,76 @@ const Index = () => {
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
+  };
+
+  const handleStartEditingProject = () => {
+    const currentProject = projects.find(p => p.id === selectedProjectId);
+    if (currentProject) {
+      setEditedProjectName(currentProject.name);
+      setIsEditingProjectName(true);
+    }
+  };
+
+  const handleSaveProjectName = async () => {
+    if (!selectedProjectId || !editedProjectName.trim()) {
+      setIsEditingProjectName(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ name: editedProjectName.trim() })
+        .eq('id', selectedProjectId);
+
+      if (error) throw error;
+
+      // Update local state
+      setProjects(projects.map(p => 
+        p.id === selectedProjectId ? { ...p, name: editedProjectName.trim() } : p
+      ));
+      
+      setIsEditingProjectName(false);
+      toast.success('Project name updated');
+    } catch (error) {
+      console.error('Error updating project name:', error);
+      toast.error('Failed to update project name');
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!selectedProjectId) return;
+
+    try {
+      // Delete all tasks in the project first
+      const { error: tasksError } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('project_id', selectedProjectId);
+
+      if (tasksError) throw tasksError;
+
+      // Delete the project
+      const { error: projectError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', selectedProjectId);
+
+      if (projectError) throw projectError;
+
+      // Update local state
+      setProjects(projects.filter(p => p.id !== selectedProjectId));
+      setTasks(tasks.filter(t => t.projectId !== selectedProjectId));
+      
+      // Reset selection to "Today" view
+      setSelectedProjectId(null);
+      setSelectedSpecialList('today');
+      
+      toast.success('Project and all its tasks deleted');
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast.error('Failed to delete project');
+    }
   };
 
   const getSelectedProjectName = (): string => {
@@ -403,15 +486,64 @@ const Index = () => {
               </TabsList>
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
-                  <div className="flex items-center gap-2 px-3 py-2">
-                    <span style={{
-                      color: projects.find(p => p.id === selectedProjectId)?.color
-                    }}>📁</span>
-                    <span className="font-semibold text-base" style={{
-                      color: projects.find(p => p.id === selectedProjectId)?.color
-                    }}>
-                      {projects.find(p => p.id === selectedProjectId)?.name}
-                    </span>
+                  <div className="flex items-center justify-between gap-2 px-3 py-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <span style={{
+                        color: projects.find(p => p.id === selectedProjectId)?.color
+                      }}>📁</span>
+                      
+                      {isEditingProjectName ? (
+                        <Input
+                          autoFocus
+                          value={editedProjectName}
+                          onChange={(e) => setEditedProjectName(e.target.value)}
+                          onBlur={handleSaveProjectName}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveProjectName();
+                            if (e.key === 'Escape') setIsEditingProjectName(false);
+                          }}
+                          className="font-semibold text-base h-auto py-1 px-2"
+                          style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
+                        />
+                      ) : (
+                        <span 
+                          className="font-semibold text-base cursor-pointer hover:opacity-70 transition-opacity"
+                          style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
+                          onClick={handleStartEditingProject}
+                        >
+                          {projects.find(p => p.id === selectedProjectId)?.name}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            By selecting Yes, you understand that the project and all the tasks within the Project will be deleted permanently. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={handleDeleteProject}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Yes, Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>}
 
@@ -447,15 +579,64 @@ const Index = () => {
               </TabsList>
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
-                  <div className="flex items-center gap-2 px-3 py-2">
-                    <span style={{
-                      color: projects.find(p => p.id === selectedProjectId)?.color
-                    }}>📁</span>
-                    <span className="font-semibold text-base" style={{
-                      color: projects.find(p => p.id === selectedProjectId)?.color
-                    }}>
-                      {projects.find(p => p.id === selectedProjectId)?.name}
-                    </span>
+                  <div className="flex items-center justify-between gap-2 px-3 py-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <span style={{
+                        color: projects.find(p => p.id === selectedProjectId)?.color
+                      }}>📁</span>
+                      
+                      {isEditingProjectName ? (
+                        <Input
+                          autoFocus
+                          value={editedProjectName}
+                          onChange={(e) => setEditedProjectName(e.target.value)}
+                          onBlur={handleSaveProjectName}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveProjectName();
+                            if (e.key === 'Escape') setIsEditingProjectName(false);
+                          }}
+                          className="font-semibold text-base h-auto py-1 px-2"
+                          style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
+                        />
+                      ) : (
+                        <span 
+                          className="font-semibold text-base cursor-pointer hover:opacity-70 transition-opacity"
+                          style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
+                          onClick={handleStartEditingProject}
+                        >
+                          {projects.find(p => p.id === selectedProjectId)?.name}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            By selecting Yes, you understand that the project and all the tasks within the Project will be deleted permanently. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={handleDeleteProject}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Yes, Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>}
 
