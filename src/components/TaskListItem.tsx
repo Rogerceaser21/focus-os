@@ -158,9 +158,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <h3 
-                className={`font-semibold text-base text-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
-                onDoubleClick={(e) => {
+              <h3
+                className={`font-semibold text-base text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
@@ -199,8 +199,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
-                className="text-sm text-muted-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors truncate flex-1"
-                onDoubleClick={(e) => {
+                className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors truncate flex-1"
+                onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
@@ -208,7 +208,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   setIsEditingDescription(true);
                 }}
               >
-                {task.description || 'Double-click to add description...'}
+                {task.description || 'Click to add description...'}
               </p>
             )}
           </div>
@@ -295,9 +295,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <h3 
-                className={`font-semibold text-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
-                onDoubleClick={(e) => {
+              <h3
+                className={`font-semibold text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
@@ -336,8 +336,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
-                className="text-sm text-muted-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors truncate flex-1"
-                onDoubleClick={(e) => {
+                className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors truncate flex-1"
+                onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
@@ -345,7 +345,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   setIsEditingDescription(true);
                 }}
               >
-                {task.description || 'Double-click to add description...'}
+                {task.description || 'Click to add description...'}
               </p>
             )}
           </div>
