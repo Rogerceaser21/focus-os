@@ -253,13 +253,16 @@ const Index = () => {
 
       if (error) throw error;
 
-      // Update local state
-      setProjects(projects.map(p => 
-        p.id === selectedProjectId ? { ...p, name: editedProjectName.trim() } : p
-      ));
-      
-      setIsEditingProjectName(false);
-      toast.success('Project name updated');
+    // Update local state
+    setProjects(projects.map(p => 
+      p.id === selectedProjectId ? { ...p, name: editedProjectName.trim() } : p
+    ));
+    
+    // Trigger sidebar refresh
+    setProjectRefreshTrigger(prev => prev + 1);
+    
+    setIsEditingProjectName(false);
+    toast.success('Project name updated');
     } catch (error) {
       console.error('Error updating project name:', error);
       toast.error('Failed to update project name');
