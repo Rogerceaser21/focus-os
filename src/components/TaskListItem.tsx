@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Play, Pause, Calendar, Clock, Image } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { EditTaskDialog } from './EditTaskDialog';
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
@@ -34,6 +35,7 @@ const statusColors = {
 
 export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick }: TaskListItemProps) => {
   const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
+  const isMobile = useIsMobile();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -242,11 +244,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 </DropdownMenuContent>
               </DropdownMenu>
               
-              <Badge className={`${statusColors[task.status]} text-xs`}>
-                {task.status}
-              </Badge>
+              {!isMobile && (
+                <Badge className={`${statusColors[task.status]} text-xs`}>
+                  {task.status}
+                </Badge>
+              )}
               
-              <button 
+              <button
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
                 onClick={() => setIsEditOpen(true)}
               >
@@ -256,7 +260,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
               <div className="flex items-center gap-1 text-xs text-muted-foreground border border-border rounded px-2 py-1">
                 <Clock className="w-3 h-3" />
-                <span className="font-mono">{formatTime(timer.totalSeconds)}</span>
+                <span className="font-mono">{formatTime(timer.totalSeconds, !isMobile)}</span>
               </div>
 
               <button
@@ -393,7 +397,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
               <div className="flex items-center gap-1 text-sm text-muted-foreground border border-border rounded px-2 py-1">
                 <Clock className="w-4 h-4" />
-                <span className="font-mono min-w-[60px]">{formatTime(timer.totalSeconds)}</span>
+                <span className="font-mono min-w-[80px]">{formatTime(timer.totalSeconds, true)}</span>
               </div>
 
               <button

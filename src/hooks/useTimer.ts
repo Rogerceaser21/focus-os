@@ -41,18 +41,20 @@ export const useTimer = (initialTimer: TaskTimer) => {
     });
   }, []);
 
-  const formatTime = useCallback((seconds: number) => {
+  const formatTime = useCallback((seconds: number, showSeconds: boolean = true) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m ${secs}s`;
+    const formattedHrs = String(hrs).padStart(2, '0');
+    const formattedMins = String(mins).padStart(2, '0');
+    const formattedSecs = String(secs).padStart(2, '0');
+    
+    if (showSeconds) {
+      return `${formattedHrs}h ${formattedMins}m ${formattedSecs}s`;
+    } else {
+      return `${formattedHrs}h ${formattedMins}m`;
     }
-    if (mins > 0) {
-      return `${mins}m ${secs}s`;
-    }
-    return `${secs}s`;
   }, []);
 
   return {
