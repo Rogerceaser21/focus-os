@@ -113,12 +113,20 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
     } else {
       setEditedTitle(task.title);
     }
+    // Collapse card if in compact mode and was expanded for editing
+    if (globalViewMode === 'compact' && isIndividuallyExpanded) {
+      onTaskClick();
+    }
   };
 
   const handleDescriptionBlur = () => {
     setIsEditingDescription(false);
     if (editedDescription !== task.description) {
       onUpdate({ ...task, description: editedDescription.trim() || undefined });
+    }
+    // Collapse card if in compact mode and was expanded for editing
+    if (globalViewMode === 'compact' && isIndividuallyExpanded) {
+      onTaskClick();
     }
   };
 
@@ -154,6 +162,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 className={`font-semibold text-base text-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
                   setIsEditingTitle(true);
                 }}
               >
@@ -191,6 +202,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 className="text-sm text-muted-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors truncate flex-1"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
                   setIsEditingDescription(true);
                 }}
               >
@@ -285,6 +299,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 className={`font-semibold text-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
                   setIsEditingTitle(true);
                 }}
               >
@@ -322,6 +339,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 className="text-sm text-muted-foreground cursor-pointer rounded px-1.5 py-0.5 transition-colors truncate flex-1"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
                   setIsEditingDescription(true);
                 }}
               >
