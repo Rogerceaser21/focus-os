@@ -11,6 +11,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { EditTaskDialog } from './EditTaskDialog';
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
+import { LinkifiedText } from '@/components/LinkifiedText';
 
 interface TaskListItemProps {
   task: Task;
@@ -204,7 +205,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   setIsEditingDescription(true);
                 }}
               >
-                {task.description || 'Click to add description...'}
+                {task.description ? (
+                  <LinkifiedText text={task.description} />
+                ) : (
+                  'Click to add description...'
+                )}
               </p>
             )}
           </div>
@@ -344,7 +349,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   setIsEditingDescription(true);
                 }}
               >
-                {task.description || 'Click to add description...'}
+                {task.description ? (
+                  <LinkifiedText text={task.description} />
+                ) : (
+                  'Click to add description...'
+                )}
               </p>
             )}
           </div>

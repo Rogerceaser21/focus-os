@@ -11,6 +11,7 @@ import { Play, Pause, Clock, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { format } from 'date-fns';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { LinkifiedText } from '@/components/LinkifiedText';
 
 interface TaskCardProps {
   task: Task;
@@ -169,7 +170,11 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
               className="text-sm text-muted-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-0.5 -mx-2 transition-colors"
               onClick={() => setIsEditingDescription(true)}
             >
-              {task.description || 'Click to add description...'}
+              {task.description ? (
+                <LinkifiedText text={task.description} />
+              ) : (
+                'Click to add description...'
+              )}
             </p>
           )}
 
