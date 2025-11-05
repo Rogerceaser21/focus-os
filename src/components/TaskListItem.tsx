@@ -44,7 +44,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [isFading, setIsFading] = useState(false);
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
-  const titleRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const titleDisplayRef = useRef<HTMLHeadingElement>(null);
   const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
@@ -153,14 +153,15 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               className="shrink-0"
             />
             {isEditingTitle ? (
-              <Input
-                ref={titleRef}
+              <Textarea
+                ref={titleRef as any}
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                className="font-semibold text-base h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent"
+                rows={2}
+                className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
@@ -306,14 +307,15 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               className="shrink-0"
             />
             {isEditingTitle ? (
-              <Input
-                ref={titleRef}
+              <Textarea
+                ref={titleRef as any}
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                className="font-semibold h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent"
+                rows={2}
+                className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
