@@ -130,7 +130,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="text-sm resize-none overflow-y-auto !min-h-0"
-              style={{ minHeight: maxHeight, maxHeight }}
+              style={{ height: maxHeight, maxHeight }}
             />
           </div>
 
