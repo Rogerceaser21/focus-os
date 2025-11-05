@@ -12,7 +12,8 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -490,22 +491,59 @@ const Index = () => {
               <Input placeholder="Search tasks..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 bg-card/80 backdrop-blur-sm border-2 h-11 sm:h-10" />
             </div>
             <div className="flex gap-2">
-              <Button variant={viewMode === 'list' ? 'default' : 'outline'} onClick={() => setViewMode('list')} className="gap-2 border-2 flex-1 sm:flex-initial min-h-[44px] sm:min-h-0">
-                <LayoutList className="h-4 w-4" />
-                <span className="hidden sm:inline">List</span>
-              </Button>
-              <Button variant={viewMode === 'grid' ? 'default' : 'outline'} onClick={() => setViewMode('grid')} className="gap-2 border-2 flex-1 sm:flex-initial min-h-[44px] sm:min-h-0">
-                <LayoutGrid className="h-4 w-4" />
-                <span className="hidden sm:inline">Grid</span>
-              </Button>
-              <Button variant={viewMode === 'gantt' ? 'default' : 'outline'} onClick={() => setViewMode('gantt')} className="gap-2 border-2 flex-1 sm:flex-initial min-h-[44px] sm:min-h-0">
-                <GanttChartSquare className="h-4 w-4" />
-                <span className="hidden sm:inline">Gantt</span>
-              </Button>
-              <Button variant={viewMode === 'time-tracking' ? 'default' : 'outline'} onClick={() => setViewMode('time-tracking')} className="gap-2 border-2 flex-1 sm:flex-initial min-h-[44px] sm:min-h-0">
-                <Clock className="h-4 w-4" />
-                <span className="hidden sm:inline">Time</span>
-              </Button>
+              {/* Mobile/Tablet: Display Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2 border-2 min-h-[44px] flex md:hidden">
+                    <Eye className="h-4 w-4" />
+                    <span>Display</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => setViewMode('list')}>
+                    <LayoutList className="h-4 w-4 mr-2" />
+                    List
+                    {viewMode === 'list' && <Check className="h-4 w-4 ml-auto" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setViewMode('grid')}>
+                    <LayoutGrid className="h-4 w-4 mr-2" />
+                    Grid
+                    {viewMode === 'grid' && <Check className="h-4 w-4 ml-auto" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setViewMode('gantt')}>
+                    <GanttChartSquare className="h-4 w-4 mr-2" />
+                    Gantt
+                    {viewMode === 'gantt' && <Check className="h-4 w-4 ml-auto" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setViewMode('time-tracking')}>
+                    <Clock className="h-4 w-4 mr-2" />
+                    Time Tracking
+                    {viewMode === 'time-tracking' && <Check className="h-4 w-4 ml-auto" />}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Desktop: Individual Buttons */}
+              <div className="hidden md:flex gap-2">
+                <Button variant={viewMode === 'list' ? 'default' : 'outline'} onClick={() => setViewMode('list')} className="gap-2 border-2">
+                  <LayoutList className="h-4 w-4" />
+                  <span>List</span>
+                </Button>
+                <Button variant={viewMode === 'grid' ? 'default' : 'outline'} onClick={() => setViewMode('grid')} className="gap-2 border-2">
+                  <LayoutGrid className="h-4 w-4" />
+                  <span>Grid</span>
+                </Button>
+                <Button variant={viewMode === 'gantt' ? 'default' : 'outline'} onClick={() => setViewMode('gantt')} className="gap-2 border-2">
+                  <GanttChartSquare className="h-4 w-4" />
+                  <span>Gantt</span>
+                </Button>
+                <Button variant={viewMode === 'time-tracking' ? 'default' : 'outline'} onClick={() => setViewMode('time-tracking')} className="gap-2 border-2">
+                  <Clock className="h-4 w-4" />
+                  <span>Time</span>
+                </Button>
+              </div>
+
               {viewMode === 'list' && (
                 <Button 
                   variant="outline"
