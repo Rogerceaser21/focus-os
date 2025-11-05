@@ -52,6 +52,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
         
         // Reset height to auto to get the correct scrollHeight
         descriptionRef.current.style.height = 'auto';
+        descriptionRef.current.style.minHeight = '60px'; // Set minHeight via JS
         
         const scrollHeight = descriptionRef.current.scrollHeight;
         const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight) || 20;
@@ -147,7 +148,6 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="text-sm overflow-y-auto resize-none !min-h-0"
-              style={{ minHeight: '60px' }}
             />
           </div>
 
