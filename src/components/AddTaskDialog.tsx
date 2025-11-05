@@ -88,10 +88,11 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 border-2 shadow-lg shadow-primary/20">
-          <Plus className="h-4 w-4" />
-          Add Task
-        </Button>
+          <Button className="gap-2 border-2 shadow-lg shadow-primary/20">
+            <Plus className="h-4 w-4" />
+            <span className="hidden md:inline">Add Task</span>
+            <span className="md:hidden">Add</span>
+          </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:rounded-lg w-full sm:max-w-2xl mx-0 sm:mx-auto p-4 sm:p-6">
         <DialogHeader>

@@ -486,7 +486,7 @@ const Index = () => {
 
           {/* Actions Bar */}
           <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6">
-            <div className="relative flex-1">
+            <div className="relative flex-[2] md:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search tasks..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 bg-card/80 backdrop-blur-sm border-2 h-11 sm:h-10" />
             </div>
@@ -494,11 +494,10 @@ const Index = () => {
               {/* Mobile/Tablet: Display Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2 border-2 min-h-[44px] flex md:hidden">
-                    <Eye className="h-4 w-4" />
-                    <span>Display</span>
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
+              <Button variant="outline" className="gap-1 border-2 h-10 px-3 flex md:hidden">
+                <span className="text-sm">Display</span>
+                <ChevronDown className="h-3 w-3" />
+              </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   <DropdownMenuItem onClick={() => setViewMode('list')}>
