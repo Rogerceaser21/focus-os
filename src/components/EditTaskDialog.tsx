@@ -46,23 +46,28 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
 
   useEffect(() => {
     if (descriptionRef.current && open) {
-      // Reset height to auto to get the correct scrollHeight
-      descriptionRef.current.style.height = 'auto';
-      
-      const scrollHeight = descriptionRef.current.scrollHeight;
-      const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight) || 20;
-      
-      // Calculate max heights based on viewport
-      const isMobile = window.innerWidth < 640; // sm breakpoint
-      const maxLines = isMobile ? 8 : 15;
-      const maxHeight = lineHeight * maxLines;
-      
-      // Apply the height, capped at max
-      if (scrollHeight <= maxHeight) {
-        descriptionRef.current.style.height = scrollHeight + 'px';
-      } else {
-        descriptionRef.current.style.height = maxHeight + 'px';
-      }
+      // Small delay to ensure DOM is fully rendered after dialog opens
+      setTimeout(() => {
+        if (!descriptionRef.current) return;
+        
+        // Reset height to auto to get the correct scrollHeight
+        descriptionRef.current.style.height = 'auto';
+        
+        const scrollHeight = descriptionRef.current.scrollHeight;
+        const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight) || 20;
+        
+        // Calculate max heights based on viewport
+        const isMobile = window.innerWidth < 640; // sm breakpoint
+        const maxLines = isMobile ? 8 : 15;
+        const maxHeight = lineHeight * maxLines;
+        
+        // Apply the height, capped at max
+        if (scrollHeight <= maxHeight) {
+          descriptionRef.current.style.height = scrollHeight + 'px';
+        } else {
+          descriptionRef.current.style.height = maxHeight + 'px';
+        }
+      }, 50); // 50ms delay to ensure rendering is complete
     }
   }, [description, open]);
 
@@ -141,7 +146,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               placeholder="Task description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="text-sm overflow-y-auto resize-none"
+              className="text-sm overflow-y-auto resize-none !min-h-0"
               style={{ minHeight: '60px' }}
             />
           </div>
