@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Task, TaskPriority, TaskStatus } from '@/types/task';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   const [endDate, setEndDate] = useState<Date | undefined>(task.endDate);
   const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate);
   const [imageUrl, setImageUrl] = useState(task.imageUrl || '');
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -42,6 +43,28 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
       setImageUrl(task.imageUrl || '');
     }
   }, [task, open]);
+
+  useEffect(() => {
+    if (descriptionRef.current && open) {
+      // Reset height to auto to get the correct scrollHeight
+      descriptionRef.current.style.height = 'auto';
+      
+      const scrollHeight = descriptionRef.current.scrollHeight;
+      const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight) || 20;
+      
+      // Calculate max heights based on viewport
+      const isMobile = window.innerWidth < 640; // sm breakpoint
+      const maxLines = isMobile ? 8 : 15;
+      const maxHeight = lineHeight * maxLines;
+      
+      // Apply the height, capped at max
+      if (scrollHeight <= maxHeight) {
+        descriptionRef.current.style.height = scrollHeight + 'px';
+      } else {
+        descriptionRef.current.style.height = maxHeight + 'px';
+      }
+    }
+  }, [description, open]);
 
   const handleImagePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
@@ -113,12 +136,13 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
+              ref={descriptionRef}
               id="description"
               placeholder="Task description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={3}
               className="text-sm max-h-[120px] sm:max-h-[240px] overflow-y-auto resize-none"
+              style={{ minHeight: '60px' }}
             />
           </div>
 
