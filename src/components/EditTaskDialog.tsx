@@ -129,9 +129,8 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               placeholder="Task description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="text-sm resize-none overflow-y-auto"
-              style={{ maxHeight }}
+              className="text-sm resize-none overflow-y-auto !min-h-0"
+              style={{ minHeight: maxHeight, maxHeight }}
             />
           </div>
 
