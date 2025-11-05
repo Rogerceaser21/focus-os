@@ -29,6 +29,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   const [endDate, setEndDate] = useState<Date | undefined>(task.endDate);
   const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate);
   const [imageUrl, setImageUrl] = useState(task.imageUrl || '');
+  const [maxHeight, setMaxHeight] = useState('300px');
 
   useEffect(() => {
     if (open) {
@@ -42,6 +43,17 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
       setImageUrl(task.imageUrl || '');
     }
   }, [task, open]);
+
+  useEffect(() => {
+    const updateMaxHeight = () => {
+      const isMobile = window.innerWidth < 640;
+      setMaxHeight(isMobile ? '160px' : '300px');
+    };
+    
+    updateMaxHeight();
+    window.addEventListener('resize', updateMaxHeight);
+    return () => window.removeEventListener('resize', updateMaxHeight);
+  }, []);
 
   const handleImagePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
@@ -117,7 +129,9 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               placeholder="Task description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={3}
+              rows={2}
+              className="text-sm resize-none overflow-y-auto"
+              style={{ maxHeight }}
             />
           </div>
 
