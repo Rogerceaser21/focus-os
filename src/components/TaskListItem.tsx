@@ -155,7 +155,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                className={`font-semibold text-base text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
