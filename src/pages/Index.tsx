@@ -484,12 +484,12 @@ const Index = () => {
                 </div>
 
           {/* Actions Bar */}
-          <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
-            <div className="relative w-full">
+          <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search tasks..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 bg-card/80 backdrop-blur-sm border-2 h-11 sm:h-10" />
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2">
               <Button variant={viewMode === 'list' ? 'default' : 'outline'} onClick={() => setViewMode('list')} className="gap-2 border-2 flex-1 sm:flex-initial min-h-[44px] sm:min-h-0">
                 <LayoutList className="h-4 w-4" />
                 <span className="hidden sm:inline">List</span>
