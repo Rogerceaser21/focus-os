@@ -118,6 +118,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
+              className="text-sm max-h-[120px] sm:max-h-[240px] overflow-y-auto resize-none"
             />
           </div>
 
