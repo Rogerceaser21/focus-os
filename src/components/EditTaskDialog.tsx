@@ -29,6 +29,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   const [endDate, setEndDate] = useState<Date | undefined>(task.endDate);
   const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate);
   const [imageUrl, setImageUrl] = useState(task.imageUrl || '');
+  const [descriptionRows, setDescriptionRows] = useState(3);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -45,35 +46,22 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   }, [task, open]);
 
   useEffect(() => {
-    if (descriptionRef.current && open) {
-      // Small delay to ensure DOM is fully rendered after dialog opens
+    if (descriptionRef.current && open && description) {
       setTimeout(() => {
         if (!descriptionRef.current) return;
         
-        // Reset height AND minHeight to measure true content size
-        descriptionRef.current.style.height = 'auto';
-        descriptionRef.current.style.minHeight = '0'; // Remove minHeight constraint for measurement
-        
-        const scrollHeight = descriptionRef.current.scrollHeight;
         const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight) || 20;
+        const scrollHeight = descriptionRef.current.scrollHeight;
+        const calculatedRows = Math.ceil(scrollHeight / lineHeight);
         
-        // Calculate max heights based on viewport
-        const isMobile = window.innerWidth < 640; // sm breakpoint
-        const maxLines = isMobile ? 8 : 15;
-        const maxHeight = lineHeight * maxLines;
+        const isMobile = window.innerWidth < 640;
+        const maxRows = isMobile ? 8 : 15;
+        const minRows = 3;
         
-        // Determine the final height
-        let finalHeight;
-        if (scrollHeight <= maxHeight) {
-          finalHeight = Math.max(scrollHeight, 60); // At least 60px
-        } else {
-          finalHeight = maxHeight;
-        }
-        
-        // Apply both minHeight and height together
-        descriptionRef.current.style.minHeight = '60px';
-        descriptionRef.current.style.height = finalHeight + 'px';
-      }, 50); // 50ms delay to ensure rendering is complete
+        setDescriptionRows(Math.min(Math.max(calculatedRows, minRows), maxRows));
+      }, 150);
+    } else if (!description) {
+      setDescriptionRows(3);
     }
   }, [description, open]);
 
@@ -152,7 +140,8 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               placeholder="Task description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="text-sm overflow-y-auto resize-none !min-h-0"
+              rows={descriptionRows}
+              className="text-sm overflow-y-auto resize-none !min-h-0 !h-auto"
             />
           </div>
 
