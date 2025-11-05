@@ -487,8 +487,8 @@ const Index = () => {
           {/* Actions Bar */}
           <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6">
             <div className="relative flex-[2] md:flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search tasks..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 bg-card/80 backdrop-blur-sm border-2 h-11 sm:h-10" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hidden sm:block" />
+              <Input placeholder="Search tasks..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10" />
             </div>
             <div className="flex gap-2">
               {/* Mobile/Tablet: Display Dropdown */}
@@ -550,7 +550,7 @@ const Index = () => {
                     setGlobalCardView(prev => prev === 'full' ? 'compact' : 'full');
                     setExpandedTaskIds(new Set());
                   }}
-                  className="gap-2 border-2 flex-1 sm:flex-initial min-h-[44px] sm:min-h-0"
+                  className="gap-2 border-2 flex-1 sm:flex-initial h-10"
                 >
                   <Eye className="h-4 w-4" />
                   <span className="hidden sm:inline">
