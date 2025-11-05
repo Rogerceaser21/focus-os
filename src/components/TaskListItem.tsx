@@ -46,6 +46,16 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const titleDisplayRef = useRef<HTMLHeadingElement>(null);
+  const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
+
+  // Detect title overflow
+  useEffect(() => {
+    if (titleDisplayRef.current && !isEditingTitle) {
+      const element = titleDisplayRef.current;
+      setIsTitleOverflowing(element.scrollHeight > element.clientHeight);
+    }
+  }, [task.title, isEditingTitle]);
 
   // Auto-expand title input and detect overflow
   useEffect(() => {
@@ -155,9 +165,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                ref={titleDisplayRef}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
+                  
+                  // If title is overflowing (more than 2 lines), open EditTaskDialog
+                  if (isTitleOverflowing) {
+                    setIsEditOpen(true);
+                    return;
+                  }
+                  
+                  // Otherwise, allow inline editing
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
@@ -299,9 +318,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                className={`font-semibold text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 truncate ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                ref={titleDisplayRef}
+                className={`font-semibold text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
+                  
+                  // If title is overflowing (more than 2 lines), open EditTaskDialog
+                  if (isTitleOverflowing) {
+                    setIsEditOpen(true);
+                    return;
+                  }
+                  
+                  // Otherwise, allow inline editing
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
