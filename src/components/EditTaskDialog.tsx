@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Task, TaskPriority, TaskStatus } from '@/types/task';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -29,8 +29,6 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   const [endDate, setEndDate] = useState<Date | undefined>(task.endDate);
   const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate);
   const [imageUrl, setImageUrl] = useState(task.imageUrl || '');
-  const [descriptionRows, setDescriptionRows] = useState(3);
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -44,26 +42,6 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
       setImageUrl(task.imageUrl || '');
     }
   }, [task, open]);
-
-  useEffect(() => {
-    if (descriptionRef.current && open && description) {
-      setTimeout(() => {
-        if (!descriptionRef.current) return;
-        
-        const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight) || 20;
-        const scrollHeight = descriptionRef.current.scrollHeight;
-        const calculatedRows = Math.ceil(scrollHeight / lineHeight);
-        
-        const isMobile = window.innerWidth < 640;
-        const maxRows = isMobile ? 8 : 15;
-        const minRows = 3;
-        
-        setDescriptionRows(Math.min(Math.max(calculatedRows, minRows), maxRows));
-      }, 150);
-    } else if (!description) {
-      setDescriptionRows(3);
-    }
-  }, [description, open]);
 
   const handleImagePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
@@ -135,13 +113,11 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
-              ref={descriptionRef}
               id="description"
               placeholder="Task description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={descriptionRows}
-              className="text-sm overflow-y-auto resize-none !min-h-0 !h-auto"
+              rows={3}
             />
           </div>
 
