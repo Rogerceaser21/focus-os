@@ -50,6 +50,8 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 186 70% 70%;
     --sidebar-border: 0 0% 20%;
     --sidebar-ring: 186 80% 55%;
+
+    --dock-background: 220 70% 15%;
   }
 }
 
