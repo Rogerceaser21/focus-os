@@ -568,7 +568,7 @@ const Index = () => {
 
           {/* Main Content */}
           {viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="w-full grid grid-cols-4 h-auto">
+              <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
@@ -584,7 +584,7 @@ const Index = () => {
               </TabsList>
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
-                  <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
                     <div className="flex items-center gap-2 flex-1">
                       <span style={{
                         color: projects.find(p => p.id === selectedProjectId)?.color
@@ -613,6 +613,34 @@ const Index = () => {
                         </span>
                       )}
                     </div>
+
+                    {/* Status Dropdown for Mobile/Tablet */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
+                          <span className="text-sm">Status</span>
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setActiveTab('all')}>
+                          All ({sortedTasks.filter(t => t.status !== 'completed').length})
+                          {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setActiveTab('todo')}>
+                          To Do ({sortedTasks.filter(t => t.status === 'todo').length})
+                          {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
+                          Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
+                          {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setActiveTab('completed')}>
+                          Done ({sortedTasks.filter(t => t.status === 'completed').length})
+                          {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
