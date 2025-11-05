@@ -551,7 +551,7 @@ const Index = () => {
                     setGlobalCardView(prev => prev === 'full' ? 'compact' : 'full');
                     setExpandedTaskIds(new Set());
                   }}
-                  className="gap-2 border-2 flex-1 sm:flex-initial h-10 min-w-[60px] sm:min-w-0"
+                  className="gap-2 border-2 w-[70px] sm:w-auto h-10"
                 >
                   <Eye className="h-4 w-4" />
                   <span className="hidden sm:inline">
