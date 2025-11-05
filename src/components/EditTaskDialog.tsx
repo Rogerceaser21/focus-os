@@ -50,9 +50,9 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
       setTimeout(() => {
         if (!descriptionRef.current) return;
         
-        // Reset height to auto to get the correct scrollHeight
+        // Reset height AND minHeight to measure true content size
         descriptionRef.current.style.height = 'auto';
-        descriptionRef.current.style.minHeight = '60px'; // Set minHeight via JS
+        descriptionRef.current.style.minHeight = '0'; // Remove minHeight constraint for measurement
         
         const scrollHeight = descriptionRef.current.scrollHeight;
         const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight) || 20;
@@ -62,12 +62,17 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
         const maxLines = isMobile ? 8 : 15;
         const maxHeight = lineHeight * maxLines;
         
-        // Apply the height, capped at max
+        // Determine the final height
+        let finalHeight;
         if (scrollHeight <= maxHeight) {
-          descriptionRef.current.style.height = scrollHeight + 'px';
+          finalHeight = Math.max(scrollHeight, 60); // At least 60px
         } else {
-          descriptionRef.current.style.height = maxHeight + 'px';
+          finalHeight = maxHeight;
         }
+        
+        // Apply both minHeight and height together
+        descriptionRef.current.style.minHeight = '60px';
+        descriptionRef.current.style.height = finalHeight + 'px';
       }, 50); // 50ms delay to ensure rendering is complete
     }
   }, [description, open]);
