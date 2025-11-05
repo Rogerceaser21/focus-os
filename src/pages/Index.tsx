@@ -495,7 +495,7 @@ const Index = () => {
               {/* Mobile/Tablet: Display Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-1 border-2 h-10 px-3 flex md:hidden">
+              <Button variant="outline" className="gap-1 border-2 h-10 px-3 flex lg:hidden">
                 <span className="text-sm">Display</span>
                 <ChevronDown className="h-3 w-3" />
               </Button>
@@ -525,7 +525,7 @@ const Index = () => {
               </DropdownMenu>
 
               {/* Desktop: Individual Buttons */}
-              <div className="hidden md:flex gap-2">
+              <div className="hidden lg:flex gap-2">
                 <Button variant={viewMode === 'list' ? 'default' : 'outline'} onClick={() => setViewMode('list')} className="gap-2 border-2">
                   <LayoutList className="h-4 w-4" />
                   <span>List</span>
