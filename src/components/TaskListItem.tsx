@@ -55,11 +55,16 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
       requestAnimationFrame(() => {
         if (titleDisplayRef.current) {
           const element = titleDisplayRef.current;
-          const lineHeight = parseInt(window.getComputedStyle(element).lineHeight);
-          const twoLinesHeight = lineHeight * 2;
-          const buffer = 2; // Tolerance for sub-pixel rendering
+          const isOverflowing = element.scrollHeight > element.clientHeight;
           
-          setIsTitleOverflowing(element.scrollHeight > (twoLinesHeight + buffer));
+          console.log('Title overflow check:', {
+            title: task.title,
+            scrollHeight: element.scrollHeight,
+            clientHeight: element.clientHeight,
+            isOverflowing
+          });
+          
+          setIsTitleOverflowing(isOverflowing);
         }
       });
     }
