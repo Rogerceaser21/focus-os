@@ -52,21 +52,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   // Detect title overflow
   useEffect(() => {
     if (titleDisplayRef.current && !isEditingTitle) {
-      requestAnimationFrame(() => {
-        if (titleDisplayRef.current) {
-          const element = titleDisplayRef.current;
-          const isOverflowing = element.scrollHeight > element.clientHeight;
-          
-          console.log('Title overflow check:', {
-            title: task.title,
-            scrollHeight: element.scrollHeight,
-            clientHeight: element.clientHeight,
-            isOverflowing
-          });
-          
-          setIsTitleOverflowing(isOverflowing);
-        }
-      });
+      const element = titleDisplayRef.current;
+      setIsTitleOverflowing(element.scrollHeight > element.clientHeight);
     }
   }, [task.title, isEditingTitle]);
 
@@ -334,7 +321,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
             ) : (
               <h3
                 ref={titleDisplayRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   
