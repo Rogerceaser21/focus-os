@@ -46,14 +46,22 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const titleDisplayRef = useRef<HTMLHeadingElement>(null);
+  const titleDisplayRefMobile = useRef<HTMLHeadingElement>(null);
+  const titleDisplayRefDesktop = useRef<HTMLHeadingElement>(null);
   const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
 
-  // Detect title overflow
+  // Detect title overflow - check both mobile and desktop refs
   useEffect(() => {
-    if (titleDisplayRef.current && !isEditingTitle) {
-      const element = titleDisplayRef.current;
-      setIsTitleOverflowing(element.scrollHeight > element.clientHeight);
+    if (!isEditingTitle) {
+      const mobileElement = titleDisplayRefMobile.current;
+      const desktopElement = titleDisplayRefDesktop.current;
+      
+      // Check whichever element is currently visible
+      if (mobileElement && mobileElement.offsetParent !== null) {
+        setIsTitleOverflowing(mobileElement.scrollHeight > mobileElement.clientHeight);
+      } else if (desktopElement && desktopElement.offsetParent !== null) {
+        setIsTitleOverflowing(desktopElement.scrollHeight > desktopElement.clientHeight);
+      }
     }
   }, [task.title, isEditingTitle]);
 
@@ -166,7 +174,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                ref={titleDisplayRef}
+                ref={titleDisplayRefMobile}
                 className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -320,8 +328,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                ref={titleDisplayRef}
-                className={`font-semibold text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                ref={titleDisplayRefDesktop}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   
