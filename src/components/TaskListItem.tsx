@@ -47,75 +47,32 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const titleDisplayRef = useRef<HTMLHeadingElement>(null);
-  const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
   const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
-  const [titleLineClamp, setTitleLineClamp] = useState<'line-clamp-1' | 'line-clamp-2'>('line-clamp-1');
-  const [descriptionLineClamp, setDescriptionLineClamp] = useState<'line-clamp-1' | 'line-clamp-2'>('line-clamp-1');
 
-  // Detect title overflow and calculate needed lines
+  // Detect title overflow
   useEffect(() => {
     if (titleDisplayRef.current && !isEditingTitle) {
       const element = titleDisplayRef.current;
-      
-      // Temporarily remove line clamp to measure actual height
-      element.style.webkitLineClamp = 'unset';
-      const fullHeight = element.scrollHeight;
-      element.style.webkitLineClamp = '';
-      
-      const lineHeight = parseInt(window.getComputedStyle(element).lineHeight);
-      const lines = Math.ceil(fullHeight / lineHeight);
-      
-      // Set line clamp based on content
-      setTitleLineClamp(lines > 1 ? 'line-clamp-2' : 'line-clamp-1');
-      setIsTitleOverflowing(lines > 2);
+      setIsTitleOverflowing(element.scrollHeight > element.clientHeight);
     }
   }, [task.title, isEditingTitle]);
 
-  // Calculate needed lines for description
-  useEffect(() => {
-    if (descriptionDisplayRef.current && !isEditingDescription) {
-      const element = descriptionDisplayRef.current;
-      
-      // If no description, use single line
-      if (!task.description) {
-        setDescriptionLineClamp('line-clamp-1');
-        return;
-      }
-      
-      // Temporarily remove line clamp to measure actual height
-      element.style.webkitLineClamp = 'unset';
-      const fullHeight = element.scrollHeight;
-      element.style.webkitLineClamp = '';
-      
-      const lineHeight = parseInt(window.getComputedStyle(element).lineHeight);
-      const lines = Math.ceil(fullHeight / lineHeight);
-      
-      // Set line clamp based on content
-      setDescriptionLineClamp(lines > 1 ? 'line-clamp-2' : 'line-clamp-1');
-    }
-  }, [task.description, isEditingDescription]);
-
   // Auto-expand title input and detect overflow (mobile only)
   useEffect(() => {
-    if (isEditingTitle && titleRef.current) {
-      titleRef.current.style.height = 'auto';
-      titleRef.current.style.height = titleRef.current.scrollHeight + 'px';
+    if (isEditingTitle && titleRef.current && isMobile) {
+      const lineHeight = parseInt(window.getComputedStyle(titleRef.current).lineHeight);
+      const lines = Math.ceil(titleRef.current.scrollHeight / lineHeight);
       
-      if (isMobile) {
-        const lineHeight = parseInt(window.getComputedStyle(titleRef.current).lineHeight);
-        const lines = Math.ceil(titleRef.current.scrollHeight / lineHeight);
-        
-        if (lines > 2) {
-          setIsEditingTitle(false);
-          setIsEditOpen(true);
-        }
+      if (lines > 2) {
+        setIsEditingTitle(false);
+        setIsEditOpen(true);
       }
     }
   }, [editedTitle, isEditingTitle, isMobile]);
 
   // Auto-expand description textarea and detect overflow
   useEffect(() => {
-    if (isEditingDescription && descriptionRef.current) {
+    if (isEditingDescription && descriptionRef.current && editedDescription.trim().length > 0) {
       descriptionRef.current.style.height = 'auto';
       descriptionRef.current.style.height = descriptionRef.current.scrollHeight + 'px';
       
@@ -203,14 +160,14 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
+                rows={2}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
-                style={{ height: 'auto' }}
               />
             ) : (
               <h3
                 ref={titleDisplayRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${titleLineClamp} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   
@@ -253,14 +210,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 autoFocus
+                rows={2}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
-                style={{ height: 'auto' }}
               />
             ) : (
               <p 
-                ref={descriptionDisplayRef}
-                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors ${descriptionLineClamp} flex-1`}
+                className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
@@ -358,14 +314,14 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
+                rows={1}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
-                style={{ height: 'auto' }}
               />
             ) : (
               <h3
                 ref={titleDisplayRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${titleLineClamp} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   
@@ -402,14 +358,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 autoFocus
+                rows={1}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
-                style={{ height: 'auto' }}
               />
             ) : (
               <p 
-                ref={descriptionDisplayRef}
-                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors ${descriptionLineClamp} flex-1`}
+                className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
