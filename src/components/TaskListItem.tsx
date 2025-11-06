@@ -79,7 +79,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
       const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight);
       const lines = Math.ceil(descriptionRef.current.scrollHeight / lineHeight);
       
-      if (lines > 8) {
+      if (lines > 5) {
         setIsEditingDescription(false);
         setIsEditOpen(true);
       }
