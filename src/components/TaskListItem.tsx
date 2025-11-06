@@ -47,7 +47,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const titleDisplayRef = useRef<HTMLHeadingElement>(null);
+  const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
   const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
+  const [isDescriptionOverflowing, setIsDescriptionOverflowing] = useState(false);
+  const [titleEditRows, setTitleEditRows] = useState(1);
+  const [descriptionEditRows, setDescriptionEditRows] = useState(1);
 
   // Detect title overflow
   useEffect(() => {
@@ -56,6 +60,21 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
       setIsTitleOverflowing(element.scrollHeight > element.clientHeight);
     }
   }, [task.title, isEditingTitle]);
+
+  // Detect description overflow
+  useEffect(() => {
+    if (descriptionDisplayRef.current && !isEditingDescription) {
+      const element = descriptionDisplayRef.current;
+      setIsDescriptionOverflowing(element.scrollHeight > element.clientHeight);
+    }
+  }, [task.description, isEditingDescription]);
+
+  // Calculate dynamic rows for content
+  const calculateRows = (text: string, maxRows: number = 2): number => {
+    if (!text || text.trim().length === 0) return 1;
+    const lines = text.split('\n').length;
+    return Math.min(lines, maxRows);
+  };
 
   // Auto-expand title input and detect overflow (mobile only)
   useEffect(() => {
@@ -160,7 +179,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                rows={2}
+                rows={titleEditRows}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -177,10 +196,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                     return;
                   }
                   
-                  // Otherwise, allow inline editing
+                  // Otherwise, calculate dynamic rows and allow inline editing
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
+                  setTitleEditRows(calculateRows(task.title, 2));
                   setIsEditingTitle(true);
                 }}
               >
@@ -210,18 +230,28 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 autoFocus
-                rows={2}
+                rows={descriptionEditRows}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <p 
+                ref={descriptionDisplayRef}
                 className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
+                  
+                  // If description is overflowing, open EditTaskDialog
+                  if (isDescriptionOverflowing) {
+                    setIsEditOpen(true);
+                    return;
+                  }
+                  
+                  // Otherwise, calculate dynamic rows and allow inline editing
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
+                  setDescriptionEditRows(calculateRows(task.description || '', 2));
                   setIsEditingDescription(true);
                 }}
               >
@@ -314,7 +344,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                rows={1}
+                rows={titleEditRows}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -325,10 +355,17 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onClick={(e) => {
                   e.stopPropagation();
                   
-                  // Allow inline editing
+                  // If title is overflowing, open EditTaskDialog
+                  if (isTitleOverflowing) {
+                    setIsEditOpen(true);
+                    return;
+                  }
+                  
+                  // Otherwise, calculate dynamic rows and allow inline editing
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
+                  setTitleEditRows(calculateRows(task.title, 2));
                   setIsEditingTitle(true);
                 }}
               >
@@ -358,18 +395,28 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 autoFocus
-                rows={1}
+                rows={descriptionEditRows}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <p 
+                ref={descriptionDisplayRef}
                 className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
+                  
+                  // If description is overflowing, open EditTaskDialog
+                  if (isDescriptionOverflowing) {
+                    setIsEditOpen(true);
+                    return;
+                  }
+                  
+                  // Otherwise, calculate dynamic rows and allow inline editing
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
+                  setDescriptionEditRows(calculateRows(task.description || '', 2));
                   setIsEditingDescription(true);
                 }}
               >
