@@ -325,13 +325,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onClick={(e) => {
                   e.stopPropagation();
                   
-                  // If title is overflowing (more than 2 lines), open EditTaskDialog
-                  if (isTitleOverflowing) {
-                    setIsEditOpen(true);
-                    return;
-                  }
-                  
-                  // Otherwise, allow inline editing
+                  // Allow inline editing
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
