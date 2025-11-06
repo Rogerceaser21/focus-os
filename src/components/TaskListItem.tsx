@@ -160,7 +160,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                rows={1}
+                rows={2}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -210,7 +210,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 autoFocus
-                rows={1}
+                rows={2}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
