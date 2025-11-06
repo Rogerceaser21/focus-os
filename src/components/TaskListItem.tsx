@@ -52,8 +52,16 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   // Detect title overflow
   useEffect(() => {
     if (titleDisplayRef.current && !isEditingTitle) {
-      const element = titleDisplayRef.current;
-      setIsTitleOverflowing(element.scrollHeight > element.clientHeight);
+      requestAnimationFrame(() => {
+        if (titleDisplayRef.current) {
+          const element = titleDisplayRef.current;
+          const lineHeight = parseInt(window.getComputedStyle(element).lineHeight);
+          const twoLinesHeight = lineHeight * 2;
+          const buffer = 2; // Tolerance for sub-pixel rendering
+          
+          setIsTitleOverflowing(element.scrollHeight > (twoLinesHeight + buffer));
+        }
+      });
     }
   }, [task.title, isEditingTitle]);
 
@@ -321,7 +329,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
             ) : (
               <h3
                 ref={titleDisplayRef}
-                className={`font-semibold text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   
