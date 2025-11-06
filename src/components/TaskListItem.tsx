@@ -59,20 +59,25 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
   // Auto-expand title input and detect overflow (mobile only)
   useEffect(() => {
-    if (isEditingTitle && titleRef.current && isMobile) {
-      const lineHeight = parseInt(window.getComputedStyle(titleRef.current).lineHeight);
-      const lines = Math.ceil(titleRef.current.scrollHeight / lineHeight);
+    if (isEditingTitle && titleRef.current) {
+      titleRef.current.style.height = 'auto';
+      titleRef.current.style.height = titleRef.current.scrollHeight + 'px';
       
-      if (lines > 2) {
-        setIsEditingTitle(false);
-        setIsEditOpen(true);
+      if (isMobile) {
+        const lineHeight = parseInt(window.getComputedStyle(titleRef.current).lineHeight);
+        const lines = Math.ceil(titleRef.current.scrollHeight / lineHeight);
+        
+        if (lines > 2) {
+          setIsEditingTitle(false);
+          setIsEditOpen(true);
+        }
       }
     }
   }, [editedTitle, isEditingTitle, isMobile]);
 
   // Auto-expand description textarea and detect overflow
   useEffect(() => {
-    if (isEditingDescription && descriptionRef.current && editedDescription.trim().length > 0) {
+    if (isEditingDescription && descriptionRef.current) {
       descriptionRef.current.style.height = 'auto';
       descriptionRef.current.style.height = descriptionRef.current.scrollHeight + 'px';
       
@@ -160,9 +165,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                rows={2}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
+                style={{ height: 'auto' }}
               />
             ) : (
               <h3
@@ -210,9 +215,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 autoFocus
-                rows={2}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
+                style={{ height: 'auto' }}
               />
             ) : (
               <p 
@@ -314,9 +319,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                rows={1}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
+                style={{ height: 'auto' }}
               />
             ) : (
               <h3
@@ -358,9 +363,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 autoFocus
-                rows={1}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
+                style={{ height: 'auto' }}
               />
             ) : (
               <p 
