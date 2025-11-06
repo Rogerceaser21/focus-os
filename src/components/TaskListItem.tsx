@@ -57,9 +57,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
     }
   }, [task.title, isEditingTitle]);
 
-  // Auto-expand title input and detect overflow
+  // Auto-expand title input and detect overflow (mobile only)
   useEffect(() => {
-    if (isEditingTitle && titleRef.current) {
+    if (isEditingTitle && titleRef.current && isMobile) {
       const lineHeight = parseInt(window.getComputedStyle(titleRef.current).lineHeight);
       const lines = Math.ceil(titleRef.current.scrollHeight / lineHeight);
       
@@ -68,7 +68,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
         setIsEditOpen(true);
       }
     }
-  }, [editedTitle, isEditingTitle]);
+  }, [editedTitle, isEditingTitle, isMobile]);
 
   // Auto-expand description textarea and detect overflow
   useEffect(() => {
