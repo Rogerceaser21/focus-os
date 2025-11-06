@@ -114,11 +114,22 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
-            <Input
+            <Textarea
               id="title"
               placeholder="Task title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              rows={3}
+              className="text-sm resize-none min-h-0 h-auto overflow-hidden"
+              style={{ 
+                height: 'auto',
+                minHeight: '80px'
+              }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = target.scrollHeight + 'px';
+              }}
             />
           </div>
 
