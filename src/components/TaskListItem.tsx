@@ -50,18 +50,25 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const titleDisplayRefDesktop = useRef<HTMLHeadingElement>(null);
   const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
 
-  // Detect title overflow - check both mobile and desktop refs
+  // Detect title overflow - check both mobile and desktop refs with proper timing
   useEffect(() => {
     if (!isEditingTitle) {
-      const mobileElement = titleDisplayRefMobile.current;
-      const desktopElement = titleDisplayRefDesktop.current;
-      
-      // Check whichever element is currently visible
-      if (mobileElement && mobileElement.offsetParent !== null) {
-        setIsTitleOverflowing(mobileElement.scrollHeight > mobileElement.clientHeight);
-      } else if (desktopElement && desktopElement.offsetParent !== null) {
-        setIsTitleOverflowing(desktopElement.scrollHeight > desktopElement.clientHeight);
-      }
+      // Use requestAnimationFrame + setTimeout to ensure CSS is fully applied
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const mobileElement = titleDisplayRefMobile.current;
+          const desktopElement = titleDisplayRefDesktop.current;
+          
+          // Check whichever element is currently visible
+          if (mobileElement && mobileElement.offsetParent !== null) {
+            const isOverflowing = mobileElement.scrollHeight > mobileElement.clientHeight;
+            setIsTitleOverflowing(isOverflowing);
+          } else if (desktopElement && desktopElement.offsetParent !== null) {
+            const isOverflowing = desktopElement.scrollHeight > desktopElement.clientHeight;
+            setIsTitleOverflowing(isOverflowing);
+          }
+        }, 0);
+      });
     }
   }, [task.title, isEditingTitle]);
 
@@ -179,8 +186,12 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onClick={(e) => {
                   e.stopPropagation();
                   
-                  // If title is overflowing (more than 2 lines), open EditTaskDialog
-                  if (isTitleOverflowing) {
+                  // Real-time overflow check at click time
+                  const element = titleDisplayRefMobile.current;
+                  const isCurrentlyOverflowing = element ? element.scrollHeight > element.clientHeight : false;
+                  
+                  // Only open dialog if ACTUALLY overflowing
+                  if (isCurrentlyOverflowing) {
                     setIsEditOpen(true);
                     return;
                   }
@@ -333,8 +344,12 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onClick={(e) => {
                   e.stopPropagation();
                   
-                  // If title is overflowing (more than 2 lines), open EditTaskDialog
-                  if (isTitleOverflowing) {
+                  // Real-time overflow check at click time
+                  const element = titleDisplayRefDesktop.current;
+                  const isCurrentlyOverflowing = element ? element.scrollHeight > element.clientHeight : false;
+                  
+                  // Only open dialog if ACTUALLY overflowing
+                  if (isCurrentlyOverflowing) {
                     setIsEditOpen(true);
                     return;
                   }
