@@ -55,7 +55,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   useEffect(() => {
     if (titleDisplayRef.current && !isEditingTitle && isMobile) {
       const element = titleDisplayRef.current;
-      setIsTitleOverflowing(element.scrollHeight > element.clientHeight);
+      const computedStyle = window.getComputedStyle(element);
+      const lineHeight = parseFloat(computedStyle.lineHeight);
+      const expectedTwoLineHeight = lineHeight * 2;
+      // Add small buffer (3px) for rounding issues
+      setIsTitleOverflowing(element.scrollHeight > expectedTwoLineHeight + 3);
     }
   }, [task.title, isEditingTitle, isMobile]);
 
@@ -63,7 +67,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   useEffect(() => {
     if (descriptionDisplayRef.current && !isEditingDescription && isMobile && task.description) {
       const element = descriptionDisplayRef.current;
-      setIsDescriptionOverflowing(element.scrollHeight > element.clientHeight);
+      const computedStyle = window.getComputedStyle(element);
+      const lineHeight = parseFloat(computedStyle.lineHeight);
+      const expectedTwoLineHeight = lineHeight * 2;
+      // Add small buffer (3px) for rounding issues
+      setIsDescriptionOverflowing(element.scrollHeight > expectedTwoLineHeight + 3);
     }
   }, [task.description, isEditingDescription, isMobile]);
 
