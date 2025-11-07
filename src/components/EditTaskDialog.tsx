@@ -120,16 +120,8 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               rows={3}
-              className="text-sm resize-none min-h-0 h-auto overflow-hidden"
-              style={{ 
-                height: 'auto',
-                minHeight: '80px'
-              }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = 'auto';
-                target.style.height = target.scrollHeight + 'px';
-              }}
+              className="text-sm resize-none min-h-[80px]"
+              autoFocus
             />
           </div>
 
