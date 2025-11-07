@@ -47,15 +47,55 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const titleDisplayRef = useRef<HTMLHeadingElement>(null);
+  const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
   const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
+  const [isDescriptionOverflowing, setIsDescriptionOverflowing] = useState(false);
 
-  // Detect title overflow
+  // Detect title overflow (mobile only - improved method)
   useEffect(() => {
-    if (titleDisplayRef.current && !isEditingTitle) {
+    if (titleDisplayRef.current && !isEditingTitle && isMobile) {
       const element = titleDisplayRef.current;
-      setIsTitleOverflowing(element.scrollHeight > element.clientHeight);
+      
+      // Create temporary element to measure full height
+      const tempDiv = document.createElement('div');
+      tempDiv.style.cssText = window.getComputedStyle(element).cssText;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.visibility = 'hidden';
+      tempDiv.style.height = 'auto';
+      tempDiv.style.webkitLineClamp = 'unset';
+      tempDiv.innerText = task.title;
+      document.body.appendChild(tempDiv);
+      
+      const fullHeight = tempDiv.offsetHeight;
+      const clampedHeight = element.offsetHeight;
+      document.body.removeChild(tempDiv);
+      
+      setIsTitleOverflowing(fullHeight > clampedHeight);
     }
-  }, [task.title, isEditingTitle]);
+  }, [task.title, isEditingTitle, isMobile]);
+
+  // Detect description overflow (mobile only)
+  useEffect(() => {
+    if (descriptionDisplayRef.current && !isEditingDescription && isMobile && task.description) {
+      const element = descriptionDisplayRef.current;
+      
+      // Create temporary element to measure full height
+      const tempDiv = document.createElement('div');
+      tempDiv.style.cssText = window.getComputedStyle(element).cssText;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.visibility = 'hidden';
+      tempDiv.style.height = 'auto';
+      tempDiv.style.webkitLineClamp = 'unset';
+      tempDiv.innerText = task.description;
+      document.body.appendChild(tempDiv);
+      
+      const fullHeight = tempDiv.offsetHeight;
+      const clampedHeight = element.offsetHeight;
+      document.body.removeChild(tempDiv);
+      
+      setIsDescriptionOverflowing(fullHeight > clampedHeight);
+    }
+  }, [task.description, isEditingDescription, isMobile]);
 
   // Auto-expand title input and detect overflow (mobile only)
   useEffect(() => {
@@ -216,9 +256,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
+                ref={descriptionDisplayRef}
                 className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
+                  
+                  // If description is overflowing (more than 2 lines), open EditTaskDialog
+                  if (isDescriptionOverflowing) {
+                    setIsEditOpen(true);
+                    return;
+                  }
+                  
+                  // Otherwise, allow inline editing
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
