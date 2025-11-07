@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2 } from 'lucide-react';
+import projectsMicIcon from "@/assets/projects-mic-icon.png";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -400,12 +401,7 @@ const Index = () => {
   }
   const dockItems = [
     {
-      icon: (
-        <div className="flex items-center gap-1">
-          <FolderKanban className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
-        </div>
-      ),
+      icon: <img src={projectsMicIcon} alt="Projects" className="w-8 h-8" />,
       label: 'Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
