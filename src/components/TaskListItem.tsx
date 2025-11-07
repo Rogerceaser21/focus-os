@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Play, Pause, Calendar, Clock, Image } from 'lucide-react';
+import { Play, Pause, Calendar, Clock, Image, MoreHorizontal } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { EditTaskDialog } from './EditTaskDialog';
@@ -183,27 +183,39 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <h3
-                ref={titleDisplayRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  
-                  // If title is overflowing (more than 2 lines), open EditTaskDialog
-                  if (isTitleOverflowing) {
-                    setIsEditOpen(true);
-                    return;
-                  }
-                  
-                  // Otherwise, allow inline editing
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
-                  }
-                  setIsEditingTitle(true);
-                }}
-              >
-                {task.title}
-              </h3>
+              <div className="relative flex-1">
+                <h3
+                  ref={titleDisplayRef}
+                  className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    
+                    // If title is overflowing (more than 2 lines), open EditTaskDialog
+                    if (isTitleOverflowing) {
+                      setIsEditOpen(true);
+                      return;
+                    }
+                    
+                    // Otherwise, allow inline editing
+                    if (!isIndividuallyExpanded) {
+                      onTaskClick();
+                    }
+                    setIsEditingTitle(true);
+                  }}
+                >
+                  {task.title}
+                </h3>
+                {isTitleOverflowing && (
+                  <MoreHorizontal 
+                    className="absolute right-1 bottom-0.5 w-4 h-4 text-muted-foreground bg-card/90 rounded cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditOpen(true);
+                    }}
+                    aria-label="Expand to view full title"
+                  />
+                )}
+              </div>
             )}
             <Button
               variant="ghost"
