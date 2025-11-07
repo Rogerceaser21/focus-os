@@ -12,7 +12,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2 } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, Mic } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -401,9 +401,13 @@ const Index = () => {
   const dockItems = [
     {
       icon: (
-        <div className="flex items-center gap-1">
-          <FolderKanban className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
+        <div className="relative w-7 h-7 flex items-center justify-center">
+          <FolderKanban className="w-7 h-7" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-blue-500 rounded-full p-1">
+              <Mic className="w-3 h-3 text-white" />
+            </div>
+          </div>
         </div>
       ),
       label: 'Projects',
@@ -414,9 +418,13 @@ const Index = () => {
     },
     {
       icon: (
-        <div className="flex items-center gap-1">
-          <ListChecks className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
+        <div className="relative w-7 h-7 flex items-center justify-center">
+          <ListChecks className="w-7 h-7" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-green-500 rounded-full p-1">
+              <Mic className="w-3 h-3 text-white" />
+            </div>
+          </div>
         </div>
       ),
       label: 'Tasks',
@@ -436,9 +444,13 @@ const Index = () => {
     },
     {
       icon: (
-        <div className="flex items-center gap-1">
-          <Calendar className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
+        <div className="relative w-7 h-7 flex items-center justify-center">
+          <Calendar className="w-7 h-7" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-purple-500 rounded-full p-1">
+              <Mic className="w-3 h-3 text-white" />
+            </div>
+          </div>
         </div>
       ),
       label: 'Today',
