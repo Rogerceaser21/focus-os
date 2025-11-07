@@ -12,7 +12,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, Mic } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -401,13 +401,9 @@ const Index = () => {
   const dockItems = [
     {
       icon: (
-        <div className="relative w-8 h-8 flex items-center justify-center">
-          <FolderKanban className="w-8 h-8" />
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
-            <div className="bg-blue-500 rounded-full p-0.5">
-              <Mic className="w-2 h-2 text-white" />
-            </div>
-          </div>
+        <div className="flex items-center gap-1">
+          <FolderKanban className="w-6 h-6" />
+          <Sparkles className="w-4 h-4 text-blue-500" />
         </div>
       ),
       label: 'Projects',
@@ -418,13 +414,9 @@ const Index = () => {
     },
     {
       icon: (
-        <div className="relative w-8 h-8 flex items-center justify-center">
-          <ListChecks className="w-8 h-8" />
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
-            <div className="bg-green-500 rounded-full p-0.5">
-              <Mic className="w-2 h-2 text-white" />
-            </div>
-          </div>
+        <div className="flex items-center gap-1">
+          <ListChecks className="w-6 h-6" />
+          <Sparkles className="w-4 h-4 text-blue-500" />
         </div>
       ),
       label: 'Tasks',
@@ -444,13 +436,9 @@ const Index = () => {
     },
     {
       icon: (
-        <div className="relative w-8 h-8 flex items-center justify-center">
-          <Calendar className="w-8 h-8" />
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
-            <div className="bg-purple-500 rounded-full p-0.5">
-              <Mic className="w-2 h-2 text-white" />
-            </div>
-          </div>
+        <div className="flex items-center gap-1">
+          <Calendar className="w-6 h-6" />
+          <Sparkles className="w-4 h-4 text-blue-500" />
         </div>
       ),
       label: 'Today',
