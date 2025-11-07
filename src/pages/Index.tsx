@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2 } from 'lucide-react';
 import projectsMicIcon from "@/assets/projects-mic-icon.png";
+import todayIcon from "@/assets/today-icon.png";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -431,12 +432,7 @@ const Index = () => {
       }
     },
     {
-      icon: (
-        <div className="flex items-center gap-1">
-          <Calendar className="w-6 h-6" />
-          <Sparkles className="w-4 h-4 text-blue-500" />
-        </div>
-      ),
+      icon: <img src={todayIcon} alt="Today" className="w-8 h-8" />,
       label: 'Today',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
