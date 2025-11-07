@@ -401,11 +401,11 @@ const Index = () => {
   const dockItems = [
     {
       icon: (
-        <div className="relative w-7 h-7 flex items-center justify-center">
-          <FolderKanban className="w-7 h-7" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="bg-blue-500 rounded-full p-1">
-              <Mic className="w-3 h-3 text-white" />
+        <div className="relative w-8 h-8 flex items-center justify-center">
+          <FolderKanban className="w-8 h-8" />
+          <div className="absolute -bottom-0.5 -right-0.5">
+            <div className="bg-blue-500 rounded-full p-0.5">
+              <Mic className="w-2.5 h-2.5 text-white" />
             </div>
           </div>
         </div>
@@ -418,11 +418,11 @@ const Index = () => {
     },
     {
       icon: (
-        <div className="relative w-7 h-7 flex items-center justify-center">
-          <ListChecks className="w-7 h-7" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="bg-green-500 rounded-full p-1">
-              <Mic className="w-3 h-3 text-white" />
+        <div className="relative w-8 h-8 flex items-center justify-center">
+          <ListChecks className="w-8 h-8" />
+          <div className="absolute -bottom-0.5 -right-0.5">
+            <div className="bg-green-500 rounded-full p-0.5">
+              <Mic className="w-2.5 h-2.5 text-white" />
             </div>
           </div>
         </div>
@@ -444,11 +444,11 @@ const Index = () => {
     },
     {
       icon: (
-        <div className="relative w-7 h-7 flex items-center justify-center">
-          <Calendar className="w-7 h-7" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="bg-purple-500 rounded-full p-1">
-              <Mic className="w-3 h-3 text-white" />
+        <div className="relative w-8 h-8 flex items-center justify-center">
+          <Calendar className="w-8 h-8" />
+          <div className="absolute -bottom-0.5 -right-0.5">
+            <div className="bg-purple-500 rounded-full p-0.5">
+              <Mic className="w-2.5 h-2.5 text-white" />
             </div>
           </div>
         </div>
