@@ -403,9 +403,9 @@ const Index = () => {
       icon: (
         <div className="relative w-8 h-8 flex items-center justify-center">
           <FolderKanban className="w-8 h-8" />
-          <div className="absolute -bottom-0.5 -right-0.5">
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
             <div className="bg-blue-500 rounded-full p-0.5">
-              <Mic className="w-2.5 h-2.5 text-white" />
+              <Mic className="w-2 h-2 text-white" />
             </div>
           </div>
         </div>
@@ -420,9 +420,9 @@ const Index = () => {
       icon: (
         <div className="relative w-8 h-8 flex items-center justify-center">
           <ListChecks className="w-8 h-8" />
-          <div className="absolute -bottom-0.5 -right-0.5">
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
             <div className="bg-green-500 rounded-full p-0.5">
-              <Mic className="w-2.5 h-2.5 text-white" />
+              <Mic className="w-2 h-2 text-white" />
             </div>
           </div>
         </div>
@@ -446,9 +446,9 @@ const Index = () => {
       icon: (
         <div className="relative w-8 h-8 flex items-center justify-center">
           <Calendar className="w-8 h-8" />
-          <div className="absolute -bottom-0.5 -right-0.5">
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
             <div className="bg-purple-500 rounded-full p-0.5">
-              <Mic className="w-2.5 h-2.5 text-white" />
+              <Mic className="w-2 h-2 text-white" />
             </div>
           </div>
         </div>
