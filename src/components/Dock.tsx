@@ -35,8 +35,7 @@ function DockItem({ children, className = '', onClick, mouseX, spring, distance,
     <motion.div
       ref={ref}
       style={{
-        width: size,
-        height: size
+        width: size
       }}
       onHoverStart={() => isHovered.set(1)}
       onHoverEnd={() => isHovered.set(0)}
@@ -153,21 +152,23 @@ export default function Dock({
         aria-label="Application dock"
       >
         {items.map((item, index) => (
-          <DockItem
-            key={index}
-            onClick={item.onClick}
-            className={item.className}
-            mouseX={mouseX}
-            spring={spring}
-            distance={distance}
-            magnification={magnification}
-            baseItemSize={baseItemSize}
-          >
-            <div>
-              <DockIcon>{item.icon}</DockIcon>
-              <DockLabel>{item.label}</DockLabel>
-            </div>
-          </DockItem>
+          <div key={index} className="dock-item-wrapper">
+            <DockItem
+              onClick={item.onClick}
+              className={item.className}
+              mouseX={mouseX}
+              spring={spring}
+              distance={distance}
+              magnification={magnification}
+              baseItemSize={baseItemSize}
+            >
+              <div>
+                <DockIcon>{item.icon}</DockIcon>
+                <DockLabel>{item.label}</DockLabel>
+              </div>
+            </DockItem>
+            <div className="dock-permanent-label">{item.label}</div>
+          </div>
         ))}
       </motion.div>
     </motion.div>
