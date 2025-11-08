@@ -7,17 +7,59 @@
 }
 
 .dock-panel {
+  position: relative;
   display: flex;
   gap: 12px;
   align-items: flex-end;
   justify-content: center;
   padding: 8px 16px;
-  background: hsl(var(--dock-background));
-  backdrop-filter: blur(16px);
+  background: hsl(var(--dock-background) / 0.3);
+  backdrop-filter: blur(20px) saturate(180%);
   border-radius: 20px;
-  border: 1px solid hsl(var(--border) / 0.1);
+  border: 1px solid hsl(var(--foreground) / 0.15);
   pointer-events: auto;
-  box-shadow: 0 8px 32px hsl(var(--foreground) / 0.1);
+  box-shadow: 0 8px 32px hsl(var(--foreground) / 0.1), 
+              inset 0 1px 0 hsl(var(--foreground) / 0.1), 
+              inset 0 -1px 0 hsl(var(--background) / 0.5);
+}
+
+.dock-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.08) 0%,
+    hsl(var(--dock-background) / 0.4) 50%,
+    hsl(var(--accent) / 0.08) 100%
+  );
+  backdrop-filter: blur(40px) saturate(150%);
+  z-index: -2;
+  pointer-events: none;
+}
+
+.dock-panel::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 20px;
+  background: 
+    radial-gradient(
+      ellipse at top,
+      hsl(var(--foreground) / 0.05) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse at bottom,
+      hsl(var(--background) / 0.3) 0%,
+      transparent 60%
+    );
+  backdrop-filter: blur(8px);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  z-index: -1;
+  pointer-events: none;
 }
 
 .dock-item {
@@ -28,8 +70,10 @@
   cursor: pointer;
   transition: transform 0.2s ease;
   border-radius: 12px;
-  background: hsl(var(--background) / 0.6);
-  border: 1px solid hsl(var(--border) / 0.2);
+  background: hsl(var(--background) / 0.4);
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  backdrop-filter: blur(10px) saturate(120%);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.1);
   outline: none;
   padding: 0;
   overflow: hidden;
@@ -42,8 +86,11 @@
 }
 
 .dock-item:hover {
-  background: hsl(var(--background) / 0.8);
-  border-color: hsl(var(--border) / 0.3);
+  background: hsl(var(--background) / 0.6);
+  border-color: hsl(var(--primary) / 0.3);
+  backdrop-filter: blur(12px) saturate(140%);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.15), 
+              0 4px 12px hsl(var(--primary) / 0.2);
 }
 
 .dock-item:focus-visible {
@@ -71,14 +118,16 @@
   left: 50%;
   margin-bottom: 8px;
   padding: 6px 12px;
-  background: hsl(var(--popover));
+  background: hsl(var(--popover) / 0.8);
   color: hsl(var(--popover-foreground));
-  border: 1px solid hsl(var(--border));
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid hsl(var(--foreground) / 0.15);
   border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.1);
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.15), 
+              inset 0 1px 0 hsl(var(--foreground) / 0.1);
   z-index: 50;
 }
