@@ -404,7 +404,7 @@ const Index = () => {
   const dockItems = [
     {
       icon: <img src={projectsMicIcon} alt="Projects" className="w-8 h-8" />,
-      label: 'Project',
+      label: 'Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setDialogOpen(true);
@@ -412,7 +412,7 @@ const Index = () => {
     },
     {
       icon: <img src={tasksIcon} alt="Tasks" className="w-8 h-8" />,
-      label: 'Task',
+      label: 'Tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         
@@ -436,7 +436,7 @@ const Index = () => {
       }
     },
     {
-      icon: <Settings className="w-8 h-8" />,
+      icon: <Settings className="w-6 h-6" />,
       label: 'Settings',
       onClick: () => setSettingsOpen(true)
     }

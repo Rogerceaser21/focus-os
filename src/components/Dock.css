@@ -11,29 +11,13 @@
   gap: 12px;
   align-items: flex-end;
   justify-content: center;
-  padding: 8px 16px 12px;
+  padding: 8px 16px;
   background: hsl(var(--dock-background));
   backdrop-filter: blur(16px);
   border-radius: 20px;
   border: 1px solid hsl(var(--border) / 0.1);
   pointer-events: auto;
   box-shadow: 0 8px 32px hsl(var(--foreground) / 0.1);
-}
-
-.dock-item-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.dock-permanent-label {
-  font-size: 10px;
-  font-weight: 500;
-  color: hsl(var(--foreground) / 0.7);
-  white-space: nowrap;
-  pointer-events: none;
-  user-select: none;
 }
 
 .dock-item {
