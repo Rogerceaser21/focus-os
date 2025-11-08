@@ -436,7 +436,7 @@ const Index = () => {
       }
     },
     {
-      icon: <Settings className="w-6 h-6" />,
+      icon: <Settings className="w-8 h-8" />,
       label: 'Settings',
       onClick: () => setSettingsOpen(true)
     }
