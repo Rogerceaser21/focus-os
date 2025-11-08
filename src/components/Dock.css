@@ -4,26 +4,6 @@
   justify-content: center;
   width: 100%;
   pointer-events: none;
-  position: relative;
-}
-
-
-.dock-panel::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 200%;
-  height: 280px;
-  background: radial-gradient(
-    ellipse at center top,
-    hsl(var(--background) / 0.8) 0%,
-    transparent 80%
-  );
-  backdrop-filter: blur(48px);
-  pointer-events: none;
-  z-index: -1;
 }
 
 .dock-panel {
@@ -37,12 +17,7 @@
   border-radius: 20px;
   border: 1px solid hsl(var(--border) / 0.1);
   pointer-events: auto;
-  position: relative;
-  z-index: 1;
-  box-shadow: 
-    0 8px 32px hsl(var(--foreground) / 0.15),
-    0 16px 64px hsl(var(--foreground) / 0.1),
-    0 0 0 1px hsl(var(--border) / 0.1);
+  box-shadow: 0 8px 32px hsl(var(--foreground) / 0.1);
 }
 
 .dock-item {
