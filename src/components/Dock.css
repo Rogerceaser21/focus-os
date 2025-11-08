@@ -14,14 +14,14 @@
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 140%;
-  height: 180px;
+  width: 160%;
+  height: 200px;
   background: radial-gradient(
     ellipse at center top,
-    hsl(var(--background) / 0.3) 0%,
+    hsl(var(--background) / 0.5) 0%,
     transparent 70%
   );
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(24px);
   pointer-events: none;
   z-index: -1;
 }
