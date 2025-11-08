@@ -10,13 +10,13 @@
 .dock-outer::before {
   content: '';
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 120%;
-  height: 150px;
+  width: 140%;
+  height: 180px;
   background: radial-gradient(
-    ellipse at center bottom,
+    ellipse at center top,
     hsl(var(--background) / 0.3) 0%,
     transparent 70%
   );
