@@ -31,7 +31,7 @@
   align-items: flex-end;
   justify-content: center;
   padding: 8px 16px;
-  background: hsl(var(--dock-background));
+  background: transparent;
   backdrop-filter: blur(16px);
   border-radius: 20px;
   border: 1px solid hsl(var(--border) / 0.1);
