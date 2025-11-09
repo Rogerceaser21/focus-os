@@ -278,14 +278,14 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
                 {isRecording && (
                   <Button onClick={handleStopRecording} variant="destructive" size="lg" className="w-full sm:w-auto">
                     <MicOff className="mr-2 h-5 w-5" />
-                    Stop Recording
+                    Stop Listening
                   </Button>
                 )}
 
                 {audioBlob && !isTranscribing && !isExtracting && (
                   <>
                     <Button onClick={handleTranscribe} size="lg" className="w-full sm:flex-1">
-                      Transcribe & Extract Tasks
+                      Extract Tasks
                     </Button>
                     <Button onClick={reset} variant="outline" size="lg" className="w-full sm:w-auto">
                       Record Again
@@ -296,7 +296,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
 
               {isRecording && (
                 <div className="text-sm text-muted-foreground animate-pulse">
-                  Recording...
+                  Listening
                 </div>
               )}
 
@@ -304,15 +304,6 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {isTranscribing ? 'Transcribing audio...' : 'Extracting tasks...'}
-                </div>
-              )}
-
-              {transcription && !extractedData && (
-                <div className="w-full space-y-2">
-                  <Label>Transcription</Label>
-                  <div className="p-4 bg-muted rounded-md text-sm">
-                    {transcription}
-                  </div>
                 </div>
               )}
             </div>
@@ -341,7 +332,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
                 
                 <div className="space-y-3">
                   {previewTasks.map((task, index) => (
-                    <div key={task.id} className="relative group">
+                    <div key={task.id} className="relative group pb-2">
                       <TaskCard 
                         task={task}
                         onUpdate={handleTaskUpdate}
@@ -350,7 +341,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
                         onClick={() => removeTask(index)}
                         variant="destructive"
                         size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute bottom-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
                       >
                         <X className="h-4 w-4" />
                       </Button>
