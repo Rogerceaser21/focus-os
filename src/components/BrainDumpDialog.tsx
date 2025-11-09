@@ -7,7 +7,7 @@ import { Mic, MicOff, Loader2, Check, X } from 'lucide-react';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { TaskCard } from '@/components/TaskCard';
+import { TaskListItem } from '@/components/TaskListItem';
 import type { Task, TaskPriority } from '@/types/task';
 
 interface BrainDumpDialogProps {
@@ -333,9 +333,12 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
                 <div className="space-y-3">
                   {previewTasks.map((task, index) => (
                     <div key={task.id} className="relative group pb-2">
-                      <TaskCard 
+                      <TaskListItem 
                         task={task}
                         onUpdate={handleTaskUpdate}
+                        globalViewMode="full"
+                        isIndividuallyExpanded={false}
+                        onTaskClick={() => {}}
                       />
                       <Button
                         onClick={() => removeTask(index)}
