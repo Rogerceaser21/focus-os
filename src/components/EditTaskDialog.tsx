@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Task, TaskPriority, TaskStatus } from '@/types/task';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,8 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate);
   const [imageUrl, setImageUrl] = useState(task.imageUrl || '');
   const [maxHeight, setMaxHeight] = useState('300px');
+  const pasteTargetRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -66,10 +68,37 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
           const reader = new FileReader();
           reader.onload = (event) => {
             setImageUrl(event.target?.result as string);
+            toast({
+              title: 'Image pasted',
+              description: 'Image added successfully'
+            });
           };
           reader.readAsDataURL(blob);
         }
       }
+    }
+  };
+
+  const handleTapToPaste = () => {
+    pasteTargetRef.current?.focus();
+    toast({
+      title: 'Ready to paste',
+      description: 'Now paste your image (long-press → Paste)'
+    });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImageUrl(event.target?.result as string);
+        toast({
+          title: 'Image selected',
+          description: 'Image added successfully'
+        });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -224,11 +253,21 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
           </div>
 
           <div className="space-y-2">
-            <Label>Image (Paste from clipboard)</Label>
-            <div
+            <Label>Image</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <textarea
+              ref={pasteTargetRef}
               onPaste={handleImagePaste}
-              className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-            >
+              className="sr-only"
+              aria-hidden="true"
+            />
+            <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
               {imageUrl ? (
                 <div className="space-y-2">
                   <img src={imageUrl} alt="Task" className="max-h-48 mx-auto rounded" />
@@ -237,9 +276,29 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2 text-muted-foreground">
-                  <ImageIcon className="h-8 w-8 mx-auto" />
-                  <p className="text-sm">Paste an image anywhere in this form</p>
+                <div className="space-y-3 py-6">
+                  <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground" />
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTapToPaste}
+                      className="gap-2"
+                    >
+                      📋 Tap to Paste Image
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="gap-2"
+                    >
+                      📁 Choose from Gallery
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Or paste anywhere in this form</p>
                 </div>
               )}
             </div>

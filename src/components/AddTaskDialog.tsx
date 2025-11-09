@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,8 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
   const [endDate, setEndDate] = useState<Date>();
   const [dueDate, setDueDate] = useState<Date>();
   const [imageUrl, setImageUrl] = useState('');
+  const pasteTargetRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImagePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
@@ -43,6 +45,23 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
           reader.readAsDataURL(blob);
         }
       }
+    }
+  };
+
+  const handleTapToPaste = () => {
+    pasteTargetRef.current?.focus();
+    toast.info('Now paste your image (long-press → Paste)');
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImageUrl(event.target?.result as string);
+        toast.success('Image selected successfully');
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -200,7 +219,20 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
           </div>
 
           <div>
-            <Label>Image (Paste from clipboard)</Label>
+            <Label>Image</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <textarea
+              ref={pasteTargetRef}
+              onPaste={handleImagePaste}
+              className="sr-only"
+              aria-hidden="true"
+            />
             <div className="border-2 border-dashed border-border rounded-md p-4 text-center">
               {imageUrl ? (
                 <div className="relative">
@@ -215,9 +247,29 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
                   </Button>
                 </div>
               ) : (
-                <div className="py-8 text-muted-foreground">
-                  <Image className="h-8 w-8 mx-auto mb-2" />
-                  <p>Paste an image anywhere in this form</p>
+                <div className="space-y-3 py-6">
+                  <Image className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTapToPaste}
+                      className="gap-2"
+                    >
+                      📋 Tap to Paste Image
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="gap-2"
+                    >
+                      📁 Choose from Gallery
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Or paste anywhere in this form</p>
                 </div>
               )}
             </div>
