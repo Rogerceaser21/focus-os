@@ -1,5 +1,22 @@
 import { useState, useRef, useCallback } from 'react';
 
+const getSupportedMimeType = (): string | undefined => {
+  const types = [
+    'audio/webm',
+    'audio/mp4',
+    'audio/ogg',
+    'audio/wav',
+  ];
+  
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) {
+      return type;
+    }
+  }
+  
+  return undefined; // Let browser choose default
+};
+
 export const useVoiceRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -9,9 +26,15 @@ export const useVoiceRecorder = () => {
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm',
-      });
+      
+      // Get supported mime type
+      const mimeType = getSupportedMimeType();
+      
+      // Create MediaRecorder with supported type or no type specified
+      const options = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
+      
+      console.log('Using mimeType:', mimeType || 'browser default');
 
       chunksRef.current = [];
 
@@ -22,7 +45,9 @@ export const useVoiceRecorder = () => {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        // Use the actual mimeType from the MediaRecorder
+        const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: actualMimeType });
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
       };

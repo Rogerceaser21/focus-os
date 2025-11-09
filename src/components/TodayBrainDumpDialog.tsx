@@ -38,9 +38,23 @@ export const TodayBrainDumpDialog = ({
     try {
       await startRecording();
       toast.success('Recording started');
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Recording error:', error);
+      
+      let errorMessage = 'Could not start recording. ';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage += 'Please allow microphone access in your browser settings.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage += 'No microphone found on this device.';
+      } else if (error.name === 'NotSupportedError') {
+        errorMessage += 'Recording is not supported on this browser.';
+      } else {
+        errorMessage += 'Please try again or use a different browser.';
+      }
+      
       toast.error('Failed to start recording', {
-        description: 'Please check microphone permissions',
+        description: errorMessage,
       });
     }
   };
