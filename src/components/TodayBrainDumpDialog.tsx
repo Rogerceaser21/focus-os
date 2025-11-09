@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Mic, Square, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Loader2, Check, X } from 'lucide-react';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { TaskCard } from './TaskCard';
+import { TaskListItem } from '@/components/TaskListItem';
 import { Task } from '@/types/task';
 
 interface TodayBrainDumpDialogProps {
@@ -188,9 +188,12 @@ export const TodayBrainDumpDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto px-4 sm:px-6">
         <DialogHeader>
-          <DialogTitle>Brain Dump - Add Tasks to Today's To-Do</DialogTitle>
+          <DialogTitle>Speak to Add Tasks to Today's To-Do</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            A.I. will listen to your ideas, summarise them, and neatly compile them into plausible tasks for today.
+          </p>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -204,15 +207,16 @@ export const TodayBrainDumpDialog = ({
           {editableTasks.length === 0 ? (
             <>
               {/* Recording Controls */}
-              <div className="flex flex-col items-center gap-4 py-8">
+              <div className="flex flex-col sm:flex-row gap-4 w-full">
                 {!isRecording && !audioBlob && (
                   <Button
                     onClick={handleStartRecording}
                     size="lg"
-                    className="h-20 w-20 rounded-full"
+                    className="w-full sm:w-auto"
                     disabled={isTranscribing || isExtracting}
                   >
-                    <Mic className="h-8 w-8" />
+                    <Mic className="mr-2 h-4 w-4" />
+                    I'm ready to Speak!
                   </Button>
                 )}
 
@@ -221,18 +225,20 @@ export const TodayBrainDumpDialog = ({
                     onClick={handleStopRecording}
                     size="lg"
                     variant="destructive"
-                    className="h-20 w-20 rounded-full animate-pulse"
+                    className="w-full sm:w-auto"
                   >
-                    <Square className="h-8 w-8" />
+                    <MicOff className="mr-2 h-4 w-4" />
+                    Stop Listening
                   </Button>
                 )}
 
                 {audioBlob && !isRecording && (
-                  <div className="flex flex-col items-center gap-4">
+                  <>
                     <Button
                       onClick={handleTranscribe}
                       disabled={isTranscribing || isExtracting}
                       size="lg"
+                      className="w-full sm:flex-1"
                     >
                       {isTranscribing || isExtracting ? (
                         <>
@@ -240,7 +246,7 @@ export const TodayBrainDumpDialog = ({
                           {isTranscribing ? 'Transcribing...' : 'Extracting tasks...'}
                         </>
                       ) : (
-                        'Process Recording'
+                        'Extract Tasks'
                       )}
                     </Button>
                     <Button
@@ -250,43 +256,34 @@ export const TodayBrainDumpDialog = ({
                       }}
                       variant="outline"
                       disabled={isTranscribing || isExtracting}
+                      className="w-full sm:w-auto"
                     >
                       Record Again
                     </Button>
-                  </div>
+                  </>
                 )}
-
-                <p className="text-sm text-muted-foreground text-center max-w-md">
-                  {isRecording
-                    ? 'Recording... Click stop when done'
-                    : audioBlob
-                    ? 'Click "Process Recording" to transcribe and extract tasks'
-                    : 'Click the microphone to start recording your tasks'}
-                </p>
               </div>
 
-              {/* Show transcription if available */}
-              {transcription && (
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm font-medium mb-2">Transcription:</p>
-                  <p className="text-sm">{transcription}</p>
-                </div>
+              {isRecording && (
+                <p className="text-sm text-muted-foreground text-center">
+                  Listening
+                </p>
               )}
             </>
           ) : (
             <>
               {/* Task Review */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Review Tasks</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h3 className="text-lg font-semibold">Review & Edit Tasks</h3>
                   <p className="text-sm text-muted-foreground">
                     {editableTasks.length} task{editableTasks.length !== 1 ? 's' : ''}
                   </p>
                 </div>
 
                 {editableTasks.map((task, index) => (
-                  <div key={index} className="relative group">
-                    <TaskCard
+                  <div key={index} className="relative group pb-2">
+                    <TaskListItem
                       task={{
                         id: `temp-${index}`,
                         title: task.title,
@@ -302,36 +299,42 @@ export const TodayBrainDumpDialog = ({
                           priority: updatedTask.priority,
                         });
                       }}
+                      globalViewMode="full"
+                      isIndividuallyExpanded={false}
+                      onTaskClick={() => {}}
                     />
                     <Button
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute bottom-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10 h-8 w-8"
                       onClick={() => removeTask(index)}
                     >
-                      Remove
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                 <Button
                   onClick={handleConfirm}
                   disabled={isSaving}
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                 >
                   {isSaving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Adding...
+                      Saving...
                     </>
                   ) : (
-                    `Add Tasks to Today's To-Do`
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Save Tasks
+                    </>
                   )}
                 </Button>
-                <Button onClick={handleClose} variant="outline" disabled={isSaving}>
+                <Button onClick={handleClose} variant="outline" disabled={isSaving} className="w-full sm:w-auto">
                   Cancel
                 </Button>
               </div>
