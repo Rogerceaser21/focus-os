@@ -30,7 +30,6 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate);
   const [imageUrl, setImageUrl] = useState(task.imageUrl || '');
   const [maxHeight, setMaxHeight] = useState('300px');
-  const pasteTargetRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -77,14 +76,6 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
         }
       }
     }
-  };
-
-  const handleTapToPaste = () => {
-    pasteTargetRef.current?.focus();
-    toast({
-      title: 'Ready to paste',
-      description: 'Now paste your image (long-press → Paste)'
-    });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -261,12 +252,6 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               className="hidden"
               onChange={handleFileSelect}
             />
-            <textarea
-              ref={pasteTargetRef}
-              onPaste={handleImagePaste}
-              className="sr-only"
-              aria-hidden="true"
-            />
             <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
               {imageUrl ? (
                 <div className="space-y-2">
@@ -278,27 +263,16 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               ) : (
                 <div className="space-y-3 py-6">
                   <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleTapToPaste}
-                      className="gap-2"
-                    >
-                      📋 Tap to Paste Image
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="gap-2"
-                    >
-                      📁 Choose from Gallery
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Or paste anywhere in this form</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="gap-2"
+                  >
+                    📁 Choose from Gallery
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">Desktop: You can also paste with Ctrl+V</p>
                 </div>
               )}
             </div>
