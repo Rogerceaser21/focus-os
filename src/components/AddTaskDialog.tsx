@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,23 +29,33 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
   const [imageUrl, setImageUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImagePaste = (e: React.ClipboardEvent) => {
-    const items = e.clipboardData.items;
-    
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        const blob = items[i].getAsFile();
-        if (blob) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            setImageUrl(event.target?.result as string);
-            toast.success('Image pasted successfully');
-          };
-          reader.readAsDataURL(blob);
+  useEffect(() => {
+    if (!open) return;
+
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const blob = items[i].getAsFile();
+          if (blob) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              setImageUrl(event.target?.result as string);
+              toast.success('Image pasted successfully');
+            };
+            reader.readAsDataURL(blob);
+          }
+          break;
         }
       }
-    }
-  };
+    };
+
+    document.addEventListener('paste', handleGlobalPaste);
+    return () => document.removeEventListener('paste', handleGlobalPaste);
+  }, [open]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -112,7 +122,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
           <DialogTitle>Create New Task</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4" onPaste={handleImagePaste}>
+        <div className="space-y-4">
           <div>
             <Label htmlFor="title">Title *</Label>
             <Input

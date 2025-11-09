@@ -56,27 +56,36 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
     return () => window.removeEventListener('resize', updateMaxHeight);
   }, []);
 
-  const handleImagePaste = (e: React.ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
+  useEffect(() => {
+    if (!open) return;
 
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        const blob = items[i].getAsFile();
-        if (blob) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            setImageUrl(event.target?.result as string);
-            toast({
-              title: 'Image pasted',
-              description: 'Image added successfully'
-            });
-          };
-          reader.readAsDataURL(blob);
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const blob = items[i].getAsFile();
+          if (blob) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              setImageUrl(event.target?.result as string);
+              toast({
+                title: 'Image pasted',
+                description: 'Image added successfully'
+              });
+            };
+            reader.readAsDataURL(blob);
+          }
+          break;
         }
       }
-    }
-  };
+    };
+
+    document.addEventListener('paste', handleGlobalPaste);
+    return () => document.removeEventListener('paste', handleGlobalPaste);
+  }, [open]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
