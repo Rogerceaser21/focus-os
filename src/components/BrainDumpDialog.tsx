@@ -255,11 +255,11 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6">
         <DialogHeader>
-          <DialogTitle>Brain Dump - Voice Recording</DialogTitle>
+          <DialogTitle>Speak to Create a New Project</DialogTitle>
           <DialogDescription>
-            Record your ideas and we'll extract tasks automatically
+            A.I. will listen to your ideas, summarise them, and neatly compile them into plausible tasks within the newly created project.
           </DialogDescription>
         </DialogHeader>
 
@@ -267,16 +267,16 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
           {/* Recording Section */}
           {!extractedData && (
             <div className="flex flex-col items-center space-y-4">
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 w-full">
                 {!isRecording && !audioBlob && (
-                  <Button onClick={handleStartRecording} size="lg">
+                  <Button onClick={handleStartRecording} size="lg" className="w-full sm:w-auto">
                     <Mic className="mr-2 h-5 w-5" />
-                    Start Recording
+                    I'm ready to Speak!
                   </Button>
                 )}
                 
                 {isRecording && (
-                  <Button onClick={handleStopRecording} variant="destructive" size="lg">
+                  <Button onClick={handleStopRecording} variant="destructive" size="lg" className="w-full sm:w-auto">
                     <MicOff className="mr-2 h-5 w-5" />
                     Stop Recording
                   </Button>
@@ -284,10 +284,10 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
 
                 {audioBlob && !isTranscribing && !isExtracting && (
                   <>
-                    <Button onClick={handleTranscribe} size="lg">
+                    <Button onClick={handleTranscribe} size="lg" className="w-full sm:flex-1">
                       Transcribe & Extract Tasks
                     </Button>
-                    <Button onClick={reset} variant="outline" size="lg">
+                    <Button onClick={reset} variant="outline" size="lg" className="w-full sm:w-auto">
                       Record Again
                     </Button>
                   </>
@@ -332,7 +332,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <Label>Review & Edit Tasks</Label>
                   <span className="text-sm text-muted-foreground">
                     {editableTasks.length} task{editableTasks.length !== 1 ? 's' : ''}
@@ -365,10 +365,10 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
                 )}
               </div>
 
-              <div className="flex gap-3 pt-4 border-t">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                 <Button 
                   onClick={handleConfirm} 
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                   disabled={isSaving || editableTasks.length === 0 || !editableProjectName.trim()}
                 >
                   {isSaving ? (
@@ -387,6 +387,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
                   onClick={handleClose} 
                   variant="outline" 
                   disabled={isSaving}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
