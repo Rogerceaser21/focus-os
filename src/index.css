@@ -78,6 +78,30 @@ All colors MUST be HSL.
     display: none; /* Chrome, Safari, Opera */
   }
 
+  /* Show scrollbar only for sidebar */
+  [data-sidebar] *, 
+  [data-sidebar] *::-webkit-scrollbar {
+    display: block !important;
+    scrollbar-width: thin !important;
+  }
+  
+  [data-sidebar] *::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  [data-sidebar] *::-webkit-scrollbar-track {
+    background: hsl(var(--sidebar-background));
+  }
+  
+  [data-sidebar] *::-webkit-scrollbar-thumb {
+    background: hsl(var(--sidebar-border));
+    border-radius: 3px;
+  }
+  
+  [data-sidebar] *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--sidebar-accent));
+  }
+
   body {
     @apply bg-background text-foreground;
   }

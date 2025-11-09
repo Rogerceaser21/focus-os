@@ -47,7 +47,7 @@ export const ProjectSidebar = ({
     const { data, error } = await supabase
       .from('projects')
       .select('*')
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (error) {
       toast.error('Failed to load projects');
@@ -135,7 +135,7 @@ export const ProjectSidebar = ({
         {projects.length > 0 && (
           <div className="mt-4">
             <div className="px-4 mb-2">
-              <h3 className="text-sm font-medium text-muted-foreground">My Projects</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">My Projects ({projects.length})</h3>
             </div>
             <div className="px-2">
               <AnimatedList
@@ -146,7 +146,7 @@ export const ProjectSidebar = ({
                 }}
                 showGradients={false}
                 enableArrowNavigation={false}
-                displayScrollbar={false}
+                displayScrollbar={true}
                 className="w-full"
                 renderItem={(project, isSelected) => (
                   <Button
@@ -223,14 +223,14 @@ export const ProjectSidebar = ({
         {/* Projects with AnimatedList */}
         {sidebarOpen && projects.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="px-4">My Projects</SidebarGroupLabel>
+            <SidebarGroupLabel className="px-4">My Projects ({projects.length})</SidebarGroupLabel>
             <SidebarGroupContent className="px-2">
               <AnimatedList
                 items={projects}
                 onItemSelect={(project) => handleSelectProject(project.id)}
                 showGradients={false}
                 enableArrowNavigation={false}
-                displayScrollbar={false}
+                displayScrollbar={true}
                 className="w-full"
                 renderItem={(project, isSelected) => (
                   <Button
