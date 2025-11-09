@@ -13,7 +13,7 @@ import type { Task, TaskPriority } from '@/types/task';
 interface BrainDumpDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onTasksCreated: () => void;
+  onTasksCreated: (newProjectId: string) => void;
   userId: string;
 }
 
@@ -197,7 +197,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
       });
 
       handleClose();
-      onTasksCreated();
+      onTasksCreated(project.id);
     } catch (error: any) {
       console.error('Save error:', error);
       toast({

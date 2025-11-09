@@ -908,9 +908,11 @@ const Index = () => {
       <BrainDumpDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onTasksCreated={() => {
-          fetchTasks();
+        onTasksCreated={(newProjectId) => {
           setProjectRefreshTrigger(prev => prev + 1);
+          setSelectedProjectId(newProjectId);
+          setSelectedSpecialList(null);
+          fetchTasks();
         }}
         userId={user?.id || ''}
       />
