@@ -178,12 +178,22 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
             </p>
           )}
 
-        {task.imageUrl && (
-          <img 
-            src={task.imageUrl} 
-            alt="Task attachment" 
-            className="w-full h-32 object-cover rounded-md"
-          />
+        {task.images && task.images.length > 0 && (
+          <div className="grid grid-cols-2 gap-2">
+            {task.images.slice(0, 4).map((img, idx) => (
+              <img 
+                key={idx}
+                src={img} 
+                alt={`Task attachment ${idx + 1}`} 
+                className="w-full h-24 object-cover rounded-md"
+              />
+            ))}
+            {task.images.length > 4 && (
+              <div className="flex items-center justify-center bg-muted rounded-md text-sm text-muted-foreground">
+                +{task.images.length - 4} more
+              </div>
+            )}
+          </div>
         )}
 
         <div className="flex items-center gap-3 text-sm text-muted-foreground">

@@ -28,9 +28,11 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   const [startDate, setStartDate] = useState<Date | undefined>(task.startDate);
   const [endDate, setEndDate] = useState<Date | undefined>(task.endDate);
   const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate);
-  const [imageUrl, setImageUrl] = useState(task.imageUrl || '');
+  const [images, setImages] = useState<string[]>(task.images || []);
   const [maxHeight, setMaxHeight] = useState('300px');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const MAX_IMAGES = 8;
 
   useEffect(() => {
     if (open) {
@@ -41,7 +43,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
       setStartDate(task.startDate);
       setEndDate(task.endDate);
       setDueDate(task.dueDate);
-      setImageUrl(task.imageUrl || '');
+      setImages(task.images || []);
     }
   }, [task, open]);
 
@@ -65,12 +67,21 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
 
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
+          if (images.length >= MAX_IMAGES) {
+            toast({
+              title: 'Maximum images reached',
+              description: 'You can only add up to 8 images per task',
+              variant: 'destructive'
+            });
+            return;
+          }
+          
           e.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
             const reader = new FileReader();
             reader.onload = (event) => {
-              setImageUrl(event.target?.result as string);
+              setImages(prev => [...prev, event.target?.result as string]);
               toast({
                 title: 'Image pasted',
                 description: 'Image added successfully'
@@ -85,21 +96,50 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
 
     document.addEventListener('paste', handleGlobalPaste);
     return () => document.removeEventListener('paste', handleGlobalPaste);
-  }, [open]);
+  }, [open, images]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
+    const files = e.target.files;
+    if (!files) return;
+    
+    const remaining = MAX_IMAGES - images.length;
+    if (remaining <= 0) {
+      toast({
+        title: 'Maximum images reached',
+        description: 'You can only add up to 8 images per task',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    const filesToAdd = Array.from(files).slice(0, remaining);
+    let processed = 0;
+    
+    filesToAdd.forEach(file => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setImageUrl(event.target?.result as string);
-        toast({
-          title: 'Image selected',
-          description: 'Image added successfully'
-        });
+        setImages(prev => [...prev, event.target?.result as string]);
+        processed++;
+        
+        if (processed === filesToAdd.length) {
+          toast({
+            title: 'Images added',
+            description: files.length > remaining 
+              ? `Only added ${remaining} images (limit: 8)`
+              : `Added ${filesToAdd.length} image(s)`
+          });
+        }
       };
       reader.readAsDataURL(file);
-    }
+    });
+  };
+  
+  const handleRemoveImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index));
+    toast({
+      title: 'Image removed',
+      description: 'Image removed successfully'
+    });
   };
 
   const handleSubmit = () => {
@@ -121,7 +161,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
       startDate,
       endDate,
       dueDate,
-      imageUrl: imageUrl || undefined
+      images
     };
 
     onUpdateTask(updatedTask);
@@ -252,38 +292,50 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Image</Label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
-              {imageUrl ? (
-                <div className="space-y-2">
-                  <img src={imageUrl} alt="Task" className="max-h-48 mx-auto rounded" />
-                  <Button variant="outline" size="sm" onClick={() => setImageUrl('')}>
-                    Remove Image
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3 py-6">
-                  <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="gap-2"
-                  >
-                    📁 Choose from Gallery
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-2">Desktop: You can also paste with Ctrl+V</p>
+          <div>
+            <Label htmlFor="edit-image">Images (Optional - Max 8)</Label>
+            <div className="space-y-2">
+              {images.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {images.map((img, idx) => (
+                    <div key={idx} className="relative group">
+                      <img 
+                        src={img} 
+                        alt={`Upload ${idx + 1}`}
+                        className="w-full h-24 object-cover rounded border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                className="hidden"
+                id="edit-file-input"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full"
+                disabled={images.length >= MAX_IMAGES}
+              >
+                📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Desktop: You can also paste images with Ctrl+V
+              </p>
             </div>
           </div>
         </div>

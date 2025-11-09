@@ -26,8 +26,10 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [dueDate, setDueDate] = useState<Date>();
-  const [imageUrl, setImageUrl] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const MAX_IMAGES = 8;
 
   useEffect(() => {
     if (!open) return;
@@ -38,12 +40,17 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
 
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
+          if (images.length >= MAX_IMAGES) {
+            toast.error('Maximum 8 images per task');
+            return;
+          }
+          
           e.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
             const reader = new FileReader();
             reader.onload = (event) => {
-              setImageUrl(event.target?.result as string);
+              setImages(prev => [...prev, event.target?.result as string]);
               toast.success('Image pasted successfully');
             };
             reader.readAsDataURL(blob);
@@ -55,18 +62,42 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
 
     document.addEventListener('paste', handleGlobalPaste);
     return () => document.removeEventListener('paste', handleGlobalPaste);
-  }, [open]);
+  }, [open, images]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
+    const files = e.target.files;
+    if (!files) return;
+    
+    const remaining = MAX_IMAGES - images.length;
+    if (remaining <= 0) {
+      toast.error('Maximum 8 images per task');
+      return;
+    }
+    
+    const filesToAdd = Array.from(files).slice(0, remaining);
+    let processed = 0;
+    
+    filesToAdd.forEach(file => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setImageUrl(event.target?.result as string);
-        toast.success('Image selected successfully');
+        setImages(prev => [...prev, event.target?.result as string]);
+        processed++;
+        
+        if (processed === filesToAdd.length) {
+          if (files.length > remaining) {
+            toast.warning(`Only added ${remaining} images (limit: 8)`);
+          } else {
+            toast.success(`Added ${filesToAdd.length} image(s)`);
+          }
+        }
       };
       reader.readAsDataURL(file);
-    }
+    });
+  };
+  
+  const handleRemoveImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index));
+    toast.success('Image removed');
   };
 
   const handleSubmit = () => {
@@ -84,7 +115,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
       startDate,
       endDate,
       dueDate,
-      imageUrl,
+      images,
       timer: {
         totalSeconds: 0,
         isRunning: false
@@ -102,7 +133,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
     setStartDate(undefined);
     setEndDate(undefined);
     setDueDate(undefined);
-    setImageUrl('');
+    setImages([]);
     setOpen(false);
     
     toast.success('Task created successfully');
@@ -223,42 +254,49 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
           </div>
 
           <div>
-            <Label>Image</Label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <div className="border-2 border-dashed border-border rounded-md p-4 text-center">
-              {imageUrl ? (
-                <div className="relative">
-                  <img src={imageUrl} alt="Pasted" className="max-h-48 mx-auto rounded" />
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => setImageUrl('')}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3 py-6">
-                  <Image className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="gap-2"
-                  >
-                    📁 Choose from Gallery
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-2">Desktop: You can also paste with Ctrl+V</p>
+            <Label htmlFor="image">Images (Optional - Max 8)</Label>
+            <div className="space-y-2">
+              {images.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {images.map((img, idx) => (
+                    <div key={idx} className="relative group">
+                      <img 
+                        src={img} 
+                        alt={`Upload ${idx + 1}`}
+                        className="w-full h-24 object-cover rounded border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                className="hidden"
+                id="file-input"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full"
+                disabled={images.length >= MAX_IMAGES}
+              >
+                📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Desktop: You can also paste images with Ctrl+V
+              </p>
             </div>
           </div>
 

@@ -173,7 +173,7 @@ const Index = () => {
       startDate: t.start_date ? new Date(t.start_date) : undefined,
       endDate: t.end_date ? new Date(t.end_date) : undefined,
       dueDate: t.due_date ? new Date(t.due_date) : undefined,
-      imageUrl: t.image_url,
+      images: t.images ? (t.images as string[]) : [],
       timer: {
         totalSeconds: t.timer_total_seconds,
         isRunning: t.timer_is_running,
@@ -217,7 +217,7 @@ const Index = () => {
       start_date: newTask.startDate?.toISOString(),
       end_date: newTask.endDate?.toISOString(),
       due_date: newTask.dueDate?.toISOString(),
-      image_url: newTask.imageUrl,
+      images: newTask.images || [],
       timer_total_seconds: 0,
       timer_is_running: false
     });
@@ -243,7 +243,7 @@ const Index = () => {
       start_date: updatedTask.startDate?.toISOString(),
       end_date: updatedTask.endDate?.toISOString(),
       due_date: updatedTask.dueDate?.toISOString(),
-      image_url: updatedTask.imageUrl,
+      images: updatedTask.images || [],
       timer_total_seconds: updatedTask.timer.totalSeconds,
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime

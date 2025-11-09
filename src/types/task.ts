@@ -16,7 +16,7 @@ export interface Task {
   startDate?: Date;
   endDate?: Date;
   dueDate?: Date;
-  imageUrl?: string;
+  images?: string[];
   timer: TaskTimer;
   projectId?: string;
 }

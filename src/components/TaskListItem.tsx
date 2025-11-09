@@ -311,13 +311,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
               <button
                 onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }}
-                className={`p-1 rounded transition-colors ${
-                  task.imageUrl 
+                className={`p-1 rounded transition-colors relative ${
+                  task.images && task.images.length > 0
                     ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
                     : 'text-white/50 border border-white/30'
                 }`}
               >
                 <Image className="w-3 h-3" />
+                {task.images && task.images.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] rounded-full w-3 h-3 flex items-center justify-center">
+                    {task.images.length}
+                  </span>
+                )}
               </button>
             </div>
           )}
@@ -457,13 +462,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
               <button
                 onClick={() => setIsEditOpen(true)}
-                className={`p-1.5 rounded transition-colors ${
-                  task.imageUrl 
+                className={`p-1.5 rounded transition-colors relative ${
+                  task.images && task.images.length > 0
                     ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
                     : 'text-white/50 border border-white/30'
                 }`}
               >
                 <Image className="w-4 h-4" />
+                {task.images && task.images.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] rounded-full w-3 h-3 flex items-center justify-center">
+                    {task.images.length}
+                  </span>
+                )}
               </button>
             </div>
           )}

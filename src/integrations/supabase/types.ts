@@ -48,7 +48,7 @@ export type Database = {
           due_date: string | null
           end_date: string | null
           id: string
-          image_url: string | null
+          images: Json | null
           priority: string
           project_id: string | null
           start_date: string | null
@@ -66,7 +66,7 @@ export type Database = {
           due_date?: string | null
           end_date?: string | null
           id?: string
-          image_url?: string | null
+          images?: Json | null
           priority?: string
           project_id?: string | null
           start_date?: string | null
@@ -84,7 +84,7 @@ export type Database = {
           due_date?: string | null
           end_date?: string | null
           id?: string
-          image_url?: string | null
+          images?: Json | null
           priority?: string
           project_id?: string | null
           start_date?: string | null
