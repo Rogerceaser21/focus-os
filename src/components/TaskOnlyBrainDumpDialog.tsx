@@ -5,7 +5,7 @@ import { Mic, MicOff, Loader2, Check, X } from 'lucide-react';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { TaskCard } from '@/components/TaskCard';
+import { TaskListItem } from '@/components/TaskListItem';
 import type { Task, TaskPriority } from '@/types/task';
 
 interface TaskOnlyBrainDumpDialogProps {
@@ -194,11 +194,11 @@ export const TaskOnlyBrainDumpDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6">
         <DialogHeader>
-          <DialogTitle>Brain Dump - Add Tasks to {selectedProjectName}</DialogTitle>
+          <DialogTitle>Speak to Add Tasks to {selectedProjectName}</DialogTitle>
           <DialogDescription>
-            Record your tasks and we'll add them to your current project
+            A.I. will listen to your ideas, summarise them, and neatly compile them into plausible tasks within your current project.
           </DialogDescription>
         </DialogHeader>
 
@@ -215,27 +215,27 @@ export const TaskOnlyBrainDumpDialog = ({
           {/* Recording Section */}
           {editableTasks.length === 0 && (
             <div className="flex flex-col items-center space-y-4">
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 w-full">
                 {!isRecording && !audioBlob && (
-                  <Button onClick={handleStartRecording} size="lg">
+                  <Button onClick={handleStartRecording} size="lg" className="w-full sm:w-auto">
                     <Mic className="mr-2 h-5 w-5" />
-                    Start Recording
+                    I'm ready to Speak!
                   </Button>
                 )}
                 
                 {isRecording && (
-                  <Button onClick={handleStopRecording} variant="destructive" size="lg">
+                  <Button onClick={handleStopRecording} variant="destructive" size="lg" className="w-full sm:w-auto">
                     <MicOff className="mr-2 h-5 w-5" />
-                    Stop Recording
+                    Stop Listening
                   </Button>
                 )}
 
                 {audioBlob && !isTranscribing && !isExtracting && (
                   <>
-                    <Button onClick={handleTranscribe} size="lg">
-                      Transcribe & Extract Tasks
+                    <Button onClick={handleTranscribe} size="lg" className="w-full sm:flex-1">
+                      Extract Tasks
                     </Button>
-                    <Button onClick={reset} variant="outline" size="lg">
+                    <Button onClick={reset} variant="outline" size="lg" className="w-full sm:w-auto">
                       Record Again
                     </Button>
                   </>
@@ -244,7 +244,7 @@ export const TaskOnlyBrainDumpDialog = ({
 
               {isRecording && (
                 <div className="text-sm text-muted-foreground animate-pulse">
-                  Recording...
+                  Listening
                 </div>
               )}
 
@@ -261,7 +261,7 @@ export const TaskOnlyBrainDumpDialog = ({
           {editableTasks.length > 0 && (
             <div className="space-y-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <span className="text-sm font-medium">Review & Edit Tasks</span>
                   <span className="text-sm text-muted-foreground">
                     {editableTasks.length} task{editableTasks.length !== 1 ? 's' : ''}
@@ -270,16 +270,19 @@ export const TaskOnlyBrainDumpDialog = ({
                 
                 <div className="space-y-3">
                   {previewTasks.map((task, index) => (
-                    <div key={task.id} className="relative group">
-                      <TaskCard 
+                    <div key={task.id} className="relative group pb-2">
+                      <TaskListItem 
                         task={task}
                         onUpdate={handleTaskUpdate}
+                        globalViewMode="full"
+                        isIndividuallyExpanded={false}
+                        onTaskClick={() => {}}
                       />
                       <Button
                         onClick={() => removeTask(index)}
                         variant="destructive"
                         size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute bottom-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -288,10 +291,10 @@ export const TaskOnlyBrainDumpDialog = ({
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4 border-t">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                 <Button 
                   onClick={handleConfirm} 
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                   disabled={isSaving || editableTasks.length === 0}
                 >
                   {isSaving ? (
@@ -302,7 +305,7 @@ export const TaskOnlyBrainDumpDialog = ({
                   ) : (
                     <>
                       <Check className="mr-2 h-4 w-4" />
-                      Add Tasks to {selectedProjectName}
+                      Save Tasks
                     </>
                   )}
                 </Button>
@@ -310,6 +313,7 @@ export const TaskOnlyBrainDumpDialog = ({
                   onClick={handleClose} 
                   variant="outline" 
                   disabled={isSaving}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
