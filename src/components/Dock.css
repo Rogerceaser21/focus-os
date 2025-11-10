@@ -15,7 +15,7 @@
   left: 0;
   right: 0;
   height: 40px;
-  background: linear-gradient(to top, hsl(var(--background)) 0%, transparent 100%);
+  background: linear-gradient(to bottom, transparent 0%, hsl(var(--background)) 100%);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   pointer-events: none;
