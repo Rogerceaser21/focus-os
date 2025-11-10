@@ -48,6 +48,14 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
 
+  // Auto-expand title textarea (matches description behavior)
+  useEffect(() => {
+    if (isEditingTitle && titleRef.current && editedTitle.trim().length > 0) {
+      titleRef.current.style.height = 'auto';
+      titleRef.current.style.height = titleRef.current.scrollHeight + 'px';
+    }
+  }, [editedTitle, isEditingTitle]);
+
   // Auto-expand description textarea (matches desktop behavior)
   useEffect(() => {
     if (isEditingDescription && descriptionRef.current && editedDescription.trim().length > 0) {
