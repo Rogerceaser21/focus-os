@@ -1,9 +1,37 @@
 .dock-outer {
+  position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   width: 100%;
+  padding-bottom: 32px;
   pointer-events: none;
+}
+
+.dock-outer::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(to top, hsl(var(--background)) 0%, transparent 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media (max-width: 768px) {
+  .dock-outer {
+    padding-bottom: 48px;
+  }
+  
+  .dock-outer::before {
+    height: 150px;
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+  }
 }
 
 .dock-panel {
