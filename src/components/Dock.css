@@ -14,7 +14,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 40px;
+  height: 8px;
   background: linear-gradient(to bottom, transparent 0%, hsl(var(--background)) 100%);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -28,7 +28,7 @@
   }
   
   .dock-outer::before {
-    height: 50px;
+    height: 12px;
     backdrop-filter: blur(32px);
     -webkit-backdrop-filter: blur(32px);
   }
