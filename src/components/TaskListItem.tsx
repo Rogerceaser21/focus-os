@@ -46,6 +46,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const titleDisplayRef = useRef<HTMLHeadingElement>(null);
+  const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
 
 
   // Auto-expand title textarea (matches description behavior)
@@ -79,6 +81,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
       element.style.height = 'auto';
       element.style.height = element.scrollHeight + 'px';
     }
+  };
+
+  const isTruncated = (element: HTMLElement | null): boolean => {
+    if (!element) return false;
+    return element.scrollHeight > element.clientHeight;
   };
 
   const handleStartStop = () => {
@@ -161,13 +168,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
+                ref={titleDisplayRef}
                 className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsEditingTitle(true);
+                  if (isTruncated(titleDisplayRef.current)) {
+                    setIsEditOpen(true);
+                  } else {
+                    setIsEditingTitle(true);
+                  }
                 }}
               >
                 {task.title}
@@ -202,13 +214,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
+                ref={descriptionDisplayRef}
                 className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsEditingDescription(true);
+                  if (isTruncated(descriptionDisplayRef.current)) {
+                    setIsEditOpen(true);
+                  } else {
+                    setIsEditingDescription(true);
+                  }
                 }}
               >
                 {task.description ? (
@@ -311,13 +328,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
+                ref={titleDisplayRef}
                 className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsEditingTitle(true);
+                  if (isTruncated(titleDisplayRef.current)) {
+                    setIsEditOpen(true);
+                  } else {
+                    setIsEditingTitle(true);
+                  }
                 }}
               >
                 {task.title}
@@ -352,13 +374,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
+                ref={descriptionDisplayRef}
                 className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsEditingDescription(true);
+                  if (isTruncated(descriptionDisplayRef.current)) {
+                    setIsEditOpen(true);
+                  } else {
+                    setIsEditingDescription(true);
+                  }
                 }}
               >
                 {task.description ? (
