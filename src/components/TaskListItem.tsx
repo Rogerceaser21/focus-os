@@ -75,32 +75,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
     }
   }, [task.description, isEditingDescription, isMobile]);
 
-  // Auto-expand title input and detect overflow (mobile only)
-  useEffect(() => {
-    if (isEditingTitle && titleRef.current && isMobile) {
-      const lineHeight = parseInt(window.getComputedStyle(titleRef.current).lineHeight);
-      const lines = Math.ceil(titleRef.current.scrollHeight / lineHeight);
-      
-      if (lines > 2) {
-        setIsEditingTitle(false);
-        setIsEditOpen(true);
-      }
-    }
-  }, [editedTitle, isEditingTitle, isMobile]);
+  // Title editing - no interference (matches desktop behavior)
 
-  // Auto-expand description textarea and detect overflow
+  // Auto-expand description textarea (matches desktop behavior)
   useEffect(() => {
     if (isEditingDescription && descriptionRef.current && editedDescription.trim().length > 0) {
       descriptionRef.current.style.height = 'auto';
       descriptionRef.current.style.height = descriptionRef.current.scrollHeight + 'px';
-      
-      const lineHeight = parseInt(window.getComputedStyle(descriptionRef.current).lineHeight);
-      const lines = Math.ceil(descriptionRef.current.scrollHeight / lineHeight);
-      
-      if (lines > 8) {
-        setIsEditingDescription(false);
-        setIsEditOpen(true);
-      }
     }
   }, [editedDescription, isEditingDescription]);
 
