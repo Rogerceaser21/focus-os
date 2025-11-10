@@ -64,6 +64,23 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
     }
   }, [editedDescription, isEditingDescription]);
 
+  // Immediate height adjustment on mount (prevents layout shift)
+  const handleTitleMount = (element: HTMLTextAreaElement | null) => {
+    if (element) {
+      titleRef.current = element;
+      element.style.height = 'auto';
+      element.style.height = element.scrollHeight + 'px';
+    }
+  };
+
+  const handleDescriptionMount = (element: HTMLTextAreaElement | null) => {
+    if (element) {
+      descriptionRef.current = element;
+      element.style.height = 'auto';
+      element.style.height = element.scrollHeight + 'px';
+    }
+  };
+
   const handleStartStop = () => {
     if (timer.isRunning) {
       stopTimer();
@@ -132,13 +149,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
             />
             {isEditingTitle ? (
               <Textarea
-                ref={titleRef as any}
+                ref={handleTitleMount}
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                rows={2}
+                rows={1}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -174,12 +191,12 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           <div className="flex items-center gap-2">
             {isEditingDescription ? (
               <Textarea
-                ref={descriptionRef}
+                ref={handleDescriptionMount}
                 value={editedDescription}
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 autoFocus
-                rows={2}
+                rows={1}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -282,13 +299,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
             />
             {isEditingTitle ? (
               <Textarea
-                ref={titleRef as any}
+                ref={handleTitleMount}
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
-                rows={2}
+                rows={1}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -324,12 +341,12 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           <div className="flex items-center gap-2">
             {isEditingDescription ? (
               <Textarea
-                ref={descriptionRef}
+                ref={handleDescriptionMount}
                 value={editedDescription}
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 autoFocus
-                rows={2}
+                rows={1}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
