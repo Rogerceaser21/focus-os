@@ -196,9 +196,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   }
                   
                   // Otherwise, allow inline editing
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
-                  }
+                  onTaskClick();
                   setIsEditingTitle(true);
                 }}
               >
@@ -246,9 +244,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   }
                   
                   // Otherwise, allow inline editing
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
-                  }
+                  onTaskClick();
                   setIsEditingDescription(true);
                 }}
               >
