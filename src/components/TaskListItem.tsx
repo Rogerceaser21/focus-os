@@ -195,8 +195,10 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                     return;
                   }
                   
-                  // Otherwise, allow inline editing
-                  onTaskClick();
+                  // Only expand if not already expanded
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
                   setIsEditingTitle(true);
                 }}
               >
@@ -243,8 +245,10 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                     return;
                   }
                   
-                  // Otherwise, allow inline editing
-                  onTaskClick();
+                  // Only expand if not already expanded
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
                   setIsEditingDescription(true);
                 }}
               >
