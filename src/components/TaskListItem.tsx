@@ -46,36 +46,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const titleDisplayRef = useRef<HTMLHeadingElement>(null);
-  const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
-  const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
-  const [isDescriptionOverflowing, setIsDescriptionOverflowing] = useState(false);
 
-  // Detect title overflow (mobile only)
-  useEffect(() => {
-    if (titleDisplayRef.current && !isEditingTitle && isMobile) {
-      const element = titleDisplayRef.current;
-      const computedStyle = window.getComputedStyle(element);
-      const lineHeight = parseFloat(computedStyle.lineHeight);
-      const expectedTwoLineHeight = lineHeight * 2;
-      // Add small buffer (3px) for rounding issues
-      setIsTitleOverflowing(element.scrollHeight > expectedTwoLineHeight + 3);
-    }
-  }, [task.title, isEditingTitle, isMobile]);
-
-  // Detect description overflow (mobile only)
-  useEffect(() => {
-    if (descriptionDisplayRef.current && !isEditingDescription && isMobile && task.description) {
-      const element = descriptionDisplayRef.current;
-      const computedStyle = window.getComputedStyle(element);
-      const lineHeight = parseFloat(computedStyle.lineHeight);
-      const expectedTwoLineHeight = lineHeight * 2;
-      // Add small buffer (3px) for rounding issues
-      setIsDescriptionOverflowing(element.scrollHeight > expectedTwoLineHeight + 3);
-    }
-  }, [task.description, isEditingDescription, isMobile]);
-
-  // Title editing - no interference (matches desktop behavior)
 
   // Auto-expand description textarea (matches desktop behavior)
   useEffect(() => {
@@ -165,18 +136,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                ref={titleDisplayRef}
                 className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  
-                  // If title is overflowing (more than 2 lines), open EditTaskDialog
-                  if (isTitleOverflowing) {
-                    setIsEditOpen(true);
-                    return;
-                  }
-                  
-                  // Only expand if not already expanded
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
@@ -215,18 +177,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
-                ref={descriptionDisplayRef}
                 className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
-                  
-                  // If description is overflowing (more than 2 lines), open EditTaskDialog
-                  if (isDescriptionOverflowing) {
-                    setIsEditOpen(true);
-                    return;
-                  }
-                  
-                  // Only expand if not already expanded
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
@@ -333,12 +286,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                ref={titleDisplayRef}
                 className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  
-                  // Allow inline editing
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
