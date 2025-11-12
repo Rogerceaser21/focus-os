@@ -9,7 +9,6 @@ import AnimatedList from './AnimatedList';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Sidebar,
-  SidebarContent,
   SidebarHeader,
   useSidebar,
 } from '@/components/ui/sidebar';
@@ -193,7 +192,7 @@ export const ProjectSidebar = ({
         </Button>
       </SidebarHeader>
 
-      <SidebarContent>
+      <div className="flex-1 overflow-y-auto">
         <div className="p-2 space-y-1">
           {/* Special Lists */}
           <Button
@@ -224,7 +223,9 @@ export const ProjectSidebar = ({
             <div className="px-2">
               <AnimatedList
                 items={projects}
-                onItemSelect={(project) => handleSelectProject(project.id)}
+                onItemSelect={(project) => {
+                  handleSelectProject(project.id);
+                }}
                 showGradients={false}
                 enableArrowNavigation={false}
                 displayScrollbar={true}
@@ -245,7 +246,7 @@ export const ProjectSidebar = ({
             </div>
           </div>
         )}
-      </SidebarContent>
+      </div>
 
       <CreateProjectDialog 
         open={isCreateOpen}
