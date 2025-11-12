@@ -10,9 +10,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   useSidebar,
 } from '@/components/ui/sidebar';
@@ -197,34 +194,34 @@ export const ProjectSidebar = ({
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent className="p-2 space-y-1">
-            {/* Special Lists */}
-            <Button
-              variant={selectedSpecialList === 'today' ? 'secondary' : 'ghost'}
-              className="w-full justify-start gap-2"
-              onClick={() => handleSelectSpecial('today')}
-            >
-              <Calendar className="h-4 w-4" />
-              {sidebarOpen && "Today's To-Do"}
-            </Button>
-            
-            <Button
-              variant={selectedSpecialList === 'unassigned' ? 'secondary' : 'ghost'}
-              className="w-full justify-start gap-2"
-              onClick={() => handleSelectSpecial('unassigned')}
-            >
-              <ListTodo className="h-4 w-4" />
-              {sidebarOpen && "Unassigned"}
-            </Button>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <div className="p-2 space-y-1">
+          {/* Special Lists */}
+          <Button
+            variant={selectedSpecialList === 'today' ? 'secondary' : 'ghost'}
+            className="w-full justify-start gap-2"
+            onClick={() => handleSelectSpecial('today')}
+          >
+            <Calendar className="h-4 w-4" />
+            {sidebarOpen && "Today's To-Do"}
+          </Button>
+          
+          <Button
+            variant={selectedSpecialList === 'unassigned' ? 'secondary' : 'ghost'}
+            className="w-full justify-start gap-2"
+            onClick={() => handleSelectSpecial('unassigned')}
+          >
+            <ListTodo className="h-4 w-4" />
+            {sidebarOpen && "Unassigned"}
+          </Button>
+        </div>
 
         {/* Projects with AnimatedList */}
         {sidebarOpen && projects.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="px-4">My Projects ({projects.length})</SidebarGroupLabel>
-            <SidebarGroupContent className="px-2">
+          <div className="mt-4">
+            <div className="px-4 mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground">My Projects ({projects.length})</h3>
+            </div>
+            <div className="px-2">
               <AnimatedList
                 items={projects}
                 onItemSelect={(project) => handleSelectProject(project.id)}
@@ -245,8 +242,8 @@ export const ProjectSidebar = ({
                   </Button>
                 )}
               />
-            </SidebarGroupContent>
-          </SidebarGroup>
+            </div>
+          </div>
         )}
       </SidebarContent>
 
