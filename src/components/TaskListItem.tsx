@@ -46,6 +46,10 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
+  const [isDescriptionOverflowing, setIsDescriptionOverflowing] = useState(false);
+  const titleDisplayRef = useRef<HTMLHeadingElement>(null);
+  const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
 
 
   // Auto-expand title textarea (matches description behavior)
@@ -63,6 +67,26 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
       descriptionRef.current.style.height = descriptionRef.current.scrollHeight + 'px';
     }
   }, [editedDescription, isEditingDescription]);
+
+  // Detect if title would overflow to 2+ lines
+  useEffect(() => {
+    if (titleDisplayRef.current && !isEditingTitle) {
+      const element = titleDisplayRef.current;
+      const lineHeight = parseInt(getComputedStyle(element).lineHeight);
+      const isOverflowing = element.scrollHeight > lineHeight * 1.5;
+      setIsTitleOverflowing(isOverflowing);
+    }
+  }, [task.title, isEditingTitle]);
+
+  // Detect if description would overflow to 2+ lines
+  useEffect(() => {
+    if (descriptionDisplayRef.current && !isEditingDescription) {
+      const element = descriptionDisplayRef.current;
+      const lineHeight = parseInt(getComputedStyle(element).lineHeight);
+      const isOverflowing = element.scrollHeight > lineHeight * 1.5;
+      setIsDescriptionOverflowing(isOverflowing);
+    }
+  }, [task.description, isEditingDescription]);
 
   // Immediate height adjustment on mount (prevents layout shift)
   const handleTitleMount = (element: HTMLTextAreaElement | null) => {
@@ -161,13 +185,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                ref={titleDisplayRef}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isTitleOverflowing ? 'truncate' : 'line-clamp-2'} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
+                  if (isTitleOverflowing) {
+                    setIsEditOpen(true);
+                  } else {
+                    if (!isIndividuallyExpanded) {
+                      onTaskClick();
+                    }
+                    setIsEditingTitle(true);
                   }
-                  setIsEditingTitle(true);
                 }}
               >
                 {task.title}
@@ -202,13 +231,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
-                className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
+                ref={descriptionDisplayRef}
+                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isDescriptionOverflowing ? 'truncate' : 'line-clamp-2'}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
+                  if (isDescriptionOverflowing) {
+                    setIsEditOpen(true);
+                  } else {
+                    if (!isIndividuallyExpanded) {
+                      onTaskClick();
+                    }
+                    setIsEditingDescription(true);
                   }
-                  setIsEditingDescription(true);
                 }}
               >
                 {task.description ? (
@@ -311,13 +345,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                ref={titleDisplayRef}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isTitleOverflowing ? 'truncate' : 'line-clamp-2'} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
+                  if (isTitleOverflowing) {
+                    setIsEditOpen(true);
+                  } else {
+                    if (!isIndividuallyExpanded) {
+                      onTaskClick();
+                    }
+                    setIsEditingTitle(true);
                   }
-                  setIsEditingTitle(true);
                 }}
               >
                 {task.title}
@@ -352,13 +391,18 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
-                className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
+                ref={descriptionDisplayRef}
+                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isDescriptionOverflowing ? 'truncate' : 'line-clamp-2'}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
+                  if (isDescriptionOverflowing) {
+                    setIsEditOpen(true);
+                  } else {
+                    if (!isIndividuallyExpanded) {
+                      onTaskClick();
+                    }
+                    setIsEditingDescription(true);
                   }
-                  setIsEditingDescription(true);
                 }}
               >
                 {task.description ? (
