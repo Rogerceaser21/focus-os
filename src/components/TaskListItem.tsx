@@ -43,6 +43,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [isFading, setIsFading] = useState(false);
+  const [isChecked, setIsChecked] = useState(task.status === 'completed');
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -88,6 +89,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
     return element.scrollHeight > element.clientHeight;
   };
 
+  // Sync checkbox with task status
+  useEffect(() => {
+    setIsChecked(task.status === 'completed');
+  }, [task.status]);
+
   const handleStartStop = () => {
     if (timer.isRunning) {
       stopTimer();
@@ -104,6 +110,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
   const handleCheckboxChange = (checked: boolean) => {
     if (checked) {
+      setIsChecked(true);
       setIsFading(true);
       
       setTimeout(() => {
@@ -114,6 +121,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
         setIsFading(false);
       }, 1000);
     } else {
+      setIsChecked(false);
       onUpdate({
         ...task,
         status: 'todo'
@@ -150,7 +158,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           <div className="flex items-center gap-2">
             <Checkbox
               onClick={(e) => e.stopPropagation()}
-              checked={task.status === 'completed'}
+              checked={isChecked}
               onCheckedChange={handleCheckboxChange}
               className="shrink-0"
             />
@@ -310,7 +318,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           <div className="flex items-center gap-2">
             <Checkbox
               onClick={(e) => e.stopPropagation()}
-              checked={task.status === 'completed'}
+              checked={isChecked}
               onCheckedChange={handleCheckboxChange}
               className="shrink-0"
             />
