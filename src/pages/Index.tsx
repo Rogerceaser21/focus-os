@@ -103,7 +103,7 @@ const Index = () => {
 
   // Apply user preferences on load
   useEffect(() => {
-    if (preferences && !preferencesLoaded && projects.length > 0) {
+    if (preferences && !preferencesLoaded && projects.length > 0 && !selectedProjectId && !selectedSpecialList) {
       // Apply default view
       if (preferences.default_view === 'today') {
         setSelectedSpecialList('today');
