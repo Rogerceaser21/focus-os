@@ -96,6 +96,11 @@ const Index = () => {
   }, [user, authLoading, navigate]);
   useEffect(() => {
     if (user) {
+      console.log('🔍 Index useEffect - Fetching data:', {
+        selectedProjectId,
+        selectedSpecialList,
+        projectName: projects.find(p => p.id === selectedProjectId)?.name
+      });
       fetchTasks();
       fetchProjects();
     }
@@ -103,7 +108,7 @@ const Index = () => {
 
   // Apply user preferences on load
   useEffect(() => {
-    if (preferences && !preferencesLoaded && projects.length > 0) {
+    if (preferences && !preferencesLoaded && projects.length > 0 && !selectedProjectId && !selectedSpecialList) {
       // Apply default view
       if (preferences.default_view === 'today') {
         setSelectedSpecialList('today');
@@ -145,10 +150,13 @@ const Index = () => {
     }
   }, [preferences, preferencesLoaded, projects]);
   const fetchTasks = async () => {
+    console.log('📋 fetchTasks called with:', { selectedProjectId, selectedSpecialList });
+    
     let query = supabase.from('tasks').select('*').order('created_at', {
       ascending: false
     });
     if (selectedProjectId) {
+      console.log('🎯 Filtering by project:', selectedProjectId);
       query = query.eq('project_id', selectedProjectId);
     } else if (selectedSpecialList === 'unassigned') {
       query = query.is('project_id', null);
@@ -161,9 +169,12 @@ const Index = () => {
       error
     } = await query;
     if (error) {
+      console.error('❌ Error fetching tasks:', error);
       toast.error('Failed to load tasks');
       return;
     }
+    
+    console.log(`✅ Fetched ${data?.length || 0} tasks`);
     setTasks(data.map(t => ({
       id: t.id,
       title: t.title,
