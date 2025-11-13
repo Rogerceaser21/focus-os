@@ -143,7 +143,7 @@ const Index = () => {
       
       setPreferencesLoaded(true);
     }
-  }, [preferences, preferencesLoaded, projects]);
+  }, [preferences, preferencesLoaded, projects, selectedProjectId, selectedSpecialList]);
   const fetchTasks = async () => {
     let query = supabase.from('tasks').select('*').order('created_at', {
       ascending: false
