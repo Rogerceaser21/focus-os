@@ -7,7 +7,7 @@ import { CreateProjectDialog } from './CreateProjectDialog';
 import { toast } from 'sonner';
 import AnimatedList from './AnimatedList';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Sidebar, useSidebar } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar';
 import {
   Sheet,
   SheetContent,
@@ -177,15 +177,10 @@ export const ProjectSidebar = ({
     );
   }
 
-  // On desktop, wrap in Sidebar component to connect with SidebarProvider
+  // On desktop, use plain div with same styling as mobile
   return (
-    <Sidebar 
-      collapsible="offcanvas"
-      className="border-r bg-card/50 backdrop-blur-sm"
-    >
-      <div className="flex flex-col h-full w-[280px]">
-        {sidebarContent}
-      </div>
-    </Sidebar>
+    <div className="w-[280px] border-r bg-card/50 backdrop-blur-sm flex flex-col h-screen">
+      {sidebarContent}
+    </div>
   );
 };
