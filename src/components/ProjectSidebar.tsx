@@ -177,9 +177,15 @@ export const ProjectSidebar = ({
     );
   }
 
-  // On desktop, use plain div with same styling as mobile
+  // On desktop, use conditional width and opacity with smooth transitions
   return (
-    <div className="w-[280px] border-r bg-card/50 backdrop-blur-sm flex flex-col h-screen">
+    <div 
+      className={`
+        border-r bg-background flex flex-col h-screen
+        transition-all duration-300 ease-in-out relative z-20
+        ${sidebarOpen ? 'w-[280px] opacity-100' : 'w-0 opacity-0 overflow-hidden'}
+      `}
+    >
       {sidebarContent}
     </div>
   );
