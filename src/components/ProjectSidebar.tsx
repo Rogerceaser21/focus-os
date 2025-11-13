@@ -133,7 +133,6 @@ export const ProjectSidebar = ({
               <AnimatedList
                 items={projects}
                 onItemSelect={(project) => {
-                  console.log('🖱️ Project clicked:', project.name, 'ID:', project.id);
                   handleSelectProject(project.id);
                   if (isActuallyMobile) setOpenMobile(false);
                 }}
@@ -178,14 +177,13 @@ export const ProjectSidebar = ({
     );
   }
 
-  // On desktop, use transform instead of width transitions
+  // On desktop, use conditional width and opacity with smooth transitions
   return (
     <div 
       className={`
-        fixed left-0 top-0 h-screen w-[280px]
-        border-r bg-background flex flex-col
-        transition-transform duration-300 ease-in-out z-30
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        border-r bg-background flex flex-col h-screen
+        transition-all duration-300 ease-in-out relative z-20
+        ${sidebarOpen ? 'w-[280px] opacity-100' : 'w-0 opacity-0 overflow-hidden'}
       `}
     >
       {sidebarContent}
