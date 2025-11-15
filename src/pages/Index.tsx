@@ -77,11 +77,29 @@ const Index = () => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       
+      // DEBUG LOGGING
+      console.log('=== CLICK DEBUG ===');
+      console.log('Clicked element:', target);
+      console.log('Tag name:', target.tagName);
+      console.log('Class name:', target.className);
+      console.log('Role:', target.getAttribute('role'));
+      console.log('Data attributes:', Array.from(target.attributes).filter(attr => attr.name.startsWith('data-')));
+      console.log('Closest [role="menu"]:', target.closest('[role="menu"]'));
+      console.log('Closest [role="menuitem"]:', target.closest('[role="menuitem"]'));
+      console.log('Closest [data-radix-popper-content-wrapper]:', target.closest('[data-radix-popper-content-wrapper]'));
+      console.log('Closest [data-radix-dropdown-menu-content]:', target.closest('[data-radix-dropdown-menu-content]'));
+      console.log('Closest [data-radix-dropdown-menu-item]:', target.closest('[data-radix-dropdown-menu-item]'));
+      
       // Check if click is outside all task cards
       const isOutsideTaskCard = !target.closest('[data-task-card]');
       
       // Check if click is on a dropdown menu (to keep task expanded when selecting priority)
       const isDropdownClick = target.closest('[role="menu"]') || target.closest('[data-radix-popper-content-wrapper]');
+      
+      console.log('isOutsideTaskCard:', isOutsideTaskCard);
+      console.log('isDropdownClick:', isDropdownClick);
+      console.log('Will collapse?', isOutsideTaskCard && !isDropdownClick && expandedTaskIds.size > 0);
+      console.log('==================');
       
       if (isOutsideTaskCard && !isDropdownClick && expandedTaskIds.size > 0) {
         setExpandedTaskIds(new Set());
