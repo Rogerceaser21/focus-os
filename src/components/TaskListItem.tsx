@@ -19,7 +19,7 @@ interface TaskListItemProps {
   globalViewMode: 'full' | 'compact';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
-  onDropdownOpenChange: (isOpen: boolean) => void;
+  onDropdownOpenChange?: (isOpen: boolean) => void;
 }
 
 const priorityColors = {
