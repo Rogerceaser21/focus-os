@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -61,7 +61,6 @@ const Index = () => {
   const [globalCardView, setGlobalCardView] = useState<'full' | 'compact'>('full');
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
-  const [isAnyDropdownOpen, setIsAnyDropdownOpen] = useState(false);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
@@ -73,15 +72,6 @@ const Index = () => {
     animationDuration: 0.6
   });
 
-  const handleDropdownOpenChange = useCallback((open: boolean) => {
-    if (open) {
-      setIsAnyDropdownOpen(true);
-    } else {
-      // Delay resetting to false to allow click events to finish processing
-      setTimeout(() => setIsAnyDropdownOpen(false), 150);
-    }
-  }, []);
-
   // Handle clicking outside task cards to collapse them
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -90,15 +80,18 @@ const Index = () => {
       // Check if click is outside all task cards
       const isOutsideTaskCard = !target.closest('[data-task-card]');
       
-      // Use the dropdown open state flag instead of DOM checking
-      if (isOutsideTaskCard && !isAnyDropdownOpen && expandedTaskIds.size > 0) {
+      // Check if click is inside a dropdown menu (which is portaled outside the card)
+      const isInsideDropdown = target.closest('[role="menu"]');
+      
+      // Only collapse if click is outside task card AND not in a dropdown
+      if (isOutsideTaskCard && !isInsideDropdown && expandedTaskIds.size > 0) {
         setExpandedTaskIds(new Set());
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [expandedTaskIds, isAnyDropdownOpen]);
+  }, [expandedTaskIds]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -765,7 +758,6 @@ const Index = () => {
                     globalViewMode={globalCardView}
                     isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                     onTaskClick={() => handleTaskClick(task.id)}
-                    onDropdownOpenChange={handleDropdownOpenChange}
                   />
                 ))}
               </TabsContent>
@@ -779,7 +771,6 @@ const Index = () => {
                     globalViewMode={globalCardView}
                     isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                     onTaskClick={() => handleTaskClick(task.id)}
-                    onDropdownOpenChange={handleDropdownOpenChange}
                   />
                 ))}
               </TabsContent>
@@ -793,7 +784,6 @@ const Index = () => {
                     globalViewMode={globalCardView}
                     isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                     onTaskClick={() => handleTaskClick(task.id)}
-                    onDropdownOpenChange={handleDropdownOpenChange}
                   />
                 ))}
               </TabsContent>
@@ -807,7 +797,6 @@ const Index = () => {
                     globalViewMode={globalCardView}
                     isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                     onTaskClick={() => handleTaskClick(task.id)}
-                    onDropdownOpenChange={handleDropdownOpenChange}
                   />
                 ))}
               </TabsContent>
