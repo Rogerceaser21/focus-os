@@ -448,7 +448,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               
               <button 
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
-                onClick={() => setIsEditOpen(true)}
+                onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }}
               >
                 <Calendar className="w-4 h-4" />
                 <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
@@ -460,7 +460,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               </div>
 
               <button
-                onClick={() => setIsEditOpen(true)}
+                onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }}
                 className={`p-1.5 rounded transition-colors relative ${
                   task.images && task.images.length > 0
                     ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
