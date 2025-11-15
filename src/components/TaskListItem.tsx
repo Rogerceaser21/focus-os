@@ -247,7 +247,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button 
@@ -259,11 +259,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                     </Badge>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border">
+                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <DropdownMenuItem
                       key={priority}
-                      onSelect={() => onUpdate({ ...task, priority })}
+                      onClick={() => onUpdate({ ...task, priority })}
                       className="cursor-pointer"
                     >
                       <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
@@ -407,7 +407,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button 
@@ -419,11 +419,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                     </Badge>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border">
+                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <DropdownMenuItem
                       key={priority}
-                      onSelect={() => onUpdate({ ...task, priority })}
+                      onClick={() => onUpdate({ ...task, priority })}
                       className="cursor-pointer"
                     >
                       <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
