@@ -260,7 +260,11 @@ const Index = () => {
   };
   const handleTaskClick = (taskId: string) => {
     setExpandedTaskIds(prev => {
-      // Expand this task (replacing any other expanded task)
+      // If this task is already the only expanded one, collapse it
+      if (prev.has(taskId) && prev.size === 1) {
+        return new Set();
+      }
+      // Otherwise, expand only this task (replacing any other expanded task)
       return new Set([taskId]);
     });
   };

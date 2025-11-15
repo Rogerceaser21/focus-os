@@ -247,11 +247,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
-            <div 
-              className="flex items-center gap-2 flex-wrap" 
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button 
@@ -267,7 +263,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <DropdownMenuItem
                       key={priority}
-                      onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, priority }); }}
+                      onClick={() => onUpdate({ ...task, priority })}
                       className="cursor-pointer"
                     >
                       <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
@@ -411,11 +407,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
-            <div 
-              className="flex items-center gap-2" 
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button 
@@ -431,7 +423,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <DropdownMenuItem
                       key={priority}
-                      onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, priority }); }}
+                      onClick={() => onUpdate({ ...task, priority })}
                       className="cursor-pointer"
                     >
                       <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
@@ -448,7 +440,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               
               <button 
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
-                onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }}
+                onClick={() => setIsEditOpen(true)}
               >
                 <Calendar className="w-4 h-4" />
                 <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
@@ -460,7 +452,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               </div>
 
               <button
-                onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }}
+                onClick={() => setIsEditOpen(true)}
                 className={`p-1.5 rounded transition-colors relative ${
                   task.images && task.images.length > 0
                     ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
