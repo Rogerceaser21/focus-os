@@ -267,7 +267,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <DropdownMenuItem
                       key={priority}
-                      onClick={() => onUpdate({ ...task, priority })}
+                      onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, priority }); }}
                       className="cursor-pointer"
                     >
                       <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
@@ -431,7 +431,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <DropdownMenuItem
                       key={priority}
-                      onClick={() => onUpdate({ ...task, priority })}
+                      onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, priority }); }}
                       className="cursor-pointer"
                     >
                       <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
