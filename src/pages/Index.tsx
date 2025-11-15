@@ -80,7 +80,10 @@ const Index = () => {
       // Check if click is outside all task cards
       const isOutsideTaskCard = !target.closest('[data-task-card]');
       
-      if (isOutsideTaskCard && expandedTaskIds.size > 0) {
+      // Check if click is on a dropdown menu (to keep task expanded when selecting priority)
+      const isDropdownClick = target.closest('[role="menu"]') || target.closest('[data-radix-popper-content-wrapper]');
+      
+      if (isOutsideTaskCard && !isDropdownClick && expandedTaskIds.size > 0) {
         setExpandedTaskIds(new Set());
       }
     };
