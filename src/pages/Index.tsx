@@ -80,10 +80,13 @@ const Index = () => {
       // Check if click is outside all task cards
       const isOutsideTaskCard = !target.closest('[data-task-card]');
       
+      // Check if click is on the 3rd row elements (priority, date, photo)
+      const isThirdRowClick = target.closest('[data-third-row]');
+      
       // Check if click is on a dropdown menu (to keep task expanded when selecting priority)
       const isDropdownClick = target.closest('[role="menu"]') || target.closest('[data-radix-popper-content-wrapper]');
       
-      if (isOutsideTaskCard && !isDropdownClick && expandedTaskIds.size > 0) {
+      if (isOutsideTaskCard && !isThirdRowClick && !isDropdownClick && expandedTaskIds.size > 0) {
         setExpandedTaskIds(new Set());
       }
     };
