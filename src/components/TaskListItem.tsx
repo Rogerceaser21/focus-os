@@ -229,7 +229,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsEditOpen(true);
+                  if (isTruncated(descriptionDisplayRef.current)) {
+                    setIsEditOpen(true);
+                  } else {
+                    setIsEditingDescription(true);
+                  }
                 }}
               >
                 {task.description ? (
