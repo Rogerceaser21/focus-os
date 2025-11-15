@@ -89,7 +89,7 @@ const Index = () => {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [expandedTaskIds]);
+  }, [expandedTaskIds, isAnyDropdownOpen]);
 
   useEffect(() => {
     if (!authLoading && !user) {
