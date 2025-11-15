@@ -19,6 +19,7 @@ interface TaskListItemProps {
   globalViewMode: 'full' | 'compact';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
+  onDropdownOpenChange: (isOpen: boolean) => void;
 }
 
 const priorityColors = {
@@ -34,7 +35,7 @@ const statusColors = {
   'completed': 'bg-green-500/20 text-green-300 border-green-500/30',
 };
 
-export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick, onDropdownOpenChange }: TaskListItemProps) => {
   const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const isMobile = useIsMobile();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -248,7 +249,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
             <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenu>
+              <DropdownMenu onOpenChange={onDropdownOpenChange}>
                 <DropdownMenuTrigger asChild>
                   <button 
                     className="inline-flex"
