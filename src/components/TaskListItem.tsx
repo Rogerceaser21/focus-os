@@ -411,7 +411,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
-            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div 
+              className="flex items-center gap-2" 
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button 
