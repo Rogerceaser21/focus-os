@@ -260,10 +260,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                     </Badge>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <DropdownMenuItem
                       key={priority}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         onUpdate({ ...task, priority });
@@ -423,10 +424,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                     </Badge>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                   {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                     <DropdownMenuItem
                       key={priority}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         onUpdate({ ...task, priority });
