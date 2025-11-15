@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -72,6 +72,15 @@ const Index = () => {
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
     animationDuration: 0.6
   });
+
+  const handleDropdownOpenChange = useCallback((open: boolean) => {
+    if (open) {
+      setIsAnyDropdownOpen(true);
+    } else {
+      // Delay resetting to false to allow click events to finish processing
+      setTimeout(() => setIsAnyDropdownOpen(false), 150);
+    }
+  }, []);
 
   // Handle clicking outside task cards to collapse them
   useEffect(() => {
@@ -756,7 +765,7 @@ const Index = () => {
                     globalViewMode={globalCardView}
                     isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                     onTaskClick={() => handleTaskClick(task.id)}
-                    onDropdownOpenChange={setIsAnyDropdownOpen}
+                    onDropdownOpenChange={handleDropdownOpenChange}
                   />
                 ))}
               </TabsContent>
@@ -770,7 +779,7 @@ const Index = () => {
                     globalViewMode={globalCardView}
                     isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                     onTaskClick={() => handleTaskClick(task.id)}
-                    onDropdownOpenChange={setIsAnyDropdownOpen}
+                    onDropdownOpenChange={handleDropdownOpenChange}
                   />
                 ))}
               </TabsContent>
@@ -784,7 +793,7 @@ const Index = () => {
                     globalViewMode={globalCardView}
                     isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                     onTaskClick={() => handleTaskClick(task.id)}
-                    onDropdownOpenChange={setIsAnyDropdownOpen}
+                    onDropdownOpenChange={handleDropdownOpenChange}
                   />
                 ))}
               </TabsContent>
@@ -798,7 +807,7 @@ const Index = () => {
                     globalViewMode={globalCardView}
                     isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                     onTaskClick={() => handleTaskClick(task.id)}
-                    onDropdownOpenChange={setIsAnyDropdownOpen}
+                    onDropdownOpenChange={handleDropdownOpenChange}
                   />
                 ))}
               </TabsContent>
