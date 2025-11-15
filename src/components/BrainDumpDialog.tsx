@@ -353,6 +353,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: 
                         globalViewMode="full"
                         isIndividuallyExpanded={false}
                         onTaskClick={() => {}}
+                        onDropdownOpenChange={() => {}}
                       />
                       <Button
                         onClick={() => removeTask(index)}
