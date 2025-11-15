@@ -19,7 +19,6 @@ interface TaskListItemProps {
   globalViewMode: 'full' | 'compact';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
-  onDropdownOpenChange?: (isOpen: boolean) => void;
 }
 
 const priorityColors = {
@@ -35,7 +34,7 @@ const statusColors = {
   'completed': 'bg-green-500/20 text-green-300 border-green-500/30',
 };
 
-export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick, onDropdownOpenChange }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick }: TaskListItemProps) => {
   const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const isMobile = useIsMobile();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -249,37 +248,31 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
             <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-              <div onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                <DropdownMenu onOpenChange={onDropdownOpenChange}>
-                  <DropdownMenuTrigger asChild>
-                    <button 
-                      className="inline-flex"
-                      onClick={(e) => e.stopPropagation()}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className="inline-flex"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80 text-xs`}>
+                      {task.priority}
+                    </Badge>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                    <DropdownMenuItem
+                      key={priority}
+                      onClick={() => onUpdate({ ...task, priority })}
+                      className="cursor-pointer"
                     >
-                      <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80 text-xs`}>
-                        {task.priority}
+                      <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
+                        {priority}
                       </Badge>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                    {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
-                      <DropdownMenuItem
-                        key={priority}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onUpdate({ ...task, priority });
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
-                          {priority}
-                        </Badge>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               {!isMobile && (
                 <Badge className={`${statusColors[task.status]} text-xs`}>
@@ -415,37 +408,31 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <div onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button 
-                      className="inline-flex"
-                      onClick={(e) => e.stopPropagation()}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className="inline-flex"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                      {task.priority}
+                    </Badge>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                    <DropdownMenuItem
+                      key={priority}
+                      onClick={() => onUpdate({ ...task, priority })}
+                      className="cursor-pointer"
                     >
-                      <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
-                        {task.priority}
+                      <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
+                        {priority}
                       </Badge>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                    {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
-                      <DropdownMenuItem
-                        key={priority}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onUpdate({ ...task, priority });
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
-                          {priority}
-                        </Badge>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               <Badge className={statusColors[task.status]}>
                 {task.status}

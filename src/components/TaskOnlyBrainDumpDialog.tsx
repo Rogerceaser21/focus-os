@@ -291,7 +291,6 @@ export const TaskOnlyBrainDumpDialog = ({
                         globalViewMode="full"
                         isIndividuallyExpanded={false}
                         onTaskClick={() => {}}
-                        onDropdownOpenChange={() => {}}
                       />
                       <Button
                         onClick={() => removeTask(index)}

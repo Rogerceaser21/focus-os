@@ -80,11 +80,10 @@ const Index = () => {
       // Check if click is outside all task cards
       const isOutsideTaskCard = !target.closest('[data-task-card]');
       
-      // Check if click is inside a dropdown menu (which is portaled outside the card)
-      const isInsideDropdown = target.closest('[role="menu"]');
+      // Check if click is on a dropdown menu (to keep task expanded when selecting priority)
+      const isDropdownClick = target.closest('[role="menu"]') || target.closest('[data-radix-popper-content-wrapper]');
       
-      // Only collapse if click is outside task card AND not in a dropdown
-      if (isOutsideTaskCard && !isInsideDropdown && expandedTaskIds.size > 0) {
+      if (isOutsideTaskCard && !isDropdownClick && expandedTaskIds.size > 0) {
         setExpandedTaskIds(new Set());
       }
     };

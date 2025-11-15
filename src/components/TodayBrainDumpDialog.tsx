@@ -316,7 +316,6 @@ export const TodayBrainDumpDialog = ({
                       globalViewMode="full"
                       isIndividuallyExpanded={false}
                       onTaskClick={() => {}}
-                      onDropdownOpenChange={() => {}}
                     />
                     <Button
                       variant="ghost"
