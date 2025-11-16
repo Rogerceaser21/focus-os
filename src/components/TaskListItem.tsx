@@ -203,7 +203,6 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
-    setIsTitleExpanded(false);
     if (editedTitle.trim() && editedTitle !== task.title) {
       onUpdate({ ...task, title: editedTitle.trim() });
     } else {
@@ -213,7 +212,6 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
   const handleDescriptionBlur = () => {
     setIsEditingDescription(false);
-    setIsDescriptionExpanded(false);
     if (editedDescription !== task.description) {
       onUpdate({ ...task, description: editedDescription.trim() || undefined });
     }
