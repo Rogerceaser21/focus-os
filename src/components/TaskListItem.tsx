@@ -121,8 +121,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
         return;
       }
 
-      // Collapse description
+      // Collapse description and exit edit mode
       setIsDescriptionExpanded(false);
+      setIsEditingDescription(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -154,8 +155,9 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
         return;
       }
 
-      // Collapse title
+      // Collapse title and exit edit mode
       setIsTitleExpanded(false);
+      setIsEditingTitle(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -201,6 +203,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
+    setIsTitleExpanded(false);
     if (editedTitle.trim() && editedTitle !== task.title) {
       onUpdate({ ...task, title: editedTitle.trim() });
     } else {
@@ -210,6 +213,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
   const handleDescriptionBlur = () => {
     setIsEditingDescription(false);
+    setIsDescriptionExpanded(false);
     if (editedDescription !== task.description) {
       onUpdate({ ...task, description: editedDescription.trim() || undefined });
     }
@@ -253,7 +257,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsTitleExpanded(!isTitleExpanded);
+                  setIsTitleExpanded(true);
+                  setIsEditingTitle(true);
                 }}
               >
                 {task.title}
@@ -295,7 +300,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsDescriptionExpanded(!isDescriptionExpanded);
+                  setIsDescriptionExpanded(true);
+                  setIsEditingDescription(true);
                 }}
               >
                 {task.description ? (
@@ -409,7 +415,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsTitleExpanded(!isTitleExpanded);
+                  setIsTitleExpanded(true);
+                  setIsEditingTitle(true);
                 }}
               >
                 {task.title}
@@ -451,7 +458,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsDescriptionExpanded(!isDescriptionExpanded);
+                  setIsDescriptionExpanded(true);
+                  setIsEditingDescription(true);
                 }}
               >
                 {task.description ? (
