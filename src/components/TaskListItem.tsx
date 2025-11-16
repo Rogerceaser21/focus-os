@@ -49,8 +49,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const descriptionContainerRef = useRef<HTMLDivElement>(null);
-  const titleContainerRef = useRef<HTMLDivElement>(null);
+  const descriptionContainerRef = useRef<HTMLParagraphElement>(null);
+  const titleContainerRef = useRef<HTMLHeadingElement>(null);
   const titleDisplayRef = useRef<HTMLHeadingElement>(null);
   const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
 
@@ -232,38 +232,33 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               onCheckedChange={handleCheckboxChange}
               className="shrink-0"
             />
-            <div ref={titleContainerRef} className="flex-1">
-              {isEditingTitle ? (
-                <Textarea
-                  ref={handleTitleMount}
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  onBlur={handleTitleBlur}
-                  onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
-                  autoFocus
-                  rows={1}
-                  className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 w-full focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <h3
-                  className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isIndividuallyExpanded) {
-                      onTaskClick();
-                    }
-                    if (!isTitleExpanded) {
-                      setIsTitleExpanded(true);
-                    } else {
-                      setIsEditingTitle(true);
-                    }
-                  }}
-                >
-                  {task.title}
-                </h3>
-              )}
-            </div>
+            {isEditingTitle ? (
+              <Textarea
+                ref={handleTitleMount}
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                onBlur={handleTitleBlur}
+                onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
+                autoFocus
+                rows={1}
+                className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <h3
+                ref={titleContainerRef}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
+                  setIsTitleExpanded(!isTitleExpanded);
+                }}
+              >
+                {task.title}
+              </h3>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -280,41 +275,36 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           
           {/* Line 2: Description */}
           <div className="flex items-center gap-2">
-            <div ref={descriptionContainerRef} className="flex-1">
-              {isEditingDescription ? (
-                <Textarea
-                  ref={handleDescriptionMount}
-                  value={editedDescription}
-                  onChange={(e) => setEditedDescription(e.target.value)}
-                  onBlur={handleDescriptionBlur}
-                  autoFocus
-                  rows={1}
-                  className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <p 
-                  className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isIndividuallyExpanded) {
-                      onTaskClick();
-                    }
-                    if (!isDescriptionExpanded) {
-                      setIsDescriptionExpanded(true);
-                    } else {
-                      setIsEditingDescription(true);
-                    }
-                  }}
-                >
-                  {task.description ? (
-                    <LinkifiedText text={task.description} />
-                  ) : (
-                    'Click to add description...'
-                  )}
-                </p>
-              )}
-            </div>
+            {isEditingDescription ? (
+              <Textarea
+                ref={handleDescriptionMount}
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                onBlur={handleDescriptionBlur}
+                autoFocus
+                rows={1}
+                className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <p 
+                ref={descriptionContainerRef}
+                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
+                  setIsDescriptionExpanded(!isDescriptionExpanded);
+                }}
+              >
+                {task.description ? (
+                  <LinkifiedText text={task.description} />
+                ) : (
+                  'Click to add description...'
+                )}
+              </p>
+            )}
           </div>
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
@@ -398,38 +388,33 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               onCheckedChange={handleCheckboxChange}
               className="shrink-0"
             />
-            <div ref={titleContainerRef} className="flex-1">
-              {isEditingTitle ? (
-                <Textarea
-                  ref={handleTitleMount}
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  onBlur={handleTitleBlur}
-                  onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
-                  autoFocus
-                  rows={1}
-                  className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 w-full focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <h3
-                  className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isIndividuallyExpanded) {
-                      onTaskClick();
-                    }
-                    if (!isTitleExpanded) {
-                      setIsTitleExpanded(true);
-                    } else {
-                      setIsEditingTitle(true);
-                    }
-                  }}
-                >
-                  {task.title}
-                </h3>
-              )}
-            </div>
+            {isEditingTitle ? (
+              <Textarea
+                ref={handleTitleMount}
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                onBlur={handleTitleBlur}
+                onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
+                autoFocus
+                rows={1}
+                className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <h3
+                ref={titleContainerRef}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
+                  setIsTitleExpanded(!isTitleExpanded);
+                }}
+              >
+                {task.title}
+              </h3>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -446,41 +431,36 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
           {/* Line 2: Description */}
           <div className="flex items-center gap-2">
-            <div ref={descriptionContainerRef} className="flex-1">
-              {isEditingDescription ? (
-                <Textarea
-                  ref={handleDescriptionMount}
-                  value={editedDescription}
-                  onChange={(e) => setEditedDescription(e.target.value)}
-                  onBlur={handleDescriptionBlur}
-                  autoFocus
-                  rows={1}
-                  className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <p 
-                  className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isIndividuallyExpanded) {
-                      onTaskClick();
-                    }
-                    if (!isDescriptionExpanded) {
-                      setIsDescriptionExpanded(true);
-                    } else {
-                      setIsEditingDescription(true);
-                    }
-                  }}
-                >
-                  {task.description ? (
-                    <LinkifiedText text={task.description} />
-                  ) : (
-                    'Click to add description...'
-                  )}
-                </p>
-              )}
-            </div>
+            {isEditingDescription ? (
+              <Textarea
+                ref={handleDescriptionMount}
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                onBlur={handleDescriptionBlur}
+                autoFocus
+                rows={1}
+                className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <p 
+                ref={descriptionContainerRef}
+                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isIndividuallyExpanded) {
+                    onTaskClick();
+                  }
+                  setIsDescriptionExpanded(!isDescriptionExpanded);
+                }}
+              >
+                {task.description ? (
+                  <LinkifiedText text={task.description} />
+                ) : (
+                  'Click to add description...'
+                )}
+              </p>
+            )}
           </div>
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
