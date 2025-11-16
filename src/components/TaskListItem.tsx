@@ -48,6 +48,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionContainerRef = useRef<HTMLParagraphElement>(null);
   const titleDisplayRef = useRef<HTMLHeadingElement>(null);
   const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
 
@@ -94,6 +95,39 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   useEffect(() => {
     setIsChecked(task.status === 'completed');
   }, [task.status]);
+
+  // Click-outside detection to auto-collapse description
+  useEffect(() => {
+    if (!isDescriptionExpanded) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Check if click is inside description container
+      if (descriptionContainerRef.current?.contains(target)) {
+        return;
+      }
+
+      // Check if click is on a safe zone (priority dropdown, date button, photo button)
+      const isSafeZone = target.closest('[data-description-safe-zone="true"]');
+      if (isSafeZone) {
+        return;
+      }
+
+      // Check if currently editing description
+      if (isEditingDescription) {
+        return;
+      }
+
+      // Collapse description
+      setIsDescriptionExpanded(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDescriptionExpanded, isEditingDescription]);
 
   const handleStartStop = () => {
     if (timer.isRunning) {
@@ -223,7 +257,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
-                ref={descriptionDisplayRef}
+                ref={descriptionContainerRef}
                 className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -245,31 +279,33 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
             <div className="flex items-center gap-2 flex-wrap" data-third-row="true" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button 
-                    className="inline-flex"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80 text-xs`}>
-                      {task.priority}
-                    </Badge>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
-                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
-                    <DropdownMenuItem
-                      key={priority}
-                      onClick={() => onUpdate({ ...task, priority })}
-                      className="cursor-pointer"
+              <div data-description-safe-zone="true">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button 
+                      className="inline-flex"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
-                        {priority}
+                      <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80 text-xs`}>
+                        {task.priority}
                       </Badge>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                    {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                      <DropdownMenuItem
+                        key={priority}
+                        onClick={() => onUpdate({ ...task, priority })}
+                        className="cursor-pointer"
+                      >
+                        <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
+                          {priority}
+                        </Badge>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               
               {!isMobile && (
                 <Badge className={`${statusColors[task.status]} text-xs`}>
@@ -279,6 +315,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               
               <button
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
+                data-description-safe-zone="true"
                 onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }}
               >
                 <Calendar className="w-3 h-3" />
@@ -291,6 +328,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               </div>
 
               <button
+                data-description-safe-zone="true"
                 onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }}
                 className={`p-1 rounded transition-colors relative ${
                   task.images && task.images.length > 0
@@ -379,7 +417,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <p 
-                ref={descriptionDisplayRef}
+                ref={descriptionContainerRef}
                 className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -401,31 +439,33 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button 
-                    className="inline-flex"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
-                      {task.priority}
-                    </Badge>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
-                  {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
-                    <DropdownMenuItem
-                      key={priority}
-                      onClick={() => onUpdate({ ...task, priority })}
-                      className="cursor-pointer"
+              <div data-description-safe-zone="true">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button 
+                      className="inline-flex"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
-                        {priority}
+                      <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                        {task.priority}
                       </Badge>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                    {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
+                      <DropdownMenuItem
+                        key={priority}
+                        onClick={() => onUpdate({ ...task, priority })}
+                        className="cursor-pointer"
+                      >
+                        <Badge variant="outline" className={`${priorityColors[priority]} w-full justify-center`}>
+                          {priority}
+                        </Badge>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               
               <Badge className={statusColors[task.status]}>
                 {task.status}
@@ -433,6 +473,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               
               <button 
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
+                data-description-safe-zone="true"
                 onClick={() => setIsEditOpen(true)}
               >
                 <Calendar className="w-4 h-4" />
@@ -445,6 +486,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               </div>
 
               <button
+                data-description-safe-zone="true"
                 onClick={() => setIsEditOpen(true)}
                 className={`p-1.5 rounded transition-colors relative ${
                   task.images && task.images.length > 0
