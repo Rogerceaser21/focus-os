@@ -45,10 +45,12 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const [isFading, setIsFading] = useState(false);
   const [isChecked, setIsChecked] = useState(task.status === 'completed');
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const descriptionContainerRef = useRef<HTMLParagraphElement>(null);
+  const titleContainerRef = useRef<HTMLHeadingElement>(null);
   const titleDisplayRef = useRef<HTMLHeadingElement>(null);
   const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
 
@@ -128,6 +130,39 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isDescriptionExpanded, isEditingDescription]);
+
+  // Click-outside detection to auto-collapse title
+  useEffect(() => {
+    if (!isTitleExpanded) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Check if click is inside title container
+      if (titleContainerRef.current?.contains(target)) {
+        return;
+      }
+
+      // Check if click is on a safe zone (priority dropdown, date button, photo button)
+      const isSafeZone = target.closest('[data-description-safe-zone="true"]');
+      if (isSafeZone) {
+        return;
+      }
+
+      // Check if currently editing title
+      if (isEditingTitle) {
+        return;
+      }
+
+      // Collapse title
+      setIsTitleExpanded(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isTitleExpanded, isEditingTitle]);
 
   const handleStartStop = () => {
     if (timer.isRunning) {
@@ -211,18 +246,14 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                ref={titleDisplayRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                ref={titleContainerRef}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  if (isTruncated(titleDisplayRef.current)) {
-                    setIsEditOpen(true);
-                  } else {
-                    setIsEditingTitle(true);
-                  }
+                  setIsTitleExpanded(!isTitleExpanded);
                 }}
               >
                 {task.title}
@@ -371,18 +402,14 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               />
             ) : (
               <h3
-                ref={titleDisplayRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 line-clamp-2 ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                ref={titleContainerRef}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  if (isTruncated(titleDisplayRef.current)) {
-                    setIsEditOpen(true);
-                  } else {
-                    setIsEditingTitle(true);
-                  }
+                  setIsTitleExpanded(!isTitleExpanded);
                 }}
               >
                 {task.title}
