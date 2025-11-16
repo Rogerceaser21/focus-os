@@ -44,6 +44,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const [isFading, setIsFading] = useState(false);
   const [isChecked, setIsChecked] = useState(task.status === 'completed');
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -223,17 +224,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
             ) : (
               <p 
                 ref={descriptionDisplayRef}
-                className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
+                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  if (isTruncated(descriptionDisplayRef.current)) {
-                    setIsEditOpen(true);
-                  } else {
-                    setIsEditingDescription(true);
-                  }
+                  setIsDescriptionExpanded(!isDescriptionExpanded);
                 }}
               >
                 {task.description ? (
@@ -383,17 +380,13 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
             ) : (
               <p 
                 ref={descriptionDisplayRef}
-                className="text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors line-clamp-2 flex-1"
+                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  if (isTruncated(descriptionDisplayRef.current)) {
-                    setIsEditOpen(true);
-                  } else {
-                    setIsEditingDescription(true);
-                  }
+                  setIsDescriptionExpanded(!isDescriptionExpanded);
                 }}
               >
                 {task.description ? (
