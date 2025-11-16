@@ -40,7 +40,6 @@ import { TaskOnlyBrainDumpDialog } from '@/components/TaskOnlyBrainDumpDialog';
 import { TodayBrainDumpDialog } from '@/components/TodayBrainDumpDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -73,16 +72,10 @@ const Index = () => {
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
     animationDuration: 0.6
   });
-  const isMobile = useIsMobile();
 
   // Handle clicking outside task cards to collapse them
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Skip click-outside logic entirely for mobile compact view
-      if (isMobile && globalCardView === 'compact') {
-        return;
-      }
-      
       const target = event.target as HTMLElement;
       
       // Check if click is outside all task cards
