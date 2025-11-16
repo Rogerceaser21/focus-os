@@ -253,7 +253,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsTitleExpanded(!isTitleExpanded);
+                  if (!isTitleExpanded) {
+                    setIsTitleExpanded(true);
+                  } else {
+                    setIsEditingTitle(true);
+                  }
                 }}
               >
                 {task.title}
@@ -295,7 +299,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsDescriptionExpanded(!isDescriptionExpanded);
+                  if (!isDescriptionExpanded) {
+                    setIsDescriptionExpanded(true);
+                  } else {
+                    setIsEditingDescription(true);
+                  }
                 }}
               >
                 {task.description ? (
@@ -409,7 +417,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsTitleExpanded(!isTitleExpanded);
+                  if (!isTitleExpanded) {
+                    setIsTitleExpanded(true);
+                  } else {
+                    setIsEditingTitle(true);
+                  }
                 }}
               >
                 {task.title}
@@ -451,7 +463,11 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
-                  setIsDescriptionExpanded(!isDescriptionExpanded);
+                  if (!isDescriptionExpanded) {
+                    setIsDescriptionExpanded(true);
+                  } else {
+                    setIsEditingDescription(true);
+                  }
                 }}
               >
                 {task.description ? (
