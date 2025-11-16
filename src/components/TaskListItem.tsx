@@ -291,7 +291,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                       </Badge>
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" data-description-safe-zone="true" onClick={(e) => e.stopPropagation()}>
                     {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                       <DropdownMenuItem
                         key={priority}
@@ -451,7 +451,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
                       </Badge>
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuContent align="center" className="w-32 p-1 bg-card border-border" data-description-safe-zone="true" onClick={(e) => e.stopPropagation()}>
                     {(['low', 'medium', 'high', 'urgent'] as const).map((priority) => (
                       <DropdownMenuItem
                         key={priority}
