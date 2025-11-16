@@ -84,7 +84,10 @@ const Index = () => {
       const isThirdRowClick = target.closest('[data-third-row]');
       
       // Check if click is on a dropdown menu (to keep task expanded when selecting priority)
-      const isDropdownClick = target.closest('[role="menu"]') || target.closest('[data-radix-popper-content-wrapper]');
+      const isDropdownClick = target.closest('[role="menu"]') || 
+                             target.closest('[role="menuitem"]') || 
+                             target.closest('[data-radix-popper-content-wrapper]') ||
+                             target.closest('[data-radix-dropdown-menu-content]');
       
       if (isOutsideTaskCard && !isThirdRowClick && !isDropdownClick && expandedTaskIds.size > 0) {
         setExpandedTaskIds(new Set());
