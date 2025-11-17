@@ -580,7 +580,7 @@ const Index = () => {
                   </span>
                 </Button>
               )}
-              <AddTaskDialog onAddTask={handleAddTask} selectedProjectId={selectedProjectId} />
+              <AddTaskDialog onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} />
             </div>
           </div>
 
