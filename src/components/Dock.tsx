@@ -154,7 +154,7 @@ export default function Dock({
         aria-label="Application dock"
       >
         <div className="flex flex-col items-center gap-2 h-full">
-          <div className="flex items-center justify-center gap-1 flex-1">
+          <div className="flex items-center justify-center gap-3 flex-1">
             {items.map((item, index) => (
               <DockItem
                 key={index}
@@ -173,7 +173,7 @@ export default function Dock({
               </DockItem>
             ))}
           </div>
-          <div className="flex items-center justify-center gap-1 pb-2" style={{ width: `${baseItemSize * items.length + (items.length - 1) * 4}px` }}>
+          <div className="flex items-center justify-center gap-3 pb-2" style={{ width: `${baseItemSize * items.length + (items.length - 1) * 12}px` }}>
             {items.map((item, index) => (
               <div 
                 key={index} 
