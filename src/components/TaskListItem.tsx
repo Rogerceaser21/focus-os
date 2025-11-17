@@ -71,20 +71,6 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
     }
   }, [editedDescription, isEditingDescription]);
 
-  // Sync edited description with task prop changes (but NOT while editing)
-  useEffect(() => {
-    if (!isEditingDescription) {
-      setEditedDescription(task.description || '');
-    }
-  }, [task.description, isEditingDescription]);
-
-  // Sync edited title with task prop changes (but NOT while editing)
-  useEffect(() => {
-    if (!isEditingTitle) {
-      setEditedTitle(task.title);
-    }
-  }, [task.title, isEditingTitle]);
-
   // Immediate height adjustment on mount (prevents layout shift)
   const handleTitleMount = (element: HTMLTextAreaElement | null) => {
     if (element) {
@@ -227,8 +213,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const handleDescriptionBlur = () => {
     setIsEditingDescription(false);
     if (editedDescription !== task.description) {
-      const descriptionToSave = editedDescription.trim() === '' ? undefined : editedDescription;
-      onUpdate({ ...task, description: descriptionToSave });
+      onUpdate({ ...task, description: editedDescription.trim() || undefined });
     }
   };
 
