@@ -1,7 +1,7 @@
 'use client';
 
-import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion';
-import { Children, cloneElement, useEffect, useMemo, useRef, useState, ReactElement } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Children, cloneElement, ReactElement, useState } from 'react';
 
 import './Dock.css';
 
@@ -9,39 +9,22 @@ interface DockItemProps {
   children: ReactElement;
   className?: string;
   onClick?: (e?: React.MouseEvent<HTMLElement>) => void;
-  mouseX: any;
-  spring: any;
-  distance: number;
-  magnification: number;
   baseItemSize: number;
 }
 
-function DockItem({ children, className = '', onClick, mouseX, spring, distance, magnification, baseItemSize }: DockItemProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const isHovered = useMotionValue(0);
-
-  const mouseDistance = useTransform(mouseX, (val: number) => {
-    const rect = ref.current?.getBoundingClientRect() ?? {
-      x: 0,
-      width: baseItemSize
-    };
-    return val - rect.x - baseItemSize / 2;
-  });
-
-  const targetSize = useTransform(mouseDistance, [-distance, 0, distance], [baseItemSize, magnification, baseItemSize]);
-  const size = useSpring(targetSize, spring);
+function DockItem({ children, className = '', onClick, baseItemSize }: DockItemProps) {
+  const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <motion.div
-      ref={ref}
+    <div
       style={{
-        width: size,
-        height: size
+        width: baseItemSize,
+        height: baseItemSize
       }}
-      onHoverStart={() => isHovered.set(1)}
-      onHoverEnd={() => isHovered.set(0)}
-      onFocus={() => isHovered.set(1)}
-      onBlur={() => isHovered.set(0)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
       onClick={(e) => onClick?.(e as any)}
       className={`dock-item ${className}`}
       tabIndex={0}
@@ -49,30 +32,20 @@ function DockItem({ children, className = '', onClick, mouseX, spring, distance,
       aria-haspopup="true"
     >
       {Children.map(children, child => cloneElement(child, { isHovered } as any))}
-    </motion.div>
+    </div>
   );
 }
 
 interface DockLabelProps {
   children: React.ReactNode;
   className?: string;
-  isHovered?: any;
+  isHovered?: boolean;
 }
 
 function DockLabel({ children, className = '', isHovered }: DockLabelProps) {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    if (!isHovered) return;
-    const unsubscribe = isHovered.on('change', (latest: number) => {
-      setIsVisible(latest === 1);
-    });
-    return () => unsubscribe();
-  }, [isHovered]);
-
   return (
     <AnimatePresence>
-      {isVisible && (
+      {isHovered && (
         <motion.div
           initial={{ opacity: 0, y: 0 }}
           animate={{ opacity: 1, y: -10 }}
@@ -109,45 +82,19 @@ export interface DockItem {
 interface DockProps {
   items: DockItem[];
   className?: string;
-  spring?: { mass: number; stiffness: number; damping: number };
-  magnification?: number;
-  distance?: number;
   panelHeight?: number;
-  dockHeight?: number;
   baseItemSize?: number;
 }
 
 export default function Dock({
   items,
   className = '',
-  spring = { mass: 0.1, stiffness: 150, damping: 12 },
-  magnification = 70,
-  distance = 200,
   panelHeight = 68,
-  dockHeight = 256,
   baseItemSize = 50
 }: DockProps) {
-  const mouseX = useMotionValue(Infinity);
-  const isHovered = useMotionValue(0);
-
-  const maxHeight = useMemo(
-    () => Math.max(dockHeight, magnification + magnification / 2 + 4),
-    [magnification, dockHeight]
-  );
-  const heightRow = useTransform(isHovered, [0, 1], [panelHeight, maxHeight]);
-  const height = useSpring(heightRow, spring);
-
   return (
-    <motion.div style={{ height, scrollbarWidth: 'none' }} className="dock-outer">
-      <motion.div
-        onMouseMove={({ pageX }) => {
-          isHovered.set(1);
-          mouseX.set(pageX);
-        }}
-        onMouseLeave={() => {
-          isHovered.set(0);
-          mouseX.set(Infinity);
-        }}
+    <div style={{ height: panelHeight, scrollbarWidth: 'none' }} className="dock-outer">
+      <div
         className={`dock-panel ${className}`}
         style={{ height: panelHeight }}
         role="toolbar"
@@ -160,10 +107,6 @@ export default function Dock({
                 key={index}
                 onClick={item.onClick}
                 className={item.className}
-                mouseX={mouseX}
-                spring={spring}
-                distance={distance}
-                magnification={magnification}
                 baseItemSize={baseItemSize}
               >
                 <div>
@@ -185,7 +128,7 @@ export default function Dock({
             ))}
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
