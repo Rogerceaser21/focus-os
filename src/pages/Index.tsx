@@ -472,6 +472,7 @@ const Index = () => {
     {
       icon: <Settings className="w-6 h-6" />,
       label: 'Settings',
+      permanentLabel: 'Settings',
       onClick: () => setSettingsOpen(true)
     }
   ];
