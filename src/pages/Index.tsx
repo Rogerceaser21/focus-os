@@ -936,7 +936,7 @@ const Index = () => {
 
         {/* Dock Bar */}
         <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
-          <Dock items={dockItems} panelHeight={90} baseItemSize={50} magnification={70} />
+          <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
         </div>
       </div>
       
