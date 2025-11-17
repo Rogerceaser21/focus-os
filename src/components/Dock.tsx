@@ -153,28 +153,38 @@ export default function Dock({
         role="toolbar"
         aria-label="Application dock"
       >
-        {items.map((item, index) => (
-          <DockItem
-            key={index}
-            onClick={item.onClick}
-            className={item.className}
-            mouseX={mouseX}
-            spring={spring}
-            distance={distance}
-            magnification={magnification}
-            baseItemSize={baseItemSize}
-          >
-            <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
-              <DockIcon>{item.icon}</DockIcon>
-              <DockLabel>{item.label}</DockLabel>
-              {item.permanentLabel && (
-                <div className="dock-permanent-label">
-                  {item.permanentLabel}
+        <div className="flex flex-col items-center gap-2 h-full">
+          <div className="flex items-center justify-center gap-1 flex-1">
+            {items.map((item, index) => (
+              <DockItem
+                key={index}
+                onClick={item.onClick}
+                className={item.className}
+                mouseX={mouseX}
+                spring={spring}
+                distance={distance}
+                magnification={magnification}
+                baseItemSize={baseItemSize}
+              >
+                <div>
+                  <DockIcon>{item.icon}</DockIcon>
+                  <DockLabel>{item.label}</DockLabel>
                 </div>
-              )}
-            </div>
-          </DockItem>
-        ))}
+              </DockItem>
+            ))}
+          </div>
+          <div className="flex items-center justify-center gap-1 pb-2" style={{ width: `${baseItemSize * items.length + (items.length - 1) * 4}px` }}>
+            {items.map((item, index) => (
+              <div 
+                key={index} 
+                className="dock-permanent-label"
+                style={{ width: baseItemSize }}
+              >
+                {item.permanentLabel}
+              </div>
+            ))}
+          </div>
+        </div>
       </motion.div>
     </motion.div>
   );
