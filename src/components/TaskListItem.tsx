@@ -292,7 +292,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
             ) : (
               <p 
                 ref={descriptionContainerRef}
-                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
+                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 whitespace-pre-wrap ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
