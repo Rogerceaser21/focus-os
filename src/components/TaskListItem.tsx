@@ -213,7 +213,8 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
   const handleDescriptionBlur = () => {
     setIsEditingDescription(false);
     if (editedDescription !== task.description) {
-      onUpdate({ ...task, description: editedDescription.trim() || undefined });
+      const descriptionToSave = editedDescription.trim() === '' ? undefined : editedDescription;
+      onUpdate({ ...task, description: descriptionToSave });
     }
   };
 
