@@ -436,6 +436,7 @@ const Index = () => {
     {
       icon: <img src={projectsMicIcon} alt="Projects" className="w-8 h-8" />,
       label: 'Projects',
+      permanentLabel: '+Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setDialogOpen(true);
@@ -444,6 +445,7 @@ const Index = () => {
     {
       icon: <img src={tasksIcon} alt="Tasks" className="w-8 h-8" />,
       label: 'Tasks',
+      permanentLabel: '+Tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         
@@ -461,6 +463,7 @@ const Index = () => {
     {
       icon: <img src={todayIcon} alt="Today" className="w-8 h-8" />,
       label: 'Today',
+      permanentLabel: '+Today',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setTodayDialogOpen(true);
@@ -932,7 +935,7 @@ const Index = () => {
 
         {/* Dock Bar */}
         <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
-          <Dock items={dockItems} />
+          <Dock items={dockItems} panelHeight={100} baseItemSize={60} magnification={80} />
         </div>
       </div>
       
