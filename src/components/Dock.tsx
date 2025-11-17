@@ -101,6 +101,7 @@ function DockIcon({ children, className = '' }: DockIconProps) {
 export interface DockItem {
   icon: React.ReactNode;
   label: string;
+  permanentLabel?: string;
   onClick: (e?: React.MouseEvent<HTMLElement>) => void;
   className?: string;
 }
@@ -163,9 +164,14 @@ export default function Dock({
             magnification={magnification}
             baseItemSize={baseItemSize}
           >
-            <div>
+            <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
               <DockIcon>{item.icon}</DockIcon>
               <DockLabel>{item.label}</DockLabel>
+              {item.permanentLabel && (
+                <div className="dock-permanent-label">
+                  {item.permanentLabel}
+                </div>
+              )}
             </div>
           </DockItem>
         ))}
