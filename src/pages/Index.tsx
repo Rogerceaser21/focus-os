@@ -436,6 +436,7 @@ const Index = () => {
     {
       icon: <img src={projectsMicIcon} alt="Projects" className="w-8 h-8" />,
       label: 'Projects',
+      staticLabel: '+Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setDialogOpen(true);
@@ -444,6 +445,7 @@ const Index = () => {
     {
       icon: <img src={tasksIcon} alt="Tasks" className="w-8 h-8" />,
       label: 'Tasks',
+      staticLabel: '+Tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         
@@ -461,6 +463,7 @@ const Index = () => {
     {
       icon: <img src={todayIcon} alt="Today" className="w-8 h-8" />,
       label: 'Today',
+      staticLabel: '+Today',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setTodayDialogOpen(true);
