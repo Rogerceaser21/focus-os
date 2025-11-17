@@ -103,7 +103,6 @@ export interface DockItem {
   label: string;
   onClick: (e?: React.MouseEvent<HTMLElement>) => void;
   className?: string;
-  staticLabel?: string;
 }
 
 interface DockProps {
@@ -164,12 +163,9 @@ export default function Dock({
             magnification={magnification}
             baseItemSize={baseItemSize}
           >
-            <div className="flex flex-col items-center justify-center">
+            <div>
               <DockIcon>{item.icon}</DockIcon>
               <DockLabel>{item.label}</DockLabel>
-              {item.staticLabel && (
-                <div className="dock-static-label">{item.staticLabel}</div>
-              )}
             </div>
           </DockItem>
         ))}

@@ -51,7 +51,6 @@
 .dock-item {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
@@ -61,7 +60,7 @@
   border: 1px solid hsl(var(--border) / 0.2);
   outline: none;
   padding: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .dock-item img {
@@ -110,14 +109,4 @@
   pointer-events: none;
   box-shadow: 0 4px 12px hsl(var(--foreground) / 0.1);
   z-index: 50;
-}
-
-.dock-static-label {
-  font-size: 10px;
-  font-weight: 500;
-  color: hsl(var(--muted-foreground));
-  margin-top: 4px;
-  white-space: nowrap;
-  pointer-events: none;
-  text-align: center;
 }
