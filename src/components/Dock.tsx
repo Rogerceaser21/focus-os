@@ -164,7 +164,7 @@ export default function Dock({
             magnification={magnification}
             baseItemSize={baseItemSize}
           >
-            <div className="flex flex-col items-center justify-center h-full">
+            <div className="flex flex-col items-center justify-center">
               <DockIcon>{item.icon}</DockIcon>
               <DockLabel>{item.label}</DockLabel>
               {item.staticLabel && (
