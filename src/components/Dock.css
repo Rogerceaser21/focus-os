@@ -112,7 +112,7 @@
 }
 
 .dock-permanent-label {
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 500;
   color: hsl(var(--muted-foreground));
   white-space: nowrap;
