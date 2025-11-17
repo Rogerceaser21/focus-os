@@ -65,6 +65,8 @@ const Index = () => {
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
@@ -106,7 +108,11 @@ const Index = () => {
   }, [user, authLoading, navigate]);
   useEffect(() => {
     if (user) {
-      fetchTasks();
+      fetchTasks().then(() => {
+        if (!initialLoadComplete) {
+          setInitialLoadComplete(true);
+        }
+      });
       fetchProjects();
     }
   }, [user, selectedProjectId, selectedSpecialList]);
@@ -155,42 +161,47 @@ const Index = () => {
     }
   }, [preferences, preferencesLoaded, projects]);
   const fetchTasks = async () => {
-    let query = supabase.from('tasks').select('*').order('created_at', {
-      ascending: false
-    });
-    if (selectedProjectId) {
-      query = query.eq('project_id', selectedProjectId);
-    } else if (selectedSpecialList === 'unassigned') {
-      query = query.is('project_id', null);
-    } else if (selectedSpecialList === 'today') {
-      const today = new Date();
-      query = query.lte('due_date', endOfDay(today).toISOString());
+    setTasksLoading(true);
+    try {
+      let query = supabase.from('tasks').select('*').order('created_at', {
+        ascending: false
+      });
+      if (selectedProjectId) {
+        query = query.eq('project_id', selectedProjectId);
+      } else if (selectedSpecialList === 'unassigned') {
+        query = query.is('project_id', null);
+      } else if (selectedSpecialList === 'today') {
+        const today = new Date();
+        query = query.lte('due_date', endOfDay(today).toISOString());
+      }
+      const {
+        data,
+        error
+      } = await query;
+      if (error) {
+        toast.error('Failed to load tasks');
+        return;
+      }
+      setTasks(data.map(t => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        priority: t.priority as any,
+        status: t.status as any,
+        startDate: t.start_date ? new Date(t.start_date) : undefined,
+        endDate: t.end_date ? new Date(t.end_date) : undefined,
+        dueDate: t.due_date ? new Date(t.due_date) : undefined,
+        images: t.images ? (t.images as string[]) : [],
+        timer: {
+          totalSeconds: t.timer_total_seconds,
+          isRunning: t.timer_is_running,
+          startTime: t.timer_start_time
+        },
+        projectId: t.project_id
+      })));
+    } finally {
+      setTasksLoading(false);
     }
-    const {
-      data,
-      error
-    } = await query;
-    if (error) {
-      toast.error('Failed to load tasks');
-      return;
-    }
-    setTasks(data.map(t => ({
-      id: t.id,
-      title: t.title,
-      description: t.description,
-      priority: t.priority as any,
-      status: t.status as any,
-      startDate: t.start_date ? new Date(t.start_date) : undefined,
-      endDate: t.end_date ? new Date(t.end_date) : undefined,
-      dueDate: t.due_date ? new Date(t.due_date) : undefined,
-      images: t.images ? (t.images as string[]) : [],
-      timer: {
-        totalSeconds: t.timer_total_seconds,
-        isRunning: t.timer_is_running,
-        startTime: t.timer_start_time
-      },
-      projectId: t.project_id
-    })));
   };
   const fetchProjects = async () => {
     const {
@@ -405,9 +416,19 @@ const Index = () => {
   };
 
   const sortedTasks = sortTasksByPriority(filteredTasks);
-  if (authLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  
+  // Show loading screen while auth, preferences, or initial tasks are loading
+  if (authLoading || prefsLoading || (tasksLoading && !initialLoadComplete)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading your tasks...</p>
+        </div>
+      </div>
+    );
   }
+  
   if (!user) {
     return null;
   }
