@@ -15,9 +15,10 @@ import { toast } from 'sonner';
 interface AddTaskDialogProps {
   onAddTask: (task: Task) => void;
   selectedProjectId?: string | null;
+  selectedSpecialList?: string | null;
 }
 
-export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogProps) => {
+export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialList }: AddTaskDialogProps) => {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -30,6 +31,15 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId }: AddTaskDialogPro
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const MAX_IMAGES = 8;
+
+  // Auto-set due date to today when creating task in "Today's To-Do" view
+  useEffect(() => {
+    if (open && selectedSpecialList === 'today' && !dueDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      setDueDate(today);
+    }
+  }, [open, selectedSpecialList, dueDate]);
 
   useEffect(() => {
     if (!open) return;
