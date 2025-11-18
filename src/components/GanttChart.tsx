@@ -37,16 +37,16 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartPro
   };
 
   const taskColors = [
-    'bg-blue-500',
-    'bg-purple-500',
-    'bg-green-500',
-    'bg-orange-500',
-    'bg-pink-500',
-    'bg-cyan-500',
-    'bg-yellow-500',
-    'bg-indigo-500',
-    'bg-red-500',
-    'bg-teal-500'
+    { bg: 'bg-blue-500', border: 'border-blue-500' },
+    { bg: 'bg-purple-500', border: 'border-purple-500' },
+    { bg: 'bg-green-500', border: 'border-green-500' },
+    { bg: 'bg-orange-500', border: 'border-orange-500' },
+    { bg: 'bg-pink-500', border: 'border-pink-500' },
+    { bg: 'bg-cyan-500', border: 'border-cyan-500' },
+    { bg: 'bg-yellow-500', border: 'border-yellow-500' },
+    { bg: 'bg-indigo-500', border: 'border-indigo-500' },
+    { bg: 'bg-red-500', border: 'border-red-500' },
+    { bg: 'bg-teal-500', border: 'border-teal-500' }
   ];
 
   if (tasksWithDates.length === 0) {
@@ -100,12 +100,12 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartPro
 
           return (
             <div key={task.id} className="relative h-12 border-b border-border/50">
-              <div className="absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium">
+              <div className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border}`}>
                 {task.title}
               </div>
               <div className="relative h-full ml-48">
                 <div 
-                  className={`absolute top-2 bottom-2 rounded ${taskColor} opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
+                  className={`absolute top-2 bottom-2 rounded ${taskColor.bg} opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
                   style={{ 
                     left: `${position.left}%`, 
                     width: `${position.width}%` 
