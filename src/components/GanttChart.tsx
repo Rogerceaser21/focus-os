@@ -36,12 +36,18 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartPro
     return { left, width };
   };
 
-  const priorityColors = {
-    low: 'bg-muted/80',
-    medium: 'bg-info',
-    high: 'bg-warning',
-    urgent: 'bg-destructive'
-  };
+  const taskColors = [
+    'bg-blue-500',
+    'bg-purple-500',
+    'bg-green-500',
+    'bg-orange-500',
+    'bg-pink-500',
+    'bg-cyan-500',
+    'bg-yellow-500',
+    'bg-indigo-500',
+    'bg-red-500',
+    'bg-teal-500'
+  ];
 
   if (tasksWithDates.length === 0) {
     return (
@@ -55,7 +61,7 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartPro
 
   return (
     <Card className="p-6 overflow-x-auto bg-card/80 backdrop-blur-sm border-2">
-      <h3 className="text-lg font-semibold mb-4 text-foreground">{projectName} - {format(monthStart, 'MMMM yyyy')}</h3>
+      <h3 className="text-lg font-semibold mb-4 text-foreground text-center">{projectName} - {format(monthStart, 'MMMM yyyy')}</h3>
       
       {/* Timeline Header */}
       <div className="mb-4">
@@ -86,9 +92,11 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartPro
 
       {/* Tasks */}
       <div className="space-y-3">
-        {tasksWithDates.map((task) => {
+        {tasksWithDates.map((task, index) => {
           const position = getTaskPosition(task);
           if (!position) return null;
+
+          const taskColor = taskColors[index % taskColors.length];
 
           return (
             <div key={task.id} className="relative h-12 border-b border-border/50">
@@ -97,17 +105,13 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartPro
               </div>
               <div className="relative h-full ml-48">
                 <div 
-                  className={`absolute top-2 bottom-2 rounded ${priorityColors[task.priority]} opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
+                  className={`absolute top-2 bottom-2 rounded ${taskColor} opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
                   style={{ 
                     left: `${position.left}%`, 
                     width: `${position.width}%` 
                   }}
                   title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
-                >
-                  <div className="h-full flex items-center px-2 text-xs text-white font-medium truncate">
-                    {task.title}
-                  </div>
-                </div>
+                />
               </div>
             </div>
           );
