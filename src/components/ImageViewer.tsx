@@ -27,7 +27,7 @@ export const ImageViewer = ({ images, currentIndex, onClose, onNavigate }: Image
 
   return (
     <div 
-      className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center"
+      className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center"
       onClick={onClose}
     >
       {/* Close Button */}
