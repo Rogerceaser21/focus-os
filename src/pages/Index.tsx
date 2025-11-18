@@ -944,6 +944,7 @@ const Index = () => {
                     ? 'Unassigned Tasks'
                     : 'All Tasks'
                 }
+                onTaskClick={handleUpdateTask}
               />
             </div> : <div className="mt-6">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
