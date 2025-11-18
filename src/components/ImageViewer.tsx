@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -25,7 +26,7 @@ export const ImageViewer = ({ images, currentIndex, onClose, onNavigate }: Image
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, images.length, onClose, onNavigate]);
 
-  return (
+  return createPortal(
     <div 
       className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center"
       onClick={onClose}
@@ -82,6 +83,7 @@ export const ImageViewer = ({ images, currentIndex, onClose, onNavigate }: Image
           <ChevronRight className="h-8 w-8" />
         </Button>
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
