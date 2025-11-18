@@ -933,7 +933,18 @@ const Index = () => {
                 {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} />)}
               </TabsContent>
             </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
-              <GanttChart tasks={sortedTasks} />
+              <GanttChart 
+                tasks={sortedTasks} 
+                projectName={
+                  selectedProjectId 
+                    ? projects.find(p => p.id === selectedProjectId)?.name || 'Project'
+                    : selectedSpecialList === 'today'
+                    ? 'Today'
+                    : selectedSpecialList === 'unassigned'
+                    ? 'Unassigned Tasks'
+                    : 'All Tasks'
+                }
+              />
             </div> : <div className="mt-6">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
             </div>}
