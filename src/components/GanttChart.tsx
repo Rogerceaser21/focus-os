@@ -12,7 +12,9 @@ interface GanttChartProps {
 
 export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: GanttChartProps) => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const tasksWithDates = tasks.filter(t => t.startDate && t.endDate);
+  const tasksWithDates = tasks
+    .filter(t => t.startDate && t.endDate)
+    .sort((a, b) => a.startDate!.getTime() - b.startDate!.getTime());
   
   const { days, monthStart, monthEnd } = useMemo(() => {
     const today = new Date();
