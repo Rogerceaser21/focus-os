@@ -31,12 +31,16 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: 
 
   const today = new Date();
 
-  const getTaskPosition = (task: Task, days: Date[]) => {
+  const getTaskPosition = (task: Task, days: Date[], monthStart: Date, monthEnd: Date) => {
     if (!task.startDate || !task.endDate) return null;
     
+    // Clip task dates to month boundaries
+    const clippedStart = task.startDate < monthStart ? monthStart : task.startDate;
+    const clippedEnd = task.endDate > monthEnd ? monthEnd : task.endDate;
+    
     const totalDays = days.length;
-    const startIndex = days.findIndex(day => isSameDay(day, task.startDate!));
-    const endIndex = days.findIndex(day => isSameDay(day, task.endDate!));
+    const startIndex = days.findIndex(day => isSameDay(day, clippedStart));
+    const endIndex = days.findIndex(day => isSameDay(day, clippedEnd));
     
     if (startIndex === -1 || endIndex === -1) return null;
     
@@ -120,7 +124,7 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: 
             {monthTasks.length > 0 ? (
               <div className="space-y-3">
                 {monthTasks.map((task, index) => {
-                  const position = getTaskPosition(task, month.days);
+                  const position = getTaskPosition(task, month.days, month.start, month.end);
                   if (!position) return null;
 
                   const taskColor = taskColors[tasksWithDates.findIndex(t => t.id === task.id) % taskColors.length];
