@@ -76,6 +76,12 @@ const Index = () => {
     animationDuration: 0.6
   });
   const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+
+  // Sync sidebar state with screen size changes
+  useEffect(() => {
+    setSidebarOpen(!isMobile);
+  }, [isMobile]);
 
   // Handle clicking outside task cards to collapse them
   useEffect(() => {
@@ -479,7 +485,7 @@ const Index = () => {
     }
   ];
 
-  return <SidebarProvider defaultOpen={!isMobile}>
+  return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <div className="min-h-screen flex w-full relative">
         <div ref={containerRef} className="dock-particle-container" />
         <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />
