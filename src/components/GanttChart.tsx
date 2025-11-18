@@ -1,13 +1,14 @@
-import { Task } from '@/types/task';
+import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval } from 'date-fns';
 import { useMemo } from 'react';
 
 interface GanttChartProps {
   tasks: Task[];
+  projectName?: string;
 }
 
-export const GanttChart = ({ tasks }: GanttChartProps) => {
+export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartProps) => {
   const tasksWithDates = tasks.filter(t => t.startDate && t.endDate);
   
   const { days, monthStart, monthEnd } = useMemo(() => {
@@ -54,11 +55,11 @@ export const GanttChart = ({ tasks }: GanttChartProps) => {
 
   return (
     <Card className="p-6 overflow-x-auto bg-card/80 backdrop-blur-sm border-2">
-      <h3 className="text-lg font-semibold mb-4 text-foreground">Gantt Chart - {format(monthStart, 'MMMM yyyy')}</h3>
+      <h3 className="text-lg font-semibold mb-4 text-foreground">{projectName} - {format(monthStart, 'MMMM yyyy')}</h3>
       
       {/* Timeline Header */}
       <div className="mb-4">
-        <div className="flex relative h-12 border-b">
+        <div className="flex relative h-12 border-b ml-48">
           {days.map((day, idx) => {
             const isToday = isSameDay(day, today);
             return (
