@@ -1,7 +1,8 @@
 import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval } from 'date-fns';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
 
 interface GanttChartProps {
   tasks: Task[];
@@ -10,6 +11,7 @@ interface GanttChartProps {
 }
 
 export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: GanttChartProps) => {
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const tasksWithDates = tasks.filter(t => t.startDate && t.endDate);
   
   const { days, monthStart, monthEnd } = useMemo(() => {
@@ -103,7 +105,7 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: 
             <div key={task.id} className="relative h-12 border-b border-border/50">
               <div 
                 className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border} cursor-pointer hover:opacity-80 transition-opacity`}
-                onClick={() => onTaskClick?.(task)}
+                onClick={() => setEditingTask(task)}
               >
                 {task.title}
               </div>
@@ -115,13 +117,25 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: 
                     width: `${position.width}%` 
                   }}
                   title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
-                  onClick={() => onTaskClick?.(task)}
+                  onClick={() => setEditingTask(task)}
                 />
               </div>
             </div>
           );
         })}
       </div>
+
+      {editingTask && (
+        <EditTaskDialog 
+          task={editingTask} 
+          open={!!editingTask} 
+          onOpenChange={(open) => !open && setEditingTask(null)}
+          onUpdateTask={(updatedTask) => {
+            onTaskClick?.(updatedTask);
+            setEditingTask(null);
+          }}
+        />
+      )}
     </Card>
   );
 };
