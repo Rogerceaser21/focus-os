@@ -12,6 +12,7 @@ import { CalendarIcon, ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { ImageViewer } from '@/components/ImageViewer';
 
 interface EditTaskDialogProps {
   task: Task;
@@ -30,6 +31,8 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate);
   const [images, setImages] = useState<string[]>(task.images || []);
   const [maxHeight, setMaxHeight] = useState('300px');
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const MAX_IMAGES = 8;
@@ -140,6 +143,11 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
       title: 'Image removed',
       description: 'Image removed successfully'
     });
+  };
+
+  const handleImageClick = (index: number) => {
+    setCurrentImageIndex(index);
+    setViewerOpen(true);
   };
 
   const handleSubmit = () => {
@@ -298,11 +306,12 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               {images.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {images.map((img, idx) => (
-                    <div key={idx} className="relative group">
+                  <div key={idx} className="relative group">
                       <img 
                         src={img} 
                         alt={`Upload ${idx + 1}`}
-                        className="w-full h-24 object-cover rounded border"
+                        className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => handleImageClick(idx)}
                       />
                       <button
                         type="button"
@@ -349,6 +358,15 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
           </Button>
         </div>
       </DialogContent>
+
+      {viewerOpen && (
+        <ImageViewer
+          images={images}
+          currentIndex={currentImageIndex}
+          onClose={() => setViewerOpen(false)}
+          onNavigate={setCurrentImageIndex}
+        />
+      )}
     </Dialog>
   );
 };

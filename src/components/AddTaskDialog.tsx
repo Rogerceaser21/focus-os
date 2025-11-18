@@ -11,6 +11,7 @@ import { Task, TaskPriority, TaskStatus } from '@/types/task';
 import { Plus, Calendar as CalendarIcon, Image } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { ImageViewer } from '@/components/ImageViewer';
 
 interface AddTaskDialogProps {
   onAddTask: (task: Task) => void;
@@ -28,6 +29,8 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
   const [endDate, setEndDate] = useState<Date>();
   const [dueDate, setDueDate] = useState<Date>();
   const [images, setImages] = useState<string[]>([]);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const MAX_IMAGES = 8;
@@ -108,6 +111,11 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
     toast.success('Image removed');
+  };
+
+  const handleImageClick = (index: number) => {
+    setCurrentImageIndex(index);
+    setViewerOpen(true);
   };
 
   const handleSubmit = () => {
@@ -273,7 +281,8 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
                       <img 
                         src={img} 
                         alt={`Upload ${idx + 1}`}
-                        className="w-full h-24 object-cover rounded border"
+                        className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => handleImageClick(idx)}
                       />
                       <button
                         type="button"
@@ -320,6 +329,15 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
           </div>
         </div>
       </DialogContent>
+
+      {viewerOpen && (
+        <ImageViewer
+          images={images}
+          currentIndex={currentImageIndex}
+          onClose={() => setViewerOpen(false)}
+          onNavigate={setCurrentImageIndex}
+        />
+      )}
     </Dialog>
   );
 };
