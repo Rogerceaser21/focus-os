@@ -158,6 +158,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
           <Button className="gap-2 border-2 shadow-lg shadow-primary/20">
@@ -329,15 +330,16 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
           </div>
         </div>
       </DialogContent>
-
-      {viewerOpen && (
-        <ImageViewer
-          images={images}
-          currentIndex={currentImageIndex}
-          onClose={() => setViewerOpen(false)}
-          onNavigate={setCurrentImageIndex}
-        />
-      )}
     </Dialog>
+
+    {viewerOpen && (
+      <ImageViewer
+        images={images}
+        currentIndex={currentImageIndex}
+        onClose={() => setViewerOpen(false)}
+        onNavigate={setCurrentImageIndex}
+      />
+    )}
+  </>
   );
 };

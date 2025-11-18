@@ -182,6 +182,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-full mx-0 sm:mx-auto p-4 sm:p-6">
         <DialogHeader>
@@ -358,15 +359,16 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
           </Button>
         </div>
       </DialogContent>
-
-      {viewerOpen && (
-        <ImageViewer
-          images={images}
-          currentIndex={currentImageIndex}
-          onClose={() => setViewerOpen(false)}
-          onNavigate={setCurrentImageIndex}
-        />
-      )}
     </Dialog>
+
+    {viewerOpen && (
+      <ImageViewer
+        images={images}
+        currentIndex={currentImageIndex}
+        onClose={() => setViewerOpen(false)}
+        onNavigate={setCurrentImageIndex}
+      />
+    )}
+  </>
   );
 };
