@@ -6,9 +6,10 @@ import { useMemo } from 'react';
 interface GanttChartProps {
   tasks: Task[];
   projectName?: string;
+  onTaskClick?: (task: Task) => void;
 }
 
-export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartProps) => {
+export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: GanttChartProps) => {
   const tasksWithDates = tasks.filter(t => t.startDate && t.endDate);
   
   const { days, monthStart, monthEnd } = useMemo(() => {
@@ -100,7 +101,10 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartPro
 
           return (
             <div key={task.id} className="relative h-12 border-b border-border/50">
-              <div className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border}`}>
+              <div 
+                className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border} cursor-pointer hover:opacity-80 transition-opacity`}
+                onClick={() => onTaskClick?.(task)}
+              >
                 {task.title}
               </div>
               <div className="relative h-full ml-48">
@@ -111,6 +115,7 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart' }: GanttChartPro
                     width: `${position.width}%` 
                   }}
                   title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
+                  onClick={() => onTaskClick?.(task)}
                 />
               </div>
             </div>
