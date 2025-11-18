@@ -1,6 +1,6 @@
 import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addMonths } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 
@@ -19,7 +19,7 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: 
   const { days, monthStart, monthEnd } = useMemo(() => {
     const today = new Date();
     const monthStart = startOfMonth(today);
-    const monthEnd = endOfMonth(today);
+    const monthEnd = endOfMonth(addMonths(today, 2));
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
     return { days, monthStart, monthEnd };
   }, []);
@@ -66,7 +66,7 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: 
 
   return (
     <Card className="p-6 overflow-x-auto bg-card/80 backdrop-blur-sm border-2">
-      <h3 className="text-lg font-semibold mb-4 text-foreground text-center">{projectName} - {format(monthStart, 'MMMM yyyy')}</h3>
+      <h3 className="text-lg font-semibold mb-4 text-foreground text-center">{projectName} - {format(monthStart, 'MMM yyyy')} to {format(monthEnd, 'MMM yyyy')}</h3>
       
       {/* Timeline Header */}
       <div className="mb-4">
