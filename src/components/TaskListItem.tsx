@@ -36,7 +36,7 @@ const statusColors = {
 };
 
 export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
-  const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
+  const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const isMobile = useIsMobile();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -169,14 +169,26 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
   const handleStartStop = () => {
     if (timer.isRunning) {
+      // Calculate elapsed time before stopping
+      const elapsed = timer.startTime 
+        ? Math.floor((Date.now() - timer.startTime) / 1000)
+        : 0;
       stopTimer();
-      onUpdate({ ...task, timer: { ...timer, isRunning: false, startTime: undefined } });
+      onUpdate({ 
+        ...task, 
+        timer: { 
+          totalSeconds: timer.totalSeconds + elapsed, 
+          isRunning: false, 
+          startTime: undefined 
+        } 
+      });
     } else {
+      const startTime = Date.now();
       startTimer();
       onUpdate({ 
         ...task, 
         status: 'in-progress',
-        timer: { ...timer, isRunning: true, startTime: Date.now() } 
+        timer: { ...timer, isRunning: true, startTime } 
       });
     }
   };
@@ -360,7 +372,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
               <div className="flex items-center gap-1 text-xs text-muted-foreground border border-border rounded px-2 py-1">
                 <Clock className="w-3 h-3" />
-                <span className="font-mono">{formatTime(timer.totalSeconds, !isMobile)}</span>
+                <span className="font-mono">{formatTime(displaySeconds, !isMobile)}</span>
               </div>
 
               <button
@@ -516,7 +528,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
               <div className="flex items-center gap-1 text-sm text-muted-foreground border border-border rounded px-2 py-1">
                 <Clock className="w-4 h-4" />
-                <span className="font-mono min-w-[80px]">{formatTime(timer.totalSeconds, true)}</span>
+                <span className="font-mono min-w-[80px]">{formatTime(displaySeconds, true)}</span>
               </div>
 
               <button
