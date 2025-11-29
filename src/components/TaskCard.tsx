@@ -33,7 +33,7 @@ const statusColors = {
 };
 
 export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
-  const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
+  const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
@@ -44,11 +44,23 @@ export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
 
   const handleTimerUpdate = (action: 'start' | 'stop') => {
     if (action === 'start') {
+      const startTime = Date.now();
       startTimer();
-      onUpdate({ ...task, status: 'in-progress', timer });
+      onUpdate({ ...task, status: 'in-progress', timer: { ...timer, isRunning: true, startTime } });
     } else if (action === 'stop') {
+      // Calculate elapsed time before stopping
+      const elapsed = timer.startTime 
+        ? Math.floor((Date.now() - timer.startTime) / 1000)
+        : 0;
       stopTimer();
-      onUpdate({ ...task, timer });
+      onUpdate({ 
+        ...task, 
+        timer: { 
+          totalSeconds: timer.totalSeconds + elapsed, 
+          isRunning: false, 
+          startTime: undefined 
+        } 
+      });
     }
   };
 
@@ -209,7 +221,7 @@ export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
           )}
           <div className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
-            <span>{formatTime(timer.totalSeconds)}</span>
+            <span>{formatTime(displaySeconds)}</span>
           </div>
         </div>
 
