@@ -1,4 +1,4 @@
-import { Task } from '@/types/task';
+import { Task, Project } from '@/types/task';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -19,6 +19,7 @@ interface TaskListItemProps {
   globalViewMode: 'full' | 'compact';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
+  projects?: Project[];
 }
 
 const priorityColors = {
@@ -34,7 +35,7 @@ const statusColors = {
   'completed': 'bg-green-500/20 text-green-300 border-green-500/30',
 };
 
-export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const isMobile = useIsMobile();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -544,6 +545,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
         onUpdateTask={onUpdate}
+        projects={projects}
       />
     </>
   );

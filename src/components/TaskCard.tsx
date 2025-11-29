@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Task } from '@/types/task';
+import { Task, Project } from '@/types/task';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { LinkifiedText } from '@/components/LinkifiedText';
 interface TaskCardProps {
   task: Task;
   onUpdate: (task: Task) => void;
+  projects?: Project[];
 }
 
 const priorityColors = {
@@ -31,7 +32,7 @@ const statusColors = {
   'completed': 'bg-success/20 text-success border-success/30'
 };
 
-export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
+export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
   const { timer, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -243,6 +244,7 @@ export const TaskCard = ({ task, onUpdate }: TaskCardProps) => {
       open={showEditDialog}
       onOpenChange={setShowEditDialog}
       onUpdateTask={onUpdate}
+      projects={projects}
     />
     </>
   );
