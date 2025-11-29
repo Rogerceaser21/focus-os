@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Task, TaskPriority, TaskStatus } from '@/types/task';
+import { Task, TaskPriority, TaskStatus, Project } from '@/types/task';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,9 +19,10 @@ interface EditTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdateTask: (task: Task) => void;
+  projects?: Project[];
 }
 
-export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditTaskDialogProps) => {
+export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, projects = [] }: EditTaskDialogProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
@@ -30,6 +31,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
   const [endDate, setEndDate] = useState<Date | undefined>(task.endDate);
   const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate);
   const [images, setImages] = useState<string[]>(task.images || []);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(task.projectId || null);
   const [maxHeight, setMaxHeight] = useState('300px');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -47,6 +49,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
       setEndDate(task.endDate);
       setDueDate(task.dueDate);
       setImages(task.images || []);
+      setSelectedProjectId(task.projectId || null);
     }
   }, [task, open]);
 
@@ -169,7 +172,8 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
       startDate,
       endDate,
       dueDate,
-      images
+      images,
+      projectId: selectedProjectId || undefined
     };
 
     onUpdateTask(updatedTask);
@@ -222,6 +226,36 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask }: EditT
               style={{ height: maxHeight, maxHeight }}
             />
           </div>
+
+          {projects.length > 0 && (
+            <div className="space-y-2">
+              <Label>Project</Label>
+              <Select 
+                value={selectedProjectId || 'unassigned'} 
+                onValueChange={(value) => setSelectedProjectId(value === 'unassigned' ? null : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">
+                    <span className="text-muted-foreground">Unassigned</span>
+                  </SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: project.color }}
+                        />
+                        {project.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
