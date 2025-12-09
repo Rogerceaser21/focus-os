@@ -12,8 +12,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2 } from 'lucide-react';
-import { ProjectsIcon, TasksIcon, TodayIcon } from '@/components/icons/DockIcons';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -441,7 +440,7 @@ const Index = () => {
   }
   const dockItems = [
     {
-      icon: <ProjectsIcon className="w-8 h-8" />,
+      icon: <FolderPlus className="w-7 h-7" />,
       label: 'Projects',
       permanentLabel: '+Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
@@ -450,7 +449,7 @@ const Index = () => {
       }
     },
     {
-      icon: <TasksIcon className="w-8 h-8" />,
+      icon: <ListPlus className="w-7 h-7" />,
       label: 'Tasks',
       permanentLabel: '+Tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
@@ -468,7 +467,7 @@ const Index = () => {
       }
     },
     {
-      icon: <TodayIcon className="w-8 h-8" />,
+      icon: <CalendarPlus className="w-7 h-7" />,
       label: 'Today',
       permanentLabel: '+Today',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
