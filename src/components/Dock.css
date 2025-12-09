@@ -75,11 +75,13 @@
 
 .dock-icon {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: flex-start;
   width: 100%;
   height: 100%;
   color: hsl(var(--foreground));
+  padding-left: 6px;
+  padding-bottom: 4px;
 }
 
 .dock-icon img {
