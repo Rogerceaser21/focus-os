@@ -12,7 +12,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus, Mic } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -438,9 +438,18 @@ const Index = () => {
   if (!user) {
     return null;
   }
+  const IconWithMicBadge = ({ children }: { children: React.ReactNode }) => (
+    <div className="relative">
+      {children}
+      <div className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full w-4 h-4 flex items-center justify-center">
+        <Mic className="w-2.5 h-2.5 text-white" />
+      </div>
+    </div>
+  );
+
   const dockItems = [
     {
-      icon: <FolderPlus className="w-7 h-7" />,
+      icon: <IconWithMicBadge><FolderPlus className="w-7 h-7" /></IconWithMicBadge>,
       label: 'Projects',
       permanentLabel: '+Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
@@ -449,7 +458,7 @@ const Index = () => {
       }
     },
     {
-      icon: <ListPlus className="w-7 h-7" />,
+      icon: <IconWithMicBadge><ListPlus className="w-7 h-7" /></IconWithMicBadge>,
       label: 'Tasks',
       permanentLabel: '+Tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
@@ -467,7 +476,7 @@ const Index = () => {
       }
     },
     {
-      icon: <CalendarPlus className="w-7 h-7" />,
+      icon: <IconWithMicBadge><CalendarPlus className="w-7 h-7" /></IconWithMicBadge>,
       label: 'Today',
       permanentLabel: '+Today',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
