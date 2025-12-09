@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Children, cloneElement, ReactElement, useState } from 'react';
+import { Mic } from 'lucide-react';
 
 import './Dock.css';
 
@@ -115,7 +116,11 @@ export default function Dock({
                     <DockLabel>{item.label}</DockLabel>
                   </>
                 </DockItem>
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse z-50 pointer-events-none" />
+                {item.isRecording && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full z-50 pointer-events-none flex items-center justify-center">
+                    <Mic className="w-2.5 h-2.5 text-white" />
+                  </span>
+                )}
               </div>
             ))}
           </div>
