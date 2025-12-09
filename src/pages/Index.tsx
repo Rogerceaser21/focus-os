@@ -12,7 +12,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus, Mic } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -438,18 +438,9 @@ const Index = () => {
   if (!user) {
     return null;
   }
-  const IconWithMicBadge = ({ children }: { children: React.ReactNode }) => (
-    <div className="relative">
-      {children}
-      <div className="absolute -top-3 -right-3 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center shadow-md border-2 border-background z-10">
-        <Mic className="w-3 h-3 text-white" />
-      </div>
-    </div>
-  );
-
   const dockItems = [
     {
-      icon: <IconWithMicBadge><FolderPlus className="w-7 h-7" /></IconWithMicBadge>,
+      icon: <FolderPlus className="w-7 h-7" />,
       label: 'Projects',
       permanentLabel: '+Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
@@ -458,7 +449,7 @@ const Index = () => {
       }
     },
     {
-      icon: <IconWithMicBadge><ListPlus className="w-7 h-7" /></IconWithMicBadge>,
+      icon: <ListPlus className="w-7 h-7" />,
       label: 'Tasks',
       permanentLabel: '+Tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
@@ -476,7 +467,7 @@ const Index = () => {
       }
     },
     {
-      icon: <IconWithMicBadge><CalendarPlus className="w-7 h-7" /></IconWithMicBadge>,
+      icon: <CalendarPlus className="w-7 h-7" />,
       label: 'Today',
       permanentLabel: '+Today',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
