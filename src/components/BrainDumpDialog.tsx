@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ interface BrainDumpDialogProps {
   onOpenChange: (open: boolean) => void;
   onTasksCreated: (newProjectId: string) => void;
   userId: string;
+  onRecordingChange?: (isRecording: boolean) => void;
 }
 
 interface ExtractedTask {
@@ -28,9 +29,14 @@ interface ExtractedData {
   tasks: ExtractedTask[];
 }
 
-export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId }: BrainDumpDialogProps) => {
+export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId, onRecordingChange }: BrainDumpDialogProps) => {
   const { toast } = useToast();
   const { isRecording, audioBlob, startRecording, stopRecording, reset } = useVoiceRecorder();
+
+  // Report recording state changes to parent
+  React.useEffect(() => {
+    onRecordingChange?.(isRecording);
+  }, [isRecording, onRecordingChange]);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [transcription, setTranscription] = useState('');

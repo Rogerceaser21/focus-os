@@ -77,6 +77,7 @@ export interface DockItem {
   permanentLabel?: string;
   onClick: (e?: React.MouseEvent<HTMLElement>) => void;
   className?: string;
+  isRecording?: boolean;
 }
 
 interface DockProps {
@@ -109,9 +110,12 @@ export default function Dock({
                 className={item.className}
                 baseItemSize={baseItemSize}
               >
-                <div>
+                <div className="relative">
                   <DockIcon>{item.icon}</DockIcon>
                   <DockLabel>{item.label}</DockLabel>
+                  {item.isRecording && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                  )}
                 </div>
               </DockItem>
             ))}

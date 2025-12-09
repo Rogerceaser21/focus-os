@@ -57,6 +57,9 @@ const Index = () => {
   const [taskOnlyDialogOpen, setTaskOnlyDialogOpen] = useState(false);
   const [todayDialogOpen, setTodayDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isProjectsRecording, setIsProjectsRecording] = useState(false);
+  const [isTasksRecording, setIsTasksRecording] = useState(false);
+  const [isTodayRecording, setIsTodayRecording] = useState(false);
   const [globalCardView, setGlobalCardView] = useState<'full' | 'compact'>('full');
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -443,6 +446,7 @@ const Index = () => {
       icon: <FolderPlus className="w-7 h-7" />,
       label: 'Projects',
       permanentLabel: '+Projects',
+      isRecording: isProjectsRecording,
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setDialogOpen(true);
@@ -452,6 +456,7 @@ const Index = () => {
       icon: <ListPlus className="w-7 h-7" />,
       label: 'Tasks',
       permanentLabel: '+Tasks',
+      isRecording: isTasksRecording,
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         
@@ -470,6 +475,7 @@ const Index = () => {
       icon: <CalendarPlus className="w-7 h-7" />,
       label: 'Today',
       permanentLabel: '+Today',
+      isRecording: isTodayRecording,
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setTodayDialogOpen(true);
@@ -972,6 +978,7 @@ const Index = () => {
           fetchTasks();
         }}
         userId={user?.id || ''}
+        onRecordingChange={setIsProjectsRecording}
       />
 
       <TaskOnlyBrainDumpDialog
@@ -984,6 +991,7 @@ const Index = () => {
         userId={user?.id || ''}
         selectedProjectId={selectedProjectId}
         selectedProjectName={getSelectedProjectName()}
+        onRecordingChange={setIsTasksRecording}
       />
 
       <TodayBrainDumpDialog
@@ -994,6 +1002,7 @@ const Index = () => {
           setProjectRefreshTrigger(prev => prev + 1);
         }}
         userId={user?.id || ''}
+        onRecordingChange={setIsTodayRecording}
       />
 
       <SettingsDialog

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2, Check, X } from 'lucide-react';
@@ -13,6 +13,7 @@ interface TodayBrainDumpDialogProps {
   onOpenChange: (open: boolean) => void;
   onTasksCreated: () => void;
   userId: string;
+  onRecordingChange?: (isRecording: boolean) => void;
 }
 
 interface ExtractedTask {
@@ -26,8 +27,14 @@ export const TodayBrainDumpDialog = ({
   onOpenChange,
   onTasksCreated,
   userId,
+  onRecordingChange,
 }: TodayBrainDumpDialogProps) => {
   const { isRecording, audioBlob, startRecording, stopRecording, reset } = useVoiceRecorder();
+
+  // Report recording state changes to parent
+  React.useEffect(() => {
+    onRecordingChange?.(isRecording);
+  }, [isRecording, onRecordingChange]);
   const [transcription, setTranscription] = useState('');
   const [editableTasks, setEditableTasks] = useState<ExtractedTask[]>([]);
   const [isTranscribing, setIsTranscribing] = useState(false);
