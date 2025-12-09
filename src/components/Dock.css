@@ -60,7 +60,7 @@
   border: 1px solid hsl(var(--border) / 0.2);
   outline: none;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .dock-item:hover {
