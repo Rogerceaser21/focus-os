@@ -12,7 +12,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus, Mic } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, AudioLines, ListMusic, CalendarClock } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -440,12 +440,7 @@ const Index = () => {
   }
   const dockItems = [
     {
-      icon: (
-        <div className="relative">
-          <FolderPlus className="w-7 h-7" />
-          <Mic className="w-3 h-3 absolute -bottom-0.5 -right-0.5 text-primary" />
-        </div>
-      ),
+      icon: <AudioLines className="w-7 h-7" />,
       label: 'Projects',
       permanentLabel: '+Projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
@@ -454,12 +449,7 @@ const Index = () => {
       }
     },
     {
-      icon: (
-        <div className="relative">
-          <ListPlus className="w-7 h-7" />
-          <Mic className="w-3 h-3 absolute -bottom-0.5 -right-0.5 text-primary" />
-        </div>
-      ),
+      icon: <ListMusic className="w-7 h-7" />,
       label: 'Tasks',
       permanentLabel: '+Tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
@@ -477,12 +467,7 @@ const Index = () => {
       }
     },
     {
-      icon: (
-        <div className="relative">
-          <CalendarPlus className="w-7 h-7" />
-          <Mic className="w-3 h-3 absolute -bottom-0.5 -right-0.5 text-primary" />
-        </div>
-      ),
+      icon: <CalendarClock className="w-7 h-7" />,
       label: 'Today',
       permanentLabel: '+Today',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
