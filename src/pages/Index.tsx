@@ -441,8 +441,8 @@ const Index = () => {
   const IconWithMicBadge = ({ children }: { children: React.ReactNode }) => (
     <div className="relative">
       {children}
-      <div className="absolute -top-2 -right-2 bg-red-500/20 border border-red-500/30 rounded-full w-4 h-4 flex items-center justify-center">
-        <Mic className="w-2.5 h-2.5 text-red-300" />
+      <div className="absolute -top-3 -right-3 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center shadow-md border-2 border-background z-10">
+        <Mic className="w-3 h-3 text-white" />
       </div>
     </div>
   );
