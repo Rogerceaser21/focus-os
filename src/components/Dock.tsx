@@ -104,20 +104,21 @@ export default function Dock({
         <div className="flex flex-col items-center gap-2 h-full">
           <div className="flex items-center justify-center gap-3 flex-1">
             {items.map((item, index) => (
-              <DockItem
-                key={index}
-                onClick={item.onClick}
-                className={item.className}
-                baseItemSize={baseItemSize}
-              >
-                <div className="relative">
-                  <DockIcon>{item.icon}</DockIcon>
-                  <DockLabel>{item.label}</DockLabel>
-                  {item.isRecording && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                  )}
-                </div>
-              </DockItem>
+              <div key={index} className="relative">
+                <DockItem
+                  onClick={item.onClick}
+                  className={item.className}
+                  baseItemSize={baseItemSize}
+                >
+                  <>
+                    <DockIcon>{item.icon}</DockIcon>
+                    <DockLabel>{item.label}</DockLabel>
+                  </>
+                </DockItem>
+                {item.isRecording && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse z-50" />
+                )}
+              </div>
             ))}
           </div>
           <div className="flex items-center justify-center gap-3 pb-2" style={{ width: `${baseItemSize * items.length + (items.length - 1) * 12}px` }}>
