@@ -116,11 +116,22 @@ export default function Dock({
                     <DockLabel>{item.label}</DockLabel>
                   </>
                 </DockItem>
-                {item.permanentLabel && item.permanentLabel !== 'Settings' && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-950 border border-red-800 rounded-full z-50 pointer-events-none flex items-center justify-center">
-                    <Mic className="w-2.5 h-2.5 text-red-400" />
-                  </span>
-                )}
+                {item.permanentLabel && item.permanentLabel !== 'Settings' && (() => {
+                  const getBadgeColors = (label: string) => {
+                    switch (label) {
+                      case 'Projects': return { bg: 'bg-blue-950 border-blue-800', icon: 'text-blue-400' };
+                      case 'Tasks': return { bg: 'bg-green-950 border-green-800', icon: 'text-green-400' };
+                      case 'Today': return { bg: 'bg-purple-950 border-purple-800', icon: 'text-purple-400' };
+                      default: return { bg: 'bg-red-950 border-red-800', icon: 'text-red-400' };
+                    }
+                  };
+                  const colors = getBadgeColors(item.permanentLabel);
+                  return (
+                    <span className={`absolute -top-1 -right-1 w-4 h-4 ${colors.bg} border rounded-full z-50 pointer-events-none flex items-center justify-center`}>
+                      <Mic className={`w-2.5 h-2.5 ${colors.icon}`} />
+                    </span>
+                  );
+                })()}
               </div>
             ))}
           </div>
