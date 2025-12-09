@@ -117,8 +117,8 @@ export default function Dock({
                   </>
                 </DockItem>
                 {item.permanentLabel && item.permanentLabel !== 'Settings' && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full z-50 pointer-events-none flex items-center justify-center">
-                    <Mic className="w-2.5 h-2.5 text-white" />
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-950 border border-red-800 rounded-full z-50 pointer-events-none flex items-center justify-center">
+                    <Mic className="w-2.5 h-2.5 text-red-400" />
                   </span>
                 )}
               </div>
