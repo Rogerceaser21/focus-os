@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2, Check, X } from 'lucide-react';
@@ -15,6 +15,7 @@ interface TaskOnlyBrainDumpDialogProps {
   userId: string;
   selectedProjectId: string | null;
   selectedProjectName: string;
+  onRecordingChange?: (isRecording: boolean) => void;
 }
 
 interface ExtractedTask {
@@ -29,9 +30,15 @@ export const TaskOnlyBrainDumpDialog = ({
   onTasksCreated, 
   userId,
   selectedProjectId,
-  selectedProjectName 
+  selectedProjectName,
+  onRecordingChange
 }: TaskOnlyBrainDumpDialogProps) => {
   const { isRecording, audioBlob, startRecording, stopRecording, reset } = useVoiceRecorder();
+
+  // Report recording state changes to parent
+  React.useEffect(() => {
+    onRecordingChange?.(isRecording);
+  }, [isRecording, onRecordingChange]);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [transcription, setTranscription] = useState('');
