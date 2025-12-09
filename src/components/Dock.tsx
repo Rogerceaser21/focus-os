@@ -119,9 +119,9 @@ export default function Dock({
                 {item.permanentLabel && item.permanentLabel !== 'Settings' && (() => {
                   const getBadgeColors = (label: string) => {
                     switch (label) {
-                      case 'Projects': return { bg: 'bg-blue-950 border-blue-800', icon: 'text-blue-400' };
-                      case 'Tasks': return { bg: 'bg-green-950 border-green-800', icon: 'text-green-400' };
-                      case 'Today': return { bg: 'bg-purple-950 border-purple-800', icon: 'text-purple-400' };
+                      case '+Projects': return { bg: 'bg-blue-950 border-blue-800', icon: 'text-blue-400' };
+                      case '+Tasks': return { bg: 'bg-green-950 border-green-800', icon: 'text-green-400' };
+                      case '+Today': return { bg: 'bg-purple-950 border-purple-800', icon: 'text-purple-400' };
                       default: return { bg: 'bg-red-950 border-red-800', icon: 'text-red-400' };
                     }
                   };
