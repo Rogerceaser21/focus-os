@@ -13,7 +13,7 @@ const tourSteps: TourStep[] = [
   {
     target: '[data-tour-step="projects"]',
     title: 'Create Projects',
-    description: 'Use the Blue microphone to create a new Project with tasks. Projects help you organize related tasks together.',
+    description: "Got a fresh idea but it's all over the place? Press this blue mic button, speak freely, and AI will sort through your thoughts, summarise them, and instantly set up a new project with all your tasks ready to go.",
   },
   {
     target: '[data-tour-step="tasks"]',
