@@ -19,16 +19,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import { TourType } from './OnboardingTour';
-
 interface ProjectSidebarProps {
   selectedProjectId: string | null;
   onSelectProject: (projectId: string | null) => void;
   onSelectSpecialList: (list: 'unassigned' | 'today' | null) => void;
   selectedSpecialList: 'unassigned' | 'today' | null;
   projectRefreshTrigger?: number;
-  onStartTour?: (tourType: TourType) => void;
-  onStartTasksTour?: () => void;
+  onStartTour?: () => void;
 }
 
 export const ProjectSidebar = ({ 
@@ -37,8 +34,7 @@ export const ProjectSidebar = ({
   onSelectSpecialList,
   selectedSpecialList,
   projectRefreshTrigger,
-  onStartTour,
-  onStartTasksTour
+  onStartTour
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -97,19 +93,13 @@ export const ProjectSidebar = ({
   const { open: sidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
   const isActuallyMobile = useIsMobile();
 
-  const handleHelpMenuClick = (tourType: TourType | 'tasks') => {
-    if (tourType === 'tasks') {
-      if (onStartTasksTour) {
-        onStartTasksTour();
-      }
-    } else if (onStartTour) {
-      if (tourType === 'projects') {
-        toast.info('Coming soon!', {
-          description: 'The Projects Tour is under development.'
-        });
-      } else {
-        onStartTour(tourType);
-      }
+  const handleHelpMenuClick = (tourType: 'menu-magic' | 'tasks' | 'projects') => {
+    if (tourType === 'menu-magic' && onStartTour) {
+      onStartTour();
+    } else {
+      toast.info('Coming soon!', {
+        description: `The ${tourType === 'tasks' ? 'Tasks' : 'Projects'} Tour is under development.`
+      });
     }
   };
 

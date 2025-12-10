@@ -108,13 +108,11 @@ export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
       <Card className={`p-2.5 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}>
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
-            <div data-tour-step="task-checkbox">
-              <Checkbox
-                checked={task.status === 'completed'}
-                onCheckedChange={handleCheckboxChange}
-                className="mt-1 shrink-0"
-              />
-            </div>
+            <Checkbox
+              checked={task.status === 'completed'}
+              onCheckedChange={handleCheckboxChange}
+              className="mt-1 shrink-0"
+            />
             <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 {isEditingTitle ? (
@@ -141,7 +139,6 @@ export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
                     <button 
                       className="inline-flex"
                       onClick={(e) => e.stopPropagation()}
-                      data-tour-step="task-priority"
                     >
                       <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
                         {task.priority}
@@ -228,7 +225,7 @@ export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-1 border-t" data-tour-step="task-timer">
+        <div className="flex items-center gap-2 pt-1 border-t">
           {!timer.isRunning ? (
             <Button 
               size="sm" 

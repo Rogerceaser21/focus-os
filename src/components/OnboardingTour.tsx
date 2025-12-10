@@ -9,62 +9,40 @@ interface TourStep {
   description: string;
 }
 
-export type TourType = 'menu-magic' | 'projects';
-
-const tourStepsMap: Record<TourType, { name: string; steps: TourStep[] }> = {
-  'menu-magic': {
-    name: 'Menu Magic Buttons Tour',
-    steps: [
-      {
-        target: '[data-tour-step="projects"]',
-        title: 'Create Projects',
-        description: 'Use the Blue microphone to create a new Project with tasks. Projects help you organize related tasks together.',
-      },
-      {
-        target: '[data-tour-step="tasks"]',
-        title: 'Add Tasks to Projects',
-        description: 'Use the Green microphone to add Tasks to your selected Project. Make sure you have a project selected first!',
-      },
-      {
-        target: '[data-tour-step="today"]',
-        title: 'Quick Today Tasks',
-        description: 'Use the Purple microphone to quickly add tasks to Today\'s to-do list. Perfect for capturing immediate tasks.',
-      },
-    ],
+const tourSteps: TourStep[] = [
+  {
+    target: '[data-tour-step="projects"]',
+    title: 'Create Projects',
+    description: 'Use the Blue microphone to create a new Project with tasks. Projects help you organize related tasks together.',
   },
-  'projects': {
-    name: 'Projects Tour',
-    steps: [],
+  {
+    target: '[data-tour-step="tasks"]',
+    title: 'Add Tasks to Projects',
+    description: 'Use the Green microphone to add Tasks to your selected Project. Make sure you have a project selected first!',
   },
-};
+  {
+    target: '[data-tour-step="today"]',
+    title: 'Quick Today Tasks',
+    description: 'Use the Purple microphone to quickly add tasks to Today\'s to-do list. Perfect for capturing immediate tasks.',
+  },
+];
 
 interface OnboardingTourProps {
   isOpen: boolean;
   onComplete: () => void;
-  tourType?: TourType;
 }
 
-export const OnboardingTour = ({ isOpen, onComplete, tourType = 'menu-magic' }: OnboardingTourProps) => {
+export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
-  const tourData = tourStepsMap[tourType];
-  const tourSteps = tourData.steps;
-
   useEffect(() => {
-    // Reset step when tour type changes
-    setCurrentStep(0);
-  }, [tourType]);
-
-  useEffect(() => {
-    if (!isOpen || tourSteps.length === 0) return;
+    if (!isOpen) return;
 
     const updateTargetPosition = () => {
-      const target = document.querySelector(tourSteps[currentStep]?.target);
+      const target = document.querySelector(tourSteps[currentStep].target);
       if (target) {
         setTargetRect(target.getBoundingClientRect());
-      } else {
-        setTargetRect(null);
       }
     };
 
@@ -72,15 +50,11 @@ export const OnboardingTour = ({ isOpen, onComplete, tourType = 'menu-magic' }: 
     window.addEventListener('resize', updateTargetPosition);
     window.addEventListener('scroll', updateTargetPosition);
 
-    // Also check periodically in case elements are rendered after mount
-    const interval = setInterval(updateTargetPosition, 500);
-
     return () => {
       window.removeEventListener('resize', updateTargetPosition);
       window.removeEventListener('scroll', updateTargetPosition);
-      clearInterval(interval);
     };
-  }, [isOpen, currentStep, tourSteps]);
+  }, [isOpen, currentStep]);
 
   const handleNext = () => {
     if (currentStep < tourSteps.length - 1) {
@@ -106,39 +80,10 @@ export const OnboardingTour = ({ isOpen, onComplete, tourType = 'menu-magic' }: 
     onComplete();
   };
 
-  if (!isOpen || tourSteps.length === 0) return null;
+  if (!isOpen) return null;
 
   const step = tourSteps[currentStep];
   const padding = 8;
-
-  // Calculate tooltip position - prefer bottom, but use top if target is low on screen
-  const getTooltipPosition = () => {
-    if (!targetRect) return {};
-    
-    const spaceBelow = window.innerHeight - targetRect.bottom;
-    const spaceAbove = targetRect.top;
-    const tooltipHeight = 200; // Approximate tooltip height
-    
-    if (spaceBelow > tooltipHeight + 20) {
-      // Position below
-      return {
-        left: Math.min(
-          Math.max(16, targetRect.left + targetRect.width / 2 - 160),
-          window.innerWidth - 336
-        ),
-        top: targetRect.bottom + 16,
-      };
-    } else {
-      // Position above
-      return {
-        left: Math.min(
-          Math.max(16, targetRect.left + targetRect.width / 2 - 160),
-          window.innerWidth - 336
-        ),
-        bottom: window.innerHeight - targetRect.top + 16,
-      };
-    }
-  };
 
   return (
     <AnimatePresence>
@@ -196,12 +141,18 @@ export const OnboardingTour = ({ isOpen, onComplete, tourType = 'menu-magic' }: 
         {/* Tooltip card */}
         {targetRect && (
           <motion.div
-            key={`${tourType}-${currentStep}`}
+            key={currentStep}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className="absolute z-[101] w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4"
-            style={getTooltipPosition()}
+            style={{
+              left: Math.min(
+                Math.max(16, targetRect.left + targetRect.width / 2 - 160),
+                window.innerWidth - 336
+              ),
+              bottom: window.innerHeight - targetRect.top + 16,
+            }}
           >
             {/* Skip button */}
             <button
@@ -229,7 +180,7 @@ export const OnboardingTour = ({ isOpen, onComplete, tourType = 'menu-magic' }: 
 
             {/* Tour Title */}
             <div className="text-xs font-medium text-primary uppercase tracking-wider mb-2">
-              {tourData.name}
+              Menu Magic Buttons Tour
             </div>
 
             {/* Content */}
@@ -266,27 +217,6 @@ export const OnboardingTour = ({ isOpen, onComplete, tourType = 'menu-magic' }: 
                 {currentStep < tourSteps.length - 1 && (
                   <ChevronRight className="w-4 h-4" />
                 )}
-              </Button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Fallback message if target not found */}
-        {!targetRect && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[101] w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 text-center"
-          >
-            <p className="text-muted-foreground mb-4">
-              Looking for the element... Make sure you have tasks visible to see this step.
-            </p>
-            <div className="flex justify-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleSkip}>
-                Skip Tour
-              </Button>
-              <Button size="sm" onClick={handleNext}>
-                Next Step
               </Button>
             </div>
           </motion.div>
