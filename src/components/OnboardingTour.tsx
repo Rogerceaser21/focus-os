@@ -40,8 +40,7 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
     if (!isOpen) return;
 
     const target = document.querySelector(tourSteps[currentStep].target) as HTMLElement;
-    let originalZIndex = '';
-    let originalPosition = '';
+    const elementsToElevate: { el: HTMLElement; originalZIndex: string; originalPosition: string }[] = [];
 
     const updateTargetPosition = () => {
       if (target) {
@@ -53,12 +52,28 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
     const initialTimeout = setTimeout(() => {
       updateTargetPosition();
       
-      // Elevate the target element above the overlay
+      // Elevate the target element AND all its children above the overlay
       if (target) {
-        originalZIndex = target.style.zIndex;
-        originalPosition = target.style.position;
+        // Elevate the target itself
+        elementsToElevate.push({
+          el: target,
+          originalZIndex: target.style.zIndex,
+          originalPosition: target.style.position
+        });
         target.style.position = 'relative';
         target.style.zIndex = '100001';
+        
+        // Also elevate all descendants to ensure icons are visible
+        const descendants = target.querySelectorAll('*') as NodeListOf<HTMLElement>;
+        descendants.forEach((child) => {
+          elementsToElevate.push({
+            el: child,
+            originalZIndex: child.style.zIndex,
+            originalPosition: child.style.position
+          });
+          child.style.position = 'relative';
+          child.style.zIndex = '100001';
+        });
       }
     }, 100);
 
@@ -77,11 +92,11 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
       window.removeEventListener('scroll', updateTargetPosition);
       observer.disconnect();
       
-      // Reset the target element's z-index
-      if (target) {
-        target.style.zIndex = originalZIndex;
-        target.style.position = originalPosition;
-      }
+      // Reset all elevated elements
+      elementsToElevate.forEach(({ el, originalZIndex, originalPosition }) => {
+        el.style.zIndex = originalZIndex;
+        el.style.position = originalPosition;
+      });
     };
   }, [isOpen, currentStep]);
 
