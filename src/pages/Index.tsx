@@ -563,7 +563,7 @@ https://www.skyscanner.com`,
   }
   const dockItems = [
     {
-      icon: <FolderPlus className="w-7 h-7" />,
+      icon: <FolderPlus className="w-7 h-7 text-blue-400" />,
       label: 'Projects',
       permanentLabel: '+Projects',
       isRecording: isProjectsRecording,
@@ -574,7 +574,7 @@ https://www.skyscanner.com`,
       }
     },
     {
-      icon: <ListPlus className="w-7 h-7" />,
+      icon: <ListPlus className="w-7 h-7 text-green-400" />,
       label: 'Tasks',
       permanentLabel: '+Tasks',
       isRecording: isTasksRecording,
@@ -594,7 +594,7 @@ https://www.skyscanner.com`,
       }
     },
     {
-      icon: <CalendarPlus className="w-7 h-7" />,
+      icon: <CalendarPlus className="w-7 h-7 text-purple-400" />,
       label: 'Today',
       permanentLabel: '+Today',
       isRecording: isTodayRecording,
