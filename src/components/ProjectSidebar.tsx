@@ -19,13 +19,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+import { TourType } from './OnboardingTour';
+
 interface ProjectSidebarProps {
   selectedProjectId: string | null;
   onSelectProject: (projectId: string | null) => void;
   onSelectSpecialList: (list: 'unassigned' | 'today' | null) => void;
   selectedSpecialList: 'unassigned' | 'today' | null;
   projectRefreshTrigger?: number;
-  onStartTour?: () => void;
+  onStartTour?: (tourType: TourType) => void;
 }
 
 export const ProjectSidebar = ({ 
@@ -93,13 +95,15 @@ export const ProjectSidebar = ({
   const { open: sidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
   const isActuallyMobile = useIsMobile();
 
-  const handleHelpMenuClick = (tourType: 'menu-magic' | 'tasks' | 'projects') => {
-    if (tourType === 'menu-magic' && onStartTour) {
-      onStartTour();
-    } else {
-      toast.info('Coming soon!', {
-        description: `The ${tourType === 'tasks' ? 'Tasks' : 'Projects'} Tour is under development.`
-      });
+  const handleHelpMenuClick = (tourType: TourType) => {
+    if (onStartTour) {
+      if (tourType === 'projects') {
+        toast.info('Coming soon!', {
+          description: 'The Projects Tour is under development.'
+        });
+      } else {
+        onStartTour(tourType);
+      }
     }
   };
 
