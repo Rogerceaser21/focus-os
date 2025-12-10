@@ -181,10 +181,11 @@ export const TaskTour = ({ isOpen, onComplete }: TaskTourProps) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200]"
+        className="fixed inset-0 pointer-events-none"
+        style={{ zIndex: 99999 }}
       >
         {/* Overlay with spotlight cutout */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+        <svg className="absolute inset-0 w-full h-full">
           <defs>
             <mask id="task-spotlight-mask">
               <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -215,7 +216,7 @@ export const TaskTour = ({ isOpen, onComplete }: TaskTourProps) => {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute pointer-events-none"
+            className="absolute"
             style={{
               left: targetRect.left - padding,
               top: targetRect.top - padding,
@@ -224,6 +225,7 @@ export const TaskTour = ({ isOpen, onComplete }: TaskTourProps) => {
               borderRadius: '8px',
               border: '2px solid hsl(var(--primary))',
               boxShadow: '0 0 20px hsl(var(--primary) / 0.5)',
+              pointerEvents: 'none',
             }}
           />
         )}
@@ -234,8 +236,8 @@ export const TaskTour = ({ isOpen, onComplete }: TaskTourProps) => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className="absolute z-[201] w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4"
-          style={tooltipPos}
+          className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto"
+          style={{ ...tooltipPos, zIndex: 100000 }}
         >
           {/* Skip button */}
           <button
