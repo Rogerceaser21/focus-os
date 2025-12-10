@@ -1086,7 +1086,7 @@ https://www.skyscanner.com`,
         </div>
 
         {/* Dock Bar */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
+        <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none">
           <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
         </div>
       </div>
