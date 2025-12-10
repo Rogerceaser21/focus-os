@@ -487,6 +487,9 @@ https://www.skyscanner.com`,
       setSelectedProjectId(null);
       setSelectedSpecialList('today');
       
+      // Trigger sidebar refresh
+      setProjectRefreshTrigger(prev => prev + 1);
+      
       toast.success('Project and all its tasks deleted');
     } catch (error) {
       console.error('Error deleting project:', error);
