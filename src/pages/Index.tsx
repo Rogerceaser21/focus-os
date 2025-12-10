@@ -38,7 +38,7 @@ import { TaskOnlyBrainDumpDialog } from '@/components/TaskOnlyBrainDumpDialog';
 import { TodayBrainDumpDialog } from '@/components/TodayBrainDumpDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
-import { OnboardingTour } from '@/components/OnboardingTour';
+import { OnboardingTour, TourType } from '@/components/OnboardingTour';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -69,6 +69,7 @@ const Index = () => {
   const [editedProjectName, setEditedProjectName] = useState('');
   const [tasksLoading, setTasksLoading] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [activeTourType, setActiveTourType] = useState<TourType>('menu-magic');
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete } = useUserPreferences();
@@ -185,7 +186,8 @@ const Index = () => {
     markOnboardingComplete();
   };
 
-  const handleHelpClick = () => {
+  const handleStartTour = (tourType: TourType) => {
+    setActiveTourType(tourType);
     setShowTour(true);
   };
   const fetchTasks = async () => {
@@ -521,7 +523,7 @@ const Index = () => {
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
             {/* Sidebar */}
-            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleHelpClick} />
+            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleStartTour} />
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
@@ -582,7 +584,7 @@ const Index = () => {
               </DropdownMenu>
 
               {/* Desktop: Individual Buttons */}
-              <div className="hidden lg:flex gap-2">
+              <div className="hidden lg:flex gap-2" data-tour-step="view-modes">
                 <Button variant={viewMode === 'list' ? 'default' : 'outline'} onClick={() => setViewMode('list')} className="gap-2 border-2">
                   <LayoutList className="h-4 w-4" />
                   <span>List</span>
@@ -625,7 +627,7 @@ const Index = () => {
 
           {/* Main Content */}
           {viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto">
+              <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto" data-tour-step="task-filters">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
@@ -1037,7 +1039,7 @@ const Index = () => {
         onSave={updatePreferences}
       />
 
-      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} />
+      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} tourType={activeTourType} />
     </SidebarProvider>;
 };
 export default Index;
