@@ -270,13 +270,22 @@ https://www.skyscanner.com`,
     }, 300);
   };
 
-  const handleTaskTourComplete = () => {
+  const handleTaskTourComplete = async () => {
     setShowTaskTour(false);
     setEditingTask(null);
+    
+    // Delete the sample "Plan Holidays" task
+    if (taskTourTask) {
+      try {
+        await supabase.from('tasks').delete().eq('id', taskTourTask.id);
+        setTasks(prev => prev.filter(t => t.id !== taskTourTask.id));
+      } catch (error) {
+        console.error('Failed to delete tour task:', error);
+      }
+    }
+    
     setTaskTourTask(null);
-    toast.success('Tasks Tour completed!', {
-      description: 'You can keep or delete the sample "Plan Holidays" task.'
-    });
+    toast.success('Tasks Tour completed!');
   };
 
   const fetchTasks = async () => {
