@@ -68,7 +68,23 @@ export const useUserPreferences = () => {
   };
 
   const markOnboardingComplete = async () => {
-    await updatePreferences({ has_completed_onboarding: true } as Partial<UserPreferences>);
+    // Silently update onboarding status without showing toast
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !preferences) return;
+
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .update({ has_completed_onboarding: true })
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      setPreferences(data as UserPreferences);
+    } catch (error) {
+      console.error('Error marking onboarding complete:', error);
+    }
   };
 
   const updatePreferences = async (updates: Partial<UserPreferences>) => {
