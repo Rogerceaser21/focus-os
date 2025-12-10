@@ -39,8 +39,11 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
   useEffect(() => {
     if (!isOpen) return;
 
+    const target = document.querySelector(tourSteps[currentStep].target) as HTMLElement;
+    let originalZIndex = '';
+    let originalPosition = '';
+
     const updateTargetPosition = () => {
-      const target = document.querySelector(tourSteps[currentStep].target);
       if (target) {
         setTargetRect(target.getBoundingClientRect());
       }
@@ -49,6 +52,14 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
     // Initial delay to allow DOM to settle (especially on mobile)
     const initialTimeout = setTimeout(() => {
       updateTargetPosition();
+      
+      // Elevate the target element above the overlay
+      if (target) {
+        originalZIndex = target.style.zIndex;
+        originalPosition = target.style.position;
+        target.style.position = 'relative';
+        target.style.zIndex = '100001';
+      }
     }, 100);
 
     window.addEventListener('resize', updateTargetPosition);
@@ -65,6 +76,12 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
       window.removeEventListener('resize', updateTargetPosition);
       window.removeEventListener('scroll', updateTargetPosition);
       observer.disconnect();
+      
+      // Reset the target element's z-index
+      if (target) {
+        target.style.zIndex = originalZIndex;
+        target.style.position = originalPosition;
+      }
     };
   }, [isOpen, currentStep]);
 
