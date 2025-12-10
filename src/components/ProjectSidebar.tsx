@@ -28,6 +28,7 @@ interface ProjectSidebarProps {
   selectedSpecialList: 'unassigned' | 'today' | null;
   projectRefreshTrigger?: number;
   onStartTour?: (tourType: TourType) => void;
+  onStartTasksTour?: () => void;
 }
 
 export const ProjectSidebar = ({ 
@@ -36,7 +37,8 @@ export const ProjectSidebar = ({
   onSelectSpecialList,
   selectedSpecialList,
   projectRefreshTrigger,
-  onStartTour
+  onStartTour,
+  onStartTasksTour
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -95,8 +97,12 @@ export const ProjectSidebar = ({
   const { open: sidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
   const isActuallyMobile = useIsMobile();
 
-  const handleHelpMenuClick = (tourType: TourType) => {
-    if (onStartTour) {
+  const handleHelpMenuClick = (tourType: TourType | 'tasks') => {
+    if (tourType === 'tasks') {
+      if (onStartTasksTour) {
+        onStartTasksTour();
+      }
+    } else if (onStartTour) {
       if (tourType === 'projects') {
         toast.info('Coming soon!', {
           description: 'The Projects Tour is under development.'

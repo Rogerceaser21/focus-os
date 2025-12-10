@@ -9,7 +9,7 @@ interface TourStep {
   description: string;
 }
 
-export type TourType = 'menu-magic' | 'tasks' | 'projects';
+export type TourType = 'menu-magic' | 'projects';
 
 const tourStepsMap: Record<TourType, { name: string; steps: TourStep[] }> = {
   'menu-magic': {
@@ -29,36 +29,6 @@ const tourStepsMap: Record<TourType, { name: string; steps: TourStep[] }> = {
         target: '[data-tour-step="today"]',
         title: 'Quick Today Tasks',
         description: 'Use the Purple microphone to quickly add tasks to Today\'s to-do list. Perfect for capturing immediate tasks.',
-      },
-    ],
-  },
-  'tasks': {
-    name: 'Tasks Tour',
-    steps: [
-      {
-        target: '[data-tour-step="task-checkbox"]',
-        title: 'Complete Tasks',
-        description: 'Check the checkbox to mark a task as complete. The task will fade out with a satisfying animation!',
-      },
-      {
-        target: '[data-tour-step="task-priority"]',
-        title: 'Set Priority',
-        description: 'Click the priority badge to change task priority. Choose from Low, Medium, High, or Urgent to organize your work.',
-      },
-      {
-        target: '[data-tour-step="task-timer"]',
-        title: 'Track Time',
-        description: 'Use the Start/Pause button to track how much time you spend on each task. Great for productivity!',
-      },
-      {
-        target: '[data-tour-step="view-modes"]',
-        title: 'View Modes',
-        description: 'Switch between List, Grid, Gantt, and Time Tracking views to see your tasks in different layouts.',
-      },
-      {
-        target: '[data-tour-step="task-filters"]',
-        title: 'Filter Tasks',
-        description: 'Use these tabs to filter tasks by status: All, To Do, In Progress, or Completed.',
       },
     ],
   },
