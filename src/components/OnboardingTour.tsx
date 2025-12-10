@@ -46,13 +46,25 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
       }
     };
 
-    updateTargetPosition();
+    // Initial delay to allow DOM to settle (especially on mobile)
+    const initialTimeout = setTimeout(() => {
+      updateTargetPosition();
+    }, 100);
+
     window.addEventListener('resize', updateTargetPosition);
     window.addEventListener('scroll', updateTargetPosition);
 
+    // Observe DOM changes for dynamic updates
+    const observer = new MutationObserver(() => {
+      updateTargetPosition();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
     return () => {
+      clearTimeout(initialTimeout);
       window.removeEventListener('resize', updateTargetPosition);
       window.removeEventListener('scroll', updateTargetPosition);
+      observer.disconnect();
     };
   }, [isOpen, currentStep]);
 
@@ -91,7 +103,8 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100]"
+        className="fixed inset-0 pointer-events-none"
+        style={{ zIndex: 99999 }}
       >
         {/* Overlay with spotlight cutout */}
         <svg className="absolute inset-0 w-full h-full">
@@ -145,13 +158,14 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute z-[101] w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4"
+            className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto"
             style={{
               left: Math.min(
                 Math.max(16, targetRect.left + targetRect.width / 2 - 160),
                 window.innerWidth - 336
               ),
               bottom: window.innerHeight - targetRect.top + 16,
+              zIndex: 100000,
             }}
           >
             {/* Skip button */}
