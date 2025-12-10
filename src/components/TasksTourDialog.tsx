@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -218,9 +218,10 @@ export const TasksTourDialog = ({ open, onClose, onOpenAddTaskDialog }: TasksTou
   };
 
   return (
-    <AnimatePresence>
+    <>
       {/* Overlay */}
       <motion.div
+        key="tour-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -256,6 +257,7 @@ export const TasksTourDialog = ({ open, onClose, onOpenAddTaskDialog }: TasksTou
         {/* Spotlight border */}
         {highlightRect && (
           <motion.div
+            key={`spotlight-${currentStep}`}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="absolute pointer-events-none z-[201]"
@@ -270,14 +272,17 @@ export const TasksTourDialog = ({ open, onClose, onOpenAddTaskDialog }: TasksTou
             }}
           />
         )}
+      </motion.div>
 
-        {/* Tooltip */}
+      {/* Tooltip - wrapped in AnimatePresence for step transitions */}
+      <AnimatePresence mode="wait">
         <motion.div
-          key={currentStep}
+          key={`tooltip-step-${currentStep}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className="absolute z-[202] w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4"
+          transition={{ duration: 0.2 }}
+          className="fixed z-[202] w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4"
           style={getTooltipPosition()}
         >
           {/* Skip button */}
@@ -342,7 +347,7 @@ export const TasksTourDialog = ({ open, onClose, onOpenAddTaskDialog }: TasksTou
             </Button>
           </div>
         </motion.div>
-      </motion.div>
+      </AnimatePresence>
 
       {/* Simulated Add Task Button (Step 0) */}
       {currentStep === 0 && !showDialog && (
@@ -362,6 +367,9 @@ export const TasksTourDialog = ({ open, onClose, onOpenAddTaskDialog }: TasksTou
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[199]">
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
+              <DialogDescription className="sr-only">
+                Tour guide for creating a new task
+              </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
@@ -472,6 +480,6 @@ export const TasksTourDialog = ({ open, onClose, onOpenAddTaskDialog }: TasksTou
           </DialogContent>
         </Dialog>
       )}
-    </AnimatePresence>
+    </>
   );
 };
