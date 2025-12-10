@@ -178,6 +178,11 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
               ))}
             </div>
 
+            {/* Tour Title */}
+            <div className="text-xs font-medium text-primary uppercase tracking-wider mb-2">
+              Menu Magic Buttons Tour
+            </div>
+
             {/* Content */}
             <h3 className="text-lg font-semibold text-foreground mb-2">
               {step.title}
