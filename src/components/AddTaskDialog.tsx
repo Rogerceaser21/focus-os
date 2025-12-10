@@ -161,7 +161,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-          <Button className="gap-2 border-2 shadow-lg shadow-primary/20">
+          <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button">
             <Plus className="h-4 w-4" />
             <span className="hidden md:inline">Add Task</span>
             <span className="md:hidden">Add</span>
