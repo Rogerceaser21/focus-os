@@ -18,7 +18,7 @@ const tourSteps: TourStep[] = [
   {
     target: '[data-tour-step="tasks"]',
     title: 'Add Tasks to Projects',
-    description: 'Use the Green microphone to add Tasks to your selected Project. Make sure you have a project selected first!',
+    description: "When your project is live, use the green mic button any time inspiration strikes. Talk through your next steps and AI will immediately create tasks and assign them to the project you're in.",
   },
   {
     target: '[data-tour-step="today"]',
