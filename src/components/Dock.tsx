@@ -132,8 +132,8 @@ export default function Dock({
                   };
                   const colors = getBadgeColors(item.permanentLabel);
                   return (
-                    <span className={`absolute -top-2 -right-2 w-8 h-8 ${colors.bg} border rounded-full z-50 pointer-events-none flex items-center justify-center`}>
-                      <Mic className={`w-5 h-5 ${colors.icon}`} />
+                    <span className={`absolute -top-1.5 -right-1.5 w-6 h-6 ${colors.bg} border rounded-full z-50 pointer-events-none flex items-center justify-center`}>
+                      <Mic className={`w-4 h-4 ${colors.icon}`} />
                     </span>
                   );
                 })()}
