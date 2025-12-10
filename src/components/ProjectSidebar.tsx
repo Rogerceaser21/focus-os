@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
-import { Plus, Folder, ListTodo, Calendar } from 'lucide-react';
+import { Plus, Folder, ListTodo, Calendar, HelpCircle } from 'lucide-react';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { toast } from 'sonner';
 import AnimatedList from './AnimatedList';
@@ -12,6 +12,12 @@ import {
   Sheet,
   SheetContent,
 } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface ProjectSidebarProps {
   selectedProjectId: string | null;
@@ -19,6 +25,7 @@ interface ProjectSidebarProps {
   onSelectSpecialList: (list: 'unassigned' | 'today' | null) => void;
   selectedSpecialList: 'unassigned' | 'today' | null;
   projectRefreshTrigger?: number;
+  onStartTour?: () => void;
 }
 
 export const ProjectSidebar = ({ 
@@ -26,7 +33,8 @@ export const ProjectSidebar = ({
   onSelectProject, 
   onSelectSpecialList,
   selectedSpecialList,
-  projectRefreshTrigger 
+  projectRefreshTrigger,
+  onStartTour
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -85,14 +93,48 @@ export const ProjectSidebar = ({
   const { open: sidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
   const isActuallyMobile = useIsMobile();
 
+  const handleHelpMenuClick = (tourType: 'menu-magic' | 'tasks' | 'projects') => {
+    if (tourType === 'menu-magic' && onStartTour) {
+      onStartTour();
+    } else {
+      toast.info('Coming soon!', {
+        description: `The ${tourType === 'tasks' ? 'Tasks' : 'Projects'} Tour is under development.`
+      });
+    }
+  };
+
   const sidebarContent = (
     <>
       <div className="border-b p-4">
         <h2 className="font-semibold text-lg mb-3">Projects</h2>
-        <Button onClick={() => setIsCreateOpen(true)} size="sm" className="w-full gap-2">
-          <Plus className="h-4 w-4" />
-          New Project
-        </Button>
+        <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                size="sm" 
+                className="gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <HelpCircle className="h-4 w-4" />
+                Help
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 bg-popover">
+              <DropdownMenuItem onClick={() => handleHelpMenuClick('menu-magic')}>
+                Menu Magic Buttons
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleHelpMenuClick('tasks')}>
+                Tasks Tour
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleHelpMenuClick('projects')}>
+                Projects Tour
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={() => setIsCreateOpen(true)} size="sm" className="flex-1 gap-2">
+            <Plus className="h-4 w-4" />
+            New Project
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">

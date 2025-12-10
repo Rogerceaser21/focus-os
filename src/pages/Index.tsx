@@ -39,7 +39,6 @@ import { TodayBrainDumpDialog } from '@/components/TodayBrainDumpDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { OnboardingTour } from '@/components/OnboardingTour';
-import { HelpButton } from '@/components/HelpButton';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -522,7 +521,7 @@ const Index = () => {
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
             {/* Sidebar */}
-            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} />
+            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleHelpClick} />
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
@@ -1039,7 +1038,6 @@ const Index = () => {
       />
 
       <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} />
-      <HelpButton onClick={handleHelpClick} />
     </SidebarProvider>;
 };
 export default Index;
