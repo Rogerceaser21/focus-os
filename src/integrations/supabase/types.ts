@@ -113,6 +113,7 @@ export type Database = {
           default_task_card_view: string | null
           default_task_filter: string
           default_view: string
+          has_completed_onboarding: boolean
           id: string
           updated_at: string | null
           user_id: string
@@ -123,6 +124,7 @@ export type Database = {
           default_task_card_view?: string | null
           default_task_filter?: string
           default_view?: string
+          has_completed_onboarding?: boolean
           id?: string
           updated_at?: string | null
           user_id: string
@@ -133,6 +135,7 @@ export type Database = {
           default_task_card_view?: string | null
           default_task_filter?: string
           default_view?: string
+          has_completed_onboarding?: boolean
           id?: string
           updated_at?: string | null
           user_id?: string

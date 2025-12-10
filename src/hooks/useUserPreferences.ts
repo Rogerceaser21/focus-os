@@ -9,6 +9,7 @@ export interface UserPreferences {
   default_display_mode: 'list' | 'grid' | 'gantt' | 'time';
   default_task_filter: 'all' | 'todo' | 'in-progress' | 'completed';
   default_task_card_view: 'full' | 'compact';
+  has_completed_onboarding: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -53,7 +54,8 @@ export const useUserPreferences = () => {
           default_view: 'today',
           default_display_mode: 'list',
           default_task_filter: 'all',
-          default_task_card_view: 'full'
+          default_task_card_view: 'full',
+          has_completed_onboarding: false
         })
         .select()
         .single();
@@ -63,6 +65,10 @@ export const useUserPreferences = () => {
     } catch (error) {
       console.error('Error creating default preferences:', error);
     }
+  };
+
+  const markOnboardingComplete = async () => {
+    await updatePreferences({ has_completed_onboarding: true } as Partial<UserPreferences>);
   };
 
   const updatePreferences = async (updates: Partial<UserPreferences>) => {
@@ -91,5 +97,5 @@ export const useUserPreferences = () => {
     fetchPreferences();
   }, []);
 
-  return { preferences, loading, updatePreferences };
+  return { preferences, loading, updatePreferences, markOnboardingComplete };
 };

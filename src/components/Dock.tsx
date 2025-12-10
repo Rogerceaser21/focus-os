@@ -79,6 +79,7 @@ export interface DockItem {
   onClick: (e?: React.MouseEvent<HTMLElement>) => void;
   className?: string;
   isRecording?: boolean;
+  tourStepId?: string;
 }
 
 interface DockProps {
@@ -105,7 +106,11 @@ export default function Dock({
         <div className="flex flex-col items-center gap-2 h-full">
           <div className="flex items-center justify-center gap-3 flex-1">
             {items.map((item, index) => (
-              <div key={index} className="relative">
+              <div 
+                key={index} 
+                className="relative"
+                {...(item.tourStepId ? { 'data-tour-step': item.tourStepId } : {})}
+              >
                 <DockItem
                   onClick={item.onClick}
                   className={item.className}
