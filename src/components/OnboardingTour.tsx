@@ -39,10 +39,8 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
   useEffect(() => {
     if (!isOpen) return;
 
-    const target = document.querySelector(tourSteps[currentStep].target) as HTMLElement;
-    const elementsToElevate: { el: HTMLElement; originalZIndex: string; originalPosition: string }[] = [];
-
     const updateTargetPosition = () => {
+      const target = document.querySelector(tourSteps[currentStep].target);
       if (target) {
         setTargetRect(target.getBoundingClientRect());
       }
@@ -51,30 +49,6 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
     // Initial delay to allow DOM to settle (especially on mobile)
     const initialTimeout = setTimeout(() => {
       updateTargetPosition();
-      
-      // Elevate the target element AND all its children above the overlay
-      if (target) {
-        // Elevate the target itself
-        elementsToElevate.push({
-          el: target,
-          originalZIndex: target.style.zIndex,
-          originalPosition: target.style.position
-        });
-        target.style.position = 'relative';
-        target.style.zIndex = '100001';
-        
-        // Also elevate all descendants to ensure icons are visible
-        const descendants = target.querySelectorAll('*') as NodeListOf<HTMLElement>;
-        descendants.forEach((child) => {
-          elementsToElevate.push({
-            el: child,
-            originalZIndex: child.style.zIndex,
-            originalPosition: child.style.position
-          });
-          child.style.position = 'relative';
-          child.style.zIndex = '100001';
-        });
-      }
     }, 100);
 
     window.addEventListener('resize', updateTargetPosition);
@@ -91,12 +65,6 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
       window.removeEventListener('resize', updateTargetPosition);
       window.removeEventListener('scroll', updateTargetPosition);
       observer.disconnect();
-      
-      // Reset all elevated elements
-      elementsToElevate.forEach(({ el, originalZIndex, originalPosition }) => {
-        el.style.zIndex = originalZIndex;
-        el.style.position = originalPosition;
-      });
     };
   }, [isOpen, currentStep]);
 
