@@ -39,6 +39,7 @@ import { TodayBrainDumpDialog } from '@/components/TodayBrainDumpDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { OnboardingTour, TourType } from '@/components/OnboardingTour';
+import { TasksTourDialog } from '@/components/TasksTourDialog';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -69,6 +70,7 @@ const Index = () => {
   const [editedProjectName, setEditedProjectName] = useState('');
   const [tasksLoading, setTasksLoading] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [showTasksTour, setShowTasksTour] = useState(false);
   const [activeTourType, setActiveTourType] = useState<TourType>('menu-magic');
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
@@ -189,6 +191,10 @@ const Index = () => {
   const handleStartTour = (tourType: TourType) => {
     setActiveTourType(tourType);
     setShowTour(true);
+  };
+
+  const handleStartTasksTour = () => {
+    setShowTasksTour(true);
   };
   const fetchTasks = async () => {
     setTasksLoading(true);
@@ -523,7 +529,7 @@ const Index = () => {
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
             {/* Sidebar */}
-            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleStartTour} />
+            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleStartTour} onStartTasksTour={handleStartTasksTour} />
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
@@ -1040,6 +1046,11 @@ const Index = () => {
       />
 
       <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} tourType={activeTourType} />
+      
+      <TasksTourDialog 
+        open={showTasksTour} 
+        onClose={() => setShowTasksTour(false)} 
+      />
     </SidebarProvider>;
 };
 export default Index;
