@@ -38,6 +38,8 @@ import { TaskOnlyBrainDumpDialog } from '@/components/TaskOnlyBrainDumpDialog';
 import { TodayBrainDumpDialog } from '@/components/TodayBrainDumpDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
+import { OnboardingTour } from '@/components/OnboardingTour';
+import { HelpButton } from '@/components/HelpButton';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -67,9 +69,10 @@ const Index = () => {
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
   const [tasksLoading, setTasksLoading] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
-  const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
+  const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
     particleCount: 12,
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
@@ -168,6 +171,24 @@ const Index = () => {
       setPreferencesLoaded(true);
     }
   }, [preferences, preferencesLoaded, projects]);
+
+  // Auto-show onboarding tour for new users
+  useEffect(() => {
+    if (preferences && !preferences.has_completed_onboarding && initialLoadComplete) {
+      // Small delay to let the UI settle
+      const timer = setTimeout(() => setShowTour(true), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [preferences, initialLoadComplete]);
+
+  const handleTourComplete = () => {
+    setShowTour(false);
+    markOnboardingComplete();
+  };
+
+  const handleHelpClick = () => {
+    setShowTour(true);
+  };
   const fetchTasks = async () => {
     setTasksLoading(true);
     try {
@@ -447,6 +468,7 @@ const Index = () => {
       label: 'Projects',
       permanentLabel: '+Projects',
       isRecording: isProjectsRecording,
+      tourStepId: 'projects',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setDialogOpen(true);
@@ -457,6 +479,7 @@ const Index = () => {
       label: 'Tasks',
       permanentLabel: '+Tasks',
       isRecording: isTasksRecording,
+      tourStepId: 'tasks',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         
@@ -476,6 +499,7 @@ const Index = () => {
       label: 'Today',
       permanentLabel: '+Today',
       isRecording: isTodayRecording,
+      tourStepId: 'today',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setTodayDialogOpen(true);
@@ -1013,6 +1037,9 @@ const Index = () => {
         loading={prefsLoading}
         onSave={updatePreferences}
       />
+
+      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} />
+      <HelpButton onClick={handleHelpClick} />
     </SidebarProvider>;
 };
 export default Index;
