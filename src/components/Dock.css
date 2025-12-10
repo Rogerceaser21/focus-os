@@ -46,6 +46,8 @@
   border: 1px solid hsl(var(--border) / 0.1);
   pointer-events: auto;
   box-shadow: 0 8px 32px hsl(var(--foreground) / 0.1);
+  isolation: isolate;
+  position: relative;
 }
 
 .dock-item {
