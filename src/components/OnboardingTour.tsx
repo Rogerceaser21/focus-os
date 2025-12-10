@@ -23,7 +23,7 @@ const tourSteps: TourStep[] = [
   {
     target: '[data-tour-step="today"]',
     title: 'Quick Today Tasks',
-    description: 'Use the Purple microphone to quickly add tasks to Today\'s to-do list. Perfect for capturing immediate tasks.',
+    description: '"Why wait for tomorrow, what you can do today!" Hit the purple mic button, brain dump what you want to do TODAY, and AI will pull out the tasks and drop them straight into your Today\'s To-Do list so you can get started ASAP.',
   },
 ];
 
