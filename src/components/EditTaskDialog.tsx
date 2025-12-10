@@ -194,7 +194,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
         </DialogHeader>
         
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
+          <div className="space-y-2" data-task-tour-step="title">
             <Label htmlFor="title">Title *</Label>
             <Textarea
               id="title"
@@ -215,7 +215,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2" data-task-tour-step="description">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
@@ -258,7 +258,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="space-y-2">
+            <div className="space-y-2" data-task-tour-step="priority">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority)}>
                 <SelectTrigger>
@@ -289,7 +289,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            <div className="space-y-2">
+            <div className="space-y-2" data-task-tour-step="start-date">
               <Label>Start Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -304,7 +304,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
               </Popover>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2" data-task-tour-step="end-date">
               <Label>End Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -319,7 +319,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
               </Popover>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2" data-task-tour-step="due-date">
               <Label>Due Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -335,7 +335,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
             </div>
           </div>
 
-          <div>
+          <div data-task-tour-step="images">
             <Label htmlFor="edit-image">Images (Optional - Max 8)</Label>
             <div className="space-y-2">
               {images.length > 0 && (
@@ -388,7 +388,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>
+          <Button onClick={handleSubmit} data-task-tour-step="save-button">
             Save Changes
           </Button>
         </div>

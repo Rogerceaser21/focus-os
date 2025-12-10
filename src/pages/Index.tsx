@@ -39,6 +39,9 @@ import { TodayBrainDumpDialog } from '@/components/TodayBrainDumpDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { OnboardingTour } from '@/components/OnboardingTour';
+import { TaskTour } from '@/components/TaskTour';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { addDays } from 'date-fns';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -70,6 +73,9 @@ const Index = () => {
   const [tasksLoading, setTasksLoading] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [showTaskTour, setShowTaskTour] = useState(false);
+  const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
@@ -188,6 +194,91 @@ const Index = () => {
   const handleHelpClick = () => {
     setShowTour(true);
   };
+
+  const handleStartTaskTour = async () => {
+    if (!user) return;
+
+    // Calculate dates
+    const today = new Date();
+    const startDate = addDays(today, 7);
+    const endDate = addDays(today, 14);
+    const dueDate = addDays(today, 14);
+
+    // Create the sample task
+    const sampleTask: Task = {
+      id: crypto.randomUUID(),
+      title: 'Plan Holidays',
+      description: `Choose destination, Find accommodation and book a flight
+
+https://www.booking.com
+https://www.skyscanner.com`,
+      priority: 'high',
+      status: 'todo',
+      startDate,
+      endDate,
+      dueDate,
+      images: [],
+      timer: {
+        totalSeconds: 0,
+        isRunning: false
+      },
+      projectId: undefined // Unassigned
+    };
+
+    // Insert into database
+    const { data, error } = await supabase.from('tasks').insert({
+      user_id: user.id,
+      project_id: null,
+      title: sampleTask.title,
+      description: sampleTask.description,
+      priority: sampleTask.priority,
+      status: sampleTask.status,
+      start_date: sampleTask.startDate?.toISOString(),
+      end_date: sampleTask.endDate?.toISOString(),
+      due_date: sampleTask.dueDate?.toISOString(),
+      images: [],
+      timer_total_seconds: 0,
+      timer_is_running: false
+    }).select().single();
+
+    if (error) {
+      toast.error('Failed to create sample task for tour');
+      return;
+    }
+
+    // Update task with actual ID from database
+    const createdTask: Task = {
+      ...sampleTask,
+      id: data.id
+    };
+
+    setTaskTourTask(createdTask);
+    
+    // Switch to Unassigned view
+    setSelectedProjectId(null);
+    setSelectedSpecialList('unassigned');
+    
+    // Refresh tasks to show the new task
+    await fetchTasks();
+    
+    // Open the edit dialog with the sample task
+    setEditingTask(createdTask);
+    
+    // Start the tour after a short delay to let dialog render
+    setTimeout(() => {
+      setShowTaskTour(true);
+    }, 300);
+  };
+
+  const handleTaskTourComplete = () => {
+    setShowTaskTour(false);
+    setEditingTask(null);
+    setTaskTourTask(null);
+    toast.success('Tasks Tour completed!', {
+      description: 'You can keep or delete the sample "Plan Holidays" task.'
+    });
+  };
+
   const fetchTasks = async () => {
     setTasksLoading(true);
     try {
@@ -521,7 +612,7 @@ const Index = () => {
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
             {/* Sidebar */}
-            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleHelpClick} />
+            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} />
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
@@ -1038,6 +1129,26 @@ const Index = () => {
       />
 
       <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} />
+
+      {/* Task Tour Edit Dialog */}
+      {editingTask && (
+        <EditTaskDialog
+          task={editingTask}
+          open={!!editingTask}
+          onOpenChange={(open) => {
+            if (!open && !showTaskTour) {
+              setEditingTask(null);
+            }
+          }}
+          onUpdateTask={async (updatedTask) => {
+            await handleUpdateTask(updatedTask);
+            setEditingTask(null);
+          }}
+          projects={projects}
+        />
+      )}
+
+      <TaskTour isOpen={showTaskTour} onComplete={handleTaskTourComplete} />
     </SidebarProvider>;
 };
 export default Index;
