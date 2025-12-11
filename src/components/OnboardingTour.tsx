@@ -7,13 +7,15 @@ interface TourStep {
   target: string;
   title: string;
   description: string;
+  mobileOnly?: boolean;
 }
 
-const tourSteps: TourStep[] = [
+const allTourSteps: TourStep[] = [
   {
     target: '[data-tour-step="menu-fab"]',
     title: 'Magic Menu Button',
     description: "This is your gateway to all the magic! Tap this button to reveal your voice-powered action buttons and quick settings. It's your command center for getting things done.",
+    mobileOnly: true,
   },
   {
     target: '[data-tour-step="projects"]',
@@ -40,12 +42,26 @@ interface OnboardingTourProps {
 export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Filter steps based on device type
+  const tourSteps = isMobile 
+    ? allTourSteps 
+    : allTourSteps.filter(step => !step.mobileOnly);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const updateTargetPosition = () => {
-      const target = document.querySelector(tourSteps[currentStep].target);
+      const target = document.querySelector(tourSteps[currentStep]?.target);
       if (target) {
         setTargetRect(target.getBoundingClientRect());
       }
@@ -71,7 +87,7 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
       window.removeEventListener('scroll', updateTargetPosition);
       observer.disconnect();
     };
-  }, [isOpen, currentStep]);
+  }, [isOpen, currentStep, tourSteps]);
 
   const handleNext = () => {
     if (currentStep < tourSteps.length - 1) {
