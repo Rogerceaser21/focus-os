@@ -74,8 +74,8 @@ export default function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
             Customize your default view preferences
@@ -83,13 +83,13 @@ export default function SettingsDialog({
         </DialogHeader>
 
         {loading ? (
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 py-4 overflow-y-auto flex-1">
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />
           </div>
         ) : (
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 py-4 overflow-y-auto flex-1 pr-2">
             {/* Default View Selection */}
             <div className="space-y-3">
               <Label htmlFor="default-view" className="text-base font-semibold">
@@ -102,7 +102,7 @@ export default function SettingsDialog({
                 <SelectTrigger id="default-view">
                   <SelectValue placeholder="Select default view" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[100] pointer-events-auto">
                   <SelectItem value="today">Today's To-Do</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                   {projects.length > 0 && (
@@ -223,7 +223,7 @@ export default function SettingsDialog({
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
