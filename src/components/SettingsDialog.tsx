@@ -102,7 +102,7 @@ export default function SettingsDialog({
                 <SelectTrigger id="default-view">
                   <SelectValue placeholder="Select default view" />
                 </SelectTrigger>
-                <SelectContent className="z-[100] pointer-events-auto">
+                <SelectContent>
                   <SelectItem value="today">Today's To-Do</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                   {projects.length > 0 && (
