@@ -8,7 +8,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Play, Pause, Calendar, Clock, Image } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { EditTaskDialog } from './EditTaskDialog';
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { LinkifiedText } from '@/components/LinkifiedText';
@@ -16,6 +15,7 @@ import { LinkifiedText } from '@/components/LinkifiedText';
 interface TaskListItemProps {
   task: Task;
   onUpdate: (task: Task) => void;
+  onEditTask?: (task: Task) => void;
   globalViewMode: 'full' | 'compact';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
@@ -35,10 +35,9 @@ const statusColors = {
   'completed': 'bg-green-500/20 text-green-300 border-green-500/30',
 };
 
-export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const isMobile = useIsMobile();
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
@@ -364,7 +363,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               <button
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
                 data-description-safe-zone="true"
-                onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }}
+                onClick={(e) => { e.stopPropagation(); onEditTask?.(task); }}
               >
                 <Calendar className="w-3 h-3" />
                 <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
@@ -377,7 +376,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
               <button
                 data-description-safe-zone="true"
-                onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }}
+                onClick={(e) => { e.stopPropagation(); onEditTask?.(task); }}
                 className={`p-1 rounded transition-colors relative ${
                   task.images && task.images.length > 0
                     ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
@@ -520,7 +519,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
               <button 
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
                 data-description-safe-zone="true"
-                onClick={() => setIsEditOpen(true)}
+                onClick={() => onEditTask?.(task)}
               >
                 <Calendar className="w-4 h-4" />
                 <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
@@ -533,7 +532,7 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
 
               <button
                 data-description-safe-zone="true"
-                onClick={() => setIsEditOpen(true)}
+                onClick={() => onEditTask?.(task)}
                 className={`p-1.5 rounded transition-colors relative ${
                   task.images && task.images.length > 0
                     ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
@@ -551,14 +550,6 @@ export const TaskListItem = ({ task, onUpdate, globalViewMode, isIndividuallyExp
           )}
         </div>
       </div>
-
-      <EditTaskDialog
-        task={task}
-        open={isEditOpen}
-        onOpenChange={setIsEditOpen}
-        onUpdateTask={onUpdate}
-        projects={projects}
-      />
     </>
   );
 };
