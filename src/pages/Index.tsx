@@ -261,13 +261,13 @@ https://www.skyscanner.com`,
     // Refresh tasks to show the new task
     await fetchTasks();
     
-    // Open the edit dialog with the sample task
-    setEditingTask(createdTask);
+    // Start the tour first so Step 1 is visible
+    setShowTaskTour(true);
     
-    // Start the tour after a short delay to let dialog render
+    // Open the edit dialog AFTER the tour has started (after Step 1 is shown)
     setTimeout(() => {
-      setShowTaskTour(true);
-    }, 300);
+      setEditingTask(createdTask);
+    }, 800);
   };
 
   const handleTaskTourComplete = async () => {
