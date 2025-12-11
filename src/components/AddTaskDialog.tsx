@@ -24,10 +24,14 @@ interface AddTaskDialogProps {
   selectedProjectId?: string | null;
   selectedSpecialList?: string | null;
   projects?: Project[];
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialList, projects = [] }: AddTaskDialogProps) => {
-  const [open, setOpen] = useState(false);
+export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialList, projects = [], open: controlledOpen, onOpenChange }: AddTaskDialogProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');

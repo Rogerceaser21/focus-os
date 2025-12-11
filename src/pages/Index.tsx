@@ -77,6 +77,7 @@ const Index = () => {
   const [showTaskTour, setShowTaskTour] = useState(false);
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
@@ -728,7 +729,7 @@ https://www.skyscanner.com`,
                   </span>
                 </Button>
               )}
-              <AddTaskDialog onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} projects={projects} />
+              <AddTaskDialog open={addTaskDialogOpen} onOpenChange={setAddTaskDialogOpen} onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} projects={projects} />
             </div>
           </div>
 
@@ -1096,7 +1097,7 @@ https://www.skyscanner.com`,
 
         {/* Dock Bar - Hidden when dialogs are open */}
         <AnimatePresence>
-          {!dialogOpen && !taskOnlyDialogOpen && !todayDialogOpen && !settingsOpen && !editingTask && (
+          {!dialogOpen && !taskOnlyDialogOpen && !todayDialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
             <motion.div
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
