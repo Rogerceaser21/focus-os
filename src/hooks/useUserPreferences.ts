@@ -10,6 +10,7 @@ export interface UserPreferences {
   default_task_filter: 'all' | 'todo' | 'in-progress' | 'completed';
   default_task_card_view: 'full' | 'compact';
   has_completed_onboarding: boolean;
+  has_completed_task_tour: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -55,7 +56,8 @@ export const useUserPreferences = () => {
           default_display_mode: 'list',
           default_task_filter: 'all',
           default_task_card_view: 'full',
-          has_completed_onboarding: false
+          has_completed_onboarding: false,
+          has_completed_task_tour: false
         })
         .select()
         .single();
@@ -87,6 +89,26 @@ export const useUserPreferences = () => {
     }
   };
 
+  const markTaskTourComplete = async () => {
+    // Silently update task tour status without showing toast
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !preferences) return;
+
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .update({ has_completed_task_tour: true })
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      setPreferences(data as UserPreferences);
+    } catch (error) {
+      console.error('Error marking task tour complete:', error);
+    }
+  };
+
   const updatePreferences = async (updates: Partial<UserPreferences>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -113,5 +135,5 @@ export const useUserPreferences = () => {
     fetchPreferences();
   }, []);
 
-  return { preferences, loading, updatePreferences, markOnboardingComplete };
+  return { preferences, loading, updatePreferences, markOnboardingComplete, markTaskTourComplete };
 };
