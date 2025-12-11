@@ -686,14 +686,12 @@ https://www.skyscanner.com`,
                     setProjectRefreshTrigger(prev => prev + 1);
                   }} dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => setSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-0 sm:px-3 sm:gap-2 shrink-0">
+                  <div className="flex flex-col items-end gap-2">
+                    <Button variant="outline" onClick={() => setSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-0 shrink-0">
                       <Settings className="h-4 w-4" />
-                      <span className="hidden sm:inline">Settings</span>
                     </Button>
-                    <Button variant="outline" onClick={handleSignOut} className="min-h-[44px] min-w-[44px] p-0 sm:px-3 sm:gap-2 shrink-0">
+                    <Button variant="outline" onClick={handleSignOut} className="min-h-[44px] min-w-[44px] p-0 shrink-0">
                       <LogOut className="h-4 w-4" />
-                      <span className="hidden sm:inline">Sign Out</span>
                     </Button>
                   </div>
                 </div>
