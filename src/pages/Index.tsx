@@ -33,7 +33,6 @@ import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Dock from '@/components/Dock';
-import MobileDock from '@/components/MobileDock';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 import { BrainDumpDialog } from '@/components/BrainDumpDialog';
 import { TaskOnlyBrainDumpDialog } from '@/components/TaskOnlyBrainDumpDialog';
@@ -1101,23 +1100,19 @@ https://www.skyscanner.com`,
         </div>
 
         {/* Dock Bar - Hidden when dialogs are open */}
-        {!dialogOpen && !taskOnlyDialogOpen && !todayDialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
-          isMobile ? (
-            <MobileDock items={dockItems} />
-          ) : (
-            <AnimatePresence>
-              <motion.div
-                initial={{ y: 100, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 100, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
-              >
-                <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
-              </motion.div>
-            </AnimatePresence>
-          )
-        )}
+        <AnimatePresence>
+          {!dialogOpen && !taskOnlyDialogOpen && !todayDialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
+            >
+              <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       
       <BrainDumpDialog
