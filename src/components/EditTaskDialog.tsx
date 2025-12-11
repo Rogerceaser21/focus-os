@@ -230,7 +230,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           {/* Project, Priority, Status - 3 columns on mobile */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {projects.length > 0 && (
-              <div className="space-y-1 sm:space-y-2">
+              <div className="space-y-1 sm:space-y-2" data-task-tour-step="project">
                 <Label className="text-xs sm:text-sm">Project</Label>
                 <Select 
                   value={selectedProjectId || 'unassigned'} 
