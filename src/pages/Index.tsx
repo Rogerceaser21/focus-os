@@ -65,7 +65,7 @@ const ProjectsFAB = () => {
         }}
       >
         <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
-          <span className="text-lg font-bold text-primary">P</span>
+          <span className="text-2xl font-bold text-primary">P</span>
         </div>
       </button>
     </motion.div>
