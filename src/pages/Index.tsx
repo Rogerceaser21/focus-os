@@ -1144,13 +1144,17 @@ https://www.skyscanner.com`,
                       transition={{ duration: 0.15, delay: 0.2 }}
                       className="fixed bottom-6 right-6 z-[100]"
                     >
-                      <Button
+                      <button
                         onClick={() => setMobileDockOpen(true)}
-                        className="w-14 h-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 overflow-visible"
-                        size="icon"
+                        className="relative w-16 h-16 rounded-full p-[3px] shadow-lg"
+                        style={{
+                          background: 'conic-gradient(from 0deg, hsl(186 80% 55%), hsl(270 80% 60%), hsl(14 90% 65%), hsl(186 80% 55%))'
+                        }}
                       >
-                        <Mic className="!w-12 !h-12 text-white" />
-                      </Button>
+                        <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
+                          <Mic className="w-8 h-8 text-primary" />
+                        </div>
+                      </button>
                     </motion.div>
                   )}
                 </AnimatePresence>
