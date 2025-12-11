@@ -227,41 +227,42 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
             />
           </div>
 
-          {projects.length > 0 && (
-            <div className="space-y-2">
-              <Label>Project</Label>
-              <Select 
-                value={selectedProjectId || 'unassigned'} 
-                onValueChange={(value) => setSelectedProjectId(value === 'unassigned' ? null : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">
-                    <span className="text-muted-foreground">Unassigned</span>
-                  </SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: project.color }}
-                        />
-                        {project.name}
-                      </div>
+          {/* Project, Priority, Status - 3 columns on mobile */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            {projects.length > 0 && (
+              <div className="space-y-1 sm:space-y-2">
+                <Label className="text-xs sm:text-sm">Project</Label>
+                <Select 
+                  value={selectedProjectId || 'unassigned'} 
+                  onValueChange={(value) => setSelectedProjectId(value === 'unassigned' ? null : value)}
+                >
+                  <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">
+                      <span className="text-muted-foreground">None</span>
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full flex-shrink-0" 
+                            style={{ backgroundColor: project.color }}
+                          />
+                          <span className="truncate">{project.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="space-y-2" data-task-tour-step="priority">
-              <Label>Priority</Label>
+            <div className={cn("space-y-1 sm:space-y-2", projects.length === 0 && "col-start-1")} data-task-tour-step="priority">
+              <Label className="text-xs sm:text-sm">Priority</Label>
               <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority)}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -273,10 +274,10 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Status</Label>
+            <div className="space-y-1 sm:space-y-2">
+              <Label className="text-xs sm:text-sm">Status</Label>
               <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -288,14 +289,15 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            <div className="space-y-2" data-task-tour-step="start-date">
-              <Label>Start Date</Label>
+          {/* Start, End, Due Dates - 3 columns on mobile */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="space-y-1 sm:space-y-2" data-task-tour-step="start-date">
+              <Label className="text-xs sm:text-sm">Start</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !startDate && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, 'MMM d, yyyy') : 'Pick date'}
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3", !startDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="truncate">{startDate ? format(startDate, 'MMM d') : 'Pick'}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -304,13 +306,13 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
               </Popover>
             </div>
 
-            <div className="space-y-2" data-task-tour-step="end-date">
-              <Label>End Date</Label>
+            <div className="space-y-1 sm:space-y-2" data-task-tour-step="end-date">
+              <Label className="text-xs sm:text-sm">End</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !endDate && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, 'MMM d, yyyy') : 'Pick date'}
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3", !endDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="truncate">{endDate ? format(endDate, 'MMM d') : 'Pick'}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -319,13 +321,13 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
               </Popover>
             </div>
 
-            <div className="space-y-2" data-task-tour-step="due-date">
-              <Label>Due Date</Label>
+            <div className="space-y-1 sm:space-y-2" data-task-tour-step="due-date">
+              <Label className="text-xs sm:text-sm">Due</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dueDate && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, 'MMM d, yyyy') : 'Pick date'}
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3", !dueDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="truncate">{dueDate ? format(dueDate, 'MMM d') : 'Pick'}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
