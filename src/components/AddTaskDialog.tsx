@@ -85,6 +85,13 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     return () => document.removeEventListener('paste', handleGlobalPaste);
   }, [open, images]);
 
+  // Sync projectId with selectedProjectId when dialog opens
+  useEffect(() => {
+    if (open) {
+      setProjectId(selectedProjectId || undefined);
+    }
+  }, [open, selectedProjectId]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
