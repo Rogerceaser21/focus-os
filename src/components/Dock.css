@@ -39,13 +39,14 @@
   gap: 12px;
   align-items: flex-end;
   justify-content: center;
-  padding: 8px 16px;
-  background: transparent;
-  backdrop-filter: none;
+  padding: 12px 20px 8px;
+  background: hsl(var(--background) / 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: 20px;
-  border: none;
+  border: 1px solid hsl(var(--border) / 0.3);
   pointer-events: auto;
-  box-shadow: none;
+  box-shadow: 0 -4px 20px hsl(var(--background) / 0.5);
   isolation: isolate;
   position: relative;
 }
