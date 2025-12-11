@@ -13,7 +13,8 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus, Menu } from 'lucide-react';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -78,6 +79,7 @@ const Index = () => {
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
+  const [mobileDockOpen, setMobileDockOpen] = useState(false);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
@@ -1100,19 +1102,53 @@ https://www.skyscanner.com`,
         </div>
 
         {/* Dock Bar - Hidden when dialogs are open */}
-        <AnimatePresence>
-          {!dialogOpen && !taskOnlyDialogOpen && !todayDialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
-            <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
-            >
-              <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {!dialogOpen && !taskOnlyDialogOpen && !todayDialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
+          <>
+            {/* Desktop: Bottom dock */}
+            {!isMobile && (
+              <AnimatePresence>
+                <motion.div
+                  initial={{ y: 100, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 100, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
+                >
+                  <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            {/* Mobile: FAB + Right-side Sheet */}
+            {isMobile && (
+              <>
+                <Button
+                  onClick={() => setMobileDockOpen(true)}
+                  className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full shadow-lg bg-primary hover:bg-primary/90"
+                  size="icon"
+                >
+                  <Menu className="w-6 h-6" />
+                </Button>
+
+                <Sheet open={mobileDockOpen} onOpenChange={setMobileDockOpen}>
+                  <SheetContent side="right" className="w-auto p-4 flex items-center justify-center">
+                    <Dock 
+                      items={dockItems.map(item => ({
+                        ...item,
+                        onClick: (e) => {
+                          item.onClick(e);
+                          setMobileDockOpen(false);
+                        }
+                      }))} 
+                      panelHeight={90} 
+                      baseItemSize={50} 
+                    />
+                  </SheetContent>
+                </Sheet>
+              </>
+            )}
+          </>
+        )}
       </div>
       
       <BrainDumpDialog
