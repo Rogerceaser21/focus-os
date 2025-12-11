@@ -63,34 +63,28 @@ All colors MUST be HSL.
   html {
     background: hsl(var(--background));
     min-height: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
   }
 
   html, body {
     margin: 0;
     padding: 0;
     width: 100%;
+    height: 100%;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-background text-foreground;
-    background-color: #0d0d0d;
     min-height: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
   }
 
   #root {
-    min-height: 100%;
     min-height: 100vh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
     width: 100%;
-    position: relative;
-    overflow-x: hidden;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   /* Hide scrollbars completely while keeping scroll functionality */

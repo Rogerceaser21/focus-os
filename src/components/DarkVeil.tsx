@@ -121,15 +121,14 @@ export default function DarkVeil({
     const mesh = new Mesh(gl, { geometry, program });
 
     const resize = () => {
-      // Add 100px to cover Safari iOS edges (50px each side)
-      const w = window.innerWidth + 100;
-      const h = window.innerHeight + 100;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
       
       // Set canvas attributes directly
       canvas.width = w * resolutionScale;
       canvas.height = h * resolutionScale;
-      canvas.style.width = 'calc(100vw + 100px)';
-      canvas.style.height = 'calc(100vh + 100px)';
+      canvas.style.width = '100vw';
+      canvas.style.height = '100vh';
       
       renderer.setSize(w, h);
       program.uniforms.uResolution.value.set(w, h);

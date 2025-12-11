@@ -70,7 +70,7 @@ const Auth = () => {
       navigate('/');
     }
   };
-  return <div className="min-h-[100dvh] relative flex items-center justify-center p-4" style={{ minHeight: '100vh' }}>
+  return <div className="min-h-screen relative flex items-center justify-center p-4">
       <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />
       <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
       
