@@ -154,7 +154,7 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
     if (!targetRect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
 
     const tooltipWidth = 320;
-    const tooltipHeight = 200;
+    const tooltipHeight = 240; // Increased to account for actual tooltip content height
     const margin = 16;
 
     let left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
@@ -169,6 +169,7 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
         top = targetRect.top - tooltipHeight - margin;
       }
     } else {
+      // Position above: calculate so tooltip sits entirely above the target
       top = targetRect.top - tooltipHeight - margin;
       if (top < margin) {
         top = targetRect.bottom + margin;
