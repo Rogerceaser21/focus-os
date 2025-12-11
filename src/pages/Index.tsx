@@ -1143,7 +1143,7 @@ https://www.skyscanner.com`,
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.15, delay: 0.2 }}
                       className="fixed right-6 z-[100]"
-                      style={{ bottom: 'calc(36px + env(safe-area-inset-bottom))' }}
+                      style={{ bottom: 'calc(44px + env(safe-area-inset-bottom))' }}
                     >
                       <button
                         onClick={() => setMobileDockOpen(true)}
