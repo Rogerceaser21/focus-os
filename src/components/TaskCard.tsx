@@ -10,12 +10,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Play, Pause, Clock, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { format } from 'date-fns';
-import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { LinkifiedText } from '@/components/LinkifiedText';
 
 interface TaskCardProps {
   task: Task;
   onUpdate: (task: Task) => void;
+  onEditTask?: (task: Task) => void;
   projects?: Project[];
 }
 
@@ -32,13 +32,12 @@ const statusColors = {
   'completed': 'bg-success/20 text-success border-success/30'
 };
 
-export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
+export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCardProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
-  const [showEditDialog, setShowEditDialog] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
   const [isFading, setIsFading] = useState(false);
 
@@ -81,7 +80,7 @@ export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
   };
 
   const handleDateClick = () => {
-    setShowEditDialog(true);
+    onEditTask?.(task);
   };
 
   const handleCheckboxChange = (checked: boolean) => {
@@ -104,8 +103,7 @@ export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
   };
 
   return (
-    <>
-      <Card className={`p-2.5 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}>
+    <Card className={`p-2.5 bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}>
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
             <Checkbox
@@ -250,14 +248,5 @@ export const TaskCard = ({ task, onUpdate, projects = [] }: TaskCardProps) => {
         </div>
       </div>
     </Card>
-    
-    <EditTaskDialog 
-      task={task}
-      open={showEditDialog}
-      onOpenChange={setShowEditDialog}
-      onUpdateTask={onUpdate}
-      projects={projects}
-    />
-    </>
   );
 };
