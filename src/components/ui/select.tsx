@@ -72,7 +72,8 @@ const SelectContent = React.forwardRef<
         className,
       )}
       position={position}
-      sideOffset={4}
+      sideOffset={8}
+      collisionPadding={16}
       {...props}
     >
       <SelectScrollUpButton />
