@@ -11,6 +11,11 @@ interface TourStep {
 
 const tourSteps: TourStep[] = [
   {
+    target: '[data-tour-step="menu-fab"]',
+    title: 'Magic Menu Button',
+    description: "This is your gateway to all the magic! Tap this button to reveal your voice-powered action buttons and quick settings. It's your command center for getting things done.",
+  },
+  {
     target: '[data-tour-step="projects"]',
     title: 'Create Projects',
     description: "Got a fresh idea but it's all over the place? Press this blue mic button, speak freely, and AI will sort through your thoughts, summarise them, and instantly set up a new project with all your tasks ready to go.",

@@ -1148,6 +1148,7 @@ https://www.skyscanner.com`,
                       <button
                         onClick={() => setMobileDockOpen(true)}
                         className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
+                        data-tour-step="menu-fab"
                         style={{
                           background: 'conic-gradient(from 0deg, hsl(186 80% 55%), hsl(270 80% 60%), hsl(14 90% 65%), hsl(186 80% 55%))'
                         }}
