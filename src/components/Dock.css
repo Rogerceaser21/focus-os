@@ -36,15 +36,15 @@
 
 .dock-panel {
   display: flex;
-  gap: 12px;
+  gap: 24px;
   align-items: flex-end;
   justify-content: center;
-  padding: 12px 20px 8px;
+  padding: 12px 24px 8px;
   background: hsl(var(--background) / 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 20px;
-  border: 1px solid hsl(var(--border) / 0.3);
+  border: none;
   pointer-events: auto;
   box-shadow: 0 -4px 20px hsl(var(--background) / 0.5);
   isolation: isolate;
