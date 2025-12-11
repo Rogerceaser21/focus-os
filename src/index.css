@@ -83,18 +83,7 @@ All colors MUST be HSL.
     min-height: -webkit-fill-available;
   }
 
-  /* Fixed background layer that covers EVERYTHING including safe areas */
-  body::before {
-    content: '';
-    position: fixed;
-    top: -100px;
-    left: -100px;
-    right: -100px;
-    bottom: -100px;
-    background: hsl(var(--background));
-    z-index: -1;
-    pointer-events: none;
-  }
+  /* Background is now handled by SafariBackground component */
 
   #root {
     min-height: 100%;
