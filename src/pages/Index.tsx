@@ -1149,7 +1149,7 @@ https://www.skyscanner.com`,
                         className="w-14 h-14 rounded-full shadow-lg bg-primary hover:bg-primary/90"
                         size="icon"
                       >
-                        <Mic className="w-6 h-6 text-white" />
+                        <Mic className="w-12 h-12 text-white" />
                       </Button>
                     </motion.div>
                   )}
