@@ -62,6 +62,7 @@ All colors MUST be HSL.
 
   html {
     background: hsl(var(--background));
+    min-height: 100%;
   }
 
   html, body {
@@ -73,9 +74,17 @@ All colors MUST be HSL.
   }
 
   body {
+    @apply bg-background text-foreground;
+    min-height: 100%;
+  }
+
+  #root {
+    min-height: 100vh;
+    width: 100%;
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   /* Hide scrollbars completely while keeping scroll functionality */
@@ -112,18 +121,9 @@ All colors MUST be HSL.
     background: hsl(var(--sidebar-accent));
   }
 
-  body {
-    @apply bg-background text-foreground;
-  }
-
   /* Touch target optimization for mobile */
   .touch-target {
     @apply min-h-[44px] min-w-[44px];
-  }
-  
-  #root {
-    min-height: 100vh;
-    width: 100%;
   }
 }
 
