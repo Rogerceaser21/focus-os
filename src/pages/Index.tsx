@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus, Menu } from 'lucide-react';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -1104,7 +1103,7 @@ https://www.skyscanner.com`,
         {/* Dock Bar - Hidden when dialogs are open */}
         {!dialogOpen && !taskOnlyDialogOpen && !todayDialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
           <>
-            {/* Desktop: Bottom dock */}
+            {/* Desktop: Bottom dock - always visible */}
             {!isMobile && (
               <AnimatePresence>
                 <motion.div
@@ -1119,32 +1118,56 @@ https://www.skyscanner.com`,
               </AnimatePresence>
             )}
 
-            {/* Mobile: FAB + Right-side Sheet */}
+            {/* Mobile: FAB when closed, Dock slides from right to bottom position when open */}
             {isMobile && (
               <>
-                <Button
-                  onClick={() => setMobileDockOpen(true)}
-                  className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full shadow-lg bg-primary hover:bg-primary/90"
-                  size="icon"
-                >
-                  <Menu className="w-6 h-6" />
-                </Button>
-
-                <Sheet open={mobileDockOpen} onOpenChange={setMobileDockOpen}>
-                  <SheetContent side="right" className="w-auto p-4 flex items-center justify-center">
-                    <Dock 
-                      items={dockItems.map(item => ({
-                        ...item,
-                        onClick: (e) => {
-                          item.onClick(e);
-                          setMobileDockOpen(false);
-                        }
-                      }))} 
-                      panelHeight={90} 
-                      baseItemSize={50} 
+                {/* Overlay - click to close */}
+                <AnimatePresence>
+                  {mobileDockOpen && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-[99] bg-black/20"
+                      onClick={() => setMobileDockOpen(false)}
                     />
-                  </SheetContent>
-                </Sheet>
+                  )}
+                </AnimatePresence>
+
+                {/* FAB button - only visible when dock is closed */}
+                <AnimatePresence>
+                  {!mobileDockOpen && (
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Button
+                        onClick={() => setMobileDockOpen(true)}
+                        className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full shadow-lg bg-primary hover:bg-primary/90"
+                        size="icon"
+                      >
+                        <Menu className="w-6 h-6" />
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Dock - slides from right to bottom position */}
+                <AnimatePresence>
+                  {mobileDockOpen && (
+                    <motion.div
+                      initial={{ x: '100%', opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      exit={{ x: '100%', opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
+                    >
+                      <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </>
             )}
           </>
