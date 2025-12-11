@@ -727,7 +727,7 @@ https://www.skyscanner.com`,
                   </span>
                 </Button>
               )}
-              <AddTaskDialog onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} />
+              <AddTaskDialog onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} projects={projects} />
             </div>
           </div>
 

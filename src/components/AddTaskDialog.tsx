@@ -8,18 +8,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Task, TaskPriority, TaskStatus } from '@/types/task';
-import { Plus, Calendar as CalendarIcon, Image } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ImageViewer } from '@/components/ImageViewer';
+
+interface Project {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface AddTaskDialogProps {
   onAddTask: (task: Task) => void;
   selectedProjectId?: string | null;
   selectedSpecialList?: string | null;
+  projects?: Project[];
 }
 
-export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialList }: AddTaskDialogProps) => {
+export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialList, projects = [] }: AddTaskDialogProps) => {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -31,6 +38,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
   const [images, setImages] = useState<string[]>([]);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [projectId, setProjectId] = useState<string | undefined>(selectedProjectId || undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const MAX_IMAGES = 8;
@@ -138,7 +146,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
         totalSeconds: 0,
         isRunning: false
       },
-      projectId: selectedProjectId || undefined
+      projectId: projectId || selectedProjectId || undefined
     };
 
     onAddTask(newTask);
@@ -152,6 +160,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     setEndDate(undefined);
     setDueDate(undefined);
     setImages([]);
+    setProjectId(selectedProjectId || undefined);
     setOpen(false);
     
     toast.success('Task created successfully');
@@ -194,11 +203,35 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          {/* Project, Priority, Status - 3 columns on mobile */}
+          <div className="grid grid-cols-3 gap-2">
             <div>
-              <Label htmlFor="priority">Priority</Label>
+              <Label htmlFor="project" className="text-xs">Project</Label>
+              <Select value={projectId || "none"} onValueChange={(v) => setProjectId(v === "none" ? undefined : v)}>
+                <SelectTrigger id="project" className="text-xs h-9">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: project.color }}
+                        />
+                        <span className="truncate">{project.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="priority" className="text-xs">Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-                <SelectTrigger id="priority">
+                <SelectTrigger id="priority" className="text-xs h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -211,9 +244,9 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
             </div>
 
             <div>
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status" className="text-xs">Status</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-                <SelectTrigger id="status">
+                <SelectTrigger id="status" className="text-xs h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -225,14 +258,15 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          {/* Start Date, End Date, Due Date - 3 columns on mobile */}
+          <div className="grid grid-cols-3 gap-2">
             <div>
-              <Label>Start Date</Label>
+              <Label className="text-xs">Start Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, 'MMM d, yyyy') : 'Pick date'}
+                  <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9 px-2">
+                    <CalendarIcon className="mr-1 h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{startDate ? format(startDate, 'MMM d') : 'Pick'}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -242,12 +276,12 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
             </div>
 
             <div>
-              <Label>End Date</Label>
+              <Label className="text-xs">End Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, 'MMM d, yyyy') : 'Pick date'}
+                  <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9 px-2">
+                    <CalendarIcon className="mr-1 h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{endDate ? format(endDate, 'MMM d') : 'Pick'}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -257,12 +291,12 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
             </div>
 
             <div>
-              <Label>Due Date</Label>
+              <Label className="text-xs">Due Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, 'MMM d, yyyy') : 'Pick date'}
+                  <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9 px-2">
+                    <CalendarIcon className="mr-1 h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{dueDate ? format(dueDate, 'MMM d') : 'Pick'}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
