@@ -245,7 +245,9 @@ void main() {
 
         renderer.dpr = Math.min(window.devicePixelRatio, 2);
 
-        const { clientWidth: wCSS, clientHeight: hCSS } = containerRef.current;
+        // Add 100px to cover Safari iOS edges (50px each side)
+        const wCSS = window.innerWidth + 100;
+        const hCSS = window.innerHeight + 100;
         renderer.setSize(wCSS, hCSS);
 
         const dpr = renderer.dpr;
