@@ -297,6 +297,10 @@ https://www.skyscanner.com`,
     // Mark task tour as complete in preferences
     await markTaskTourComplete();
     
+    // Navigate to Today's To-Do list after tour completes
+    setSelectedSpecialList('today');
+    setSelectedProjectId(null);
+    
     toast.success('Tasks Tour completed!');
   };
 
