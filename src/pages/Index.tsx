@@ -1154,20 +1154,22 @@ https://www.skyscanner.com`,
                   )}
                 </AnimatePresence>
 
-                {/* Dock - slides from right to bottom position */}
-                <AnimatePresence>
-                  {mobileDockOpen && (
-                    <motion.div
-                      initial={{ x: '100%', opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      exit={{ x: '100%', opacity: 0 }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                      className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
-                    >
-                      <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {/* Dock - slides from right edge to center */}
+                <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none">
+                  <AnimatePresence>
+                    {mobileDockOpen && (
+                      <motion.div
+                        initial={{ x: '100vw' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '100vw' }}
+                        transition={{ duration: 0.25, ease: 'easeOut' }}
+                        className="pointer-events-auto"
+                      >
+                        <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </>
             )}
           </>
