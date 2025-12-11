@@ -4,7 +4,7 @@
   align-items: flex-end;
   justify-content: center;
   width: 100%;
-  padding-bottom: 8px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
   pointer-events: none;
 }
 
@@ -24,11 +24,11 @@
 
 @media (max-width: 768px) {
   .dock-outer {
-    padding-bottom: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
   
   .dock-outer::before {
-    height: 12px;
+    height: calc(12px + env(safe-area-inset-bottom));
     backdrop-filter: blur(32px);
     -webkit-backdrop-filter: blur(32px);
   }
