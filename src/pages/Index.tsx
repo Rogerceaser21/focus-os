@@ -30,7 +30,7 @@ import { toast } from 'sonner';
 import LightRays from '@/components/LightRays';
 import HeroSection from '@/components/HeroSection';
 import { startOfDay, endOfDay } from 'date-fns';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Dock from '@/components/Dock';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
@@ -43,6 +43,34 @@ import { OnboardingTour } from '@/components/OnboardingTour';
 import { TaskTour } from '@/components/TaskTour';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { addDays } from 'date-fns';
+
+// Projects FAB component for mobile - must be inside SidebarProvider
+const ProjectsFAB = () => {
+  const { toggleSidebar } = useSidebar();
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, delay: 0.2 }}
+      className="fixed left-6 z-[100]"
+      style={{ bottom: 'calc(44px + env(safe-area-inset-bottom))' }}
+    >
+      <button
+        onClick={toggleSidebar}
+        className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
+        style={{
+          background: 'conic-gradient(from 0deg, hsl(186 80% 55%), hsl(270 80% 60%), hsl(14 90% 65%), hsl(186 80% 55%))'
+        }}
+      >
+        <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
+          <span className="text-lg font-bold text-primary">P</span>
+        </div>
+      </button>
+    </motion.div>
+  );
+};
 
 const Index = () => {
   const navigate = useNavigate();
@@ -658,7 +686,7 @@ https://www.skyscanner.com`,
                 {/* Header */}
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
                   <div className="flex items-center gap-2 sm:gap-4">
-                    <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px]" />
+                    <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px] hidden md:flex" />
                     <HeroSection onTasksCreated={() => {
                     fetchTasks();
                     setProjectRefreshTrigger(prev => prev + 1);
@@ -1150,6 +1178,11 @@ https://www.skyscanner.com`,
                       onClick={() => setMobileDockOpen(false)}
                     />
                   )}
+                </AnimatePresence>
+
+                {/* Projects FAB button - bottom left, only visible when dock is closed */}
+                <AnimatePresence>
+                  {!mobileDockOpen && <ProjectsFAB />}
                 </AnimatePresence>
 
                 {/* FAB button - only visible when dock is closed */}
