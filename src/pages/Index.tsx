@@ -261,13 +261,18 @@ https://www.skyscanner.com`,
     // Refresh tasks to show the new task
     await fetchTasks();
     
-    // Start the tour first so Step 1 is visible
+    // Start the tour - Edit dialog will open when user moves to step 2
     setShowTaskTour(true);
-    
-    // Open the edit dialog AFTER the tour has started (after Step 1 is shown)
-    setTimeout(() => {
-      setEditingTask(createdTask);
-    }, 800);
+  };
+
+  const handleTaskTourStepChange = (step: number) => {
+    // Open Edit Task dialog when moving past Step 1 (Add Task button)
+    if (step >= 1 && taskTourTask) {
+      setEditingTask(taskTourTask);
+    } else if (step === 0) {
+      // Close dialog when going back to Step 1
+      setEditingTask(null);
+    }
   };
 
   const handleTaskTourComplete = async () => {
@@ -1160,7 +1165,7 @@ https://www.skyscanner.com`,
         />
       )}
 
-      <TaskTour isOpen={showTaskTour} onComplete={handleTaskTourComplete} />
+      <TaskTour isOpen={showTaskTour} onComplete={handleTaskTourComplete} onStepChange={handleTaskTourStepChange} />
     </SidebarProvider>;
 };
 export default Index;

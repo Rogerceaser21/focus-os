@@ -76,9 +76,10 @@ const tourSteps: TourStep[] = [
 interface TaskTourProps {
   isOpen: boolean;
   onComplete: () => void;
+  onStepChange?: (step: number) => void;
 }
 
-export const TaskTour = ({ isOpen, onComplete }: TaskTourProps) => {
+export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
@@ -117,7 +118,9 @@ export const TaskTour = ({ isOpen, onComplete }: TaskTourProps) => {
 
   const handleNext = () => {
     if (currentStep < tourSteps.length - 1) {
-      setCurrentStep(currentStep + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      onStepChange?.(nextStep);
     } else {
       handleComplete();
     }
@@ -125,7 +128,9 @@ export const TaskTour = ({ isOpen, onComplete }: TaskTourProps) => {
 
   const handlePrev = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+      const prevStep = currentStep - 1;
+      setCurrentStep(prevStep);
+      onStepChange?.(prevStep);
     }
   };
 
