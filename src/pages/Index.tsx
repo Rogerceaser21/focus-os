@@ -13,7 +13,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus, Menu } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus, Mic } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -1149,7 +1149,7 @@ https://www.skyscanner.com`,
                         className="w-14 h-14 rounded-full shadow-lg bg-primary hover:bg-primary/90"
                         size="icon"
                       >
-                        <Menu className="w-6 h-6" />
+                        <Mic className="w-6 h-6 text-white" />
                       </Button>
                     </motion.div>
                   )}
