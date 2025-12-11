@@ -559,7 +559,7 @@ https://www.skyscanner.com`,
   // Show loading screen while auth, preferences, or initial tasks are loading
   if (authLoading || prefsLoading || (tasksLoading && !initialLoadComplete)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background" style={{ minHeight: '100vh' }}>
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-muted-foreground">Loading your tasks...</p>
@@ -623,7 +623,7 @@ https://www.skyscanner.com`,
   ];
 
   return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      <div className="min-h-screen flex w-full relative">
+      <div className="min-h-[100dvh] flex w-full relative" style={{ minHeight: '100vh' }}>
         <div ref={containerRef} className="dock-particle-container" />
         <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
@@ -635,7 +635,14 @@ https://www.skyscanner.com`,
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
-              <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4 pb-32">
+              <div 
+                className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4 pb-32"
+                style={{ 
+                  paddingTop: 'calc(1rem + env(safe-area-inset-top))',
+                  paddingLeft: 'calc(0.5rem + env(safe-area-inset-left))',
+                  paddingRight: 'calc(0.5rem + env(safe-area-inset-right))'
+                }}
+              >
                 {/* Header */}
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
                   <div className="flex items-center gap-2 sm:gap-4">
