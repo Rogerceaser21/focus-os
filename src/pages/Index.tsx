@@ -1146,13 +1146,13 @@ https://www.skyscanner.com`,
                     >
                       <button
                         onClick={() => setMobileDockOpen(true)}
-                        className="relative w-16 h-16 rounded-full p-[3px] shadow-lg"
+                        className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
                         style={{
                           background: 'conic-gradient(from 0deg, hsl(186 80% 55%), hsl(270 80% 60%), hsl(14 90% 65%), hsl(186 80% 55%))'
                         }}
                       >
                         <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
-                          <Mic className="w-8 h-8 text-primary" />
+                          <Mic className="w-6 h-6 text-primary" />
                         </div>
                       </button>
                     </motion.div>
