@@ -46,10 +46,7 @@ import { addDays } from 'date-fns';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
 const ProjectsFAB = () => {
-  const { toggleSidebar, open } = useSidebar();
-  
-  // Hide when sidebar is open
-  if (open) return null;
+  const { toggleSidebar } = useSidebar();
   
   return (
     <motion.div
@@ -1181,9 +1178,9 @@ https://www.skyscanner.com`,
                   )}
                 </AnimatePresence>
 
-                {/* Projects FAB button - bottom left, only visible when dock is closed */}
+                {/* Projects FAB button - bottom left, only visible when dock is closed and sidebar is closed */}
                 <AnimatePresence>
-                  {!mobileDockOpen && <ProjectsFAB />}
+                  {!mobileDockOpen && !sidebarOpen && <ProjectsFAB />}
                 </AnimatePresence>
 
                 {/* FAB button - only visible when dock is closed */}
