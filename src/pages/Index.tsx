@@ -46,7 +46,10 @@ import { addDays } from 'date-fns';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
 const ProjectsFAB = () => {
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, open } = useSidebar();
+  
+  // Hide when sidebar is open
+  if (open) return null;
   
   return (
     <motion.div
