@@ -80,7 +80,7 @@ const Index = () => {
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   
-  const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete } = useUserPreferences();
+  const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
     particleCount: 12,
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
@@ -293,7 +293,21 @@ https://www.skyscanner.com`,
     }
     
     setTaskTourTask(null);
+    
+    // Mark task tour as complete in preferences
+    await markTaskTourComplete();
+    
     toast.success('Tasks Tour completed!');
+  };
+
+  // Handle Add Task dialog open - trigger tour on first click
+  const handleAddTaskDialogOpen = (open: boolean) => {
+    if (open && preferences && !preferences.has_completed_task_tour) {
+      // First time clicking Add Task - start the task tour instead
+      handleStartTaskTour();
+    } else {
+      setAddTaskDialogOpen(open);
+    }
   };
 
   const fetchTasks = async () => {
@@ -730,7 +744,7 @@ https://www.skyscanner.com`,
                   </span>
                 </Button>
               )}
-              <AddTaskDialog open={addTaskDialogOpen} onOpenChange={setAddTaskDialogOpen} onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} projects={projects} />
+              <AddTaskDialog open={addTaskDialogOpen} onOpenChange={handleAddTaskDialogOpen} onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} projects={projects} />
             </div>
           </div>
 
