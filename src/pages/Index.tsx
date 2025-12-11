@@ -1243,7 +1243,7 @@ https://www.skyscanner.com`,
         onSave={updatePreferences}
       />
 
-      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} />
+      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setMobileDockOpen(true)} />
 
       {/* Task Tour Edit Dialog */}
       {editingTask && (

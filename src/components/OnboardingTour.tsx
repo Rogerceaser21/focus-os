@@ -37,9 +37,10 @@ const allTourSteps: TourStep[] = [
 interface OnboardingTourProps {
   isOpen: boolean;
   onComplete: () => void;
+  onOpenMobileDock?: () => void;
 }
 
-export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
+export const OnboardingTour = ({ isOpen, onComplete, onOpenMobileDock }: OnboardingTourProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -91,7 +92,16 @@ export const OnboardingTour = ({ isOpen, onComplete }: OnboardingTourProps) => {
 
   const handleNext = () => {
     if (currentStep < tourSteps.length - 1) {
-      setCurrentStep(currentStep + 1);
+      const nextStep = currentStep + 1;
+      
+      // On mobile, open the dock when moving past the FAB step to show the dock buttons
+      if (isMobile && currentStep === 0 && onOpenMobileDock) {
+        onOpenMobileDock();
+        // Small delay to let dock animate in before moving to next step
+        setTimeout(() => setCurrentStep(nextStep), 300);
+      } else {
+        setCurrentStep(nextStep);
+      }
     } else {
       handleComplete();
     }
