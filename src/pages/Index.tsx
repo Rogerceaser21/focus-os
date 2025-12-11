@@ -1138,14 +1138,15 @@ https://www.skyscanner.com`,
                 <AnimatePresence>
                   {!mobileDockOpen && (
                     <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15, delay: 0.2 }}
+                      className="fixed bottom-6 right-6 z-[100]"
                     >
                       <Button
                         onClick={() => setMobileDockOpen(true)}
-                        className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full shadow-lg bg-primary hover:bg-primary/90"
+                        className="w-14 h-14 rounded-full shadow-lg bg-primary hover:bg-primary/90"
                         size="icon"
                       >
                         <Menu className="w-6 h-6" />
