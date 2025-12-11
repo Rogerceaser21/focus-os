@@ -36,6 +36,12 @@ const tourSteps: TourStep[] = [
     position: 'top',
   },
   {
+    target: '[data-task-tour-step="project"]',
+    title: 'Assign to Project',
+    description: 'Organize your tasks by assigning them to a project. This helps keep related tasks grouped together and makes it easier to track progress on larger goals.',
+    position: 'top',
+  },
+  {
     target: '[data-task-tour-step="priority"]',
     title: 'Priority Level',
     description: 'Set the importance of your task. Choose from Low, Medium, High, or Urgent to help prioritize your workload effectively.',
