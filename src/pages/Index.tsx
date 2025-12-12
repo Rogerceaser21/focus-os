@@ -157,14 +157,20 @@ const Index = () => {
     }
   }, [user, authLoading, navigate]);
   useEffect(() => {
-    if (user) {
-      fetchTasks().then(() => {
-        if (!initialLoadComplete) {
-          setInitialLoadComplete(true);
+    const loadData = async () => {
+      if (user) {
+        // Ensure session is fully ready before fetching to prevent race condition
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetchTasks();
+          if (!initialLoadComplete) {
+            setInitialLoadComplete(true);
+          }
+          fetchProjects();
         }
-      });
-      fetchProjects();
-    }
+      }
+    };
+    loadData();
   }, [user, selectedProjectId, selectedSpecialList]);
 
   // Apply user preferences on load
