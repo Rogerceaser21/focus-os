@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.extract-tasks]
 verify_jwt = true
+
+[functions.cleanup-old-images]
+verify_jwt = false
