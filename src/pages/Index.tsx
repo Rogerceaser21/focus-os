@@ -173,6 +173,73 @@ const Index = () => {
     loadData();
   }, [user, selectedProjectId, selectedSpecialList]);
 
+  // Realtime subscription for tasks - keeps all sessions in sync
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('tasks-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'tasks',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          const newTask = payload.new as Task;
+          setTasks(prev => {
+            // Avoid duplicates
+            if (prev.some(t => t.id === newTask.id)) return prev;
+            return [...prev, newTask];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tasks',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          const updatedTask = payload.new as Task;
+          setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+          
+          // Close edit dialog if the task being edited was modified elsewhere
+          if (editingTask?.id === updatedTask.id) {
+            setEditingTask(updatedTask);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'tasks',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          const deletedTaskId = payload.old.id;
+          setTasks(prev => prev.filter(t => t.id !== deletedTaskId));
+          
+          // Close edit dialog if the task being edited was deleted
+          if (editingTask?.id === deletedTaskId) {
+            setEditingTask(null);
+            toast.info('This task was deleted on another device');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, editingTask?.id]);
+
   // Apply user preferences on load
   useEffect(() => {
     if (preferences && !preferencesLoaded && projects.length > 0 && !selectedProjectId && !selectedSpecialList) {
