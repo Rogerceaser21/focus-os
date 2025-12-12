@@ -162,11 +162,14 @@ const Index = () => {
         // Ensure session is fully ready before fetching to prevent race condition
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          await fetchTasks();
+          // Fetch tasks and projects in parallel for faster loading
+          await Promise.all([
+            fetchTasks(),
+            fetchProjects()
+          ]);
           if (!initialLoadComplete) {
             setInitialLoadComplete(true);
           }
-          fetchProjects();
         }
       }
     };
