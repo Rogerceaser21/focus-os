@@ -177,65 +177,55 @@ const Index = () => {
   useEffect(() => {
     if (!user) return;
 
+    console.log('Setting up realtime subscription for user:', user.id);
+
     const channel = supabase
       .channel('tasks-realtime')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
-          table: 'tasks',
-          filter: `user_id=eq.${user.id}`
+          table: 'tasks'
         },
         (payload) => {
-          const newTask = payload.new as Task;
-          setTasks(prev => {
-            // Avoid duplicates
-            if (prev.some(t => t.id === newTask.id)) return prev;
-            return [...prev, newTask];
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'tasks',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          const updatedTask = payload.new as Task;
-          setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+          console.log('Realtime event received:', payload.eventType, payload);
           
-          // Close edit dialog if the task being edited was modified elsewhere
-          if (editingTask?.id === updatedTask.id) {
-            setEditingTask(updatedTask);
+          // Client-side filter for safety (RLS handles server-side)
+          const taskUserId = (payload.new as any)?.user_id || (payload.old as any)?.user_id;
+          if (taskUserId !== user.id) {
+            console.log('Ignoring event for different user');
+            return;
+          }
+
+          if (payload.eventType === 'INSERT') {
+            const newTask = payload.new as Task;
+            setTasks(prev => {
+              if (prev.some(t => t.id === newTask.id)) return prev;
+              return [...prev, newTask];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedTask = payload.new as Task;
+            setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+            if (editingTask?.id === updatedTask.id) {
+              setEditingTask(updatedTask);
+            }
+          } else if (payload.eventType === 'DELETE') {
+            const deletedTaskId = (payload.old as any).id;
+            setTasks(prev => prev.filter(t => t.id !== deletedTaskId));
+            if (editingTask?.id === deletedTaskId) {
+              setEditingTask(null);
+              toast.info('This task was deleted on another device');
+            }
           }
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'tasks',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          const deletedTaskId = payload.old.id;
-          setTasks(prev => prev.filter(t => t.id !== deletedTaskId));
-          
-          // Close edit dialog if the task being edited was deleted
-          if (editingTask?.id === deletedTaskId) {
-            setEditingTask(null);
-            toast.info('This task was deleted on another device');
-          }
-        }
-      )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [user, editingTask?.id]);
