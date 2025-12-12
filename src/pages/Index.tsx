@@ -176,6 +176,25 @@ const Index = () => {
     loadData();
   }, [user, selectedProjectId, selectedSpecialList]);
 
+  // Helper function to transform DB task format to app Task format
+  const transformDbTask = (dbTask: any): Task => ({
+    id: dbTask.id,
+    title: dbTask.title,
+    description: dbTask.description,
+    priority: dbTask.priority,
+    status: dbTask.status,
+    startDate: dbTask.start_date ? new Date(dbTask.start_date) : undefined,
+    endDate: dbTask.end_date ? new Date(dbTask.end_date) : undefined,
+    dueDate: dbTask.due_date ? new Date(dbTask.due_date) : undefined,
+    images: dbTask.images ? (dbTask.images as string[]) : [],
+    timer: {
+      totalSeconds: dbTask.timer_total_seconds,
+      isRunning: dbTask.timer_is_running,
+      startTime: dbTask.timer_start_time
+    },
+    projectId: dbTask.project_id
+  });
+
   // Realtime subscription for tasks - keeps all sessions in sync
   useEffect(() => {
     if (!user) return;
@@ -191,7 +210,7 @@ const Index = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          const newTask = payload.new as Task;
+          const newTask = transformDbTask(payload.new);
           setTasks(prev => {
             if (prev.some(t => t.id === newTask.id)) return prev;
             return [...prev, newTask];
@@ -207,7 +226,7 @@ const Index = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          const updatedTask = payload.new as Task;
+          const updatedTask = transformDbTask(payload.new);
           setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
         }
       )
@@ -235,7 +254,7 @@ const Index = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, editingTask?.id]);
+  }, [user]);
 
   // Apply user preferences on load
   useEffect(() => {
