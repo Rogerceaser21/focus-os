@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TaskTimer } from '@/types/task';
 
 export const useTimer = (initialTimer: TaskTimer) => {
@@ -11,37 +11,6 @@ export const useTimer = (initialTimer: TaskTimer) => {
     }
     return initialTimer.totalSeconds;
   });
-
-  // Track if this is a local change to avoid sync loops
-  const isLocalChange = useRef(false);
-
-  // Sync with external changes (realtime updates from other devices)
-  useEffect(() => {
-    // Skip if this was a local change we just made
-    if (isLocalChange.current) {
-      isLocalChange.current = false;
-      return;
-    }
-
-    // Check if external state differs from internal state
-    const externalDiffers = 
-      initialTimer.isRunning !== timer.isRunning ||
-      initialTimer.startTime !== timer.startTime ||
-      initialTimer.totalSeconds !== timer.totalSeconds;
-
-    if (externalDiffers) {
-      // Sync internal state with external (realtime) state
-      setTimer(initialTimer);
-      
-      // Immediately calculate correct display seconds
-      if (initialTimer.isRunning && initialTimer.startTime) {
-        const elapsed = Math.floor((Date.now() - initialTimer.startTime) / 1000);
-        setDisplaySeconds(initialTimer.totalSeconds + elapsed);
-      } else {
-        setDisplaySeconds(initialTimer.totalSeconds);
-      }
-    }
-  }, [initialTimer.isRunning, initialTimer.startTime, initialTimer.totalSeconds]);
 
   // Calculate current seconds dynamically
   const getCurrentSeconds = useCallback(() => {
@@ -82,7 +51,6 @@ export const useTimer = (initialTimer: TaskTimer) => {
   }, [timer.isRunning, getCurrentSeconds]);
 
   const startTimer = useCallback(() => {
-    isLocalChange.current = true;
     const startTime = Date.now();
     setTimer(prev => ({
       ...prev,
@@ -92,7 +60,6 @@ export const useTimer = (initialTimer: TaskTimer) => {
   }, []);
 
   const stopTimer = useCallback(() => {
-    isLocalChange.current = true;
     setTimer(prev => {
       // Calculate elapsed time and add to totalSeconds
       const elapsed = prev.startTime 
@@ -108,7 +75,6 @@ export const useTimer = (initialTimer: TaskTimer) => {
   }, []);
 
   const resetTimer = useCallback(() => {
-    isLocalChange.current = true;
     setTimer({
       totalSeconds: 0,
       isRunning: false,
