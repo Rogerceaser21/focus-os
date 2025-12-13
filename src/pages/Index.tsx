@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -110,6 +110,8 @@ const Index = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
+  const [fullDataLoaded, setFullDataLoaded] = useState(false);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
@@ -156,28 +158,9 @@ const Index = () => {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
-  useEffect(() => {
-    const loadData = async () => {
-      if (user) {
-        // Ensure session is fully ready before fetching to prevent race condition
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          // Fetch tasks and projects in parallel for faster loading
-          await Promise.all([
-            fetchTasks(),
-            fetchProjects()
-          ]);
-          if (!initialLoadComplete) {
-            setInitialLoadComplete(true);
-          }
-        }
-      }
-    };
-    loadData();
-  }, [user, selectedProjectId, selectedSpecialList]);
 
   // Helper function to transform DB task format to app Task format
-  const transformDbTask = (dbTask: any): Task => ({
+  const transformDbTask = useCallback((dbTask: any): Task => ({
     id: dbTask.id,
     title: dbTask.title,
     description: dbTask.description,
@@ -193,7 +176,160 @@ const Index = () => {
       startTime: dbTask.timer_start_time
     },
     projectId: dbTask.project_id
-  });
+  }), []);
+
+  // Fetch projects (lightweight - just names for sidebar)
+  const fetchProjects = useCallback(async () => {
+    const { data, error } = await supabase.from('projects').select('*').order('created_at', {
+      ascending: false
+    });
+    if (error) {
+      toast.error('Failed to load projects');
+      return;
+    }
+    setProjects(data.map(p => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      timer: {
+        totalSeconds: 0,
+        isRunning: false
+      }
+    })));
+  }, []);
+
+  // Phase 1: Fetch only tasks for the initial/default view
+  const fetchInitialTasks = useCallback(async (defaultView: string) => {
+    setTasksLoading(true);
+    try {
+      let query = supabase.from('tasks').select('*').order('created_at', {
+        ascending: false
+      });
+      
+      if (defaultView === 'today') {
+        const today = new Date();
+        query = query.lte('due_date', endOfDay(today).toISOString());
+      } else if (defaultView === 'unassigned') {
+        query = query.is('project_id', null);
+      } else {
+        // It's a project ID
+        query = query.eq('project_id', defaultView);
+      }
+      
+      const { data, error } = await query;
+      if (error) {
+        toast.error('Failed to load tasks');
+        return;
+      }
+      
+      const transformedTasks = data.map(transformDbTask);
+      setTasks(transformedTasks);
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [transformDbTask]);
+
+  // Phase 2: Fetch ALL tasks in background
+  const fetchAllTasks = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Failed to load all tasks:', error);
+        return;
+      }
+      
+      const transformedTasks = data.map(transformDbTask);
+      setAllTasks(transformedTasks);
+      setTasks(transformedTasks);
+    } catch (error) {
+      console.error('Error fetching all tasks:', error);
+    }
+  }, [transformDbTask]);
+
+  // Filter tasks from cached allTasks based on current view
+  const filterTasksFromCache = useCallback(() => {
+    if (allTasks.length === 0) return;
+    
+    let filtered = allTasks;
+    
+    if (selectedProjectId) {
+      filtered = allTasks.filter(t => t.projectId === selectedProjectId);
+    } else if (selectedSpecialList === 'unassigned') {
+      filtered = allTasks.filter(t => !t.projectId);
+    } else if (selectedSpecialList === 'today') {
+      const today = new Date();
+      const todayEnd = endOfDay(today);
+      filtered = allTasks.filter(t => t.dueDate && new Date(t.dueDate) <= todayEnd);
+    }
+    
+    setTasks(filtered);
+  }, [allTasks, selectedProjectId, selectedSpecialList]);
+
+  // Legacy fetchTasks for specific use cases (task creation, etc.)
+  const fetchTasks = useCallback(async () => {
+    if (fullDataLoaded) {
+      // Re-fetch all tasks and update cache
+      await fetchAllTasks();
+    } else {
+      // Fetch only current view
+      await fetchInitialTasks(
+        selectedProjectId || 
+        (selectedSpecialList === 'today' ? 'today' : 
+         selectedSpecialList === 'unassigned' ? 'unassigned' : 'today')
+      );
+    }
+  }, [fullDataLoaded, fetchAllTasks, fetchInitialTasks, selectedProjectId, selectedSpecialList]);
+
+  // Phase 1: Initial fast load - preferences + initial view tasks + all projects
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (user && preferences && !initialLoadComplete) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Fetch initial view tasks and all projects in parallel
+          await Promise.all([
+            fetchInitialTasks(preferences.default_view),
+            fetchProjects()
+          ]);
+          setInitialLoadComplete(true);
+        }
+      }
+    };
+    loadInitialData();
+  }, [user, preferences, initialLoadComplete, fetchInitialTasks, fetchProjects]);
+
+  // Phase 2: Background load - all remaining tasks
+  useEffect(() => {
+    const loadRemainingData = async () => {
+      if (initialLoadComplete && user && !fullDataLoaded) {
+        await fetchAllTasks();
+        setFullDataLoaded(true);
+      }
+    };
+    loadRemainingData();
+  }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks]);
+
+  // Re-fetch when view changes (use allTasks if available, otherwise fetch)
+  useEffect(() => {
+    if (initialLoadComplete && user) {
+      if (fullDataLoaded) {
+        // Use cached allTasks to filter
+        filterTasksFromCache();
+      } else {
+        // Still loading in background, fetch specific view
+        fetchInitialTasks(
+          selectedProjectId || 
+          (selectedSpecialList === 'today' ? 'today' : 
+           selectedSpecialList === 'unassigned' ? 'unassigned' : 'today')
+        );
+      }
+    }
+  }, [selectedProjectId, selectedSpecialList, initialLoadComplete, user, fullDataLoaded, filterTasksFromCache, fetchInitialTasks]);
+
 
   // Realtime subscription for tasks - keeps all sessions in sync
   useEffect(() => {
@@ -215,6 +351,11 @@ const Index = () => {
             if (prev.some(t => t.id === newTask.id)) return prev;
             return [...prev, newTask];
           });
+          // Also update allTasks cache if loaded
+          setAllTasks(prev => {
+            if (prev.length === 0 || prev.some(t => t.id === newTask.id)) return prev;
+            return [...prev, newTask];
+          });
         }
       )
       .on(
@@ -228,6 +369,8 @@ const Index = () => {
         (payload) => {
           const updatedTask = transformDbTask(payload.new);
           setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+          // Also update allTasks cache
+          setAllTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
         }
       )
       .on(
@@ -241,6 +384,8 @@ const Index = () => {
         (payload) => {
           const deletedTaskId = (payload.old as any).id;
           setTasks(prev => prev.filter(t => t.id !== deletedTaskId));
+          // Also update allTasks cache
+          setAllTasks(prev => prev.filter(t => t.id !== deletedTaskId));
         }
       )
       .subscribe((status, err) => {
@@ -254,7 +399,7 @@ const Index = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, transformDbTask]);
 
   // Apply user preferences on load
   useEffect(() => {
@@ -434,70 +579,6 @@ https://www.skyscanner.com`,
     }
   };
 
-  const fetchTasks = async () => {
-    setTasksLoading(true);
-    try {
-      let query = supabase.from('tasks').select('*').order('created_at', {
-        ascending: false
-      });
-      if (selectedProjectId) {
-        query = query.eq('project_id', selectedProjectId);
-      } else if (selectedSpecialList === 'unassigned') {
-        query = query.is('project_id', null);
-      } else if (selectedSpecialList === 'today') {
-        const today = new Date();
-        query = query.lte('due_date', endOfDay(today).toISOString());
-      }
-      const {
-        data,
-        error
-      } = await query;
-      if (error) {
-        toast.error('Failed to load tasks');
-        return;
-      }
-      setTasks(data.map(t => ({
-        id: t.id,
-        title: t.title,
-        description: t.description,
-        priority: t.priority as any,
-        status: t.status as any,
-        startDate: t.start_date ? new Date(t.start_date) : undefined,
-        endDate: t.end_date ? new Date(t.end_date) : undefined,
-        dueDate: t.due_date ? new Date(t.due_date) : undefined,
-        images: t.images ? (t.images as string[]) : [],
-        timer: {
-          totalSeconds: t.timer_total_seconds,
-          isRunning: t.timer_is_running,
-          startTime: t.timer_start_time
-        },
-        projectId: t.project_id
-      })));
-    } finally {
-      setTasksLoading(false);
-    }
-  };
-  const fetchProjects = async () => {
-    const {
-      data,
-      error
-    } = await supabase.from('projects').select('*').order('created_at', {
-      ascending: false
-    });
-    if (error) {
-      toast.error('Failed to load projects');
-      return;
-    }
-    setProjects(data.map(p => ({
-      id: p.id,
-      name: p.name,
-      color: p.color,
-      timer: {
-        totalSeconds: 0,
-        isRunning: false
-      }
-    })));
-  };
   const handleAddTask = async (newTask: Task) => {
     if (!user) return;
     const {
