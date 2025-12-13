@@ -50,7 +50,7 @@ const tourSteps: TourStep[] = [
     target: '[data-projects-tour-step="task-project-selector"]',
     title: 'Move Tasks Between Projects',
     description: 'You can move any task to a different project using this dropdown. This makes it easy to reorganize your work as priorities change.',
-    position: 'top',
+    position: 'bottom',
     action: 'show-move-task',
   },
 ];
@@ -118,7 +118,7 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
         
         // Wait for action to complete based on type
         const delay = currentStepData.action === 'click-project' ? 1000 : 
-                      currentStepData.action === 'show-move-task' ? 1200 : 500;
+                      currentStepData.action === 'show-move-task' ? 1500 : 500;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
       
