@@ -46,7 +46,7 @@ export const CreateProjectDialog = ({ open, onOpenChange, onCreate }: CreateProj
           
           <div className="space-y-2">
             <Label>Project Color</Label>
-            <div className="grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-7 gap-2" data-projects-tour-step="color-picker">
               {PRESET_COLORS.map((presetColor) => (
                 <button
                   key={presetColor}

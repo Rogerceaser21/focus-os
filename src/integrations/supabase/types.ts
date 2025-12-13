@@ -117,6 +117,7 @@ export type Database = {
           default_task_filter: string
           default_view: string
           has_completed_onboarding: boolean
+          has_completed_projects_tour: boolean
           has_completed_task_tour: boolean
           id: string
           updated_at: string | null
@@ -129,6 +130,7 @@ export type Database = {
           default_task_filter?: string
           default_view?: string
           has_completed_onboarding?: boolean
+          has_completed_projects_tour?: boolean
           has_completed_task_tour?: boolean
           id?: string
           updated_at?: string | null
@@ -141,6 +143,7 @@ export type Database = {
           default_task_filter?: string
           default_view?: string
           has_completed_onboarding?: boolean
+          has_completed_projects_tour?: boolean
           has_completed_task_tour?: boolean
           id?: string
           updated_at?: string | null

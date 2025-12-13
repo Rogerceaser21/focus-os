@@ -27,6 +27,7 @@ interface ProjectSidebarProps {
   projectRefreshTrigger?: number;
   onStartTour?: () => void;
   onStartTaskTour?: () => void;
+  onStartProjectsTour?: () => void;
 }
 
 export const ProjectSidebar = ({ 
@@ -36,7 +37,8 @@ export const ProjectSidebar = ({
   selectedSpecialList,
   projectRefreshTrigger,
   onStartTour,
-  onStartTaskTour
+  onStartTaskTour,
+  onStartProjectsTour
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -100,9 +102,11 @@ export const ProjectSidebar = ({
       onStartTour();
     } else if (tourType === 'tasks' && onStartTaskTour) {
       onStartTaskTour();
+    } else if (tourType === 'projects' && onStartProjectsTour) {
+      onStartProjectsTour();
     } else {
       toast.info('Coming soon!', {
-        description: `The Projects Tour is under development.`
+        description: `This tour is under development.`
       });
     }
   };
@@ -134,7 +138,12 @@ export const ProjectSidebar = ({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={() => setIsCreateOpen(true)} size="sm" className="flex-1 gap-2">
+          <Button 
+            onClick={() => setIsCreateOpen(true)} 
+            size="sm" 
+            className="flex-1 gap-2"
+            data-projects-tour-step="new-project-button"
+          >
             <Plus className="h-4 w-4" />
             New Project
           </Button>
@@ -190,6 +199,7 @@ export const ProjectSidebar = ({
                   <Button
                     variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
                     className="w-full justify-start gap-2"
+                    data-projects-tour-step={project.name.startsWith('Demo Project') ? 'demo-project' : undefined}
                   >
                     <Folder 
                       className="h-4 w-4" 
