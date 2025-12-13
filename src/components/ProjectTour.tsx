@@ -331,7 +331,11 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
 
             <Button
               size="sm"
-              onClick={handleNext}
+              onClick={(e) => {
+                console.log('[ProjectTour] Next button clicked, step:', currentStep);
+                e.stopPropagation();
+                handleNext();
+              }}
               className="gap-1"
             >
               {currentStep === tourSteps.length - 1 ? 'Done' : 'Next'}
