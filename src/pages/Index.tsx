@@ -1632,7 +1632,7 @@ https://www.skyscanner.com`,
           task={editingTask}
           open={!!editingTask}
           onOpenChange={(open) => {
-            if (!open && !showTaskTour) {
+            if (!open && !showTaskTour && !showProjectsTour) {
               setEditingTask(null);
             }
           }}
