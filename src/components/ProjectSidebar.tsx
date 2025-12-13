@@ -28,6 +28,8 @@ interface ProjectSidebarProps {
   onStartTour?: () => void;
   onStartTaskTour?: () => void;
   onStartProjectsTour?: () => void;
+  createDialogOpen?: boolean;
+  onCreateDialogOpenChange?: (open: boolean) => void;
 }
 
 export const ProjectSidebar = ({ 
@@ -38,10 +40,16 @@ export const ProjectSidebar = ({
   projectRefreshTrigger,
   onStartTour,
   onStartTaskTour,
-  onStartProjectsTour
+  onStartProjectsTour,
+  createDialogOpen,
+  onCreateDialogOpenChange
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);
+  
+  // Use controlled state if provided, otherwise use internal state
+  const isCreateOpen = createDialogOpen !== undefined ? createDialogOpen : isCreateOpenInternal;
+  const setIsCreateOpen = onCreateDialogOpenChange || setIsCreateOpenInternal;
 
   useEffect(() => {
     fetchProjects();
