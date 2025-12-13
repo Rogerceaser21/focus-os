@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,6 +74,25 @@ const ProjectsFAB = () => {
       </button>
     </motion.div>
   );
+};
+
+// Mobile sidebar controller for Projects Tour - must be inside SidebarProvider
+const MobileSidebarController = ({ tourStep, isTourActive }: { tourStep: number | null; isTourActive: boolean }) => {
+  const { setOpenMobile, isMobile } = useSidebar();
+  
+  React.useEffect(() => {
+    if (!isTourActive || !isMobile || tourStep === null) return;
+    
+    // Steps 0 and 2 need sidebar OPEN (New Project button, Demo Project button)
+    // Steps 1, 3, 4, 5 need sidebar CLOSED (dialog/main content focus)
+    if (tourStep === 0 || tourStep === 2) {
+      setOpenMobile(true);
+    } else {
+      setOpenMobile(false);
+    }
+  }, [tourStep, isTourActive, isMobile, setOpenMobile]);
+  
+  return null;
 };
 
 const Index = () => {
@@ -1008,6 +1027,7 @@ https://www.skyscanner.com`,
   ];
 
   return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+      <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} />
       <div className="min-h-screen flex w-full relative">
         <div ref={containerRef} className="dock-particle-container" />
         <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />
