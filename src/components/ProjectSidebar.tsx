@@ -221,23 +221,29 @@ export const ProjectSidebar = ({
           </div>
         )}
       </div>
-
-      <CreateProjectDialog 
-        open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        onCreate={handleCreateProject}
-      />
     </>
   );
 
-  // On mobile, use Sheet overlay
+  // Dialog rendered separately so it works even when Sheet is closed on mobile
+  const createDialog = (
+    <CreateProjectDialog 
+      open={isCreateOpen}
+      onOpenChange={setIsCreateOpen}
+      onCreate={handleCreateProject}
+    />
+  );
+
+  // On mobile, use Sheet overlay - dialog is OUTSIDE the Sheet
   if (isActuallyMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile}>
-        <SheetContent side="left" className="w-[280px] p-0 bg-card/50 backdrop-blur-sm">
-          {sidebarContent}
-        </SheetContent>
-      </Sheet>
+      <>
+        <Sheet open={openMobile} onOpenChange={setOpenMobile}>
+          <SheetContent side="left" className="w-[280px] p-0 bg-card/50 backdrop-blur-sm">
+            {sidebarContent}
+          </SheetContent>
+        </Sheet>
+        {createDialog}
+      </>
     );
   }
 
@@ -251,6 +257,7 @@ export const ProjectSidebar = ({
       `}
     >
       {sidebarContent}
+      {createDialog}
     </div>
   );
 };
