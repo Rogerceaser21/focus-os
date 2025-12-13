@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,7 @@ interface TourStep {
   title: string;
   description: string;
   position?: 'top' | 'bottom' | 'left' | 'right';
-  action?: 'click-project' | 'show-move-task';
+  action?: 'click-project' | 'show-rename' | 'show-delete' | 'show-move-task';
 }
 
 const tourSteps: TourStep[] = [
@@ -37,14 +36,14 @@ const tourSteps: TourStep[] = [
     title: 'Rename Your Project',
     description: 'Click on the project name to edit it. You can rename your project anytime to better reflect its purpose.',
     position: 'bottom',
-    // No action - informational only
+    action: 'show-rename',
   },
   {
     target: '[data-projects-tour-step="delete-button"]',
     title: 'Delete Project',
     description: 'When you no longer need a project, you can delete it using this button. Be careful - this will also delete all tasks within the project!',
-    position: 'bottom',
-    // No action - informational only
+    position: 'left',
+    action: 'show-delete',
   },
   {
     target: '[data-projects-tour-step="task-project-selector"]',
@@ -102,33 +101,14 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
     };
   }, [isOpen, currentStep]);
 
-  const handleNext = async () => {
+  const handleNext = () => {
     if (isCompletingRef.current) return;
     console.log('[ProjectTour] handleNext called, currentStep:', currentStep);
-    
     if (currentStep < tourSteps.length - 1) {
-      const currentStepData = tourSteps[currentStep];
       const nextStep = currentStep + 1;
-      
-      // If current step has an action, trigger it BEFORE advancing
-      if (currentStepData.action) {
-        console.log('[ProjectTour] Triggering action:', currentStepData.action);
-        // Call with action - this is an action-only call
-        onStepChange?.(currentStep, currentStepData.action);
-        
-        // Wait for action to complete based on type
-        const delay = currentStepData.action === 'click-project' ? 1000 : 
-                      currentStepData.action === 'show-move-task' ? 1200 : 500;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-      
       console.log('[ProjectTour] Moving to step:', nextStep);
       setCurrentStep(nextStep);
-      
-      // Notify parent of step change (without action)
-      // Small delay to ensure UI has updated
-      await new Promise(resolve => setTimeout(resolve, 100));
-      onStepChange?.(nextStep);
+      onStepChange?.(nextStep, tourSteps[nextStep].action);
     } else {
       console.log('[ProjectTour] Completing tour');
       handleComplete();
@@ -211,16 +191,16 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
 
   const tooltipPos = getTooltipPosition();
 
-  const tourContent = (
+  return (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0"
-        style={{ zIndex: 40, pointerEvents: 'none' }}
+        className="fixed inset-0 pointer-events-none"
+        style={{ zIndex: 99999 }}
       >
-        {/* Overlay with spotlight cutout - z-index 40 to sit below sidebar (z-51) */}
+        {/* Overlay with spotlight cutout */}
         <svg className="absolute inset-0 w-full h-full">
           <defs>
             <mask id="projects-spotlight-mask">
@@ -266,14 +246,14 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
           />
         )}
 
-        {/* Tooltip card - high z-index to appear above everything */}
+        {/* Tooltip card */}
         <motion.div
           key={currentStep}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4"
-          style={{ ...tooltipPos, zIndex: 999999, pointerEvents: 'auto', position: 'fixed' }}
+          className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto"
+          style={{ ...tooltipPos, zIndex: 100000 }}
         >
           {/* Skip button */}
           <button
@@ -331,11 +311,7 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
 
             <Button
               size="sm"
-              onClick={(e) => {
-                console.log('[ProjectTour] Next button clicked, step:', currentStep);
-                e.stopPropagation();
-                handleNext();
-              }}
+              onClick={handleNext}
               className="gap-1"
             >
               {currentStep === tourSteps.length - 1 ? 'Done' : 'Next'}
@@ -348,7 +324,4 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
       </motion.div>
     </AnimatePresence>
   );
-
-  // Render in a portal to ensure it's above everything including Sheet dialogs
-  return createPortal(tourContent, document.body);
 };
