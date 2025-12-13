@@ -77,14 +77,25 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
     const updateTargetPosition = () => {
       const target = document.querySelector(tourSteps[currentStep].target);
       if (target) {
-        setTargetRect(target.getBoundingClientRect());
+        // On mobile, scroll the target into view if needed (especially for color picker in dialog)
+        const isMobile = window.innerWidth < 768;
+        if (isMobile) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          // Wait a bit for scroll to complete before getting position
+          setTimeout(() => {
+            setTargetRect(target.getBoundingClientRect());
+          }, 150);
+        } else {
+          setTargetRect(target.getBoundingClientRect());
+        }
       } else {
         setTargetRect(null);
       }
     };
 
-    // Initial delay to let UI render
-    const timer = setTimeout(updateTargetPosition, 100);
+    // Initial delay to let UI render (longer on mobile for scroll)
+    const isMobile = window.innerWidth < 768;
+    const timer = setTimeout(updateTargetPosition, isMobile ? 200 : 100);
     
     window.addEventListener('resize', updateTargetPosition);
     window.addEventListener('scroll', updateTargetPosition);
