@@ -50,7 +50,7 @@ const tourSteps: TourStep[] = [
     target: '[data-projects-tour-step="task-project-selector"]',
     title: 'Move Tasks Between Projects',
     description: 'You can move any task to a different project using this dropdown. This makes it easy to reorganize your work as priorities change.',
-    position: 'bottom',
+    position: 'top',
     action: 'show-move-task',
   },
 ];
