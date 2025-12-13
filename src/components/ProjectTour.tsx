@@ -29,7 +29,7 @@ const tourSteps: TourStep[] = [
     target: '[data-projects-tour-step="demo-project"]',
     title: 'Select a Project',
     description: 'Click on a project to open it and view all its tasks. Let\'s click on this demo project to see what\'s inside.',
-    position: 'right',
+    position: 'bottom',
     action: 'click-project',
   },
   {
