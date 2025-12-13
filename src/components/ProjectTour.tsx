@@ -107,26 +107,26 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
     
     if (currentStep < tourSteps.length - 1) {
       const currentStepData = tourSteps[currentStep];
+      const nextStep = currentStep + 1;
       
       // If current step has an action, trigger it BEFORE advancing
-      // This ensures the action completes before we move to the next step
       if (currentStepData.action) {
-        console.log('[ProjectTour] Triggering action for current step:', currentStepData.action);
+        console.log('[ProjectTour] Triggering action:', currentStepData.action);
+        // Call with action - this is an action-only call
         onStepChange?.(currentStep, currentStepData.action);
         
-        // Wait longer for actions that need UI to update
-        // click-project needs time for project content to load
-        // show-move-task needs time for dialog to open
-        const delay = currentStepData.action === 'click-project' ? 800 : 
-                      currentStepData.action === 'show-move-task' ? 500 : 400;
+        // Wait for action to complete based on type
+        const delay = currentStepData.action === 'click-project' ? 1000 : 
+                      currentStepData.action === 'show-move-task' ? 1200 : 500;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
       
-      const nextStep = currentStep + 1;
       console.log('[ProjectTour] Moving to step:', nextStep);
       setCurrentStep(nextStep);
       
-      // Notify parent of step change (without action, since actions are triggered when leaving)
+      // Notify parent of step change (without action)
+      // Small delay to ensure UI has updated
+      await new Promise(resolve => setTimeout(resolve, 100));
       onStepChange?.(nextStep);
     } else {
       console.log('[ProjectTour] Completing tour');
