@@ -668,9 +668,15 @@ https://www.skyscanner.com`,
   };
 
   const handleProjectsTourStepChange = async (step: number, action?: string) => {
+    console.log('[Tour] Step change called:', { step, action, lastProcessedTourStep });
+    
     // Prevent duplicate processing of the same step
-    if (step === lastProcessedTourStep) return;
+    if (step === lastProcessedTourStep) {
+      console.log('[Tour] Skipping duplicate step:', step);
+      return;
+    }
     setLastProcessedTourStep(step);
+    console.log('[Tour] Processing step:', step);
 
     // Step 1 (index 1) is the color picker step - open the Create Project dialog
     if (step === 1) {
@@ -687,6 +693,7 @@ https://www.skyscanner.com`,
       await fetchTasks();
     } else if (action === 'show-move-task' && projectsTourTask) {
       // Step 6: Open the task edit dialog to show project selector
+      console.log('[Tour] Opening edit dialog for task:', projectsTourTask.id);
       setEditingTask(projectsTourTask);
     }
   };

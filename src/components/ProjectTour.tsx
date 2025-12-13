@@ -98,11 +98,14 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
   }, [isOpen, currentStep]);
 
   const handleNext = () => {
+    console.log('[ProjectTour] handleNext called, currentStep:', currentStep);
     if (currentStep < tourSteps.length - 1) {
       const nextStep = currentStep + 1;
+      console.log('[ProjectTour] Moving to step:', nextStep);
       setCurrentStep(nextStep);
       onStepChange?.(nextStep, tourSteps[nextStep].action);
     } else {
+      console.log('[ProjectTour] Completing tour');
       handleComplete();
     }
   };
