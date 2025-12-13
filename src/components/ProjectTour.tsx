@@ -77,25 +77,14 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
     const updateTargetPosition = () => {
       const target = document.querySelector(tourSteps[currentStep].target);
       if (target) {
-        // On mobile, scroll the target into view if needed (especially for color picker in dialog)
-        const isMobile = window.innerWidth < 768;
-        if (isMobile) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-          // Wait a bit for scroll to complete before getting position
-          setTimeout(() => {
-            setTargetRect(target.getBoundingClientRect());
-          }, 150);
-        } else {
-          setTargetRect(target.getBoundingClientRect());
-        }
+        setTargetRect(target.getBoundingClientRect());
       } else {
         setTargetRect(null);
       }
     };
 
-    // Initial delay to let UI render (longer on mobile for scroll)
-    const isMobile = window.innerWidth < 768;
-    const timer = setTimeout(updateTargetPosition, isMobile ? 200 : 100);
+    // Initial delay to let UI render
+    const timer = setTimeout(updateTargetPosition, 100);
     
     window.addEventListener('resize', updateTargetPosition);
     window.addEventListener('scroll', updateTargetPosition);
@@ -153,21 +142,9 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
 
   const step = tourSteps[currentStep];
   const padding = 8;
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   // Calculate tooltip position based on step preference
-  const getTooltipPosition = (): React.CSSProperties => {
-    // On mobile, always position at the bottom of the screen for reliability
-    if (isMobile) {
-      return { 
-        left: '50%', 
-        bottom: '16px',
-        top: 'auto',
-        transform: 'translateX(-50%)',
-        position: 'fixed'
-      };
-    }
-
+  const getTooltipPosition = () => {
     if (!targetRect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
 
     const tooltipWidth = 320;
@@ -275,8 +252,8 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className={`w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto ${isMobile ? 'fixed' : 'absolute'}`}
-          style={{ ...tooltipPos, zIndex: 100002 }}
+          className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto"
+          style={{ ...tooltipPos, zIndex: 100000 }}
         >
           {/* Skip button */}
           <button

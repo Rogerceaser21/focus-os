@@ -30,7 +30,6 @@ interface ProjectSidebarProps {
   onStartProjectsTour?: () => void;
   createDialogOpen?: boolean;
   onCreateDialogOpenChange?: (open: boolean) => void;
-  isTourActive?: boolean;
 }
 
 export const ProjectSidebar = ({ 
@@ -43,8 +42,7 @@ export const ProjectSidebar = ({
   onStartTaskTour,
   onStartProjectsTour,
   createDialogOpen,
-  onCreateDialogOpenChange,
-  isTourActive
+  onCreateDialogOpenChange
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);
@@ -228,7 +226,6 @@ export const ProjectSidebar = ({
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         onCreate={handleCreateProject}
-        isTourActive={isTourActive}
       />
     </>
   );
