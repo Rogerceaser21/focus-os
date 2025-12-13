@@ -205,11 +205,15 @@ export const ProjectSidebar = ({
                 enableArrowNavigation={false}
                 displayScrollbar={true}
                 className="w-full"
+                getItemDataAttributes={(project) => 
+                  project.name.startsWith('Demo Project') 
+                    ? { 'data-projects-tour-step': 'demo-project' } 
+                    : {}
+                }
                 renderItem={(project, isSelected) => (
                   <Button
                     variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
                     className="w-full justify-start gap-2"
-                    data-projects-tour-step={project.name.startsWith('Demo Project') ? 'demo-project' : undefined}
                   >
                     <Folder 
                       className="h-4 w-4" 
