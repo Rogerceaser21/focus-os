@@ -1,13 +1,14 @@
 import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 
-const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick }) => {
+const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick, dataAttributes = {} }) => {
   const ref = useRef(null);
   const inView = useInView(ref, { amount: 0.5, once: false });
   return (
     <motion.div
       ref={ref}
       data-index={index}
+      {...dataAttributes}
       onMouseEnter={onMouseEnter}
       onClick={onClick}
       initial={{ scale: 0.7, opacity: 0 }}
@@ -29,7 +30,8 @@ const AnimatedList = ({
   itemClassName = '',
   displayScrollbar = false,
   initialSelectedIndex = -1,
-  renderItem
+  renderItem,
+  getItemDataAttributes
 }) => {
   const listRef = useRef(null);
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
@@ -118,6 +120,7 @@ const AnimatedList = ({
                 onItemSelect(item, index);
               }
             }}
+            dataAttributes={getItemDataAttributes ? getItemDataAttributes(item, index) : {}}
           >
             {renderItem ? renderItem(item, selectedIndex === index) : (
               <div className={`${itemClassName}`}>
