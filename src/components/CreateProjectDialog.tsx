@@ -14,9 +14,10 @@ interface CreateProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreate: (name: string, color: string) => void;
+  isTourActive?: boolean;
 }
 
-export const CreateProjectDialog = ({ open, onOpenChange, onCreate }: CreateProjectDialogProps) => {
+export const CreateProjectDialog = ({ open, onOpenChange, onCreate, isTourActive }: CreateProjectDialogProps) => {
   const [name, setName] = useState('');
   const [color, setColor] = useState('#3b82f6');
 
@@ -29,7 +30,7 @@ export const CreateProjectDialog = ({ open, onOpenChange, onCreate }: CreateProj
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent style={isTourActive ? { zIndex: 100001 } : undefined}>
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
         </DialogHeader>
