@@ -43,7 +43,7 @@ const tourSteps: TourStep[] = [
     target: '[data-projects-tour-step="delete-button"]',
     title: 'Delete Project',
     description: 'When you no longer need a project, you can delete it using this button. Be careful - this will also delete all tasks within the project!',
-    position: 'left',
+    position: 'bottom',
     // No action - informational only
   },
   {
