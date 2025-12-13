@@ -79,25 +79,18 @@ const ProjectsFAB = () => {
 // Mobile sidebar controller for Projects Tour - must be inside SidebarProvider
 const MobileSidebarController = ({ tourStep, isTourActive }: { tourStep: number | null; isTourActive: boolean }) => {
   const { setOpenMobile, isMobile } = useSidebar();
-  const prevStepRef = React.useRef<number | null>(null);
   
   React.useEffect(() => {
     if (!isTourActive || !isMobile || tourStep === null) return;
     
-    const prevStep = prevStepRef.current;
-    prevStepRef.current = tourStep;
-    
-    // Steps 0 and 2 need sidebar OPEN (New Project button, Demo Project button)
-    // Steps 1, 3, 4, 5 need sidebar CLOSED (dialog/main content focus)
+    // Simple rule: Steps 0 and 2 need sidebar OPEN, all others CLOSED
     if (tourStep === 0 || tourStep === 2) {
       setOpenMobile(true);
     } else {
-      // When transitioning from Step 2 to Step 3, use a longer delay
-      // to allow the project content to load before closing sidebar
-      const delay = prevStep === 2 && tourStep === 3 ? 600 : 100;
+      // Use consistent 500ms delay to ensure content loads before closing
       const timer = setTimeout(() => {
         setOpenMobile(false);
-      }, delay);
+      }, 500);
       return () => clearTimeout(timer);
     }
   }, [tourStep, isTourActive, isMobile, setOpenMobile]);
@@ -699,31 +692,48 @@ https://www.skyscanner.com`,
   const handleProjectsTourStepChange = async (step: number, action?: string) => {
     console.log('[Tour] Step change called:', { step, action, lastProcessedTourStep });
     
-    // Prevent duplicate processing of the same step
-    if (step === lastProcessedTourStep) {
-      console.log('[Tour] Skipping duplicate step:', step);
-      return;
+    // If action is provided, this is an action-only call - don't update lastProcessedTourStep
+    // Only update lastProcessedTourStep for actual step transitions (no action)
+    if (!action) {
+      // Prevent duplicate processing of the same step
+      if (step === lastProcessedTourStep) {
+        console.log('[Tour] Skipping duplicate step:', step);
+        return;
+      }
+      setLastProcessedTourStep(step);
+      console.log('[Tour] Processing step:', step);
+    } else {
+      console.log('[Tour] Processing action:', action);
     }
-    setLastProcessedTourStep(step);
-    console.log('[Tour] Processing step:', step);
 
     // Step 1 (index 1) is the color picker step - open the Create Project dialog
-    if (step === 1) {
+    if (step === 1 && !action) {
       setTourCreateDialogOpen(true);
-    } else {
-      // Close dialog when not on step 1
+    } else if (step !== 1 && !action) {
+      // Close dialog when not on step 1 (but only on step transitions, not actions)
       setTourCreateDialogOpen(false);
     }
 
     if (action === 'click-project' && projectsTourProjects.length > 0) {
-      // Step 3: Select the demo project
+      // Step 2 action: Select the demo project
       setSelectedProjectId(projectsTourProjects[0].id);
       setSelectedSpecialList(null);
       await fetchTasks();
-    } else if (action === 'show-move-task' && projectsTourTask) {
-      // Step 6: Open the task edit dialog to show project selector
-      console.log('[Tour] Opening edit dialog for task:', projectsTourTask.id);
-      setEditingTask(projectsTourTask);
+    } else if (action === 'show-move-task') {
+      // Step 5 action: Open the task edit dialog to show project selector
+      console.log('[Tour] Opening edit dialog for task');
+      
+      // Ensure projects are refreshed first
+      await fetchProjects();
+      
+      // Find the task in current tasks or use stored reference
+      const taskToEdit = tasks.find(t => t.id === projectsTourTask?.id) || projectsTourTask;
+      if (taskToEdit) {
+        console.log('[Tour] Setting editing task:', taskToEdit.id);
+        setEditingTask(taskToEdit);
+      } else {
+        console.error('[Tour] Could not find task to edit');
+      }
     }
   };
 
