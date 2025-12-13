@@ -52,7 +52,7 @@ const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen }: HeroSectionP
         onClick={() => user && setDialogOpen(true)}
       >
         {/* Text Overlay */}
-        <div className={`absolute top-0 left-4 sm:left-0 flex flex-col gap-1 items-start transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`absolute top-0 left-12 sm:left-0 flex flex-col gap-1 items-start transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
           {phase === 'title' ? (
             <>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground drop-shadow-lg whitespace-nowrap">Focus OS</h1>
@@ -61,14 +61,14 @@ const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen }: HeroSectionP
           ) : (
             <>
               <TrueFocus
-                sentence="Try Magic Plan"
+                sentence="Try the Mic"
                 manualMode={false}
                 blurAmount={8}
                 borderColor="#4FD1C5"
                 glowColor="rgba(79, 209, 197, 0.8)"
                 animationDuration={0.6}
                 pauseBetweenAnimations={1.5}
-                maxCycles={3}
+                maxCycles={1}
                 onAnimationComplete={handleAnimationComplete}
               />
               <p className="text-xs sm:text-sm text-muted-foreground drop-shadow whitespace-nowrap">Click here to Start</p>
