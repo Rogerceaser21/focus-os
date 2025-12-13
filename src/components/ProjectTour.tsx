@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -63,12 +63,16 @@ interface ProjectTourProps {
 export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const isCompletingRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) {
       setCurrentStep(0);
       return;
     }
+    
+    // Reset completion guard when tour opens
+    isCompletingRef.current = false;
 
     const updateTargetPosition = () => {
       const target = document.querySelector(tourSteps[currentStep].target);
@@ -98,6 +102,7 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
   }, [isOpen, currentStep]);
 
   const handleNext = () => {
+    if (isCompletingRef.current) return;
     console.log('[ProjectTour] handleNext called, currentStep:', currentStep);
     if (currentStep < tourSteps.length - 1) {
       const nextStep = currentStep + 1;
@@ -111,6 +116,7 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
   };
 
   const handlePrev = () => {
+    if (isCompletingRef.current) return;
     if (currentStep > 0) {
       const prevStep = currentStep - 1;
       setCurrentStep(prevStep);
@@ -119,11 +125,15 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
   };
 
   const handleComplete = () => {
+    if (isCompletingRef.current) return;
+    isCompletingRef.current = true;
     setCurrentStep(0);
     onComplete();
   };
 
   const handleSkip = () => {
+    if (isCompletingRef.current) return;
+    isCompletingRef.current = true;
     setCurrentStep(0);
     onComplete();
   };
