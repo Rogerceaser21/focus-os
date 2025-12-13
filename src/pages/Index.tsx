@@ -118,6 +118,7 @@ const Index = () => {
   const [projectsTourTask, setProjectsTourTask] = useState<Task | null>(null);
   const [createProjectDialogOpenForTour, setCreateProjectDialogOpenForTour] = useState(false);
   const [tourCreateDialogOpen, setTourCreateDialogOpen] = useState(false);
+  const [lastProcessedTourStep, setLastProcessedTourStep] = useState<number | null>(null);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
@@ -662,10 +663,15 @@ https://www.skyscanner.com`,
     setProjectRefreshTrigger(prev => prev + 1);
     
     // Start the tour
+    setLastProcessedTourStep(null);
     setShowProjectsTour(true);
   };
 
   const handleProjectsTourStepChange = async (step: number, action?: string) => {
+    // Prevent duplicate processing of the same step
+    if (step === lastProcessedTourStep) return;
+    setLastProcessedTourStep(step);
+
     // Step 1 (index 1) is the color picker step - open the Create Project dialog
     if (step === 1) {
       setTourCreateDialogOpen(true);
@@ -711,6 +717,7 @@ https://www.skyscanner.com`,
     // Clear tour state
     setProjectsTourTask(null);
     setProjectsTourProjects([]);
+    setLastProcessedTourStep(null);
 
     // Mark tour as complete
     await markProjectsTourComplete();
