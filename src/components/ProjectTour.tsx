@@ -8,7 +8,7 @@ interface TourStep {
   title: string;
   description: string;
   position?: 'top' | 'bottom' | 'left' | 'right';
-  action?: 'click-project' | 'show-rename' | 'show-delete' | 'show-move-task';
+  action?: 'click-project' | 'show-move-task';
 }
 
 const tourSteps: TourStep[] = [
@@ -36,14 +36,14 @@ const tourSteps: TourStep[] = [
     title: 'Rename Your Project',
     description: 'Click on the project name to edit it. You can rename your project anytime to better reflect its purpose.',
     position: 'bottom',
-    action: 'show-rename',
+    // No action - informational only
   },
   {
     target: '[data-projects-tour-step="delete-button"]',
     title: 'Delete Project',
     description: 'When you no longer need a project, you can delete it using this button. Be careful - this will also delete all tasks within the project!',
     position: 'left',
-    action: 'show-delete',
+    // No action - informational only
   },
   {
     target: '[data-projects-tour-step="task-project-selector"]',
@@ -113,19 +113,21 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
       if (currentStepData.action) {
         console.log('[ProjectTour] Triggering action for current step:', currentStepData.action);
         onStepChange?.(currentStep, currentStepData.action);
-        // Wait for action to complete and UI to update
-        await new Promise(resolve => setTimeout(resolve, 400));
+        
+        // Wait longer for actions that need UI to update
+        // click-project needs time for project content to load
+        // show-move-task needs time for dialog to open
+        const delay = currentStepData.action === 'click-project' ? 800 : 
+                      currentStepData.action === 'show-move-task' ? 500 : 400;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
       
       const nextStep = currentStep + 1;
       console.log('[ProjectTour] Moving to step:', nextStep);
       setCurrentStep(nextStep);
       
-      // Only call onStepChange for next step if it doesn't have an action
-      // (actions are triggered when leaving a step, not entering)
-      if (!tourSteps[nextStep].action) {
-        onStepChange?.(nextStep);
-      }
+      // Notify parent of step change (without action, since actions are triggered when leaving)
+      onStepChange?.(nextStep);
     } else {
       console.log('[ProjectTour] Completing tour');
       handleComplete();
