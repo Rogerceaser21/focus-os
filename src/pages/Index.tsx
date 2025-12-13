@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
-import { Task, Project } from '@/types/task';
+import { Task, Project, TaskPriority, TaskStatus } from '@/types/task';
 import { TaskCard } from '@/components/TaskCard';
 import { TaskListItem } from '@/components/TaskListItem';
 import { GanttChart } from '@/components/GanttChart';
@@ -41,6 +41,7 @@ import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { TaskTour } from '@/components/TaskTour';
+import { ProjectTour } from '@/components/ProjectTour';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { addDays } from 'date-fns';
 
@@ -112,8 +113,12 @@ const Index = () => {
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [showProjectsTour, setShowProjectsTour] = useState(false);
+  const [projectsTourProjects, setProjectsTourProjects] = useState<{id: string, name: string}[]>([]);
+  const [projectsTourTask, setProjectsTourTask] = useState<Task | null>(null);
+  const [createProjectDialogOpenForTour, setCreateProjectDialogOpenForTour] = useState(false);
   
-  const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete } = useUserPreferences();
+  const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
     particleCount: 12,
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
@@ -569,6 +574,148 @@ https://www.skyscanner.com`,
     toast.success('Tasks Tour completed!');
   };
 
+  // Projects Tour handlers
+  const handleStartProjectsTour = async () => {
+    if (!user) return;
+
+    // Create 2 demo projects
+    const demoProject1 = {
+      name: 'Demo Project 1',
+      color: '#3b82f6',
+      user_id: user.id
+    };
+    const demoProject2 = {
+      name: 'Demo Project 2',
+      color: '#10b981',
+      user_id: user.id
+    };
+
+    const { data: project1Data, error: project1Error } = await supabase
+      .from('projects')
+      .insert(demoProject1)
+      .select()
+      .single();
+
+    if (project1Error) {
+      toast.error('Failed to create demo project 1');
+      return;
+    }
+
+    const { data: project2Data, error: project2Error } = await supabase
+      .from('projects')
+      .insert(demoProject2)
+      .select()
+      .single();
+
+    if (project2Error) {
+      toast.error('Failed to create demo project 2');
+      // Clean up project 1
+      await supabase.from('projects').delete().eq('id', project1Data.id);
+      return;
+    }
+
+    // Create a demo task in project 1
+    const demoTask = {
+      user_id: user.id,
+      project_id: project1Data.id,
+      title: 'Demo Task - Try moving me!',
+      description: 'This is a demo task. Try changing which project it belongs to using the Project dropdown.',
+      priority: 'medium',
+      status: 'todo',
+      due_date: new Date().toISOString()
+    };
+
+    const { data: taskData, error: taskError } = await supabase
+      .from('tasks')
+      .insert(demoTask)
+      .select()
+      .single();
+
+    if (taskError) {
+      toast.error('Failed to create demo task');
+      // Clean up projects
+      await supabase.from('projects').delete().eq('id', project1Data.id);
+      await supabase.from('projects').delete().eq('id', project2Data.id);
+      return;
+    }
+
+    // Store tour items for cleanup
+    setProjectsTourProjects([
+      { id: project1Data.id, name: project1Data.name },
+      { id: project2Data.id, name: project2Data.name }
+    ]);
+    setProjectsTourTask({
+      id: taskData.id,
+      title: taskData.title,
+      description: taskData.description,
+      priority: taskData.priority as TaskPriority,
+      status: taskData.status as TaskStatus,
+      dueDate: new Date(taskData.due_date),
+      projectId: taskData.project_id,
+      images: [],
+      timer: { totalSeconds: 0, isRunning: false }
+    });
+
+    // Refresh projects list
+    await fetchProjects();
+    setProjectRefreshTrigger(prev => prev + 1);
+    
+    // Start the tour
+    setShowProjectsTour(true);
+  };
+
+  const handleProjectsTourStepChange = async (step: number, action?: string) => {
+    if (action === 'click-project' && projectsTourProjects.length > 0) {
+      // Step 3: Select the demo project
+      setSelectedProjectId(projectsTourProjects[0].id);
+      setSelectedSpecialList(null);
+      await fetchTasks();
+    } else if (action === 'show-move-task' && projectsTourTask) {
+      // Step 6: Open the task edit dialog to show project selector
+      setEditingTask(projectsTourTask);
+    }
+  };
+
+  const handleProjectsTourComplete = async () => {
+    setShowProjectsTour(false);
+    setEditingTask(null);
+
+    // Delete demo task
+    if (projectsTourTask) {
+      try {
+        await supabase.from('tasks').delete().eq('id', projectsTourTask.id);
+      } catch (error) {
+        console.error('Failed to delete demo task:', error);
+      }
+    }
+
+    // Delete demo projects
+    for (const project of projectsTourProjects) {
+      try {
+        await supabase.from('projects').delete().eq('id', project.id);
+      } catch (error) {
+        console.error('Failed to delete demo project:', error);
+      }
+    }
+
+    // Clear tour state
+    setProjectsTourTask(null);
+    setProjectsTourProjects([]);
+
+    // Mark tour as complete
+    await markProjectsTourComplete();
+
+    // Refresh UI
+    await fetchProjects();
+    setProjectRefreshTrigger(prev => prev + 1);
+    
+    // Navigate to Today's view
+    setSelectedSpecialList('today');
+    setSelectedProjectId(null);
+
+    toast.success('Projects Tour completed!');
+  };
+
   // Handle Add Task dialog open - trigger tour on first click
   const handleAddTaskDialogOpen = (open: boolean) => {
     if (open && preferences && !preferences.has_completed_task_tour) {
@@ -845,7 +992,7 @@ https://www.skyscanner.com`,
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
             {/* Sidebar */}
-            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} />
+            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} />
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
@@ -993,6 +1140,7 @@ https://www.skyscanner.com`,
                           className="font-semibold text-base cursor-pointer hover:opacity-70 transition-opacity"
                           style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
                           onClick={handleStartEditingProject}
+                          data-projects-tour-step="project-name"
                         >
                           {projects.find(p => p.id === selectedProjectId)?.name}
                         </span>
@@ -1033,6 +1181,7 @@ https://www.skyscanner.com`,
                       variant="ghost" 
                       size="sm"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      data-projects-tour-step="delete-button"
                     >
                       <Trash2 className="h-4 w-4" />
                       <span className="hidden lg:inline ml-1">Delete</span>
@@ -1472,6 +1621,8 @@ https://www.skyscanner.com`,
       )}
 
       <TaskTour isOpen={showTaskTour} onComplete={handleTaskTourComplete} onStepChange={handleTaskTourStepChange} />
+
+      <ProjectTour isOpen={showProjectsTour} onComplete={handleProjectsTourComplete} onStepChange={handleProjectsTourStepChange} />
     </SidebarProvider>;
 };
 export default Index;
