@@ -30,6 +30,7 @@ interface ProjectSidebarProps {
   onStartProjectsTour?: () => void;
   createDialogOpen?: boolean;
   onCreateDialogOpenChange?: (open: boolean) => void;
+  isTourActive?: boolean;
 }
 
 export const ProjectSidebar = ({ 
@@ -42,7 +43,8 @@ export const ProjectSidebar = ({
   onStartTaskTour,
   onStartProjectsTour,
   createDialogOpen,
-  onCreateDialogOpenChange
+  onCreateDialogOpenChange,
+  isTourActive
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);
@@ -238,7 +240,11 @@ export const ProjectSidebar = ({
     return (
       <>
         <Sheet open={openMobile} onOpenChange={setOpenMobile}>
-          <SheetContent side="left" className="w-[280px] p-0 bg-card/50 backdrop-blur-sm">
+          <SheetContent 
+            side="left" 
+            className="w-[280px] p-0 bg-card/50 backdrop-blur-sm"
+            disableOverlayPointerEvents={isTourActive}
+          >
             {sidebarContent}
           </SheetContent>
         </Sheet>
