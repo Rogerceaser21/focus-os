@@ -30,7 +30,7 @@ export const CreateProjectDialog = ({ open, onOpenChange, onCreate, isTourActive
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent style={isTourActive ? { zIndex: 100001 } : undefined}>
+      <DialogContent style={isTourActive ? { zIndex: 99998 } : undefined}>
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
         </DialogHeader>
