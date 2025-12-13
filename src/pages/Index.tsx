@@ -79,19 +79,25 @@ const ProjectsFAB = () => {
 // Mobile sidebar controller for Projects Tour - must be inside SidebarProvider
 const MobileSidebarController = ({ tourStep, isTourActive }: { tourStep: number | null; isTourActive: boolean }) => {
   const { setOpenMobile, isMobile } = useSidebar();
+  const prevStepRef = React.useRef<number | null>(null);
   
   React.useEffect(() => {
     if (!isTourActive || !isMobile || tourStep === null) return;
+    
+    const prevStep = prevStepRef.current;
+    prevStepRef.current = tourStep;
     
     // Steps 0 and 2 need sidebar OPEN (New Project button, Demo Project button)
     // Steps 1, 3, 4, 5 need sidebar CLOSED (dialog/main content focus)
     if (tourStep === 0 || tourStep === 2) {
       setOpenMobile(true);
     } else {
-      // Add a small delay when closing to let the UI update after project selection
+      // When transitioning from Step 2 to Step 3, use a longer delay
+      // to allow the project content to load before closing sidebar
+      const delay = prevStep === 2 && tourStep === 3 ? 600 : 100;
       const timer = setTimeout(() => {
         setOpenMobile(false);
-      }, 100);
+      }, delay);
       return () => clearTimeout(timer);
     }
   }, [tourStep, isTourActive, isMobile, setOpenMobile]);
