@@ -88,7 +88,11 @@ const MobileSidebarController = ({ tourStep, isTourActive }: { tourStep: number 
     if (tourStep === 0 || tourStep === 2) {
       setOpenMobile(true);
     } else {
-      setOpenMobile(false);
+      // Add a small delay when closing to let the UI update after project selection
+      const timer = setTimeout(() => {
+        setOpenMobile(false);
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [tourStep, isTourActive, isMobile, setOpenMobile]);
   
