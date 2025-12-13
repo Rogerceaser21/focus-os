@@ -218,9 +218,9 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0"
-        style={{ zIndex: 999999, pointerEvents: 'none' }}
+        style={{ zIndex: 40, pointerEvents: 'none' }}
       >
-        {/* Overlay with spotlight cutout */}
+        {/* Overlay with spotlight cutout - z-index 40 to sit below sidebar (z-51) */}
         <svg className="absolute inset-0 w-full h-full">
           <defs>
             <mask id="projects-spotlight-mask">
@@ -266,14 +266,14 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
           />
         )}
 
-        {/* Tooltip card */}
+        {/* Tooltip card - high z-index to appear above everything */}
         <motion.div
           key={currentStep}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4"
-          style={{ ...tooltipPos, zIndex: 999999, pointerEvents: 'auto' }}
+          style={{ ...tooltipPos, zIndex: 999999, pointerEvents: 'auto', position: 'fixed' }}
         >
           {/* Skip button */}
           <button

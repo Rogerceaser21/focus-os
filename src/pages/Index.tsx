@@ -740,18 +740,17 @@ https://www.skyscanner.com`,
       }
     } else if (action === 'show-move-task') {
       // Step 5 action: Open the task edit dialog to show project selector
-      console.log('[Tour] Opening edit dialog for task');
+      console.log('[Tour] Opening edit dialog for task, projectsTourTask:', projectsTourTask);
       
-      // Ensure projects are refreshed first
-      await fetchProjects();
-      
-      // Find the task in current tasks or use stored reference
-      const taskToEdit = tasks.find(t => t.id === projectsTourTask?.id) || projectsTourTask;
-      if (taskToEdit) {
-        console.log('[Tour] Setting editing task:', taskToEdit.id);
-        setEditingTask(taskToEdit);
+      // Use stored reference directly - it's always valid from tour creation
+      if (projectsTourTask) {
+        console.log('[Tour] Setting editing task:', projectsTourTask.id);
+        // Small delay to ensure UI is ready
+        await new Promise(resolve => setTimeout(resolve, 200));
+        setEditingTask(projectsTourTask);
       } else {
-        console.error('[Tour] Could not find task to edit');
+        console.error('[Tour] projectsTourTask is null - tour data may not have been created properly');
+        toast.error('Tour error: Demo task not found');
       }
     }
   };
