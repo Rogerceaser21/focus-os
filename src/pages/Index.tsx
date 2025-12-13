@@ -117,6 +117,7 @@ const Index = () => {
   const [projectsTourProjects, setProjectsTourProjects] = useState<{id: string, name: string}[]>([]);
   const [projectsTourTask, setProjectsTourTask] = useState<Task | null>(null);
   const [createProjectDialogOpenForTour, setCreateProjectDialogOpenForTour] = useState(false);
+  const [tourCreateDialogOpen, setTourCreateDialogOpen] = useState(false);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences();
   const { triggerParticles, containerRef } = useParticleAnimation({
@@ -665,6 +666,14 @@ https://www.skyscanner.com`,
   };
 
   const handleProjectsTourStepChange = async (step: number, action?: string) => {
+    // Step 1 (index 1) is the color picker step - open the Create Project dialog
+    if (step === 1) {
+      setTourCreateDialogOpen(true);
+    } else {
+      // Close dialog when not on step 1
+      setTourCreateDialogOpen(false);
+    }
+
     if (action === 'click-project' && projectsTourProjects.length > 0) {
       // Step 3: Select the demo project
       setSelectedProjectId(projectsTourProjects[0].id);
@@ -679,6 +688,7 @@ https://www.skyscanner.com`,
   const handleProjectsTourComplete = async () => {
     setShowProjectsTour(false);
     setEditingTask(null);
+    setTourCreateDialogOpen(false);
 
     // Delete demo task
     if (projectsTourTask) {
@@ -992,7 +1002,7 @@ https://www.skyscanner.com`,
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
             {/* Sidebar */}
-            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} />
+            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : undefined} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : undefined} />
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
