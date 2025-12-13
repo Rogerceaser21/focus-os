@@ -101,14 +101,31 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
     };
   }, [isOpen, currentStep]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isCompletingRef.current) return;
     console.log('[ProjectTour] handleNext called, currentStep:', currentStep);
+    
     if (currentStep < tourSteps.length - 1) {
+      const currentStepData = tourSteps[currentStep];
+      
+      // If current step has an action, trigger it BEFORE advancing
+      // This ensures the action completes before we move to the next step
+      if (currentStepData.action) {
+        console.log('[ProjectTour] Triggering action for current step:', currentStepData.action);
+        onStepChange?.(currentStep, currentStepData.action);
+        // Wait for action to complete and UI to update
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+      
       const nextStep = currentStep + 1;
       console.log('[ProjectTour] Moving to step:', nextStep);
       setCurrentStep(nextStep);
-      onStepChange?.(nextStep, tourSteps[nextStep].action);
+      
+      // Only call onStepChange for next step if it doesn't have an action
+      // (actions are triggered when leaving a step, not entering)
+      if (!tourSteps[nextStep].action) {
+        onStepChange?.(nextStep);
+      }
     } else {
       console.log('[ProjectTour] Completing tour');
       handleComplete();
