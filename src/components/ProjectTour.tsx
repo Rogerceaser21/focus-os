@@ -107,18 +107,18 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
     console.log('[ProjectTour] handleNext called, currentStep:', currentStep);
     
     if (currentStep < tourSteps.length - 1) {
-      const currentStepData = tourSteps[currentStep];
       const nextStep = currentStep + 1;
+      const nextStepData = tourSteps[nextStep];
       
-      // If current step has an action, trigger it BEFORE advancing
-      if (currentStepData.action) {
-        console.log('[ProjectTour] Triggering action:', currentStepData.action);
-        // Call with action - this is an action-only call
-        onStepChange?.(currentStep, currentStepData.action);
+      // If NEXT step has an action, trigger it BEFORE advancing
+      // This ensures UI is ready before spotlight tries to find target
+      if (nextStepData.action) {
+        console.log('[ProjectTour] Triggering action for next step:', nextStepData.action);
+        onStepChange?.(nextStep, nextStepData.action);
         
         // Wait for action to complete based on type
-        const delay = currentStepData.action === 'click-project' ? 1000 : 
-                      currentStepData.action === 'show-move-task' ? 1500 : 500;
+        const delay = nextStepData.action === 'click-project' ? 1000 : 
+                      nextStepData.action === 'show-move-task' ? 1500 : 500;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
       
@@ -126,7 +126,6 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
       setCurrentStep(nextStep);
       
       // Notify parent of step change (without action)
-      // Small delay to ensure UI has updated
       await new Promise(resolve => setTimeout(resolve, 100));
       onStepChange?.(nextStep);
     } else {
