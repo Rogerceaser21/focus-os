@@ -239,7 +239,7 @@ export const ProjectSidebar = ({
   if (isActuallyMobile) {
     return (
       <>
-        <Sheet open={openMobile} onOpenChange={setOpenMobile}>
+        <Sheet open={openMobile} onOpenChange={setOpenMobile} modal={!isTourActive}>
           <SheetContent 
             side="left" 
             className="w-[280px] p-0 bg-card/50 backdrop-blur-sm"
