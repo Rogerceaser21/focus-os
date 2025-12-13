@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -210,14 +211,14 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
 
   const tooltipPos = getTooltipPosition();
 
-  return (
+  const tourContent = (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 99999 }}
+        className="fixed inset-0"
+        style={{ zIndex: 999999, pointerEvents: 'none' }}
       >
         {/* Overlay with spotlight cutout */}
         <svg className="absolute inset-0 w-full h-full">
@@ -271,8 +272,8 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto"
-          style={{ ...tooltipPos, zIndex: 100000 }}
+          className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4"
+          style={{ ...tooltipPos, zIndex: 999999, pointerEvents: 'auto' }}
         >
           {/* Skip button */}
           <button
@@ -343,4 +344,7 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
       </motion.div>
     </AnimatePresence>
   );
+
+  // Render in a portal to ensure it's above everything including Sheet dialogs
+  return createPortal(tourContent, document.body);
 };

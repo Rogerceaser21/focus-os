@@ -244,7 +244,6 @@ export const ProjectSidebar = ({
             side="left" 
             className="w-[280px] p-0 bg-card/50 backdrop-blur-sm"
             disableOverlayPointerEvents={isTourActive}
-            disableOutsideInteraction={isTourActive}
           >
             {sidebarContent}
           </SheetContent>
