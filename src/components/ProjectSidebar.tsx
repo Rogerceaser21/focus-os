@@ -236,14 +236,42 @@ export const ProjectSidebar = ({
   );
 
   // On mobile, use Sheet overlay - dialog is OUTSIDE the Sheet
+  // BUT when tour is active, use a simple fixed div to avoid Radix focus/event trapping
   if (isActuallyMobile) {
+    if (isTourActive) {
+      // Tour mode: Bypass Sheet entirely, use simple fixed positioning
+      return (
+        <>
+          {/* Backdrop */}
+          {openMobile && (
+            <div 
+              className="fixed inset-0 z-40 bg-black/80 pointer-events-none"
+              style={{ zIndex: 50 }}
+            />
+          )}
+          {/* Sidebar content */}
+          <div 
+            className={`
+              fixed inset-y-0 left-0 z-50 w-[280px] bg-card/95 backdrop-blur-sm border-r
+              transform transition-transform duration-300 ease-in-out flex flex-col
+              ${openMobile ? 'translate-x-0' : '-translate-x-full'}
+            `}
+            style={{ zIndex: 51 }}
+          >
+            {sidebarContent}
+          </div>
+          {createDialog}
+        </>
+      );
+    }
+    
+    // Normal mode: Use Sheet
     return (
       <>
-        <Sheet open={openMobile} onOpenChange={setOpenMobile} modal={!isTourActive}>
+        <Sheet open={openMobile} onOpenChange={setOpenMobile}>
           <SheetContent 
             side="left" 
             className="w-[280px] p-0 bg-card/50 backdrop-blur-sm"
-            disableOverlayPointerEvents={isTourActive}
           >
             {sidebarContent}
           </SheetContent>
