@@ -77,23 +77,30 @@ const ProjectsFAB = () => {
 };
 
 // Mobile sidebar controller for Projects Tour - must be inside SidebarProvider
-const MobileSidebarController = ({ tourStep, isTourActive }: { tourStep: number | null; isTourActive: boolean }) => {
+const MobileSidebarController = ({ tourStep, isTourActive, currentTourStep }: { tourStep: number | null; isTourActive: boolean; currentTourStep: number }) => {
   const { setOpenMobile, isMobile } = useSidebar();
   
   React.useEffect(() => {
-    if (!isTourActive || !isMobile || tourStep === null) return;
+    if (!isTourActive || !isMobile) return;
     
-    // Simple rule: Steps 0 and 2 need sidebar OPEN, all others CLOSED
-    if (tourStep === 0 || tourStep === 2) {
+    // Use currentTourStep (the actual displayed step) not tourStep (last processed)
+    const activeStep = currentTourStep;
+    
+    console.log('[MobileSidebarController] activeStep:', activeStep);
+    
+    // Steps that need sidebar OPEN: 0 (new-project-button) and 2 (demo-project)
+    if (activeStep === 0 || activeStep === 2) {
+      console.log('[MobileSidebarController] Opening sidebar for step:', activeStep);
       setOpenMobile(true);
     } else {
       // Use consistent 500ms delay to ensure content loads before closing
       const timer = setTimeout(() => {
+        console.log('[MobileSidebarController] Closing sidebar for step:', activeStep);
         setOpenMobile(false);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [tourStep, isTourActive, isMobile, setOpenMobile]);
+  }, [currentTourStep, isTourActive, isMobile, setOpenMobile]);
   
   return null;
 };
@@ -136,6 +143,7 @@ const Index = () => {
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [showProjectsTour, setShowProjectsTour] = useState(false);
+  const [projectsTourCurrentStep, setProjectsTourCurrentStep] = useState(0);
   const [projectsTourProjects, setProjectsTourProjects] = useState<{id: string, name: string}[]>([]);
   const [projectsTourTask, setProjectsTourTask] = useState<Task | null>(null);
   const [createProjectDialogOpenForTour, setCreateProjectDialogOpenForTour] = useState(false);
@@ -686,11 +694,17 @@ https://www.skyscanner.com`,
     
     // Start the tour
     setLastProcessedTourStep(null);
+    setProjectsTourCurrentStep(0);
     setShowProjectsTour(true);
   };
 
   const handleProjectsTourStepChange = async (step: number, action?: string) => {
     console.log('[Tour] Step change called:', { step, action, lastProcessedTourStep });
+    
+    // Always update the current displayed step (for sidebar controller)
+    if (!action) {
+      setProjectsTourCurrentStep(step);
+    }
     
     // If action is provided, this is an action-only call - don't update lastProcessedTourStep
     // Only update lastProcessedTourStep for actual step transitions (no action)
@@ -714,11 +728,16 @@ https://www.skyscanner.com`,
       setTourCreateDialogOpen(false);
     }
 
-    if (action === 'click-project' && projectsTourProjects.length > 0) {
-      // Step 2 action: Select the demo project
-      setSelectedProjectId(projectsTourProjects[0].id);
-      setSelectedSpecialList(null);
-      await fetchTasks();
+    if (action === 'click-project') {
+      console.log('[Tour] click-project action, projectsTourProjects:', projectsTourProjects);
+      if (projectsTourProjects.length > 0) {
+        // Step 2 action: Select the demo project
+        setSelectedProjectId(projectsTourProjects[0].id);
+        setSelectedSpecialList(null);
+        await fetchTasks();
+      } else {
+        console.error('[Tour] No demo projects available for click-project action');
+      }
     } else if (action === 'show-move-task') {
       // Step 5 action: Open the task edit dialog to show project selector
       console.log('[Tour] Opening edit dialog for task');
@@ -764,6 +783,7 @@ https://www.skyscanner.com`,
     setProjectsTourTask(null);
     setProjectsTourProjects([]);
     setLastProcessedTourStep(null);
+    setProjectsTourCurrentStep(0);
 
     // Mark tour as complete
     await markProjectsTourComplete();
@@ -1047,7 +1067,7 @@ https://www.skyscanner.com`,
   ];
 
   return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} />
+      <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} />
       <div className="min-h-screen flex w-full relative">
         <div ref={containerRef} className="dock-particle-container" />
         <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />
