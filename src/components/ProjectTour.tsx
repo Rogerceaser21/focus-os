@@ -153,9 +153,21 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
 
   const step = tourSteps[currentStep];
   const padding = 8;
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   // Calculate tooltip position based on step preference
-  const getTooltipPosition = () => {
+  const getTooltipPosition = (): React.CSSProperties => {
+    // On mobile, always position at the bottom of the screen for reliability
+    if (isMobile) {
+      return { 
+        left: '50%', 
+        bottom: '16px',
+        top: 'auto',
+        transform: 'translateX(-50%)',
+        position: 'fixed'
+      };
+    }
+
     if (!targetRect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
 
     const tooltipWidth = 320;
@@ -263,8 +275,8 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto"
-          style={{ ...tooltipPos, zIndex: 100000 }}
+          className={`w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto ${isMobile ? 'fixed' : 'absolute'}`}
+          style={{ ...tooltipPos, zIndex: 100002 }}
         >
           {/* Skip button */}
           <button
