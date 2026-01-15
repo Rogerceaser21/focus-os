@@ -23,16 +23,16 @@ interface TaskListItemProps {
 }
 
 const priorityColors = {
-  low: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  high: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-  urgent: 'bg-red-500/20 text-red-300 border-red-500/30',
+  low: 'bg-secondary/70 text-foreground border-border',
+  medium: 'bg-accent/20 text-foreground border-accent/30',
+  high: 'bg-primary/15 text-foreground border-primary/25',
+  urgent: 'bg-destructive/15 text-foreground border-destructive/25',
 };
 
 const statusColors = {
-  'todo': 'bg-slate-500/20 text-slate-300 border-slate-500/30',
-  'in-progress': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  'completed': 'bg-green-500/20 text-green-300 border-green-500/30',
+  todo: 'bg-muted text-foreground border-border',
+  'in-progress': 'bg-primary/15 text-foreground border-primary/25',
+  completed: 'bg-secondary text-foreground border-border',
 };
 
 export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
@@ -233,7 +233,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
     <>
       <div 
         data-task-card
-        className={`group w-full border border-white/10 bg-card/50 rounded-lg p-1.5 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
+        className={`group w-full border border-border bg-card/50 rounded-lg p-1.5 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
         onClick={isMobile && globalViewMode === 'compact' ? undefined : onTaskClick}
       >
         {/* Mobile/Tablet Layout */}
@@ -379,13 +379,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
                 onClick={(e) => { e.stopPropagation(); onEditTask?.(task); }}
                 className={`p-1 rounded transition-colors relative ${
                   task.images && task.images.length > 0
-                    ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
-                    : 'text-white/50 border border-white/30'
+                    ? 'text-primary border border-primary bg-primary/15'
+                    : 'text-muted-foreground border border-border bg-muted/20'
                 }`}
               >
                 <Image className="w-3 h-3" />
                 {task.images && task.images.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] rounded-full w-3 h-3 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] rounded-full w-3 h-3 flex items-center justify-center">
                     {task.images.length}
                   </span>
                 )}
@@ -535,13 +535,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
                 onClick={() => onEditTask?.(task)}
                 className={`p-1.5 rounded transition-colors relative ${
                   task.images && task.images.length > 0
-                    ? 'text-blue-500 border border-blue-500 bg-blue-500/20' 
-                    : 'text-white/50 border border-white/30'
+                    ? 'text-primary border border-primary bg-primary/15'
+                    : 'text-muted-foreground border border-border bg-muted/20'
                 }`}
               >
                 <Image className="w-4 h-4" />
                 {task.images && task.images.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] rounded-full w-3 h-3 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] rounded-full w-3 h-3 flex items-center justify-center">
                     {task.images.length}
                   </span>
                 )}
