@@ -45,7 +45,8 @@ export default function SettingsDialog({
   loading,
   onSave,
 }: SettingsDialogProps) {
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
+  const [selectedTheme, setSelectedTheme] = useState<'dark' | 'light'>('dark');
   const [defaultView, setDefaultView] = useState<string>('today');
   const [displayMode, setDisplayMode] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -59,8 +60,16 @@ export default function SettingsDialog({
       setDisplayMode(preferences.default_display_mode);
       setTaskFilter(preferences.default_task_filter);
       setTaskCardView(preferences.default_task_card_view || 'full');
+      setSelectedTheme(preferences.theme || 'dark');
     }
   }, [preferences]);
+
+  // Apply theme immediately when changed
+  const handleThemeChange = (value: string) => {
+    const newTheme = value as 'dark' | 'light';
+    setSelectedTheme(newTheme);
+    setTheme(newTheme);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -69,6 +78,7 @@ export default function SettingsDialog({
       default_display_mode: displayMode,
       default_task_filter: taskFilter,
       default_task_card_view: taskCardView,
+      theme: selectedTheme,
     });
     setSaving(false);
     onOpenChange(false);
@@ -98,7 +108,7 @@ export default function SettingsDialog({
               <p className="text-sm text-muted-foreground">
                 Choose your preferred color theme
               </p>
-              <RadioGroup value={theme} onValueChange={setTheme}>
+              <RadioGroup value={selectedTheme} onValueChange={handleThemeChange}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="dark" id="theme-dark" />
                   <Label htmlFor="theme-dark" className="font-normal cursor-pointer">
