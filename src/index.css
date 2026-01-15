@@ -22,7 +22,7 @@ All colors MUST be HSL.
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 20% 85%;
-    --secondary-foreground: 186 70% 35%;
+    --secondary-foreground: 186 80% 25%;
 
     --muted: 0 0% 88%;
     --muted-foreground: 0 0% 40%;
@@ -48,7 +48,7 @@ All colors MUST be HSL.
     --sidebar-primary: 186 80% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 85%;
-    --sidebar-accent-foreground: 186 70% 35%;
+    --sidebar-accent-foreground: 186 80% 25%;
     --sidebar-border: 0 0% 75%;
     --sidebar-ring: 186 80% 40%;
 
