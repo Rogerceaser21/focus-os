@@ -120,6 +120,7 @@ export type Database = {
           has_completed_projects_tour: boolean
           has_completed_task_tour: boolean
           id: string
+          theme: string
           updated_at: string | null
           user_id: string
         }
@@ -133,6 +134,7 @@ export type Database = {
           has_completed_projects_tour?: boolean
           has_completed_task_tour?: boolean
           id?: string
+          theme?: string
           updated_at?: string | null
           user_id: string
         }
@@ -146,6 +148,7 @@ export type Database = {
           has_completed_projects_tour?: boolean
           has_completed_task_tour?: boolean
           id?: string
+          theme?: string
           updated_at?: string | null
           user_id?: string
         }

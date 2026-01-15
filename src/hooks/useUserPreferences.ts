@@ -9,6 +9,7 @@ export interface UserPreferences {
   default_display_mode: 'list' | 'grid' | 'gantt' | 'time';
   default_task_filter: 'all' | 'todo' | 'in-progress' | 'completed';
   default_task_card_view: 'full' | 'compact';
+  theme: 'dark' | 'light';
   has_completed_onboarding: boolean;
   has_completed_task_tour: boolean;
   has_completed_projects_tour: boolean;
@@ -57,6 +58,7 @@ export const useUserPreferences = () => {
           default_display_mode: 'list',
           default_task_filter: 'all',
           default_task_card_view: 'full',
+          theme: 'dark',
           has_completed_onboarding: false,
           has_completed_task_tour: false,
           has_completed_projects_tour: false

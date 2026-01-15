@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTheme } from 'next-themes';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -151,6 +152,7 @@ const Index = () => {
   const [lastProcessedTourStep, setLastProcessedTourStep] = useState<number | null>(null);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences();
+  const { setTheme } = useTheme();
   const { triggerParticles, containerRef } = useParticleAnimation({
     particleCount: 12,
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
@@ -476,6 +478,11 @@ const Index = () => {
       // Apply task card view
       if (preferences.default_task_card_view) {
         setGlobalCardView(preferences.default_task_card_view);
+      }
+      
+      // Apply theme
+      if (preferences.theme) {
+        setTheme(preferences.theme);
       }
       
       setPreferencesLoaded(true);
