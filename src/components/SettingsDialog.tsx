@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ export default function SettingsDialog({
   loading,
   onSave,
 }: SettingsDialogProps) {
+  const { theme, setTheme } = useTheme();
   const [defaultView, setDefaultView] = useState<string>('today');
   const [displayMode, setDisplayMode] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -90,6 +92,30 @@ export default function SettingsDialog({
           </div>
         ) : (
           <div className="space-y-6 py-4 overflow-y-auto flex-1 pr-2">
+            {/* Theme Selection */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Theme</Label>
+              <p className="text-sm text-muted-foreground">
+                Choose your preferred color theme
+              </p>
+              <RadioGroup value={theme} onValueChange={setTheme}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="dark" id="theme-dark" />
+                  <Label htmlFor="theme-dark" className="font-normal cursor-pointer">
+                    Dark
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="light" id="theme-light" />
+                  <Label htmlFor="theme-light" className="font-normal cursor-pointer">
+                    Light
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
             {/* Default View Selection */}
             <div className="space-y-3">
               <Label htmlFor="default-view" className="text-base font-semibold">
