@@ -20,16 +20,16 @@ interface TaskCardProps {
 }
 
 const priorityColors = {
-  low: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  high: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-  urgent: 'bg-red-500/20 text-red-300 border-red-500/30',
+  low: 'bg-secondary/70 text-foreground border-border',
+  medium: 'bg-accent/20 text-foreground border-accent/30',
+  high: 'bg-primary/15 text-foreground border-primary/25',
+  urgent: 'bg-destructive/15 text-foreground border-destructive/25',
 };
 
 const statusColors = {
-  'todo': 'bg-muted/50 text-muted-foreground border-muted-foreground/20',
-  'in-progress': 'bg-primary/20 text-primary border-primary/30',
-  'completed': 'bg-success/20 text-success border-success/30'
+  todo: 'bg-muted text-foreground border-border',
+  'in-progress': 'bg-primary/15 text-foreground border-primary/25',
+  completed: 'bg-secondary text-foreground border-border',
 };
 
 export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCardProps) => {
