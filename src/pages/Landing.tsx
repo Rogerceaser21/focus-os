@@ -35,31 +35,31 @@ const Landing = () => {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
       
-      {/* Auth buttons - top right */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 flex gap-3">
-        <Button 
-          variant="outline" 
-          onClick={() => navigate('/auth')}
-          className="glass-subtle"
-        >
-          Sign In
-        </Button>
-        <Button 
-          onClick={() => navigate('/auth')}
-        >
-          Get Started
-        </Button>
-      </div>
-
       {/* Main content with video */}
-      <main className="relative z-10 flex-1 flex flex-col items-center pt-16 sm:pt-20 px-4 pb-8">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3">
-            Focus OS, Stress Less.
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            Voice-powered task management with visual planning and time tracking
-          </p>
+      <main className="relative z-10 flex flex-col items-center pt-4 sm:pt-6 px-4 pb-8">
+        <div className="w-full max-w-4xl flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-2">
+              Focus OS, Stress Less.
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-xl">
+              Voice-powered task management with visual planning and time tracking
+            </p>
+          </div>
+          <div className="flex gap-3 shrink-0">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/auth')}
+              className="glass-subtle"
+            >
+              Sign In
+            </Button>
+            <Button 
+              onClick={() => navigate('/auth')}
+            >
+              Get Started
+            </Button>
+          </div>
         </div>
 
         {/* Video container */}
