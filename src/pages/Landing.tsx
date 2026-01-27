@@ -66,7 +66,7 @@ const Landing = () => {
         </div>
 
         {/* Video container */}
-        <div className="w-full max-w-2xl glass-card rounded-2xl overflow-hidden shadow-2xl">
+        <div className="w-full max-w-lg glass-card rounded-2xl overflow-hidden shadow-2xl">
           <video
             className="w-full h-auto"
             controls
