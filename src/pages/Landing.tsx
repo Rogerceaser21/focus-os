@@ -38,9 +38,9 @@ const Landing = () => {
       {/* Main content with video */}
       <main className="relative z-10 flex flex-col items-center pt-4 sm:pt-6 px-4 pb-8">
         {/* 3-column grid: buttons left, headline center, empty right */}
-        <div className="w-full max-w-5xl grid grid-cols-3 items-start gap-4 mb-6">
-          {/* Left - buttons */}
-          <div className="flex gap-3">
+        <div className="w-full max-w-5xl grid grid-cols-[auto_1fr_auto] items-start gap-4 mb-6">
+          {/* Left - buttons stacked */}
+          <div className="flex flex-col gap-2">
             <Button 
               variant="outline" 
               onClick={() => navigate('/auth')}
@@ -57,16 +57,16 @@ const Landing = () => {
           
           {/* Center - headline */}
           <div className="text-center">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-2">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-2 whitespace-nowrap">
               Focus OS, Stress Less.
-            </h2>
-            <p className="text-muted-foreground text-lg">
+            </h1>
+            <p className="text-muted-foreground text-sm sm:text-lg whitespace-nowrap">
               Voice-powered task management with visual planning and time tracking
             </p>
           </div>
           
           {/* Right - empty spacer */}
-          <div></div>
+          <div className="w-[100px]"></div>
         </div>
 
         {/* Video container */}
