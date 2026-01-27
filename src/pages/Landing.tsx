@@ -35,30 +35,27 @@ const Landing = () => {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
       
-      {/* Header with auth buttons */}
-      <header className="relative z-10 flex justify-between items-center p-4 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Focus OS</h1>
-        <div className="flex gap-3">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/auth')}
-            className="glass-subtle"
-          >
-            Sign In
-          </Button>
-          <Button 
-            onClick={() => navigate('/auth')}
-          >
-            Get Started
-          </Button>
-        </div>
-      </header>
+      {/* Auth buttons - top right */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 flex gap-3">
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/auth')}
+          className="glass-subtle"
+        >
+          Sign In
+        </Button>
+        <Button 
+          onClick={() => navigate('/auth')}
+        >
+          Get Started
+        </Button>
+      </div>
 
       {/* Main content with video */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pb-8">
+      <main className="relative z-10 flex-1 flex flex-col items-center pt-16 sm:pt-20 px-4 pb-8">
         <div className="text-center mb-8">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3">
-            Plan your day, the magic way
+            Focus OS, Stress Less.
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
             Voice-powered task management with visual planning and time tracking
