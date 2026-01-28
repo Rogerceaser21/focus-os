@@ -38,7 +38,7 @@ const Landing = () => {
       {/* Main content with video */}
       <main className="relative z-10 flex flex-col items-center pt-4 sm:pt-6 px-4 pb-8">
         {/* 3-column grid: buttons left, headline center, empty right */}
-        <div className="w-full max-w-5xl grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] items-start gap-4 mb-6">
+        <div className="w-full max-w-5xl grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] items-start gap-4 mb-0 sm:mb-6">
           {/* Left - buttons stacked (hidden on mobile) */}
           <div className="hidden sm:flex flex-col gap-2">
             <Button 
@@ -57,7 +57,7 @@ const Landing = () => {
           
           {/* Center - headline */}
           <div className="text-center">
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-2 whitespace-nowrap">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-0 sm:mb-2 whitespace-nowrap">
               Focus OS, Stress Less.
             </h1>
             <p className="hidden sm:block text-muted-foreground text-sm sm:text-lg whitespace-nowrap">
