@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import DarkVeil from '@/components/DarkVeil';
@@ -7,6 +7,13 @@ import DarkVeil from '@/components/DarkVeil';
 const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handlePlay = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+    }
+  };
 
   useEffect(() => {
     if (!loading && user) {
@@ -72,6 +79,7 @@ const Landing = () => {
         {/* Video container */}
         <div className="w-full max-w-lg glass-card rounded-2xl overflow-hidden shadow-2xl">
           <video
+            ref={videoRef}
             className="w-full h-auto"
             controls
             autoPlay
@@ -79,6 +87,7 @@ const Landing = () => {
             loop
             playsInline
             poster=""
+            onPlay={handlePlay}
           >
             <source src="/Focus_Os_Intro.mp4" type="video/mp4" />
             Your browser does not support the video tag.
