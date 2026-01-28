@@ -38,9 +38,9 @@ const Landing = () => {
       {/* Main content with video */}
       <main className="relative z-10 flex flex-col items-center pt-4 sm:pt-6 px-4 pb-8">
         {/* 3-column grid: buttons left, headline center, empty right */}
-        <div className="w-full max-w-5xl grid grid-cols-[auto_1fr_auto] items-start gap-4 mb-6">
-          {/* Left - buttons stacked */}
-          <div className="flex flex-col gap-2">
+        <div className="w-full max-w-5xl grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] items-start gap-4 mb-6">
+          {/* Left - buttons stacked (hidden on mobile) */}
+          <div className="hidden sm:flex flex-col gap-2">
             <Button 
               variant="outline" 
               onClick={() => navigate('/auth')}
@@ -60,7 +60,7 @@ const Landing = () => {
             <h1 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-2 whitespace-nowrap">
               Focus OS, Stress Less.
             </h1>
-            <p className="text-muted-foreground text-sm sm:text-lg whitespace-nowrap">
+            <p className="hidden sm:block text-muted-foreground text-sm sm:text-lg whitespace-nowrap">
               Voice-powered task management with visual planning and time tracking
             </p>
           </div>
@@ -87,14 +87,23 @@ const Landing = () => {
 
         {/* CTA below video */}
         <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center">
-          <Button 
-            size="lg" 
-            onClick={() => navigate('/auth')}
-            className="text-lg px-8"
-          >
-            Start Free Today
-          </Button>
-          <p className="text-sm text-muted-foreground">No credit card required</p>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/auth')}
+              className="sm:hidden glass-subtle"
+            >
+              Sign In
+            </Button>
+            <Button 
+              size="lg" 
+              onClick={() => navigate('/auth')}
+              className="text-lg px-8"
+            >
+              Start Free Today
+            </Button>
+          </div>
+          <p className="hidden sm:block text-sm text-muted-foreground">No credit card required</p>
         </div>
       </main>
     </div>
