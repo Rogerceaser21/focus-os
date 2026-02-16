@@ -83,7 +83,7 @@ export function useBrainDumpLive() {
           setup: {
             model,
             generationConfig: {
-              responseModalities: ["TEXT"],
+              responseModalities: ["AUDIO"],
               temperature: 0.3,
             },
             systemInstruction: {
