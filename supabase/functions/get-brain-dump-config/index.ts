@@ -51,7 +51,7 @@ serve(async (req) => {
       JSON.stringify({
         apiKey: geminiApiKey,
         wsUrl: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent",
-        model: "models/gemini-2.5-flash-native-audio-preview",
+        model: "gemini-2.5-flash-native-audio-preview-12-2025",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
