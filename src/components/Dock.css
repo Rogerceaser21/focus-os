@@ -61,7 +61,7 @@
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 50%;
-  background: conic-gradient(from 0deg, hsl(186 80% 55%), hsl(270 80% 60%), hsl(14 90% 65%), hsl(186 80% 55%));
+  background: hsl(var(--primary));
   padding: 3px;
   outline: none;
   overflow: visible;

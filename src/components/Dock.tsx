@@ -142,8 +142,8 @@ export default function Dock({
             {items.map((item, index) => (
               <div 
                 key={index} 
-                className="dock-permanent-label"
-                style={{ width: baseItemSize, textAlign: 'center' }}
+                className="dock-permanent-label flex items-center justify-center"
+                style={{ minWidth: baseItemSize }}
               >
                 {item.permanentLabel}
               </div>
