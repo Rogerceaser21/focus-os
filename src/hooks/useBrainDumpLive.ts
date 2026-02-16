@@ -72,6 +72,7 @@ export function useBrainDumpLive() {
       wsRef.current = ws;
 
       ws.onopen = () => {
+        console.log('WebSocket opened, sending setup for model:', model);
         // Send setup message
         const modeInstructions = mode === 'new-project'
           ? 'The user is brain-dumping ideas for a NEW project. Extract a project name and individual tasks. Use add_task for each task you identify. Listen carefully and extract actionable tasks from what the user says.'
@@ -242,9 +243,14 @@ IMPORTANT RULES:
 
       ws.onclose = (e) => {
         console.log('WebSocket closed:', e.code, e.reason);
-        if (e.code !== 1000) {
-          setConnectionState('idle');
-        }
+        // If we never reached 'listening', the connection failed
+        setConnectionState(prev => {
+          if (prev === 'connecting') {
+            console.error('WebSocket closed before setup completed. Code:', e.code, 'Reason:', e.reason);
+            return 'error';
+          }
+          return 'idle';
+        });
       };
     } catch (error: any) {
       console.error('Brain dump start error:', error);
