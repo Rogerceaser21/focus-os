@@ -75,7 +75,7 @@ export function useBrainDumpLive() {
       if (error || !data?.apiKey) {
         throw new Error(error?.message || 'Failed to get config');
       }
-      const { apiKey } = data;
+      const { apiKey, model: configModel } = data;
 
       // 2. Get mic access
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -149,7 +149,7 @@ IMPORTANT RULES:
       const ai = new GoogleGenAI({ apiKey });
 
       const session = await ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview',
+        model: configModel || 'gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
           responseModalities: [Modality.AUDIO],
           systemInstruction,
