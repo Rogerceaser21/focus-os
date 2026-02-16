@@ -8,9 +8,17 @@ export interface BrainDumpTask {
   title: string;
   description?: string;
   priority: TaskPriority;
+  destination: 'today' | 'existing-project' | 'new-project';
+  projectName?: string; // For existing or new project
+  projectId?: string;   // For existing project match
 }
 
 type ConnectionState = 'idle' | 'connecting' | 'listening' | 'error';
+
+export interface ProjectInfo {
+  id: string;
+  name: string;
+}
 
 // Audio helpers
 function createPcmBlob(float32Data: Float32Array): { mimeType: string; data: string } {
@@ -30,7 +38,6 @@ function createPcmBlob(float32Data: Float32Array): { mimeType: string; data: str
 export function useBrainDumpLive() {
   const [tasks, setTasks] = useState<BrainDumpTask[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
-  const [transcript, setTranscript] = useState('');
 
   const sessionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -38,6 +45,8 @@ export function useBrainDumpLive() {
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const taskCounterRef = useRef(0);
+  const projectsRef = useRef<ProjectInfo[]>([]);
+  const newProjectsRef = useRef<Map<string, string>>(new Map()); // normalized name -> display name
 
   const cleanup = useCallback(() => {
     if (processorRef.current) {
@@ -63,11 +72,12 @@ export function useBrainDumpLive() {
     return cleanup;
   }, [cleanup]);
 
-  const start = useCallback(async (mode: 'new-project' | 'existing-project' | 'today') => {
+  const start = useCallback(async (projects: ProjectInfo[]) => {
     setConnectionState('connecting');
     setTasks([]);
-    setTranscript('');
     taskCounterRef.current = 0;
+    projectsRef.current = projects;
+    newProjectsRef.current = new Map();
 
     try {
       // 1. Get API key from edge function
@@ -83,38 +93,76 @@ export function useBrainDumpLive() {
       });
       streamRef.current = stream;
 
-      // 3. Build system instruction based on mode
-      const modeInstructions = mode === 'new-project'
-        ? 'The user is brain-dumping ideas for a NEW project. Extract individual tasks. Use add_task for each task you identify.'
-        : mode === 'today'
-        ? 'The user is brain-dumping tasks for their today to-do list. Use add_task for each task you identify. Focus on actionable daily tasks.'
-        : 'The user is adding tasks to an existing project. Use add_task for each task you identify.';
+      // 3. Build system instruction with project list
+      const projectListStr = projects.length > 0
+        ? `\nExisting projects: ${projects.map(p => `"${p.name}"`).join(', ')}`
+        : '\nNo existing projects yet.';
 
-      const systemInstruction = `You are a task extraction assistant for a productivity app called "Brain Dump". ${modeInstructions}
+      const systemInstruction = `You are a task extraction assistant for a productivity app called "Brain Dump". The user will speak freely about tasks they need to do. Your job is to extract tasks and route them to the correct destination.
+${projectListStr}
 
-IMPORTANT RULES:
-- Call add_task immediately when you identify a task from the user's speech
+ROUTING RULES:
+- If the user mentions a specific existing project name, use add_task_to_project with that project's name
+- If the user says "new project" or mentions a project that doesn't exist, use create_project_and_add_task
+- If no project context is given, default to add_task_to_today
+- Act decisively. Do NOT ask clarifying questions. Just pick the best match.
+- If a project name is close but not exact (e.g. "marketing" vs "Marketing Plan"), match to the closest existing project
+
+TASK EXTRACTION RULES:
+- Call the appropriate tool immediately when you identify a task
 - Extract clear, actionable task titles (keep them concise, under 10 words)
 - Add a brief description if the user provides additional context
 - Assign priority based on urgency cues: "urgent", "important", "ASAP" → urgent/high; normal items → medium; "whenever", "nice to have" → low
 - Do NOT wait for the user to finish speaking before extracting tasks
-- You are in SILENT mode. Do NOT speak unless absolutely necessary to clarify an ambiguity. Execute tools and output as little audio as possible.
-- If the user corrects or removes a task, use update_task or remove_task accordingly`;
 
-      // 4. Define tools using SDK types
+CORRECTION RULES:
+- If the user corrects or removes a task, use update_task or remove_task accordingly
+
+SILENT MODE:
+- You are in SILENT mode. Do NOT speak. Execute tools and output as little audio as possible.`;
+
+      // 4. Define tools
       const tools = [{
         functionDeclarations: [
           {
-            name: 'add_task',
-            description: 'Add a new task identified from the user\'s speech',
+            name: 'add_task_to_today',
+            description: "Add a task to today's to-do list. Use when no specific project is mentioned.",
             parameters: {
               type: Type.OBJECT,
               properties: {
                 title: { type: Type.STRING, description: 'Concise task title (under 10 words)' },
-                description: { type: Type.STRING, description: 'Brief task description with additional context' },
+                description: { type: Type.STRING, description: 'Brief task description' },
                 priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
               },
               required: ['title', 'priority'],
+            },
+          },
+          {
+            name: 'add_task_to_project',
+            description: 'Add a task to an existing project. Use when the user mentions a known project.',
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING, description: 'Concise task title (under 10 words)' },
+                description: { type: Type.STRING, description: 'Brief task description' },
+                priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
+                project_name: { type: Type.STRING, description: 'Name of the existing project to add the task to' },
+              },
+              required: ['title', 'priority', 'project_name'],
+            },
+          },
+          {
+            name: 'create_project_and_add_task',
+            description: 'Create a new project and add a task to it. Use when the user mentions a project that does not exist or explicitly says "new project".',
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING, description: 'Concise task title (under 10 words)' },
+                description: { type: Type.STRING, description: 'Brief task description' },
+                priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
+                project_name: { type: Type.STRING, description: 'Name for the new project' },
+              },
+              required: ['title', 'priority', 'project_name'],
             },
           },
           {
@@ -183,7 +231,6 @@ IMPORTANT RULES:
             processor.connect(inputCtx.destination);
           },
           onmessage: async (message: any) => {
-            // Handle tool calls
             if (message.toolCall) {
               const functionCalls = message.toolCall.functionCalls || [];
               for (const fc of functionCalls) {
@@ -192,16 +239,58 @@ IMPORTANT RULES:
 
                 let result: any = { result: 'ok' };
 
-                if (fc.name === 'add_task') {
+                if (fc.name === 'add_task_to_today') {
                   const taskId = `brain-dump-${++taskCounterRef.current}`;
                   const newTask: BrainDumpTask = {
                     id: taskId,
                     title: args.title || 'Untitled Task',
                     description: args.description,
                     priority: (args.priority as TaskPriority) || 'medium',
+                    destination: 'today',
                   };
                   setTasks(prev => [...prev, newTask]);
                   result = { result: 'ok', task_id: taskId };
+
+                } else if (fc.name === 'add_task_to_project') {
+                  const projectName = args.project_name || '';
+                  // Find matching project (case-insensitive)
+                  const match = projectsRef.current.find(
+                    p => p.name.toLowerCase() === projectName.toLowerCase()
+                  );
+                  const taskId = `brain-dump-${++taskCounterRef.current}`;
+                  const newTask: BrainDumpTask = {
+                    id: taskId,
+                    title: args.title || 'Untitled Task',
+                    description: args.description,
+                    priority: (args.priority as TaskPriority) || 'medium',
+                    destination: match ? 'existing-project' : 'today',
+                    projectName: match?.name || projectName,
+                    projectId: match?.id,
+                  };
+                  setTasks(prev => [...prev, newTask]);
+                  result = { result: 'ok', task_id: taskId, matched_project: match?.name || 'none' };
+
+                } else if (fc.name === 'create_project_and_add_task') {
+                  const projectName = args.project_name || 'New Project';
+                  const normalizedName = projectName.toLowerCase().trim();
+                  
+                  // Track new project names for grouping
+                  if (!newProjectsRef.current.has(normalizedName)) {
+                    newProjectsRef.current.set(normalizedName, projectName);
+                  }
+
+                  const taskId = `brain-dump-${++taskCounterRef.current}`;
+                  const newTask: BrainDumpTask = {
+                    id: taskId,
+                    title: args.title || 'Untitled Task',
+                    description: args.description,
+                    priority: (args.priority as TaskPriority) || 'medium',
+                    destination: 'new-project',
+                    projectName: newProjectsRef.current.get(normalizedName) || projectName,
+                  };
+                  setTasks(prev => [...prev, newTask]);
+                  result = { result: 'ok', task_id: taskId, new_project: projectName };
+
                 } else if (fc.name === 'update_task') {
                   const searchPhrase = (args.searchPhrase || '').toLowerCase();
                   setTasks(prev => prev.map(t => {
@@ -215,6 +304,7 @@ IMPORTANT RULES:
                     }
                     return t;
                   }));
+
                 } else if (fc.name === 'remove_task') {
                   const searchPhrase = (args.searchPhrase || '').toLowerCase();
                   setTasks(prev => prev.filter(t => !t.title.toLowerCase().includes(searchPhrase)));
@@ -269,14 +359,13 @@ IMPORTANT RULES:
 
   const resetTasks = useCallback(() => {
     setTasks([]);
-    setTranscript('');
     taskCounterRef.current = 0;
+    newProjectsRef.current = new Map();
   }, []);
 
   return {
     tasks,
     connectionState,
-    transcript,
     start,
     stop,
     updateTask,

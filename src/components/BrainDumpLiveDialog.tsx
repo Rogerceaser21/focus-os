@@ -1,29 +1,20 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Mic, MicOff, Loader2, Check, X, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, Loader2, Check, X, AlertCircle, Calendar, FolderPlus, FolderOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TaskListItem } from '@/components/TaskListItem';
-import { useBrainDumpLive, BrainDumpTask } from '@/hooks/useBrainDumpLive';
+import { useBrainDumpLive, BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Task, TaskPriority } from '@/types/task';
-
-type BrainDumpMode = 'new-project' | 'existing-project' | 'today';
 
 interface BrainDumpLiveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mode: BrainDumpMode;
   userId: string;
-  // For new-project mode
+  projects: ProjectInfo[];
   onProjectCreated?: (newProjectId: string) => void;
-  // For existing-project mode
-  selectedProjectId?: string | null;
-  selectedProjectName?: string;
-  // For all modes
   onTasksCreated: () => void;
   onRecordingChange?: (isRecording: boolean) => void;
 }
@@ -31,16 +22,13 @@ interface BrainDumpLiveDialogProps {
 export const BrainDumpLiveDialog = ({
   open,
   onOpenChange,
-  mode,
   userId,
+  projects,
   onProjectCreated,
-  selectedProjectId,
-  selectedProjectName,
   onTasksCreated,
   onRecordingChange,
 }: BrainDumpLiveDialogProps) => {
   const { tasks, connectionState, start, stop, updateTask, removeTask, resetTasks } = useBrainDumpLive();
-  const [projectName, setProjectName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDone, setIsDone] = useState(false);
 
@@ -49,9 +37,41 @@ export const BrainDumpLiveDialog = ({
     onRecordingChange?.(connectionState === 'listening');
   }, [connectionState, onRecordingChange]);
 
+  // Group tasks by destination
+  const groupedTasks = useMemo(() => {
+    const groups: Record<string, { label: string; icon: 'today' | 'existing' | 'new'; tasks: BrainDumpTask[] }> = {};
+
+    for (const task of tasks) {
+      let key: string;
+      let label: string;
+      let icon: 'today' | 'existing' | 'new';
+
+      if (task.destination === 'today') {
+        key = '__today__';
+        label = "Today's To-Do";
+        icon = 'today';
+      } else if (task.destination === 'existing-project') {
+        key = `existing:${task.projectId}`;
+        label = task.projectName || 'Project';
+        icon = 'existing';
+      } else {
+        key = `new:${(task.projectName || '').toLowerCase().trim()}`;
+        label = task.projectName || 'New Project';
+        icon = 'new';
+      }
+
+      if (!groups[key]) {
+        groups[key] = { label, icon, tasks: [] };
+      }
+      groups[key].tasks.push(task);
+    }
+
+    return groups;
+  }, [tasks]);
+
   const handleStart = async () => {
     try {
-      await start(mode);
+      await start(projects);
     } catch (error: any) {
       let errorMessage = 'Could not start Brain Dump. ';
       if (error.name === 'NotAllowedError') {
@@ -73,7 +93,6 @@ export const BrainDumpLiveDialog = ({
   const handleClose = () => {
     stop();
     resetTasks();
-    setProjectName('');
     setIsDone(false);
     onOpenChange(false);
   };
@@ -84,65 +103,69 @@ export const BrainDumpLiveDialog = ({
       return;
     }
 
-    if (mode === 'new-project' && !projectName.trim()) {
-      toast.error('Please enter a project name');
-      return;
-    }
-
-    if (mode === 'existing-project' && !selectedProjectId) {
-      toast.error('No project selected');
-      return;
-    }
-
     setIsSaving(true);
 
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error('User not authenticated');
 
-      let projectId: string | null = null;
-
-      if (mode === 'new-project') {
-        const { data: project, error: projectError } = await supabase
-          .from('projects')
-          .insert({ name: projectName.trim(), user_id: user.id, color: '#3b82f6' })
-          .select()
-          .single();
-        if (projectError) throw projectError;
-        projectId = project.id;
-      } else if (mode === 'existing-project') {
-        projectId = selectedProjectId!;
-      }
-      // mode === 'today' → projectId stays null
-
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const tasksToInsert = tasks.map(task => ({
-        title: task.title.trim(),
-        description: task.description?.trim() || null,
-        priority: task.priority,
-        status: 'todo' as const,
-        user_id: user.id,
-        project_id: projectId,
-        ...(mode === 'today' ? { due_date: today.toISOString() } : {}),
-        timer_total_seconds: 0,
-        timer_is_running: false,
-      }));
+      // Collect unique new project names to create
+      const newProjectNames = new Map<string, string>();
+      for (const task of tasks) {
+        if (task.destination === 'new-project' && task.projectName) {
+          const key = task.projectName.toLowerCase().trim();
+          if (!newProjectNames.has(key)) {
+            newProjectNames.set(key, task.projectName);
+          }
+        }
+      }
+
+      // Create new projects
+      const newProjectIds = new Map<string, string>(); // normalized name -> id
+      for (const [key, name] of newProjectNames) {
+        const { data: project, error: projectError } = await supabase
+          .from('projects')
+          .insert({ name: name.trim(), user_id: user.id, color: '#3b82f6' })
+          .select()
+          .single();
+        if (projectError) throw projectError;
+        newProjectIds.set(key, project.id);
+      }
+
+      // Build task inserts
+      const tasksToInsert = tasks.map(task => {
+        let projectId: string | null = null;
+
+        if (task.destination === 'existing-project' && task.projectId) {
+          projectId = task.projectId;
+        } else if (task.destination === 'new-project' && task.projectName) {
+          projectId = newProjectIds.get(task.projectName.toLowerCase().trim()) || null;
+        }
+
+        return {
+          title: task.title.trim(),
+          description: task.description?.trim() || null,
+          priority: task.priority,
+          status: 'todo' as const,
+          user_id: user.id,
+          project_id: projectId,
+          ...(task.destination === 'today' ? { due_date: today.toISOString() } : {}),
+          timer_total_seconds: 0,
+          timer_is_running: false,
+        };
+      });
 
       const { error: tasksError } = await supabase.from('tasks').insert(tasksToInsert);
       if (tasksError) throw tasksError;
 
-      const targetName = mode === 'new-project'
-        ? `"${projectName.trim()}"`
-        : mode === 'today'
-        ? "Today's To-Do"
-        : selectedProjectName || 'project';
+      toast.success(`Added ${tasks.length} task${tasks.length > 1 ? 's' : ''}`);
 
-      toast.success(`Added ${tasks.length} task${tasks.length > 1 ? 's' : ''} to ${targetName}`);
-
-      if (mode === 'new-project' && projectId && onProjectCreated) {
-        onProjectCreated(projectId);
+      // Notify parent about new projects
+      for (const [, projectId] of newProjectIds) {
+        onProjectCreated?.(projectId);
       }
 
       handleClose();
@@ -166,68 +189,36 @@ export const BrainDumpLiveDialog = ({
   };
 
   // Convert BrainDumpTasks to Task objects for TaskListItem preview
-  const previewTasks: Task[] = tasks.map(t => ({
+  const toPreviewTask = (t: BrainDumpTask): Task => ({
     id: t.id,
     title: t.title,
     description: t.description,
     priority: t.priority,
     status: 'todo' as const,
     timer: { totalSeconds: 0, isRunning: false },
-  }));
+  });
 
-  const getTitle = () => {
-    switch (mode) {
-      case 'new-project': return 'Brain Dump — New Project';
-      case 'existing-project': return `Brain Dump — ${selectedProjectName || 'Project'}`;
-      case 'today': return "Brain Dump — Today's To-Do";
-    }
-  };
-
-  const getDescription = () => {
-    return 'Just start talking. AI will listen and extract tasks in real-time as you speak.';
-  };
-
-  const getBannerText = () => {
-    switch (mode) {
-      case 'new-project': return '🆕 Creating a new project with tasks';
-      case 'existing-project': return `📁 Adding tasks to: ${selectedProjectName}`;
-      case 'today': return "📅 Adding tasks to: Today's To-Do";
+  const getGroupIcon = (icon: 'today' | 'existing' | 'new') => {
+    switch (icon) {
+      case 'today': return <Calendar className="h-4 w-4 text-primary" />;
+      case 'existing': return <FolderOpen className="h-4 w-4 text-primary" />;
+      case 'new': return <FolderPlus className="h-4 w-4 text-accent-foreground" />;
     }
   };
 
   const isListening = connectionState === 'listening';
   const isConnecting = connectionState === 'connecting';
   const isError = connectionState === 'error';
-  const showRecording = !isDone && (connectionState === 'idle' || isListening || isConnecting || isError);
-  const showReview = isDone || (tasks.length > 0 && connectionState === 'idle' && !isConnecting);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6">
         <DialogHeader>
-          <DialogTitle>{getTitle()}</DialogTitle>
-          <DialogDescription>{getDescription()}</DialogDescription>
+          <DialogTitle>Brain Dump</DialogTitle>
+          <DialogDescription>Just start talking. AI will listen, extract tasks, and route them automatically.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Banner */}
-          <div className="px-4 py-3 bg-primary/10 border border-primary/20 rounded-lg">
-            <p className="text-sm font-medium text-primary">{getBannerText()}</p>
-          </div>
-
-          {/* Project Name Input (new-project mode only) */}
-          {mode === 'new-project' && isDone && (
-            <div className="space-y-2">
-              <Label htmlFor="projectName">Project Name</Label>
-              <Input
-                id="projectName"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                placeholder="Enter project name"
-              />
-            </div>
-          )}
-
           {/* Recording Controls */}
           {!isDone && (
             <div className="flex flex-col items-center space-y-4">
@@ -276,9 +267,7 @@ export const BrainDumpLiveDialog = ({
                         <motion.div
                           key={i}
                           className="w-1 bg-primary rounded-full"
-                          animate={{
-                            height: [8, 20, 8],
-                          }}
+                          animate={{ height: [8, 20, 8] }}
                           transition={{
                             duration: 0.6,
                             repeat: Infinity,
@@ -302,10 +291,10 @@ export const BrainDumpLiveDialog = ({
             </div>
           )}
 
-          {/* Live Task List */}
+          {/* Grouped Task List */}
           {tasks.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">
                   {isDone ? 'Review & Edit Tasks' : 'Tasks Found'}
                 </span>
@@ -314,38 +303,53 @@ export const BrainDumpLiveDialog = ({
                 </span>
               </div>
 
-              <div className="space-y-3">
-                <AnimatePresence initial={false}>
-                  {previewTasks.map((task) => (
-                    <motion.div
-                      key={task.id}
-                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, x: -100 }}
-                      transition={{ duration: 0.3, ease: 'easeOut' }}
-                      className="relative group pb-2"
-                    >
-                      <TaskListItem
-                        task={task}
-                        onUpdate={handleTaskUpdate}
-                        globalViewMode="full"
-                        isIndividuallyExpanded={false}
-                        onTaskClick={() => {}}
-                      />
-                      {isDone && (
-                        <Button
-                          onClick={() => removeTask(task.id)}
-                          variant="destructive"
-                          size="sm"
-                          className="absolute bottom-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
+              {Object.entries(groupedTasks).map(([groupKey, group]) => (
+                <div key={groupKey} className="space-y-2">
+                  <div className="flex items-center gap-2 px-1">
+                    {getGroupIcon(group.icon)}
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {group.icon === 'new' && '🆕 '}
+                      {group.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground/60">
+                      ({group.tasks.length})
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 pl-2 border-l-2 border-muted/30">
+                    <AnimatePresence initial={false}>
+                      {group.tasks.map((task) => (
+                        <motion.div
+                          key={task.id}
+                          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, x: -100 }}
+                          transition={{ duration: 0.3, ease: 'easeOut' }}
+                          className="relative group pb-1"
                         >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
+                          <TaskListItem
+                            task={toPreviewTask(task)}
+                            onUpdate={handleTaskUpdate}
+                            globalViewMode="full"
+                            isIndividuallyExpanded={false}
+                            onTaskClick={() => {}}
+                          />
+                          {isDone && (
+                            <Button
+                              onClick={() => removeTask(task.id)}
+                              variant="destructive"
+                              size="sm"
+                              className="absolute bottom-1 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -355,7 +359,7 @@ export const BrainDumpLiveDialog = ({
               <Button
                 onClick={handleSave}
                 className="w-full sm:flex-1"
-                disabled={isSaving || tasks.length === 0 || (mode === 'new-project' && !projectName.trim())}
+                disabled={isSaving || tasks.length === 0}
               >
                 {isSaving ? (
                   <>
@@ -365,7 +369,7 @@ export const BrainDumpLiveDialog = ({
                 ) : (
                   <>
                     <Check className="mr-2 h-4 w-4" />
-                    {mode === 'new-project' ? 'Save Project & Tasks' : 'Save Tasks'}
+                    Save All Tasks
                   </>
                 )}
               </Button>
