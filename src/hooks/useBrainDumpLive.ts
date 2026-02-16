@@ -234,10 +234,12 @@ IMPORTANT RULES:
       ws.onerror = (e) => {
         console.error('WebSocket error:', e);
         setConnectionState('error');
+        cleanup();
       };
 
-      ws.onclose = () => {
-        if (connectionState !== 'idle') {
+      ws.onclose = (e) => {
+        console.log('WebSocket closed:', e.code, e.reason);
+        if (e.code !== 1000) {
           setConnectionState('idle');
         }
       };
