@@ -8,3 +8,6 @@ verify_jwt = true
 
 [functions.cleanup-old-images]
 verify_jwt = false
+
+[functions.get-brain-dump-config]
+verify_jwt = true
