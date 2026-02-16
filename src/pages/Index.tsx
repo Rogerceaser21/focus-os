@@ -14,7 +14,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, FolderPlus, ListPlus, CalendarPlus, Mic } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, Mic } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -119,12 +119,8 @@ const Index = () => {
   const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | null>(null);
   const [projectRefreshTrigger, setProjectRefreshTrigger] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [taskOnlyDialogOpen, setTaskOnlyDialogOpen] = useState(false);
-  const [todayDialogOpen, setTodayDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isProjectsRecording, setIsProjectsRecording] = useState(false);
-  const [isTasksRecording, setIsTasksRecording] = useState(false);
-  const [isTodayRecording, setIsTodayRecording] = useState(false);
+  const [isBrainDumpRecording, setIsBrainDumpRecording] = useState(false);
   const [globalCardView, setGlobalCardView] = useState<'full' | 'compact'>('full');
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -1028,45 +1024,21 @@ https://www.skyscanner.com`,
   }
   const dockItems = [
     {
-      icon: <FolderPlus className="w-7 h-7 text-blue-400" />,
-      label: 'Projects',
-      permanentLabel: '+Projects',
-      isRecording: isProjectsRecording,
-      tourStepId: 'projects',
+      icon: (
+        <div className="relative w-7 h-7">
+          <svg viewBox="0 0 24 24" fill="none" className="w-full h-full" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2C9 2 6.5 4 6 7c-1.5.5-3 2-3 4 0 2.5 2 4 4 4h1c0 2 1.5 4 4 4s4-2 4-4h1c2 0 4-1.5 4-4 0-2-1.5-3.5-3-4-.5-3-3-5-6-5z" className="text-foreground" />
+            <path d="M9 13c0-1 .5-2 1.5-2.5M15 13c0-1-.5-2-1.5-2.5M10 16.5c.5.5 1.2.8 2 .8s1.5-.3 2-.8" className="text-foreground" />
+          </svg>
+        </div>
+      ),
+      label: 'Brain Dump',
+      permanentLabel: 'Brain Dump',
+      isRecording: isBrainDumpRecording,
+      tourStepId: 'brain-dump',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
         setDialogOpen(true);
-      }
-    },
-    {
-      icon: <ListPlus className="w-7 h-7 text-green-400" />,
-      label: 'Tasks',
-      permanentLabel: '+Tasks',
-      isRecording: isTasksRecording,
-      tourStepId: 'tasks',
-      onClick: (e?: React.MouseEvent<HTMLElement>) => {
-        if (e) triggerParticles(e.currentTarget);
-        
-        // Validate project selection
-        if (!selectedProjectId && !selectedSpecialList) {
-          toast.error('Please select a project first', {
-            description: 'Choose a project from the sidebar to add tasks to it.'
-          });
-          return;
-        }
-        
-        setTaskOnlyDialogOpen(true);
-      }
-    },
-    {
-      icon: <CalendarPlus className="w-7 h-7 text-purple-400" />,
-      label: 'Today',
-      permanentLabel: '+Today',
-      isRecording: isTodayRecording,
-      tourStepId: 'today',
-      onClick: (e?: React.MouseEvent<HTMLElement>) => {
-        if (e) triggerParticles(e.currentTarget);
-        setTodayDialogOpen(true);
       }
     }
   ];
@@ -1556,7 +1528,7 @@ https://www.skyscanner.com`,
         </div>
 
         {/* Dock Bar - Hidden when dialogs are open */}
-        {!dialogOpen && !taskOnlyDialogOpen && !todayDialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
+        {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
           <>
             {/* Desktop: Bottom dock - always visible */}
             {!isMobile && (
@@ -1646,8 +1618,8 @@ https://www.skyscanner.com`,
       <BrainDumpLiveDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        mode="new-project"
         userId={user?.id || ''}
+        projects={projects.map(p => ({ id: p.id, name: p.name }))}
         onProjectCreated={(newProjectId) => {
           setProjectRefreshTrigger(prev => prev + 1);
           setSelectedProjectId(newProjectId);
@@ -1657,33 +1629,7 @@ https://www.skyscanner.com`,
           fetchTasks();
           setProjectRefreshTrigger(prev => prev + 1);
         }}
-        onRecordingChange={setIsProjectsRecording}
-      />
-
-      <BrainDumpLiveDialog
-        open={taskOnlyDialogOpen}
-        onOpenChange={setTaskOnlyDialogOpen}
-        mode="existing-project"
-        userId={user?.id || ''}
-        selectedProjectId={selectedProjectId}
-        selectedProjectName={getSelectedProjectName()}
-        onTasksCreated={() => {
-          fetchTasks();
-          setProjectRefreshTrigger(prev => prev + 1);
-        }}
-        onRecordingChange={setIsTasksRecording}
-      />
-
-      <BrainDumpLiveDialog
-        open={todayDialogOpen}
-        onOpenChange={setTodayDialogOpen}
-        mode="today"
-        userId={user?.id || ''}
-        onTasksCreated={() => {
-          fetchTasks();
-          setProjectRefreshTrigger(prev => prev + 1);
-        }}
-        onRecordingChange={setIsTodayRecording}
+        onRecordingChange={setIsBrainDumpRecording}
       />
 
       <SettingsDialog
