@@ -213,65 +213,69 @@ export const BrainDumpLiveDialog = ({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6">
-        <DialogHeader>
+        <DialogHeader className="sr-only">
           <DialogTitle>Brain Dump</DialogTitle>
           <DialogDescription>Just start talking. AI will listen, extract tasks, and route them automatically.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Recording Controls */}
+          {/* Header Cards */}
           {!isDone && (
-            <div className="flex flex-col items-center space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4 w-full">
-                {connectionState === 'idle' && (
-                  <Button onClick={handleStart} size="lg" className="w-full sm:w-auto">
-                    <Mic className="mr-2 h-5 w-5" />
-                    Start Brain Dump
-                  </Button>
-                )}
-
-                {isConnecting && (
-                  <Button disabled size="lg" className="w-full sm:w-auto">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Connecting...
-                  </Button>
-                )}
-
-                {isListening && (
-                  <Button onClick={handleDone} variant="destructive" size="lg" className="w-full sm:w-auto">
-                    <MicOff className="mr-2 h-5 w-5" />
-                    I'm Done
-                  </Button>
-                )}
-
-                {isError && (
-                  <div className="flex flex-col sm:flex-row gap-4 w-full items-center">
-                    <div className="flex items-center gap-2 text-sm text-destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      Connection failed
-                    </div>
-                    <Button onClick={handleStart} size="lg" className="w-full sm:w-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Left Card: Title + Controls */}
+              <div className="glass-card rounded-2xl p-5 flex flex-col justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Brain Dump</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Just start talking. AI will listen, extract tasks, and route them automatically.</p>
+                </div>
+                <div>
+                  {connectionState === 'idle' && (
+                    <Button onClick={handleStart} size="lg" className="w-full">
                       <Mic className="mr-2 h-5 w-5" />
-                      Try Again
+                      I'm Ready
                     </Button>
-                  </div>
-                )}
+                  )}
+                  {isConnecting && (
+                    <Button disabled size="lg" className="w-full">
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Connecting...
+                    </Button>
+                  )}
+                  {isListening && (
+                    <Button onClick={handleDone} variant="destructive" size="lg" className="w-full">
+                      <MicOff className="mr-2 h-5 w-5" />
+                      I'm Done
+                    </Button>
+                  )}
+                  {isError && (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2 text-sm text-destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        Connection failed
+                      </div>
+                      <Button onClick={handleStart} size="lg" className="w-full">
+                        <Mic className="mr-2 h-5 w-5" />
+                        Try Again
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Listening indicator */}
-              {isListening && (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1">
-                      {[0, 1, 2, 3, 4].map(i => (
+              {/* Right Card: Listening Animation */}
+              <div className="glass-card rounded-2xl p-5 flex flex-col items-center justify-center min-h-[140px]">
+                {isListening ? (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                      {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
                         <motion.div
                           key={i}
-                          className="w-1 bg-primary rounded-full"
-                          animate={{ height: [8, 20, 8] }}
+                          className="w-1 rounded-full bg-primary"
+                          animate={{ height: [6, 28, 6] }}
                           transition={{
-                            duration: 0.6,
+                            duration: 0.7,
                             repeat: Infinity,
-                            delay: i * 0.1,
+                            delay: i * 0.08,
                             ease: 'easeInOut',
                           }}
                         />
@@ -280,14 +284,24 @@ export const BrainDumpLiveDialog = ({
                     <span className="text-sm text-muted-foreground animate-pulse">
                       Listening... speak freely
                     </span>
+                    {tasks.length > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {tasks.length} task{tasks.length !== 1 ? 's' : ''} extracted so far
+                      </span>
+                    )}
                   </div>
-                  {tasks.length > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      {tasks.length} task{tasks.length !== 1 ? 's' : ''} extracted so far
-                    </span>
-                  )}
-                </div>
-              )}
+                ) : isConnecting ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground">Setting up...</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground/40">
+                    <Mic className="h-10 w-10" />
+                    <span className="text-sm">Waiting to start...</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
