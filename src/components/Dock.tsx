@@ -138,12 +138,12 @@ export default function Dock({
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-center gap-6 pb-2" style={{ width: `${baseItemSize * items.length + (items.length - 1) * 24}px` }}>
+          <div className="flex items-center justify-center gap-6 pb-2">
             {items.map((item, index) => (
               <div 
                 key={index} 
                 className="dock-permanent-label"
-                style={{ width: baseItemSize }}
+                style={{ width: baseItemSize, textAlign: 'center' }}
               >
                 {item.permanentLabel}
               </div>

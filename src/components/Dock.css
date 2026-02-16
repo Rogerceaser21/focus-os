@@ -102,9 +102,14 @@
   object-fit: cover;
 }
 
+.dock-icon > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .dock-icon svg {
-  width: 24px;
-  height: 24px;
+  display: block;
 }
 
 .dock-label {
