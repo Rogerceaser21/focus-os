@@ -150,6 +150,9 @@ IMPORTANT RULES:
 
       ws.onmessage = (event) => {
         try {
+          // Skip binary audio data — we only care about JSON (tool calls)
+          if (typeof event.data !== 'string') return;
+
           const msg = JSON.parse(event.data);
 
           // Handle setup complete
