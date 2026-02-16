@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { GoogleGenAI, Modality, Type } from '@google/genai';
 import { supabase } from '@/integrations/supabase/client';
 import type { TaskPriority } from '@/types/task';
 
@@ -11,34 +12,51 @@ export interface BrainDumpTask {
 
 type ConnectionState = 'idle' | 'connecting' | 'listening' | 'error';
 
+// Audio helpers
+function createPcmBlob(float32Data: Float32Array): { mimeType: string; data: string } {
+  const pcm16 = new Int16Array(float32Data.length);
+  for (let i = 0; i < float32Data.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32Data[i]));
+    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  const uint8 = new Uint8Array(pcm16.buffer);
+  let binary = '';
+  for (let i = 0; i < uint8.length; i++) {
+    binary += String.fromCharCode(uint8[i]);
+  }
+  return { mimeType: 'audio/pcm;rate=16000', data: btoa(binary) };
+}
+
 export function useBrainDumpLive() {
   const [tasks, setTasks] = useState<BrainDumpTask[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [transcript, setTranscript] = useState('');
-  
-  const wsRef = useRef<WebSocket | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+
+  const sessionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const inputAudioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const taskCounterRef = useRef(0);
 
   const cleanup = useCallback(() => {
-    if (workletNodeRef.current) {
-      workletNodeRef.current.disconnect();
-      workletNodeRef.current = null;
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current = null;
     }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
+    }
+    if (inputAudioContextRef.current) {
+      inputAudioContextRef.current.close();
+      inputAudioContextRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+    sessionRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -52,13 +70,12 @@ export function useBrainDumpLive() {
     taskCounterRef.current = 0;
 
     try {
-      // 1. Get config from edge function
+      // 1. Get API key from edge function
       const { data, error } = await supabase.functions.invoke('get-brain-dump-config');
       if (error || !data?.apiKey) {
         throw new Error(error?.message || 'Failed to get config');
       }
-
-      const { apiKey, wsUrl, model } = data;
+      const { apiKey } = data;
 
       // 2. Get mic access
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -66,246 +83,176 @@ export function useBrainDumpLive() {
       });
       streamRef.current = stream;
 
-      // 3. Connect WebSocket to Gemini Live
-      const fullUrl = `${wsUrl}?key=${apiKey}`;
-      const ws = new WebSocket(fullUrl);
-      wsRef.current = ws;
+      // 3. Build system instruction based on mode
+      const modeInstructions = mode === 'new-project'
+        ? 'The user is brain-dumping ideas for a NEW project. Extract individual tasks. Use add_task for each task you identify.'
+        : mode === 'today'
+        ? 'The user is brain-dumping tasks for their today to-do list. Use add_task for each task you identify. Focus on actionable daily tasks.'
+        : 'The user is adding tasks to an existing project. Use add_task for each task you identify.';
 
-      ws.onopen = () => {
-        console.log('WebSocket opened, sending setup for model:', model);
-        // Send setup message
-        const modeInstructions = mode === 'new-project'
-          ? 'The user is brain-dumping ideas for a NEW project. Extract a project name and individual tasks. Use add_task for each task you identify. Listen carefully and extract actionable tasks from what the user says.'
-          : mode === 'today'
-          ? 'The user is brain-dumping tasks for their today to-do list. Use add_task for each task you identify. Focus on actionable daily tasks.'
-          : 'The user is adding tasks to an existing project. Use add_task for each task you identify. Focus on actionable tasks.';
-
-        const setupMessage = {
-          setup: {
-            model,
-            generationConfig: {
-              responseModalities: ["AUDIO"],
-              temperature: 0.3,
-            },
-            systemInstruction: {
-              parts: [{
-                text: `You are a task extraction assistant for a productivity app called "Brain Dump". ${modeInstructions}
+      const systemInstruction = `You are a task extraction assistant for a productivity app called "Brain Dump". ${modeInstructions}
 
 IMPORTANT RULES:
 - Call add_task immediately when you identify a task from the user's speech
 - Extract clear, actionable task titles (keep them concise, under 10 words)
 - Add a brief description if the user provides additional context
 - Assign priority based on urgency cues: "urgent", "important", "ASAP" → urgent/high; normal items → medium; "whenever", "nice to have" → low
-- Do NOT wait for the user to finish speaking before extracting tasks - extract them as soon as you identify them
-- Do NOT speak back or generate audio - only use tool calls
-- If the user corrects or removes a task, use update_task or remove_task accordingly`
-              }]
+- Do NOT wait for the user to finish speaking before extracting tasks
+- You are in SILENT mode. Do NOT speak unless absolutely necessary to clarify an ambiguity. Execute tools and output as little audio as possible.
+- If the user corrects or removes a task, use update_task or remove_task accordingly`;
+
+      // 4. Define tools using SDK types
+      const tools = [{
+        functionDeclarations: [
+          {
+            name: 'add_task',
+            description: 'Add a new task identified from the user\'s speech',
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING, description: 'Concise task title (under 10 words)' },
+                description: { type: Type.STRING, description: 'Brief task description with additional context' },
+                priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
+              },
+              required: ['title', 'priority'],
             },
-            tools: [{
-              functionDeclarations: [
-                {
-                  name: "add_task",
-                  description: "Add a new task identified from the user's speech",
-                  parameters: {
-                    type: "OBJECT",
-                    properties: {
-                      title: { type: "STRING", description: "Concise task title (under 10 words)" },
-                      description: { type: "STRING", description: "Brief task description with additional context" },
-                      priority: { type: "STRING", enum: ["low", "medium", "high", "urgent"], description: "Task priority" },
-                    },
-                    required: ["title", "priority"],
-                  },
-                },
-                {
-                  name: "update_task",
-                  description: "Update an existing task if the user corrects it",
-                  parameters: {
-                    type: "OBJECT",
-                    properties: {
-                      task_id: { type: "STRING", description: "The task ID to update" },
-                      title: { type: "STRING", description: "Updated task title" },
-                      description: { type: "STRING", description: "Updated description" },
-                      priority: { type: "STRING", enum: ["low", "medium", "high", "urgent"], description: "Updated priority" },
-                    },
-                    required: ["task_id"],
-                  },
-                },
-                {
-                  name: "remove_task",
-                  description: "Remove a task if the user says to remove or cancel it",
-                  parameters: {
-                    type: "OBJECT",
-                    properties: {
-                      task_id: { type: "STRING", description: "The task ID to remove" },
-                    },
-                    required: ["task_id"],
-                  },
-                },
-              ],
-            }],
           },
-        };
+          {
+            name: 'update_task',
+            description: 'Update an existing task if the user corrects it',
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                searchPhrase: { type: Type.STRING, description: 'A word or phrase to find the existing task' },
+                title: { type: Type.STRING, description: 'Updated task title' },
+                description: { type: Type.STRING, description: 'Updated description' },
+                priority: { type: Type.STRING, description: 'Updated priority: low, medium, high, or urgent' },
+              },
+              required: ['searchPhrase'],
+            },
+          },
+          {
+            name: 'remove_task',
+            description: 'Remove a task if the user says to remove or cancel it',
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                searchPhrase: { type: Type.STRING, description: 'A word or phrase to find the task to remove' },
+              },
+              required: ['searchPhrase'],
+            },
+          },
+        ],
+      }];
 
-        ws.send(JSON.stringify(setupMessage));
-      };
+      // 5. Connect using the SDK
+      const ai = new GoogleGenAI({ apiKey });
 
-      ws.onmessage = (event) => {
-        try {
-          // Skip binary audio data — we only care about JSON (tool calls)
-          if (typeof event.data !== 'string') return;
-
-          const msg = JSON.parse(event.data);
-
-          // Handle setup complete
-          if (msg.setupComplete) {
+      const session = await ai.live.connect({
+        model: 'gemini-2.5-flash-native-audio-preview',
+        config: {
+          responseModalities: [Modality.AUDIO],
+          systemInstruction,
+          tools,
+        },
+        callbacks: {
+          onopen: () => {
+            console.log('Gemini Live connected');
             setConnectionState('listening');
-            startAudioCapture(ws, stream);
-            return;
-          }
 
-          // Handle server content with tool calls
-          if (msg.serverContent) {
-            // Extract any text parts for transcript
-            const parts = msg.serverContent?.modelTurn?.parts || [];
-            for (const part of parts) {
-              if (part.text) {
-                setTranscript(prev => prev + part.text);
+            // Start audio capture
+            if (!streamRef.current) return;
+            const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+            inputAudioContextRef.current = inputCtx;
+
+            const src = inputCtx.createMediaStreamSource(streamRef.current);
+            sourceRef.current = src;
+
+            const processor = inputCtx.createScriptProcessor(4096, 1, 1);
+            processorRef.current = processor;
+
+            processor.onaudioprocess = (e) => {
+              const inputData = e.inputBuffer.getChannelData(0);
+              const pcmBlob = createPcmBlob(inputData);
+              if (sessionRef.current) {
+                sessionRef.current.sendRealtimeInput({ media: pcmBlob });
+              }
+            };
+
+            src.connect(processor);
+            processor.connect(inputCtx.destination);
+          },
+          onmessage: async (message: any) => {
+            // Handle tool calls
+            if (message.toolCall) {
+              const functionCalls = message.toolCall.functionCalls || [];
+              for (const fc of functionCalls) {
+                const args = fc.args || {};
+                console.log('Tool call received:', fc.name, args);
+
+                let result: any = { result: 'ok' };
+
+                if (fc.name === 'add_task') {
+                  const taskId = `brain-dump-${++taskCounterRef.current}`;
+                  const newTask: BrainDumpTask = {
+                    id: taskId,
+                    title: args.title || 'Untitled Task',
+                    description: args.description,
+                    priority: (args.priority as TaskPriority) || 'medium',
+                  };
+                  setTasks(prev => [...prev, newTask]);
+                  result = { result: 'ok', task_id: taskId };
+                } else if (fc.name === 'update_task') {
+                  const searchPhrase = (args.searchPhrase || '').toLowerCase();
+                  setTasks(prev => prev.map(t => {
+                    if (t.title.toLowerCase().includes(searchPhrase)) {
+                      return {
+                        ...t,
+                        ...(args.title && { title: args.title }),
+                        ...(args.description !== undefined && { description: args.description }),
+                        ...(args.priority && { priority: args.priority as TaskPriority }),
+                      };
+                    }
+                    return t;
+                  }));
+                } else if (fc.name === 'remove_task') {
+                  const searchPhrase = (args.searchPhrase || '').toLowerCase();
+                  setTasks(prev => prev.filter(t => !t.title.toLowerCase().includes(searchPhrase)));
+                }
+
+                // Send tool response back
+                if (sessionRef.current) {
+                  sessionRef.current.sendToolResponse({
+                    functionResponses: {
+                      id: fc.id,
+                      name: fc.name,
+                      response: result,
+                    },
+                  });
+                }
               }
             }
-          }
+          },
+          onclose: () => {
+            console.log('Gemini Live session closed');
+            setConnectionState(prev => prev === 'connecting' ? 'error' : 'idle');
+          },
+          onerror: (err: any) => {
+            console.error('Gemini Live error:', err);
+            setConnectionState('error');
+            cleanup();
+          },
+        },
+      });
 
-          // Handle tool calls
-          if (msg.toolCall) {
-            const functionCalls = msg.toolCall.functionCalls || [];
-            const functionResponses: any[] = [];
-
-            for (const fc of functionCalls) {
-              const args = fc.args || {};
-
-              if (fc.name === 'add_task') {
-                const taskId = `brain-dump-${++taskCounterRef.current}`;
-                const newTask: BrainDumpTask = {
-                  id: taskId,
-                  title: args.title || 'Untitled Task',
-                  description: args.description,
-                  priority: (args.priority as TaskPriority) || 'medium',
-                };
-                setTasks(prev => [...prev, newTask]);
-                functionResponses.push({
-                  id: fc.id,
-                  name: fc.name,
-                  response: { result: "ok", task_id: taskId },
-                });
-              } else if (fc.name === 'update_task') {
-                setTasks(prev => prev.map(t => {
-                  if (t.id === args.task_id) {
-                    return {
-                      ...t,
-                      ...(args.title && { title: args.title }),
-                      ...(args.description !== undefined && { description: args.description }),
-                      ...(args.priority && { priority: args.priority as TaskPriority }),
-                    };
-                  }
-                  return t;
-                }));
-                functionResponses.push({
-                  id: fc.id,
-                  name: fc.name,
-                  response: { result: "ok" },
-                });
-              } else if (fc.name === 'remove_task') {
-                setTasks(prev => prev.filter(t => t.id !== args.task_id));
-                functionResponses.push({
-                  id: fc.id,
-                  name: fc.name,
-                  response: { result: "ok" },
-                });
-              }
-            }
-
-            // Send tool responses back
-            if (functionResponses.length > 0 && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                toolResponse: { functionResponses },
-              }));
-            }
-          }
-        } catch (e) {
-          console.error('Error parsing Gemini message:', e);
-        }
-      };
-
-      ws.onerror = (e) => {
-        console.error('WebSocket error:', e);
-        setConnectionState('error');
-        cleanup();
-      };
-
-      ws.onclose = (e) => {
-        console.log('WebSocket closed:', e.code, e.reason);
-        // If we never reached 'listening', the connection failed
-        setConnectionState(prev => {
-          if (prev === 'connecting') {
-            console.error('WebSocket closed before setup completed. Code:', e.code, 'Reason:', e.reason);
-            return 'error';
-          }
-          return 'idle';
-        });
-      };
+      sessionRef.current = session;
     } catch (error: any) {
       console.error('Brain dump start error:', error);
       setConnectionState('error');
       cleanup();
       throw error;
     }
-  }, [cleanup, connectionState]);
-
-  const startAudioCapture = useCallback(async (ws: WebSocket, stream: MediaStream) => {
-    try {
-      const audioContext = new AudioContext({ sampleRate: 16000 });
-      audioContextRef.current = audioContext;
-
-      // Use ScriptProcessorNode as fallback (AudioWorklet requires serving a separate file)
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-
-      processor.onaudioprocess = (e) => {
-        if (ws.readyState !== WebSocket.OPEN) return;
-
-        const inputData = e.inputBuffer.getChannelData(0);
-        // Convert float32 to int16 PCM
-        const pcm16 = new Int16Array(inputData.length);
-        for (let i = 0; i < inputData.length; i++) {
-          const s = Math.max(-1, Math.min(1, inputData[i]));
-          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-        }
-
-        // Convert to base64
-        const uint8 = new Uint8Array(pcm16.buffer);
-        let binary = '';
-        for (let i = 0; i < uint8.length; i++) {
-          binary += String.fromCharCode(uint8[i]);
-        }
-        const base64 = btoa(binary);
-
-        // Send to Gemini
-        ws.send(JSON.stringify({
-          realtimeInput: {
-            mediaChunks: [{
-              mimeType: "audio/pcm;rate=16000",
-              data: base64,
-            }],
-          },
-        }));
-      };
-
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-    } catch (error) {
-      console.error('Audio capture error:', error);
-      setConnectionState('error');
-    }
-  }, []);
+  }, [cleanup]);
 
   const stop = useCallback(() => {
     cleanup();
