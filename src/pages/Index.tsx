@@ -35,9 +35,7 @@ import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sid
 import { useIsMobile } from '@/hooks/use-mobile';
 import Dock from '@/components/Dock';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
-import { BrainDumpDialog } from '@/components/BrainDumpDialog';
-import { TaskOnlyBrainDumpDialog } from '@/components/TaskOnlyBrainDumpDialog';
-import { TodayBrainDumpDialog } from '@/components/TodayBrainDumpDialog';
+import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { OnboardingTour } from '@/components/OnboardingTour';
@@ -1645,40 +1643,46 @@ https://www.skyscanner.com`,
         )}
       </div>
       
-      <BrainDumpDialog
+      <BrainDumpLiveDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onTasksCreated={(newProjectId) => {
+        mode="new-project"
+        userId={user?.id || ''}
+        onProjectCreated={(newProjectId) => {
           setProjectRefreshTrigger(prev => prev + 1);
           setSelectedProjectId(newProjectId);
           setSelectedSpecialList(null);
-          fetchTasks();
         }}
-        userId={user?.id || ''}
+        onTasksCreated={() => {
+          fetchTasks();
+          setProjectRefreshTrigger(prev => prev + 1);
+        }}
         onRecordingChange={setIsProjectsRecording}
       />
 
-      <TaskOnlyBrainDumpDialog
+      <BrainDumpLiveDialog
         open={taskOnlyDialogOpen}
         onOpenChange={setTaskOnlyDialogOpen}
-        onTasksCreated={() => {
-          fetchTasks();
-          setProjectRefreshTrigger(prev => prev + 1);
-        }}
+        mode="existing-project"
         userId={user?.id || ''}
         selectedProjectId={selectedProjectId}
         selectedProjectName={getSelectedProjectName()}
-        onRecordingChange={setIsTasksRecording}
-      />
-
-      <TodayBrainDumpDialog
-        open={todayDialogOpen}
-        onOpenChange={setTodayDialogOpen}
         onTasksCreated={() => {
           fetchTasks();
           setProjectRefreshTrigger(prev => prev + 1);
         }}
+        onRecordingChange={setIsTasksRecording}
+      />
+
+      <BrainDumpLiveDialog
+        open={todayDialogOpen}
+        onOpenChange={setTodayDialogOpen}
+        mode="today"
         userId={user?.id || ''}
+        onTasksCreated={() => {
+          fetchTasks();
+          setProjectRefreshTrigger(prev => prev + 1);
+        }}
         onRecordingChange={setIsTodayRecording}
       />
 
