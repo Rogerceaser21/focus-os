@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2, Check, X, AlertCircle, Calendar, FolderPlus, FolderOpen } from 'lucide-react';
@@ -8,6 +8,7 @@ import { TaskListItem } from '@/components/TaskListItem';
 import { useBrainDumpLive, BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Task, TaskPriority } from '@/types/task';
+
 
 interface BrainDumpLiveDialogProps {
   open: boolean;
@@ -28,9 +29,19 @@ export const BrainDumpLiveDialog = ({
   onTasksCreated,
   onRecordingChange,
 }: BrainDumpLiveDialogProps) => {
-  const { tasks, connectionState, start, stop, updateTask, removeTask, resetTasks } = useBrainDumpLive();
+  const { tasks, connectionState, silenceCountdown, start, stop, setAutoStopCallback, updateTask, removeTask, resetTasks } = useBrainDumpLive();
   const [isSaving, setIsSaving] = useState(false);
   const [isDone, setIsDone] = useState(false);
+
+  // Wire auto-stop: when VAD detects 30s silence, treat it as "I'm Done"
+  useEffect(() => {
+    setAutoStopCallback(() => {
+      stop();
+      setIsDone(true);
+      toast.info('Stopped listening — no speech detected for 30 seconds');
+    });
+    return () => setAutoStopCallback(null);
+  }, [setAutoStopCallback, stop]);
 
   // Report recording state changes to parent
   React.useEffect(() => {
@@ -88,6 +99,22 @@ export const BrainDumpLiveDialog = ({
   const handleDone = () => {
     stop();
     setIsDone(true);
+  };
+
+  const handleKeepTalking = async () => {
+    setIsDone(false);
+    try {
+      await start(projects);
+    } catch (error: any) {
+      let errorMessage = 'Could not restart listening. ';
+      if (error.name === 'NotAllowedError') {
+        errorMessage += 'Please allow microphone access in your browser settings.';
+      } else {
+        errorMessage += error.message || 'Please try again.';
+      }
+      toast.error(errorMessage);
+      setIsDone(true);
+    }
   };
 
   const handleClose = () => {
@@ -228,7 +255,7 @@ export const BrainDumpLiveDialog = ({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Header Cards */}
+          {/* Header Cards — shown when not done, OR when done but user wants to keep talking */}
           {!isDone && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Left Card: Title + Controls */}
@@ -290,9 +317,20 @@ export const BrainDumpLiveDialog = ({
                         />
                       ))}
                     </div>
-                    <span className="text-sm text-muted-foreground animate-pulse">
-                      Listening... speak freely
-                    </span>
+                    {silenceCountdown !== null ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-sm text-destructive font-medium animate-pulse">
+                          Auto-stopping in {silenceCountdown}s…
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Speak to continue
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground animate-pulse">
+                        Listening… speak freely
+                      </span>
+                    )}
                     {tasks.length > 0 && (
                       <span className="text-xs text-muted-foreground">
                         {tasks.length} task{tasks.length !== 1 ? 's' : ''} extracted so far
@@ -302,12 +340,12 @@ export const BrainDumpLiveDialog = ({
                 ) : isConnecting ? (
                   <div className="flex flex-col items-center gap-3">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <span className="text-sm text-muted-foreground">Setting up...</span>
+                    <span className="text-sm text-muted-foreground">Setting up…</span>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-muted-foreground/40">
                     <Mic className="h-10 w-10" />
-                    <span className="text-sm">Waiting to start...</span>
+                    <span className="text-sm">Waiting to start…</span>
                   </div>
                 )}
               </div>
@@ -378,26 +416,38 @@ export const BrainDumpLiveDialog = ({
 
           {/* Save Controls (after stopping) */}
           {isDone && tasks.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+            <div className="flex flex-col gap-3 pt-4 border-t">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  onClick={handleSave}
+                  className="w-full sm:flex-1"
+                  disabled={isSaving || tasks.length === 0}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Save All Tasks
+                    </>
+                  )}
+                </Button>
+                <Button onClick={handleClose} variant="outline" disabled={isSaving} className="w-full sm:w-auto">
+                  Cancel
+                </Button>
+              </div>
+              {/* Keep Talking button */}
               <Button
-                onClick={handleSave}
-                className="w-full sm:flex-1"
-                disabled={isSaving || tasks.length === 0}
+                onClick={handleKeepTalking}
+                variant="ghost"
+                disabled={isSaving}
+                className="w-full text-muted-foreground hover:text-foreground"
               >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Save All Tasks
-                  </>
-                )}
-              </Button>
-              <Button onClick={handleClose} variant="outline" disabled={isSaving} className="w-full sm:w-auto">
-                Cancel
+                <Mic className="mr-2 h-4 w-4" />
+                Keep Talking — add more tasks
               </Button>
             </div>
           )}
@@ -408,7 +458,7 @@ export const BrainDumpLiveDialog = ({
               <p className="text-sm text-muted-foreground">
                 No tasks were extracted. Try speaking more clearly about specific tasks.
               </p>
-              <Button onClick={() => { setIsDone(false); handleStart(); }}>
+              <Button onClick={handleKeepTalking}>
                 <Mic className="mr-2 h-4 w-4" />
                 Try Again
               </Button>

@@ -18,6 +18,11 @@ export interface BrainDumpTask {
 
 type ConnectionState = 'idle' | 'connecting' | 'listening' | 'error';
 
+const SILENCE_TIMEOUT_SECONDS = 30;
+const SILENCE_CHECK_INTERVAL_MS = 200;
+const NOISE_CALIBRATION_MS = 1500; // calibrate noise floor for first 1.5s
+const SPEECH_MULTIPLIER = 2.5; // amplitude must be this many times above noise floor to count as speech
+
 export interface ProjectInfo {
   id: string;
   name: string;
@@ -50,17 +55,42 @@ function getTodayDateString(): string {
 export function useBrainDumpLive() {
   const [tasks, setTasks] = useState<BrainDumpTask[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
+  const [silenceCountdown, setSilenceCountdown] = useState<number | null>(null);
 
   const sessionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const taskCounterRef = useRef(0);
   const projectsRef = useRef<ProjectInfo[]>([]);
   const newProjectsRef = useRef<Map<string, string>>(new Map()); // normalized name -> display name
 
+  // VAD silence tracking
+  const silenceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const silenceSecondsRef = useRef(0);
+  const noiseFloorRef = useRef(0);
+  const calibrationSamplesRef = useRef<number[]>([]);
+  const isCalibratedRef = useRef(false);
+  const calibrationStartRef = useRef(0);
+  const autoStopCallbackRef = useRef<(() => void) | null>(null);
+
+  const stopSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearInterval(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    silenceSecondsRef.current = 0;
+    setSilenceCountdown(null);
+  }, []);
+
   const cleanup = useCallback(() => {
+    stopSilenceTimer();
+    if (analyserRef.current) {
+      analyserRef.current.disconnect();
+      analyserRef.current = null;
+    }
     if (processorRef.current) {
       processorRef.current.disconnect();
       processorRef.current = null;
@@ -78,7 +108,11 @@ export function useBrainDumpLive() {
       streamRef.current = null;
     }
     sessionRef.current = null;
-  }, []);
+    // Reset VAD state
+    noiseFloorRef.current = 0;
+    calibrationSamplesRef.current = [];
+    isCalibratedRef.current = false;
+  }, [stopSilenceTimer]);
 
   useEffect(() => {
     return cleanup;
@@ -261,6 +295,71 @@ SILENT MODE:
             const src = inputCtx.createMediaStreamSource(streamRef.current);
             sourceRef.current = src;
 
+            // --- VAD analyser ---
+            const analyser = inputCtx.createAnalyser();
+            analyser.fftSize = 512;
+            analyserRef.current = analyser;
+            src.connect(analyser);
+
+            // Reset calibration state
+            noiseFloorRef.current = 0;
+            calibrationSamplesRef.current = [];
+            isCalibratedRef.current = false;
+            calibrationStartRef.current = Date.now();
+            silenceSecondsRef.current = 0;
+
+            const vadBuffer = new Float32Array(analyser.fftSize);
+
+            // Silence timer: fires every SILENCE_CHECK_INTERVAL_MS ms
+            silenceTimerRef.current = setInterval(() => {
+              if (!analyserRef.current) return;
+              analyserRef.current.getFloatTimeDomainData(vadBuffer);
+
+              // Compute RMS amplitude
+              let sum = 0;
+              for (let i = 0; i < vadBuffer.length; i++) {
+                sum += vadBuffer[i] * vadBuffer[i];
+              }
+              const rms = Math.sqrt(sum / vadBuffer.length);
+
+              // Calibration phase: collect noise floor samples for first NOISE_CALIBRATION_MS
+              if (!isCalibratedRef.current) {
+                calibrationSamplesRef.current.push(rms);
+                if (Date.now() - calibrationStartRef.current >= NOISE_CALIBRATION_MS) {
+                  const sorted = [...calibrationSamplesRef.current].sort((a, b) => a - b);
+                  // Use 75th percentile as noise floor (robust to speech bursts during calibration)
+                  noiseFloorRef.current = sorted[Math.floor(sorted.length * 0.75)] || 0.005;
+                  isCalibratedRef.current = true;
+                  console.log('[VAD] Noise floor calibrated:', noiseFloorRef.current.toFixed(5));
+                }
+                return; // Don't start silence countdown during calibration
+              }
+
+              const speechThreshold = Math.max(noiseFloorRef.current * SPEECH_MULTIPLIER, 0.008);
+              const isSpeech = rms > speechThreshold;
+
+              if (isSpeech) {
+                // Reset silence counter
+                silenceSecondsRef.current = 0;
+                setSilenceCountdown(null);
+              } else {
+                silenceSecondsRef.current += SILENCE_CHECK_INTERVAL_MS / 1000;
+                const remaining = Math.ceil(SILENCE_TIMEOUT_SECONDS - silenceSecondsRef.current);
+
+                if (silenceSecondsRef.current >= SILENCE_TIMEOUT_SECONDS) {
+                  // Auto-stop
+                  console.log('[VAD] 30s silence detected — auto-stopping');
+                  setSilenceCountdown(null);
+                  stopSilenceTimer();
+                  autoStopCallbackRef.current?.();
+                } else if (remaining <= 10) {
+                  // Show countdown only in the last 10 seconds
+                  setSilenceCountdown(remaining);
+                }
+              }
+            }, SILENCE_CHECK_INTERVAL_MS);
+
+            // --- PCM processor for Gemini ---
             const processor = inputCtx.createScriptProcessor(4096, 1, 1);
             processorRef.current = processor;
 
@@ -455,6 +554,10 @@ SILENT MODE:
     setConnectionState('idle');
   }, [cleanup]);
 
+  const setAutoStopCallback = useCallback((cb: (() => void) | null) => {
+    autoStopCallbackRef.current = cb;
+  }, []);
+
   const updateTask = useCallback((taskId: string, updates: Partial<BrainDumpTask>) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
   }, []);
@@ -472,10 +575,13 @@ SILENT MODE:
   return {
     tasks,
     connectionState,
+    silenceCountdown,
     start,
     stop,
+    setAutoStopCallback,
     updateTask,
     removeTask,
     resetTasks,
   };
 }
+
