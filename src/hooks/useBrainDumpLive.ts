@@ -11,6 +11,9 @@ export interface BrainDumpTask {
   destination: 'today' | 'existing-project' | 'new-project';
   projectName?: string; // For existing or new project
   projectId?: string;   // For existing project match
+  startDate?: string;   // ISO date string e.g. "2026-02-22"
+  endDate?: string;
+  dueDate?: string;
 }
 
 type ConnectionState = 'idle' | 'connecting' | 'listening' | 'error';
@@ -33,6 +36,15 @@ function createPcmBlob(float32Data: Float32Array): { mimeType: string; data: str
     binary += String.fromCharCode(uint8[i]);
   }
   return { mimeType: 'audio/pcm;rate=16000', data: btoa(binary) };
+}
+
+// Get today's date info for the system prompt
+function getTodayDateString(): string {
+  const now = new Date();
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayName = days[now.getDay()];
+  const iso = now.toISOString().split('T')[0];
+  return `${iso} (${dayName})`;
 }
 
 export function useBrainDumpLive() {
@@ -98,8 +110,13 @@ export function useBrainDumpLive() {
         ? `\nExisting projects: ${projects.map(p => `"${p.name}"`).join(', ')}`
         : '\nNo existing projects yet.';
 
+      const todayStr = getTodayDateString();
+
       const systemInstruction = `You are a task extraction assistant for a productivity app called "Brain Dump". The user will speak freely about tasks they need to do. Your job is to extract tasks and route them to the correct destination.
 ${projectListStr}
+
+Today's date is: ${todayStr}.
+When the user mentions relative dates like "next Friday", "end of the month", "in 3 days", convert them to ISO format (YYYY-MM-DD) based on today's date.
 
 ROUTING RULES:
 - If the user mentions a specific existing project name, use add_task_to_project with that project's name
@@ -114,14 +131,24 @@ TASK EXTRACTION RULES:
 - Add a brief description if the user provides additional context
 - Assign priority based on urgency cues: "urgent", "important", "ASAP" → urgent/high; normal items → medium; "whenever", "nice to have" → low
 - Do NOT wait for the user to finish speaking before extracting tasks
+- If the user mentions a start date, end date, or due date, extract it as an ISO date (YYYY-MM-DD) and include start_date, end_date, and/or due_date in the tool call
 
 CORRECTION RULES:
+- If the user asks to MOVE a task from one place to another, use the move_task tool with the task_id you received when that task was created. Do NOT simulate a move by calling add_task + remove_task. That causes duplicates.
+- If the user says "actually put that in [project]" or "move [task] to [project]", this is always a move_task call.
+- For update_task and remove_task: always use task_id if you have it. Only fall back to searchPhrase if you do not have the task_id.
 - If the user corrects or removes a task, use update_task or remove_task accordingly
 
 SILENT MODE:
 - You are in SILENT mode. Do NOT speak. Execute tools and output as little audio as possible.`;
 
       // 4. Define tools
+      const dateProperties = {
+        start_date: { type: Type.STRING, description: 'Task start date in ISO format (YYYY-MM-DD)' },
+        end_date: { type: Type.STRING, description: 'Task end date in ISO format (YYYY-MM-DD)' },
+        due_date: { type: Type.STRING, description: 'Task due date in ISO format (YYYY-MM-DD)' },
+      };
+
       const tools = [{
         functionDeclarations: [
           {
@@ -133,6 +160,7 @@ SILENT MODE:
                 title: { type: Type.STRING, description: 'Concise task title (under 10 words)' },
                 description: { type: Type.STRING, description: 'Brief task description' },
                 priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
+                ...dateProperties,
               },
               required: ['title', 'priority'],
             },
@@ -147,6 +175,7 @@ SILENT MODE:
                 description: { type: Type.STRING, description: 'Brief task description' },
                 priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
                 project_name: { type: Type.STRING, description: 'Name of the existing project to add the task to' },
+                ...dateProperties,
               },
               required: ['title', 'priority', 'project_name'],
             },
@@ -161,33 +190,50 @@ SILENT MODE:
                 description: { type: Type.STRING, description: 'Brief task description' },
                 priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
                 project_name: { type: Type.STRING, description: 'Name for the new project' },
+                ...dateProperties,
               },
               required: ['title', 'priority', 'project_name'],
             },
           },
           {
-            name: 'update_task',
-            description: 'Update an existing task if the user corrects it',
+            name: 'move_task',
+            description: 'Move an existing task to a different destination or project. Use this instead of add+remove when the user wants to relocate a task. Never use add_task + remove_task to simulate a move.',
             parameters: {
               type: Type.OBJECT,
               properties: {
-                searchPhrase: { type: Type.STRING, description: 'A word or phrase to find the existing task' },
+                task_id: { type: Type.STRING, description: 'The exact task_id returned when the task was created' },
+                destination: { type: Type.STRING, description: 'New destination: today, existing-project, or new-project' },
+                project_name: { type: Type.STRING, description: 'Name of the target project (required when destination is existing-project or new-project)' },
+              },
+              required: ['task_id', 'destination'],
+            },
+          },
+          {
+            name: 'update_task',
+            description: 'Update an existing task if the user corrects it. Prefer task_id for precise matching.',
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                task_id: { type: Type.STRING, description: 'The exact task_id returned when the task was created. Use this for precise matching.' },
+                searchPhrase: { type: Type.STRING, description: 'A word or phrase to find the existing task — only use if task_id is not available' },
                 title: { type: Type.STRING, description: 'Updated task title' },
                 description: { type: Type.STRING, description: 'Updated description' },
                 priority: { type: Type.STRING, description: 'Updated priority: low, medium, high, or urgent' },
+                ...dateProperties,
               },
-              required: ['searchPhrase'],
+              required: [],
             },
           },
           {
             name: 'remove_task',
-            description: 'Remove a task if the user says to remove or cancel it',
+            description: 'Remove a task if the user says to remove or cancel it. Prefer task_id for precise matching.',
             parameters: {
               type: Type.OBJECT,
               properties: {
-                searchPhrase: { type: Type.STRING, description: 'A word or phrase to find the task to remove' },
+                task_id: { type: Type.STRING, description: 'The exact task_id returned when the task was created. Use this for precise matching.' },
+                searchPhrase: { type: Type.STRING, description: 'A word or phrase to find the task to remove — only use if task_id is not available' },
               },
-              required: ['searchPhrase'],
+              required: [],
             },
           },
         ],
@@ -247,6 +293,9 @@ SILENT MODE:
                     description: args.description,
                     priority: (args.priority as TaskPriority) || 'medium',
                     destination: 'today',
+                    ...(args.start_date && { startDate: args.start_date }),
+                    ...(args.end_date && { endDate: args.end_date }),
+                    ...(args.due_date && { dueDate: args.due_date }),
                   };
                   setTasks(prev => [...prev, newTask]);
                   result = { result: 'ok', task_id: taskId };
@@ -266,6 +315,9 @@ SILENT MODE:
                     destination: match ? 'existing-project' : 'today',
                     projectName: match?.name || projectName,
                     projectId: match?.id,
+                    ...(args.start_date && { startDate: args.start_date }),
+                    ...(args.end_date && { endDate: args.end_date }),
+                    ...(args.due_date && { dueDate: args.due_date }),
                   };
                   setTasks(prev => [...prev, newTask]);
                   result = { result: 'ok', task_id: taskId, matched_project: match?.name || 'none' };
@@ -287,27 +339,82 @@ SILENT MODE:
                     priority: (args.priority as TaskPriority) || 'medium',
                     destination: 'new-project',
                     projectName: newProjectsRef.current.get(normalizedName) || projectName,
+                    ...(args.start_date && { startDate: args.start_date }),
+                    ...(args.end_date && { endDate: args.end_date }),
+                    ...(args.due_date && { dueDate: args.due_date }),
                   };
                   setTasks(prev => [...prev, newTask]);
                   result = { result: 'ok', task_id: taskId, new_project: projectName };
 
-                } else if (fc.name === 'update_task') {
-                  const searchPhrase = (args.searchPhrase || '').toLowerCase();
+                } else if (fc.name === 'move_task') {
+                  const taskId = args.task_id as string;
+                  const destination = args.destination as BrainDumpTask['destination'];
+                  const projectName = args.project_name as string | undefined;
+
                   setTasks(prev => prev.map(t => {
-                    if (t.title.toLowerCase().includes(searchPhrase)) {
+                    if (t.id !== taskId) return t;
+
+                    if (destination === 'today') {
+                      return { ...t, destination: 'today', projectName: undefined, projectId: undefined };
+                    } else if (destination === 'existing-project' && projectName) {
+                      const match = projectsRef.current.find(
+                        p => p.name.toLowerCase() === projectName.toLowerCase()
+                      );
                       return {
                         ...t,
-                        ...(args.title && { title: args.title }),
-                        ...(args.description !== undefined && { description: args.description }),
-                        ...(args.priority && { priority: args.priority as TaskPriority }),
+                        destination: 'existing-project',
+                        projectName: match?.name || projectName,
+                        projectId: match?.id,
+                      };
+                    } else if (destination === 'new-project' && projectName) {
+                      const normalizedName = projectName.toLowerCase().trim();
+                      if (!newProjectsRef.current.has(normalizedName)) {
+                        newProjectsRef.current.set(normalizedName, projectName);
+                      }
+                      return {
+                        ...t,
+                        destination: 'new-project',
+                        projectName: newProjectsRef.current.get(normalizedName) || projectName,
+                        projectId: undefined,
                       };
                     }
                     return t;
                   }));
+                  result = { result: 'ok', task_id: taskId };
+
+                } else if (fc.name === 'update_task') {
+                  const taskId = args.task_id as string | undefined;
+                  const searchPhrase = (args.searchPhrase || '').toLowerCase();
+
+                  setTasks(prev => prev.map(t => {
+                    // Prefer exact task_id match; fall back to searchPhrase
+                    const isMatch = taskId
+                      ? t.id === taskId
+                      : searchPhrase && t.title.toLowerCase().includes(searchPhrase);
+
+                    if (!isMatch) return t;
+
+                    return {
+                      ...t,
+                      ...(args.title && { title: args.title }),
+                      ...(args.description !== undefined && { description: args.description }),
+                      ...(args.priority && { priority: args.priority as TaskPriority }),
+                      ...(args.start_date !== undefined && { startDate: args.start_date || undefined }),
+                      ...(args.end_date !== undefined && { endDate: args.end_date || undefined }),
+                      ...(args.due_date !== undefined && { dueDate: args.due_date || undefined }),
+                    };
+                  }));
 
                 } else if (fc.name === 'remove_task') {
+                  const taskId = args.task_id as string | undefined;
                   const searchPhrase = (args.searchPhrase || '').toLowerCase();
-                  setTasks(prev => prev.filter(t => !t.title.toLowerCase().includes(searchPhrase)));
+
+                  setTasks(prev => prev.filter(t => {
+                    if (taskId) {
+                      return t.id !== taskId;
+                    }
+                    return searchPhrase ? !t.title.toLowerCase().includes(searchPhrase) : true;
+                  }));
                 }
 
                 // Send tool response back
