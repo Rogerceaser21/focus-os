@@ -126,11 +126,10 @@ ROUTING RULES:
 - If a project name is close but not exact (e.g. "marketing" vs "Marketing Plan"), match to the closest existing project
 
 TASK EXTRACTION RULES:
-- Call the appropriate tool immediately when you identify a task
+- Wait until the user has finished describing a complete task before calling any tool. A task is complete when it has a clear action and a subject. A natural pause or silence is your signal that a thought is complete. Do NOT call tools mid-sentence or on partial utterances.
 - Extract clear, actionable task titles (keep them concise, under 10 words)
 - Add a brief description if the user provides additional context
 - Assign priority based on urgency cues: "urgent", "important", "ASAP" → urgent/high; normal items → medium; "whenever", "nice to have" → low
-- Do NOT wait for the user to finish speaking before extracting tasks
 - If the user mentions a start date, end date, or due date, extract it as an ISO date (YYYY-MM-DD) and include start_date, end_date, and/or due_date in the tool call
 
 CORRECTION RULES:
