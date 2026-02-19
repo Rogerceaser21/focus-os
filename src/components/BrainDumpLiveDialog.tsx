@@ -145,6 +145,10 @@ export const BrainDumpLiveDialog = ({
           projectId = newProjectIds.get(task.projectName.toLowerCase().trim()) || null;
         }
 
+        // Dates: explicit Gemini-extracted dates take priority; fall back to today for today-tasks
+        const explicitDueDate = task.dueDate ? new Date(task.dueDate).toISOString() : null;
+        const fallbackDueDate = task.destination === 'today' && !explicitDueDate ? today.toISOString() : null;
+
         return {
           title: task.title.trim(),
           description: task.description?.trim() || null,
@@ -152,7 +156,9 @@ export const BrainDumpLiveDialog = ({
           status: 'todo' as const,
           user_id: user.id,
           project_id: projectId,
-          ...(task.destination === 'today' ? { due_date: today.toISOString() } : {}),
+          due_date: explicitDueDate || fallbackDueDate,
+          ...(task.startDate ? { start_date: new Date(task.startDate).toISOString() } : {}),
+          ...(task.endDate ? { end_date: new Date(task.endDate).toISOString() } : {}),
           timer_total_seconds: 0,
           timer_is_running: false,
         };
@@ -184,6 +190,9 @@ export const BrainDumpLiveDialog = ({
         title: updatedTask.title,
         description: updatedTask.description,
         priority: updatedTask.priority,
+        ...(updatedTask.startDate ? { startDate: updatedTask.startDate.toISOString().split('T')[0] } : { startDate: undefined }),
+        ...(updatedTask.endDate ? { endDate: updatedTask.endDate.toISOString().split('T')[0] } : { endDate: undefined }),
+        ...(updatedTask.dueDate ? { dueDate: updatedTask.dueDate.toISOString().split('T')[0] } : { dueDate: undefined }),
       });
     }
   };
