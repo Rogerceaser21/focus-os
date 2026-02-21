@@ -147,7 +147,10 @@ export type Database = {
           has_completed_projects_tour: boolean
           has_completed_task_tour: boolean
           id: string
+          notify_due_date: boolean
+          notify_timer: boolean
           theme: string
+          timer_alert_interval_minutes: number
           updated_at: string | null
           user_id: string
         }
@@ -161,7 +164,10 @@ export type Database = {
           has_completed_projects_tour?: boolean
           has_completed_task_tour?: boolean
           id?: string
+          notify_due_date?: boolean
+          notify_timer?: boolean
           theme?: string
+          timer_alert_interval_minutes?: number
           updated_at?: string | null
           user_id: string
         }
@@ -175,7 +181,10 @@ export type Database = {
           has_completed_projects_tour?: boolean
           has_completed_task_tour?: boolean
           id?: string
+          notify_due_date?: boolean
+          notify_timer?: boolean
           theme?: string
+          timer_alert_interval_minutes?: number
           updated_at?: string | null
           user_id?: string
         }

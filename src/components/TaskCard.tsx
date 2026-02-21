@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Play, Pause, Clock, Calendar } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
+import { useTimerAlert } from '@/hooks/useTimerAlert';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { format } from 'date-fns';
 import { LinkifiedText } from '@/components/LinkifiedText';
 
@@ -34,6 +36,14 @@ const statusColors = {
 
 export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCardProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
+  const { preferences } = useUserPreferences();
+  useTimerAlert({
+    isRunning: timer.isRunning,
+    displaySeconds,
+    intervalMinutes: preferences?.timer_alert_interval_minutes ?? 45,
+    enabled: preferences?.notify_timer ?? false,
+    taskTitle: task.title,
+  });
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
