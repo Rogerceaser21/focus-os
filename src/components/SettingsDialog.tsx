@@ -104,7 +104,7 @@ export default function SettingsDialog({
         ) : (
           <div className="space-y-6 py-4 overflow-y-auto flex-1 pr-2">
             {/* Push Notifications */}
-            <PushNotificationSettings />
+            <PushNotificationSettings preferences={preferences} onSave={onSave} />
 
             <Separator />
 

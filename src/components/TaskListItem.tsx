@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Play, Pause, Calendar, Clock, Image } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
+import { useTimerAlert } from '@/hooks/useTimerAlert';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
@@ -37,6 +39,14 @@ const statusColors = {
 
 export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
+  const { preferences } = useUserPreferences();
+  useTimerAlert({
+    isRunning: timer.isRunning,
+    displaySeconds,
+    intervalMinutes: preferences?.timer_alert_interval_minutes ?? 45,
+    enabled: preferences?.notify_timer ?? false,
+    taskTitle: task.title,
+  });
   const isMobile = useIsMobile();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);

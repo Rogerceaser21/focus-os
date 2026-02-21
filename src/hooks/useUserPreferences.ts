@@ -13,6 +13,9 @@ export interface UserPreferences {
   has_completed_onboarding: boolean;
   has_completed_task_tour: boolean;
   has_completed_projects_tour: boolean;
+  notify_due_date: boolean;
+  notify_timer: boolean;
+  timer_alert_interval_minutes: number;
   created_at: string;
   updated_at: string;
 }
