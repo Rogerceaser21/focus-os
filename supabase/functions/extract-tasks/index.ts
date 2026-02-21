@@ -19,9 +19,9 @@ serve(async (req) => {
 
     console.log('Extracting tasks from transcription...', { mode });
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     // Different system prompts based on mode
@@ -103,27 +103,32 @@ Special rules:
         };
 
     const body = {
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: transcription }
+      model: "gemini-2.5-flash",
+      contents: [
+        { role: "user", parts: [{ text: systemPrompt + "\n\n" + transcription }] }
       ],
       tools: [
         {
-          type: "function",
-          function: functionSchema
+          functionDeclarations: [
+            {
+              name: functionSchema.name,
+              description: functionSchema.description,
+              parameters: functionSchema.parameters
+            }
+          ]
         }
       ],
-      tool_choice: { 
-        type: "function", 
-        function: { name: mode === "tasks-only" ? "extract_tasks" : "extract_project_tasks" } 
+      toolConfig: {
+        functionCallingConfig: {
+          mode: "ANY",
+          allowedFunctionNames: [functionSchema.name]
+        }
       }
     };
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -150,14 +155,14 @@ Special rules:
     }
 
     const data = await response.json();
-    console.log('AI response:', JSON.stringify(data));
+    console.log('Gemini response:', JSON.stringify(data));
 
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
-      throw new Error("No tool call in AI response");
+    const functionCall = data.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
+    if (!functionCall) {
+      throw new Error("No function call in Gemini response");
     }
 
-    const extractedData = JSON.parse(toolCall.function.arguments);
+    const extractedData = functionCall.args;
     console.log('Extracted data:', extractedData);
 
     return new Response(
