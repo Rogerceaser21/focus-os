@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.get-brain-dump-config]
 verify_jwt = true
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.get-vapid-public-key]
+verify_jwt = false
