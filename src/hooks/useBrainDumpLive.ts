@@ -88,10 +88,12 @@ export function useBrainDumpLive() {
     return cleanup;
   }, [cleanup]);
 
-  const start = useCallback(async (projects: ProjectInfo[]) => {
+  const start = useCallback(async (projects: ProjectInfo[], options?: { preserveTasks?: boolean }) => {
     setConnectionState('connecting');
-    setTasks([]);
-    taskCounterRef.current = 0;
+    if (!options?.preserveTasks) {
+      setTasks([]);
+      taskCounterRef.current = 0;
+    }
     projectsRef.current = projects;
     newProjectsRef.current = new Map();
 
