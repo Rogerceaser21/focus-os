@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Task, Project } from '@/types/task';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -48,6 +48,19 @@ export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCard
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
+
+  // Sync local state when task prop changes (e.g. after DB round-trip)
+  useEffect(() => {
+    if (!isEditingTitle) {
+      setEditedTitle(task.title);
+    }
+  }, [task.title]);
+
+  useEffect(() => {
+    if (!isEditingDescription) {
+      setEditedDescription(task.description || '');
+    }
+  }, [task.description]);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
   const [isFading, setIsFading] = useState(false);
 
