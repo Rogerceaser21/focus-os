@@ -60,8 +60,14 @@ export function useBrainDumpLive() {
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   
   const taskCounterRef = useRef(0);
+  const tasksRef = useRef<BrainDumpTask[]>([]);
   const projectsRef = useRef<ProjectInfo[]>([]);
   const newProjectsRef = useRef<Map<string, string>>(new Map()); // normalized name -> display name
+
+  // Keep tasksRef in sync with tasks state
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
 
   const cleanup = useCallback(() => {
@@ -118,11 +124,23 @@ export function useBrainDumpLive() {
 
       const todayStr = getTodayDateString();
 
+      // Build existing tasks context for resumed sessions
+      let existingTasksStr = '';
+      if (options?.preserveTasks && tasksRef.current.length > 0) {
+        const taskLines = tasksRef.current.map(t => 
+          `  - task_id: "${t.id}", title: "${t.title}", priority: "${t.priority}", destination: "${t.destination}"${t.projectName ? `, project: "${t.projectName}"` : ''}`
+        ).join('\n');
+        existingTasksStr = `\n\nPREVIOUSLY EXTRACTED TASKS (these already exist — use update_task or move_task to modify them, NEVER re-create them):
+${taskLines}
+You MUST use the task_ids listed above for any updates, moves, or removals. Do NOT create new tasks with the same titles.`;
+      }
+
       const systemInstruction = `You are a task extraction assistant for a productivity app called "Brain Dump". The user will speak freely about tasks they need to do. Your job is to extract tasks and route them to the correct destination.
 ${projectListStr}
 
 Today's date is: ${todayStr}.
 When the user mentions relative dates like "next Friday", "end of the month", "in 3 days", convert them to ISO format (YYYY-MM-DD) based on today's date.
+${existingTasksStr}
 
 ROUTING RULES:
 - If the user mentions a specific existing project name, use add_task_to_project with that project's name
