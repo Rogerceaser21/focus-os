@@ -294,7 +294,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
                   setIsEditingTitle(true);
                 }}
               >
-                {task.title}
+                {editedTitle}
               </h3>
             )}
             <Button
@@ -337,8 +337,8 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
                   setIsEditingDescription(true);
                 }}
               >
-                {task.description ? (
-                  <LinkifiedText text={task.description} />
+                {editedDescription ? (
+                  <LinkifiedText text={editedDescription} />
                 ) : (
                   'Click to add description...'
                 )}
@@ -452,7 +452,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
                   setIsEditingTitle(true);
                 }}
               >
-                {task.title}
+                {editedTitle}
               </h3>
             )}
             <Button
@@ -495,8 +495,8 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
                   setIsEditingDescription(true);
                 }}
               >
-                {task.description ? (
-                  <LinkifiedText text={task.description} />
+                {editedDescription ? (
+                  <LinkifiedText text={editedDescription} />
                 ) : (
                   'Click to add description...'
                 )}
