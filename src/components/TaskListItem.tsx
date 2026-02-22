@@ -52,6 +52,19 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
+
+  // Sync local state when task prop changes (e.g. after DB round-trip)
+  useEffect(() => {
+    if (!isEditingTitle) {
+      setEditedTitle(task.title);
+    }
+  }, [task.title]);
+
+  useEffect(() => {
+    if (!isEditingDescription) {
+      setEditedDescription(task.description || '');
+    }
+  }, [task.description]);
   const [isFading, setIsFading] = useState(false);
   const [isChecked, setIsChecked] = useState(task.status === 'completed');
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
