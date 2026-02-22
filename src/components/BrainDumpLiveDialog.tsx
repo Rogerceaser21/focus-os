@@ -95,7 +95,7 @@ export const BrainDumpLiveDialog = ({
   const handleKeepTalking = async () => {
     setIsDone(false);
     try {
-      await start(projects);
+      await start(projects, { preserveTasks: true });
     } catch (error: any) {
       let errorMessage = 'Could not restart listening. ';
       if (error.name === 'NotAllowedError') {
