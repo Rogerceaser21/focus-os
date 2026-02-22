@@ -95,6 +95,8 @@ export function useBrainDumpLive() {
   }, [cleanup]);
 
   const start = useCallback(async (projects: ProjectInfo[], options?: { preserveTasks?: boolean }) => {
+    // Safety: release any leftover mic/session before starting fresh
+    cleanup();
     setConnectionState('connecting');
     if (!options?.preserveTasks) {
       setTasks([]);
