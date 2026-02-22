@@ -150,7 +150,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCard
                     className={`font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
                     onClick={() => setIsEditingTitle(true)}
                   >
-                    {task.title}
+                    {editedTitle}
                   </h3>
                 )}
               </div>
@@ -204,8 +204,8 @@ export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCard
               className="text-sm text-muted-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-0.5 -mx-2 transition-colors"
               onClick={() => setIsEditingDescription(true)}
             >
-              {task.description ? (
-                <LinkifiedText text={task.description} />
+              {editedDescription ? (
+                <LinkifiedText text={editedDescription} />
               ) : (
                 'Click to add description...'
               )}
