@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2, Check, X, AlertCircle, Calendar, FolderPlus, FolderOpen } from 'lucide-react';
@@ -29,19 +29,10 @@ export const BrainDumpLiveDialog = ({
   onTasksCreated,
   onRecordingChange,
 }: BrainDumpLiveDialogProps) => {
-  const { tasks, connectionState, silenceCountdown, start, stop, setAutoStopCallback, updateTask, removeTask, resetTasks } = useBrainDumpLive();
+  const { tasks, connectionState, start, stop, updateTask, removeTask, resetTasks } = useBrainDumpLive();
   const [isSaving, setIsSaving] = useState(false);
   const [isDone, setIsDone] = useState(false);
 
-  // Wire auto-stop: when VAD detects 30s silence, treat it as "I'm Done"
-  useEffect(() => {
-    setAutoStopCallback(() => {
-      stop();
-      setIsDone(true);
-      toast.info('Stopped listening — no speech detected for 30 seconds');
-    });
-    return () => setAutoStopCallback(null);
-  }, [setAutoStopCallback, stop]);
 
   // Report recording state changes to parent
   React.useEffect(() => {
@@ -317,20 +308,9 @@ export const BrainDumpLiveDialog = ({
                         />
                       ))}
                     </div>
-                    {silenceCountdown !== null ? (
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-sm text-destructive font-medium animate-pulse">
-                          Auto-stopping in {silenceCountdown}s…
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          Speak to continue
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground animate-pulse">
-                        Listening… speak freely
-                      </span>
-                    )}
+                    <span className="text-sm text-muted-foreground animate-pulse">
+                      Listening… speak freely
+                    </span>
                     {tasks.length > 0 && (
                       <span className="text-xs text-muted-foreground">
                         {tasks.length} task{tasks.length !== 1 ? 's' : ''} extracted so far
