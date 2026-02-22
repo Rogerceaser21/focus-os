@@ -25,6 +25,7 @@ interface ProjectSidebarProps {
   onSelectSpecialList: (list: 'unassigned' | 'today' | null) => void;
   selectedSpecialList: 'unassigned' | 'today' | null;
   projectRefreshTrigger?: number;
+  onProjectCreated?: () => void;
   onStartTour?: () => void;
   onStartTaskTour?: () => void;
   onStartProjectsTour?: () => void;
@@ -39,6 +40,7 @@ export const ProjectSidebar = ({
   onSelectSpecialList,
   selectedSpecialList,
   projectRefreshTrigger,
+  onProjectCreated,
   onStartTour,
   onStartTaskTour,
   onStartProjectsTour,
@@ -92,6 +94,7 @@ export const ProjectSidebar = ({
     toast.success('Project created!');
     fetchProjects();
     setIsCreateOpen(false);
+    onProjectCreated?.();
   };
 
   const handleSelectProject = (projectId: string) => {
