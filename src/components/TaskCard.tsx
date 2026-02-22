@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Task, Project } from '@/types/task';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -48,16 +48,17 @@ export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCard
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
+  const recentlyBlurredRef = useRef(false);
 
-  // Sync local state when task prop changes (e.g. after DB round-trip)
+  // Sync local state when task prop changes, skip briefly after blur to avoid realtime race
   useEffect(() => {
-    if (!isEditingTitle) {
+    if (!isEditingTitle && !recentlyBlurredRef.current) {
       setEditedTitle(task.title);
     }
   }, [task.title]);
 
   useEffect(() => {
-    if (!isEditingDescription) {
+    if (!isEditingDescription && !recentlyBlurredRef.current) {
       setEditedDescription(task.description || '');
     }
   }, [task.description]);
@@ -70,7 +71,6 @@ export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCard
       startTimer();
       onUpdate({ ...task, status: 'in-progress', timer: { ...timer, isRunning: true, startTime } });
     } else if (action === 'stop') {
-      // Calculate elapsed time before stopping
       const elapsed = timer.startTime 
         ? Math.floor((Date.now() - timer.startTime) / 1000)
         : 0;
@@ -89,7 +89,9 @@ export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCard
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
     if (editedTitle.trim() && editedTitle !== task.title) {
+      recentlyBlurredRef.current = true;
       onUpdate({ ...task, title: editedTitle.trim() });
+      setTimeout(() => { recentlyBlurredRef.current = false; }, 2000);
     } else {
       setEditedTitle(task.title);
     }
@@ -98,7 +100,9 @@ export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCard
   const handleDescriptionBlur = () => {
     setIsEditingDescription(false);
     if (editedDescription !== task.description) {
+      recentlyBlurredRef.current = true;
       onUpdate({ ...task, description: editedDescription.trim() || undefined });
+      setTimeout(() => { recentlyBlurredRef.current = false; }, 2000);
     }
   };
 

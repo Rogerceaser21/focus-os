@@ -52,16 +52,18 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
+  const recentlyBlurredRef = useRef(false);
 
   // Sync local state when task prop changes (e.g. after DB round-trip)
+  // Skip sync briefly after blur to avoid realtime race condition
   useEffect(() => {
-    if (!isEditingTitle) {
+    if (!isEditingTitle && !recentlyBlurredRef.current) {
       setEditedTitle(task.title);
     }
   }, [task.title]);
 
   useEffect(() => {
-    if (!isEditingDescription) {
+    if (!isEditingDescription && !recentlyBlurredRef.current) {
       setEditedDescription(task.description || '');
     }
   }, [task.description]);
@@ -239,7 +241,9 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
     if (editedTitle.trim() && editedTitle !== task.title) {
+      recentlyBlurredRef.current = true;
       onUpdate({ ...task, title: editedTitle.trim() });
+      setTimeout(() => { recentlyBlurredRef.current = false; }, 2000);
     } else {
       setEditedTitle(task.title);
     }
@@ -248,7 +252,9 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
   const handleDescriptionBlur = () => {
     setIsEditingDescription(false);
     if (editedDescription !== task.description) {
+      recentlyBlurredRef.current = true;
       onUpdate({ ...task, description: editedDescription.trim() || undefined });
+      setTimeout(() => { recentlyBlurredRef.current = false; }, 2000);
     }
   };
 
