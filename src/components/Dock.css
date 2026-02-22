@@ -32,6 +32,14 @@
     backdrop-filter: blur(32px);
     -webkit-backdrop-filter: blur(32px);
   }
+
+  .dock-panel {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+  }
 }
 
 .dock-panel {
