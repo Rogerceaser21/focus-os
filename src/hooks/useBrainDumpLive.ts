@@ -166,11 +166,15 @@ TASK EXTRACTION RULES:
 - Assign priority based on urgency cues: "urgent", "important", "ASAP" → urgent/high; normal items → medium; "whenever", "nice to have" → low
 - If the user mentions a start date, end date, or due date, extract it as an ISO date (YYYY-MM-DD) and include start_date, end_date, and/or due_date in the tool call
 
-CORRECTION RULES:
+CORRECTION RULES (CRITICAL — READ CAREFULLY):
+- NEVER create a new task when the user wants to MODIFY an existing task. If a task with a similar title already exists, you MUST use update_task or move_task — NEVER add_task_to_today or add_task_to_project.
+- When the user asks to change a property (priority, title, description, dates, project) of MULTIPLE existing tasks, you MUST call update_task ONCE PER TASK using the task_id you received when each task was created. Do NOT call any add_task tool. Do NOT re-create the tasks.
+- When the user says "change all priorities to urgent" or "make them all urgent", that means call update_task for EACH existing task. Count them. If there are 3 tasks, you must make exactly 3 update_task calls.
 - If the user asks to MOVE a task from one place to another, use the move_task tool with the task_id you received when that task was created. Do NOT simulate a move by calling add_task + remove_task. That causes duplicates.
 - If the user says "actually put that in [project]" or "move [task] to [project]", this is always a move_task call.
-- For update_task and remove_task: always use task_id if you have it. Only fall back to searchPhrase if you do not have the task_id.
-- If the user corrects or removes a task, use update_task or remove_task accordingly
+- For update_task, move_task, and remove_task: ALWAYS use task_id. Only fall back to searchPhrase if you truly do not have the task_id.
+- If the user corrects or removes a task, use update_task or remove_task accordingly.
+- EVERY tool response includes a "current_tasks" field listing all existing tasks with their task_ids. Use these task_ids for any subsequent updates, moves, or removals.
 
 SILENT MODE:
 - You are in SILENT mode. Do NOT speak. Execute tools and output as little audio as possible.`;
@@ -381,6 +385,10 @@ SILENT MODE:
                 const args = fc.args || {};
                 console.log('Tool call received:', fc.name, args);
 
+                // Helper to build current task summary for the model
+                const getCurrentTasksSummary = (tasksState: BrainDumpTask[]) => 
+                  tasksState.map(t => ({ task_id: t.id, title: t.title, priority: t.priority, destination: t.destination, projectName: t.projectName }));
+
                 let result: any = { result: 'ok' };
 
                 if (fc.name === 'add_task_to_today') {
@@ -395,12 +403,14 @@ SILENT MODE:
                     ...(args.end_date && { endDate: args.end_date }),
                     ...(args.due_date && { dueDate: args.due_date }),
                   };
-                  setTasks(prev => [...prev, newTask]);
-                  result = { result: 'ok', task_id: taskId };
+                  setTasks(prev => {
+                    const next = [...prev, newTask];
+                    result = { result: 'ok', task_id: taskId, current_tasks: getCurrentTasksSummary(next) };
+                    return next;
+                  });
 
                 } else if (fc.name === 'add_task_to_project') {
                   const projectName = args.project_name || '';
-                  // Find matching project (case-insensitive)
                   const match = projectsRef.current.find(
                     p => p.name.toLowerCase() === projectName.toLowerCase()
                   );
@@ -417,14 +427,16 @@ SILENT MODE:
                     ...(args.end_date && { endDate: args.end_date }),
                     ...(args.due_date && { dueDate: args.due_date }),
                   };
-                  setTasks(prev => [...prev, newTask]);
-                  result = { result: 'ok', task_id: taskId, matched_project: match?.name || 'none' };
+                  setTasks(prev => {
+                    const next = [...prev, newTask];
+                    result = { result: 'ok', task_id: taskId, matched_project: match?.name || 'none', current_tasks: getCurrentTasksSummary(next) };
+                    return next;
+                  });
 
                 } else if (fc.name === 'create_project_and_add_task') {
                   const projectName = args.project_name || 'New Project';
                   const normalizedName = projectName.toLowerCase().trim();
                   
-                  // Track new project names for grouping
                   if (!newProjectsRef.current.has(normalizedName)) {
                     newProjectsRef.current.set(normalizedName, projectName);
                   }
@@ -441,78 +453,89 @@ SILENT MODE:
                     ...(args.end_date && { endDate: args.end_date }),
                     ...(args.due_date && { dueDate: args.due_date }),
                   };
-                  setTasks(prev => [...prev, newTask]);
-                  result = { result: 'ok', task_id: taskId, new_project: projectName };
+                  setTasks(prev => {
+                    const next = [...prev, newTask];
+                    result = { result: 'ok', task_id: taskId, new_project: projectName, current_tasks: getCurrentTasksSummary(next) };
+                    return next;
+                  });
 
                 } else if (fc.name === 'move_task') {
                   const taskId = args.task_id as string;
                   const destination = args.destination as BrainDumpTask['destination'];
                   const projectName = args.project_name as string | undefined;
 
-                  setTasks(prev => prev.map(t => {
-                    if (t.id !== taskId) return t;
+                  setTasks(prev => {
+                    const next = prev.map(t => {
+                      if (t.id !== taskId) return t;
 
-                    if (destination === 'today') {
-                      return { ...t, destination: 'today', projectName: undefined, projectId: undefined };
-                    } else if (destination === 'existing-project' && projectName) {
-                      const match = projectsRef.current.find(
-                        p => p.name.toLowerCase() === projectName.toLowerCase()
-                      );
-                      return {
-                        ...t,
-                        destination: 'existing-project',
-                        projectName: match?.name || projectName,
-                        projectId: match?.id,
-                      };
-                    } else if (destination === 'new-project' && projectName) {
-                      const normalizedName = projectName.toLowerCase().trim();
-                      if (!newProjectsRef.current.has(normalizedName)) {
-                        newProjectsRef.current.set(normalizedName, projectName);
+                      if (destination === 'today') {
+                        return { ...t, destination: 'today' as const, projectName: undefined, projectId: undefined };
+                      } else if (destination === 'existing-project' && projectName) {
+                        const match = projectsRef.current.find(
+                          p => p.name.toLowerCase() === projectName.toLowerCase()
+                        );
+                        return {
+                          ...t,
+                          destination: 'existing-project' as const,
+                          projectName: match?.name || projectName,
+                          projectId: match?.id,
+                        };
+                      } else if (destination === 'new-project' && projectName) {
+                        const normalizedName = projectName.toLowerCase().trim();
+                        if (!newProjectsRef.current.has(normalizedName)) {
+                          newProjectsRef.current.set(normalizedName, projectName);
+                        }
+                        return {
+                          ...t,
+                          destination: 'new-project' as const,
+                          projectName: newProjectsRef.current.get(normalizedName) || projectName,
+                          projectId: undefined,
+                        };
                       }
-                      return {
-                        ...t,
-                        destination: 'new-project',
-                        projectName: newProjectsRef.current.get(normalizedName) || projectName,
-                        projectId: undefined,
-                      };
-                    }
-                    return t;
-                  }));
-                  result = { result: 'ok', task_id: taskId };
+                      return t;
+                    });
+                    result = { result: 'ok', task_id: taskId, current_tasks: getCurrentTasksSummary(next) };
+                    return next;
+                  });
 
                 } else if (fc.name === 'update_task') {
                   const taskId = args.task_id as string | undefined;
                   const searchPhrase = (args.searchPhrase || '').toLowerCase();
 
-                  setTasks(prev => prev.map(t => {
-                    // Prefer exact task_id match; fall back to searchPhrase
-                    const isMatch = taskId
-                      ? t.id === taskId
-                      : searchPhrase && t.title.toLowerCase().includes(searchPhrase);
+                  setTasks(prev => {
+                    const next = prev.map(t => {
+                      const isMatch = taskId
+                        ? t.id === taskId
+                        : searchPhrase && t.title.toLowerCase().includes(searchPhrase);
 
-                    if (!isMatch) return t;
+                      if (!isMatch) return t;
 
-                    return {
-                      ...t,
-                      ...(args.title && { title: args.title }),
-                      ...(args.description !== undefined && { description: args.description }),
-                      ...(args.priority && { priority: args.priority as TaskPriority }),
-                      ...(args.start_date !== undefined && { startDate: args.start_date || undefined }),
-                      ...(args.end_date !== undefined && { endDate: args.end_date || undefined }),
-                      ...(args.due_date !== undefined && { dueDate: args.due_date || undefined }),
-                    };
-                  }));
+                      return {
+                        ...t,
+                        ...(args.title && { title: args.title }),
+                        ...(args.description !== undefined && { description: args.description }),
+                        ...(args.priority && { priority: args.priority as TaskPriority }),
+                        ...(args.start_date !== undefined && { startDate: args.start_date || undefined }),
+                        ...(args.end_date !== undefined && { endDate: args.end_date || undefined }),
+                        ...(args.due_date !== undefined && { dueDate: args.due_date || undefined }),
+                      };
+                    });
+                    result = { result: 'ok', task_id: taskId || 'matched_by_search', current_tasks: getCurrentTasksSummary(next) };
+                    return next;
+                  });
 
                 } else if (fc.name === 'remove_task') {
                   const taskId = args.task_id as string | undefined;
                   const searchPhrase = (args.searchPhrase || '').toLowerCase();
 
-                  setTasks(prev => prev.filter(t => {
-                    if (taskId) {
-                      return t.id !== taskId;
-                    }
-                    return searchPhrase ? !t.title.toLowerCase().includes(searchPhrase) : true;
-                  }));
+                  setTasks(prev => {
+                    const next = prev.filter(t => {
+                      if (taskId) return t.id !== taskId;
+                      return searchPhrase ? !t.title.toLowerCase().includes(searchPhrase) : true;
+                    });
+                    result = { result: 'ok', task_id: taskId || 'matched_by_search', current_tasks: getCurrentTasksSummary(next) };
+                    return next;
+                  });
                 }
 
                 // Send tool response back
