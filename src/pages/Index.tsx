@@ -1606,9 +1606,9 @@ https://www.skyscanner.com`,
                 </AnimatePresence>
 
                 {/* Dock - slides from right edge to center */}
-                <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none">
-                  <AnimatePresence>
-                    {mobileDockOpen && (
+                <AnimatePresence>
+                  {mobileDockOpen && (
+                    <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none">
                       <motion.div
                         initial={{ x: '100vw' }}
                         animate={{ x: 0 }}
@@ -1618,9 +1618,9 @@ https://www.skyscanner.com`,
                       >
                         <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
                       </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                    </div>
+                  )}
+                </AnimatePresence>
               </>
             )}
           </>
