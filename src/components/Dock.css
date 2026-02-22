@@ -47,9 +47,7 @@
   }
   
   .dock-outer::before {
-    height: calc(12px + env(safe-area-inset-bottom));
-    backdrop-filter: blur(32px);
-    -webkit-backdrop-filter: blur(32px);
+    display: none;
   }
 
   .dock-panel {
