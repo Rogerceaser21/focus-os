@@ -15,6 +15,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
+  arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task, Project, TaskPriority } from '@/types/task';
@@ -24,6 +25,7 @@ import { GripVertical } from 'lucide-react';
 interface DraggableTaskListProps {
   tasks: Task[];
   onUpdate: (task: Task) => void;
+  onBatchUpdate?: (tasks: Task[]) => void;
   onEditTask?: (task: Task) => void;
   globalViewMode: 'full' | 'compact';
   expandedTaskIds: Set<string>;
@@ -77,7 +79,6 @@ const SortableTaskItem = ({
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-stretch gap-0">
-      {/* Drag Handle */}
       <div
         {...attributes}
         {...listeners}
@@ -86,7 +87,6 @@ const SortableTaskItem = ({
       >
         <GripVertical className="h-4 w-4" />
       </div>
-      {/* Task Item */}
       <div className="flex-1 min-w-0">
         <TaskListItem
           task={task}
@@ -105,6 +105,7 @@ const SortableTaskItem = ({
 export const DraggableTaskList = ({
   tasks,
   onUpdate,
+  onBatchUpdate,
   onEditTask,
   globalViewMode,
   expandedTaskIds,
@@ -123,7 +124,7 @@ export const DraggableTaskList = ({
     useSensor(KeyboardSensor)
   );
 
-  // Group tasks by priority
+  // Group tasks by priority (already sorted by sort_order from parent)
   const groupedTasks = useMemo(() => {
     const groups: Record<TaskPriority, Task[]> = {
       urgent: [],
@@ -146,6 +147,16 @@ export const DraggableTaskList = ({
     return ids;
   }, [groupedTasks]);
 
+  // Find which priority group a task ID belongs to
+  const findPriorityGroup = (taskId: string): TaskPriority | null => {
+    for (const priority of PRIORITY_ORDER) {
+      if (groupedTasks[priority].some((t) => t.id === taskId)) {
+        return priority;
+      }
+    }
+    return null;
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
@@ -159,15 +170,61 @@ export const DraggableTaskList = ({
     const overTask = tasks.find((t) => t.id === over.id);
     if (!activeTask || !overTask) return;
 
-    // If dropped onto a task with a different priority, change the dragged task's priority
-    if (activeTask.priority !== overTask.priority) {
-      onUpdate({ ...activeTask, priority: overTask.priority });
+    const activePriority = activeTask.priority;
+    const overPriority = overTask.priority;
+
+    if (activePriority === overPriority) {
+      // Within same priority group — reorder
+      const group = [...groupedTasks[activePriority]];
+      const oldIndex = group.findIndex((t) => t.id === active.id);
+      const newIndex = group.findIndex((t) => t.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reordered = arrayMove(group, oldIndex, newIndex);
+      // Assign new sort_order values
+      const updates: Task[] = reordered.map((t, i) => ({
+        ...t,
+        sortOrder: i,
+      }));
+
+      if (onBatchUpdate) {
+        onBatchUpdate(updates);
+      } else {
+        // Fallback: update each individually
+        updates.forEach((t) => onUpdate(t));
+      }
+    } else {
+      // Cross-priority — change priority and insert at the drop position
+      const targetGroup = [...groupedTasks[overPriority]];
+      const overIndex = targetGroup.findIndex((t) => t.id === over.id);
+      
+      // Insert the moved task into the target group at the right position
+      const movedTask = { ...activeTask, priority: overPriority };
+      targetGroup.splice(overIndex, 0, movedTask);
+
+      // Re-assign sort_order for the target group
+      const updates: Task[] = targetGroup.map((t, i) => ({
+        ...t,
+        sortOrder: i,
+      }));
+
+      // Also re-assign sort_order for the source group (task was removed)
+      const sourceGroup = groupedTasks[activePriority].filter((t) => t.id !== active.id);
+      const sourceUpdates: Task[] = sourceGroup.map((t, i) => ({
+        ...t,
+        sortOrder: i,
+      }));
+
+      if (onBatchUpdate) {
+        onBatchUpdate([...updates, ...sourceUpdates]);
+      } else {
+        [...updates, ...sourceUpdates].forEach((t) => onUpdate(t));
+      }
     }
   };
 
   const activeTask = activeId ? tasks.find((t) => t.id === activeId) : null;
 
-  // Check if there are any tasks at all
   const hasTasks = PRIORITY_ORDER.some((p) => groupedTasks[p].length > 0);
   if (!hasTasks) return null;
 
@@ -188,7 +245,6 @@ export const DraggableTaskList = ({
 
             return (
               <div key={priority}>
-                {/* Priority Group Header */}
                 <div className="flex items-center gap-2 py-1.5 px-2">
                   <div className={`text-xs font-semibold uppercase tracking-wider ${color}`}>
                     {label}
@@ -196,7 +252,6 @@ export const DraggableTaskList = ({
                   <div className="flex-1 h-px bg-border" />
                   <span className="text-xs text-muted-foreground">{tasksInGroup.length}</span>
                 </div>
-                {/* Tasks */}
                 <div className="flex flex-col gap-2">
                   {tasksInGroup.map((task) => (
                     <SortableTaskItem
@@ -217,7 +272,6 @@ export const DraggableTaskList = ({
         </div>
       </SortableContext>
 
-      {/* Drag Overlay */}
       <DragOverlay>
         {activeTask ? (
           <div className="opacity-90 shadow-xl rounded-lg">

@@ -79,6 +79,7 @@ export type Database = {
           images: Json | null
           priority: string
           project_id: string | null
+          sort_order: number | null
           start_date: string | null
           status: string
           timer_is_running: boolean
@@ -98,6 +99,7 @@ export type Database = {
           images?: Json | null
           priority?: string
           project_id?: string | null
+          sort_order?: number | null
           start_date?: string | null
           status?: string
           timer_is_running?: boolean
@@ -117,6 +119,7 @@ export type Database = {
           images?: Json | null
           priority?: string
           project_id?: string | null
+          sort_order?: number | null
           start_date?: string | null
           status?: string
           timer_is_running?: boolean

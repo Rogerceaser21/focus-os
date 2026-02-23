@@ -209,7 +209,8 @@ const Index = () => {
       isRunning: dbTask.timer_is_running,
       startTime: dbTask.timer_start_time
     },
-    projectId: dbTask.project_id
+    projectId: dbTask.project_id,
+    sortOrder: dbTask.sort_order ?? 0
   }), []);
 
   // Fetch projects (lightweight - just names for sidebar)
@@ -846,6 +847,7 @@ https://www.skyscanner.com`,
   const handleUpdateTask = async (updatedTask: Task) => {
     // Optimistic update: Update local state immediately to prevent list jumping
     setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
+    setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
 
     // Update database in background
     const {
@@ -862,13 +864,41 @@ https://www.skyscanner.com`,
       timer_total_seconds: updatedTask.timer.totalSeconds,
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime,
-      project_id: updatedTask.projectId || null
+      project_id: updatedTask.projectId || null,
+      sort_order: updatedTask.sortOrder ?? 0
     }).eq('id', updatedTask.id);
     if (error) {
       toast.error('Failed to update task');
-      // Revert to database state if update fails
       fetchTasks();
       return;
+    }
+  };
+
+  // Batch update for drag-and-drop reordering
+  const handleBatchUpdateTasks = async (updatedTasks: Task[]) => {
+    // Optimistic update
+    setTasks(prevTasks => {
+      const updateMap = new Map(updatedTasks.map(t => [t.id, t]));
+      return prevTasks.map(task => updateMap.get(task.id) || task);
+    });
+    setAllTasks(prevTasks => {
+      const updateMap = new Map(updatedTasks.map(t => [t.id, t]));
+      return prevTasks.map(task => updateMap.get(task.id) || task);
+    });
+
+    // Batch DB updates in parallel
+    const results = await Promise.all(
+      updatedTasks.map(t =>
+        supabase.from('tasks').update({
+          priority: t.priority,
+          sort_order: t.sortOrder ?? 0,
+        }).eq('id', t.id)
+      )
+    );
+
+    if (results.some(r => r.error)) {
+      toast.error('Failed to reorder tasks');
+      fetchTasks();
     }
   };
   const handleTaskClick = (taskId: string) => {
@@ -1006,10 +1036,12 @@ https://www.skyscanner.com`,
     'low': 4
   };
 
-  // Sort tasks by priority
+  // Sort tasks by priority, then by sort_order within priority
   const sortTasksByPriority = (tasksToSort: Task[]) => {
     return [...tasksToSort].sort((a, b) => {
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
+      const pDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+      if (pDiff !== 0) return pDiff;
+      return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
     });
   };
 
@@ -1370,6 +1402,7 @@ https://www.skyscanner.com`,
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status !== 'completed')}
                   onUpdate={handleUpdateTask}
+                  onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
@@ -1382,6 +1415,7 @@ https://www.skyscanner.com`,
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'todo')}
                   onUpdate={handleUpdateTask}
+                  onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
@@ -1394,6 +1428,7 @@ https://www.skyscanner.com`,
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'in-progress')}
                   onUpdate={handleUpdateTask}
+                  onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
@@ -1406,6 +1441,7 @@ https://www.skyscanner.com`,
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'completed')}
                   onUpdate={handleUpdateTask}
+                  onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
