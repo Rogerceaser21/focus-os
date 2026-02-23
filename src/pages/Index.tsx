@@ -1298,6 +1298,16 @@ https://www.skyscanner.com`,
                       <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
                     </Button>
 
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}
+                    >
+                      <Mic className="h-4 w-4" />
+                      <span className="hidden lg:inline">Meetings</span>
+                    </Button>
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                     <Button 
@@ -1552,6 +1562,16 @@ https://www.skyscanner.com`,
                       <ArrowUpDown className="h-4 w-4" />
                       <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
                       <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}
+                    >
+                      <Mic className="h-4 w-4" />
+                      <span className="hidden lg:inline">Meetings</span>
                     </Button>
 
                     <AlertDialog>
