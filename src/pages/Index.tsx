@@ -14,7 +14,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, Mic } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Sparkles, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -129,6 +129,7 @@ const Index = () => {
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
   const [tasksLoading, setTasksLoading] = useState(false);
+  const [isReorderMode, setIsReorderMode] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [showTaskTour, setShowTaskTour] = useState(false);
@@ -491,6 +492,11 @@ const Index = () => {
       setPreferencesLoaded(true);
     }
   }, [preferences, preferencesLoaded, projects]);
+
+  // Reset reorder mode when switching projects/views
+  useEffect(() => {
+    setIsReorderMode(false);
+  }, [selectedProjectId, selectedSpecialList]);
 
   // Auto-show onboarding tour for new users
   useEffect(() => {
@@ -1281,6 +1287,17 @@ https://www.skyscanner.com`,
                       </DropdownMenuContent>
                     </DropdownMenu>
                     
+                    <Button 
+                      variant={isReorderMode ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setIsReorderMode(!isReorderMode)}
+                      className="gap-1"
+                    >
+                      <ArrowUpDown className="h-4 w-4" />
+                      <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                      <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
+                    </Button>
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                     <Button 
@@ -1408,6 +1425,7 @@ https://www.skyscanner.com`,
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
                   projects={projects}
+                  isReorderMode={isReorderMode}
                 />
               </TabsContent>
 
@@ -1421,6 +1439,7 @@ https://www.skyscanner.com`,
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
                   projects={projects}
+                  isReorderMode={isReorderMode}
                 />
               </TabsContent>
 
@@ -1434,6 +1453,7 @@ https://www.skyscanner.com`,
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
                   projects={projects}
+                  isReorderMode={isReorderMode}
                 />
               </TabsContent>
 
@@ -1447,6 +1467,7 @@ https://www.skyscanner.com`,
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
                   projects={projects}
+                  isReorderMode={isReorderMode}
                 />
               </TabsContent>
             </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
@@ -1496,6 +1517,17 @@ https://www.skyscanner.com`,
                       )}
                     </div>
                     
+                    <Button 
+                      variant={isReorderMode ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setIsReorderMode(!isReorderMode)}
+                      className="gap-1"
+                    >
+                      <ArrowUpDown className="h-4 w-4" />
+                      <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                      <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
+                    </Button>
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button 

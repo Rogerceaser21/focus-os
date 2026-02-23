@@ -31,6 +31,7 @@ interface DraggableTaskListProps {
   expandedTaskIds: Set<string>;
   onTaskClick: (taskId: string) => void;
   projects: Project[];
+  isReorderMode?: boolean;
 }
 
 const PRIORITY_ORDER: TaskPriority[] = ['urgent', 'high', 'medium', 'low'];
@@ -50,6 +51,7 @@ interface SortableTaskItemProps {
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
   projects: Project[];
+  isReorderMode?: boolean;
 }
 
 const SortableTaskItem = ({
@@ -60,6 +62,7 @@ const SortableTaskItem = ({
   isIndividuallyExpanded,
   onTaskClick,
   projects,
+  isReorderMode,
 }: SortableTaskItemProps) => {
   const {
     attributes,
@@ -79,14 +82,16 @@ const SortableTaskItem = ({
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-stretch gap-0">
-      <div
-        {...attributes}
-        {...listeners}
-        className="flex items-center px-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground transition-colors rounded-l-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <GripVertical className="h-4 w-4" />
-      </div>
+      {isReorderMode && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="flex items-center px-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground transition-colors rounded-l-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <TaskListItem
           task={task}
@@ -111,6 +116,7 @@ export const DraggableTaskList = ({
   expandedTaskIds,
   onTaskClick,
   projects,
+  isReorderMode,
 }: DraggableTaskListProps) => {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -263,6 +269,7 @@ export const DraggableTaskList = ({
                       isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                       onTaskClick={() => onTaskClick(task.id)}
                       projects={projects}
+                      isReorderMode={isReorderMode}
                     />
                   ))}
                 </div>
