@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
-import { Plus, Folder, ListTodo, Calendar, HelpCircle } from 'lucide-react';
+import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { toast } from 'sonner';
 import AnimatedList from './AnimatedList';
@@ -50,6 +51,7 @@ export const ProjectSidebar = ({
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);
+  const navigate = useNavigate();
   
   // Use controlled state if provided, otherwise use internal state
   const isCreateOpen = createDialogOpen !== undefined ? createDialogOpen : isCreateOpenInternal;
@@ -159,6 +161,18 @@ export const ProjectSidebar = ({
           >
             <Plus className="h-4 w-4" />
             New Project
+          </Button>
+          <Button 
+            variant="outline"
+            size="sm" 
+            className="gap-2"
+            onClick={() => {
+              navigate('/meetings');
+              if (isActuallyMobile) setOpenMobile(false);
+            }}
+          >
+            <Mic className="h-4 w-4" />
+            Meetings
           </Button>
         </div>
       </div>

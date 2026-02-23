@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      meetings: {
+        Row: {
+          action_items: Json | null
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          project_id: string | null
+          recording_gcs_path: string | null
+          summary: string | null
+          title: string
+          transcript_gcs_path: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_items?: Json | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          project_id?: string | null
+          recording_gcs_path?: string | null
+          summary?: string | null
+          title?: string
+          transcript_gcs_path?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_items?: Json | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          project_id?: string | null
+          recording_gcs_path?: string | null
+          summary?: string | null
+          title?: string
+          transcript_gcs_path?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           color: string
