@@ -51,15 +51,8 @@
   }
 
   .dock-panel {
-    background: transparent;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    border: none;
-    box-shadow: none;
-  }
-
-  .dock-item::before {
-    background: hsl(225 20% 25%);
+    padding: 12px 20px 8px;
+    gap: 20px;
   }
 }
 
