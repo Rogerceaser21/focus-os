@@ -19,6 +19,7 @@ export interface Task {
   images?: string[];
   timer: TaskTimer;
   projectId?: string;
+  sortOrder?: number;
 }
 
 export interface Project {
