@@ -42,6 +42,7 @@ import { OnboardingTour } from '@/components/OnboardingTour';
 import { TaskTour } from '@/components/TaskTour';
 import { ProjectTour } from '@/components/ProjectTour';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { DraggableTaskList } from '@/components/DraggableTaskList';
 import { addDays } from 'date-fns';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
@@ -1365,64 +1366,52 @@ https://www.skyscanner.com`,
                 </div>
               )}
 
-              <TabsContent value="all" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status !== 'completed').map(task => (
-                  <TaskListItem 
-                    key={task.id} 
-                    task={task} 
-                    onUpdate={handleUpdateTask} 
-                    onEditTask={setEditingTask}
-                    globalViewMode={globalCardView}
-                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
-                    onTaskClick={() => handleTaskClick(task.id)}
-                    projects={projects}
-                  />
-                ))}
+              <TabsContent value="all" className="mt-6">
+                <DraggableTaskList
+                  tasks={sortedTasks.filter(t => t.status !== 'completed')}
+                  onUpdate={handleUpdateTask}
+                  onEditTask={setEditingTask}
+                  globalViewMode={globalCardView}
+                  expandedTaskIds={expandedTaskIds}
+                  onTaskClick={handleTaskClick}
+                  projects={projects}
+                />
               </TabsContent>
 
-              <TabsContent value="todo" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status === 'todo').map(task => (
-                  <TaskListItem 
-                    key={task.id} 
-                    task={task} 
-                    onUpdate={handleUpdateTask} 
-                    onEditTask={setEditingTask}
-                    globalViewMode={globalCardView}
-                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
-                    onTaskClick={() => handleTaskClick(task.id)}
-                    projects={projects}
-                  />
-                ))}
+              <TabsContent value="todo" className="mt-6">
+                <DraggableTaskList
+                  tasks={sortedTasks.filter(t => t.status === 'todo')}
+                  onUpdate={handleUpdateTask}
+                  onEditTask={setEditingTask}
+                  globalViewMode={globalCardView}
+                  expandedTaskIds={expandedTaskIds}
+                  onTaskClick={handleTaskClick}
+                  projects={projects}
+                />
               </TabsContent>
 
-              <TabsContent value="in-progress" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status === 'in-progress').map(task => (
-                  <TaskListItem 
-                    key={task.id} 
-                    task={task} 
-                    onUpdate={handleUpdateTask} 
-                    onEditTask={setEditingTask}
-                    globalViewMode={globalCardView}
-                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
-                    onTaskClick={() => handleTaskClick(task.id)}
-                    projects={projects}
-                  />
-                ))}
+              <TabsContent value="in-progress" className="mt-6">
+                <DraggableTaskList
+                  tasks={sortedTasks.filter(t => t.status === 'in-progress')}
+                  onUpdate={handleUpdateTask}
+                  onEditTask={setEditingTask}
+                  globalViewMode={globalCardView}
+                  expandedTaskIds={expandedTaskIds}
+                  onTaskClick={handleTaskClick}
+                  projects={projects}
+                />
               </TabsContent>
 
-              <TabsContent value="completed" className="flex flex-col gap-2 mt-6">
-                {sortedTasks.filter(t => t.status === 'completed').map(task => (
-                  <TaskListItem 
-                    key={task.id} 
-                    task={task} 
-                    onUpdate={handleUpdateTask} 
-                    onEditTask={setEditingTask}
-                    globalViewMode={globalCardView}
-                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
-                    onTaskClick={() => handleTaskClick(task.id)}
-                    projects={projects}
-                  />
-                ))}
+              <TabsContent value="completed" className="mt-6">
+                <DraggableTaskList
+                  tasks={sortedTasks.filter(t => t.status === 'completed')}
+                  onUpdate={handleUpdateTask}
+                  onEditTask={setEditingTask}
+                  globalViewMode={globalCardView}
+                  expandedTaskIds={expandedTaskIds}
+                  onTaskClick={handleTaskClick}
+                  projects={projects}
+                />
               </TabsContent>
             </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">
