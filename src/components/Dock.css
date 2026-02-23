@@ -57,6 +57,10 @@
     border: none;
     box-shadow: none;
   }
+
+  .dock-item::before {
+    background: hsl(225 20% 14%);
+  }
 }
 
 .dock-item {
