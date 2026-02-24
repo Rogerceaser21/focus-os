@@ -123,8 +123,8 @@ const Meetings = () => {
       // CRITICAL: getUserMedia directly in click handler
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
+          echoCancellation: false,
+          noiseSuppression: false,
           sampleRate: 44100,
         },
       });
@@ -213,9 +213,10 @@ const Meetings = () => {
       const { data, error } = await supabase.functions.invoke('process-meeting', {
         body: {
           audioBase64,
-          mimeType: mimeType.split(';')[0], // e.g. audio/webm
+          mimeType: mimeType.split(';')[0],
           projectId: projectId || null,
           title: `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+          durationSeconds: recordingSeconds,
         },
       });
 
