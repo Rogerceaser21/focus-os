@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -20,9 +19,10 @@ import {
   Sparkles,
   Check,
   X,
-  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { TaskListItem } from '@/components/TaskListItem';
+import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
 
 interface Participant {
   name: string;
@@ -47,12 +47,6 @@ interface Project {
   color: string;
 }
 
-interface ActionItem {
-  title: string;
-  assignee?: string;
-  priority: string;
-}
-
 const MeetingDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -60,24 +54,48 @@ const MeetingDetail = () => {
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [project, setProject] = useState<Project | null>(null);
+  const [allProjects, setAllProjects] = useState<TaskProject[]>([]);
   const [transcript, setTranscript] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
 
-  // Action item extraction state
+  // Saved tasks from DB
+  const [savedTasks, setSavedTasks] = useState<Task[]>([]);
+
+  // Extraction / review state
   const [extracting, setExtracting] = useState(false);
-  const [extractedItems, setExtractedItems] = useState<ActionItem[]>([]);
+  const [reviewTasks, setReviewTasks] = useState<Task[]>([]);
   const [showReview, setShowReview] = useState(false);
   const [savingItems, setSavingItems] = useState(false);
+
+  // Individual expand tracking for TaskListItem
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user && id) fetchMeeting();
+    if (user && id) {
+      fetchMeeting();
+      fetchProjects();
+    }
   }, [user, id]);
+
+  const fetchProjects = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('projects')
+      .select('id, name, color')
+      .eq('user_id', user.id);
+    if (data) {
+      setAllProjects(data.map(p => ({
+        ...p,
+        timer: { totalSeconds: 0, isRunning: false },
+      })));
+    }
+  };
 
   const fetchMeeting = async () => {
     setLoading(true);
@@ -93,11 +111,12 @@ const MeetingDetail = () => {
       return;
     }
 
-    setMeeting({
+    const meetingData: Meeting = {
       ...data,
       action_items: Array.isArray(data.action_items) ? data.action_items : [],
       participants: Array.isArray((data as any).participants) ? (data as any).participants : [],
-    });
+    };
+    setMeeting(meetingData);
 
     if (data.project_id) {
       const { data: proj } = await supabase
@@ -108,8 +127,49 @@ const MeetingDetail = () => {
       if (proj) setProject(proj);
     }
 
+    // Fetch saved tasks that were created from this meeting's action items
+    if (meetingData.action_items.length > 0) {
+      await fetchSavedTasks(meetingData);
+    }
+
     setLoading(false);
   };
+
+  const fetchSavedTasks = async (meetingData: Meeting) => {
+    if (!user) return;
+    // Fetch tasks that match the action item titles for this meeting
+    const titles = meetingData.action_items.map((item: any) => item.title).filter(Boolean);
+    if (titles.length === 0) return;
+
+    const { data: tasks } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', user.id)
+      .in('title', titles);
+
+    if (tasks) {
+      setSavedTasks(tasks.map(mapDbTaskToTask));
+    }
+  };
+
+  const mapDbTaskToTask = (t: any): Task => ({
+    id: t.id,
+    title: t.title,
+    description: t.description || undefined,
+    priority: (t.priority || 'medium') as TaskPriority,
+    status: t.status as any,
+    dueDate: t.due_date ? new Date(t.due_date) : undefined,
+    startDate: t.start_date ? new Date(t.start_date) : undefined,
+    endDate: t.end_date ? new Date(t.end_date) : undefined,
+    images: Array.isArray(t.images) ? t.images as string[] : [],
+    timer: {
+      totalSeconds: t.timer_total_seconds || 0,
+      isRunning: t.timer_is_running || false,
+      startTime: t.timer_start_time || undefined,
+    },
+    projectId: t.project_id || undefined,
+    sortOrder: t.sort_order || 0,
+  });
 
   const fetchTranscript = async () => {
     if (transcript) {
@@ -124,7 +184,6 @@ const MeetingDetail = () => {
       const { data, error } = await supabase.functions.invoke('get-meeting-transcript', {
         body: { meetingId: id },
       });
-
       if (error) throw error;
       setTranscript(data.transcript || 'No transcript available.');
     } catch (err) {
@@ -139,7 +198,6 @@ const MeetingDetail = () => {
   /* ─── Extract Action Items ─── */
 
   const handleExtractActionItems = async () => {
-    // First make sure we have the transcript
     let transcriptText = transcript;
     if (!transcriptText) {
       setExtracting(true);
@@ -175,11 +233,15 @@ const MeetingDetail = () => {
       if (error) throw error;
 
       const tasks = data?.tasks || [];
-      setExtractedItems(
-        tasks.map((t: any) => ({
+      setReviewTasks(
+        tasks.map((t: any, i: number) => ({
+          id: `review-${Date.now()}-${i}`,
           title: t.title || t.description || '',
-          assignee: 'Unassigned',
-          priority: t.priority || 'medium',
+          description: t.description || undefined,
+          priority: (t.priority || 'medium') as TaskPriority,
+          status: 'todo' as const,
+          timer: { totalSeconds: 0, isRunning: false },
+          projectId: meeting?.project_id || undefined,
         }))
       );
       setShowReview(true);
@@ -196,29 +258,43 @@ const MeetingDetail = () => {
     setSavingItems(true);
 
     try {
-      // Save each as a task
-      const taskInserts = extractedItems.map((item) => ({
+      const taskInserts = reviewTasks.map((task) => ({
         user_id: user.id,
-        project_id: meeting.project_id || null,
-        title: item.title,
-        priority: item.priority || 'medium',
+        project_id: task.projectId || meeting.project_id || null,
+        title: task.title,
+        description: task.description || null,
+        priority: task.priority || 'medium',
         status: 'todo' as const,
-        due_date: new Date().toISOString(),
+        due_date: task.dueDate ? task.dueDate.toISOString() : new Date().toISOString(),
       }));
 
-      const { error: taskError } = await supabase.from('tasks').insert(taskInserts);
+      const { data: insertedTasks, error: taskError } = await supabase
+        .from('tasks')
+        .insert(taskInserts)
+        .select();
       if (taskError) throw taskError;
 
-      // Update meeting record with action items
+      // Store action item metadata on the meeting
+      const actionItemsMeta = reviewTasks.map((t) => ({
+        title: t.title,
+        priority: t.priority,
+      }));
+
       const { error: meetingError } = await supabase
         .from('meetings')
-        .update({ action_items: extractedItems as any })
+        .update({ action_items: actionItemsMeta as any })
         .eq('id', meeting.id);
       if (meetingError) throw meetingError;
 
-      setMeeting({ ...meeting, action_items: extractedItems });
+      setMeeting({ ...meeting, action_items: actionItemsMeta });
+
+      // Update saved tasks with real DB data
+      if (insertedTasks) {
+        setSavedTasks(insertedTasks.map(mapDbTaskToTask));
+      }
+
       setShowReview(false);
-      setExtractedItems([]);
+      setReviewTasks([]);
       toast.success(`${taskInserts.length} tasks created!`);
     } catch (err) {
       console.error('Save error:', err);
@@ -228,18 +304,55 @@ const MeetingDetail = () => {
     }
   };
 
-  const updateExtractedItem = (index: number, field: keyof ActionItem, value: string) => {
-    setExtractedItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+  const handleReviewTaskUpdate = (updatedTask: Task) => {
+    setReviewTasks((prev) =>
+      prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
     );
   };
 
-  const removeExtractedItem = (index: number) => {
-    setExtractedItems((prev) => prev.filter((_, i) => i !== index));
+  const handleSavedTaskUpdate = async (updatedTask: Task) => {
+    // Update in DB
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        title: updatedTask.title,
+        description: updatedTask.description || null,
+        priority: updatedTask.priority,
+        status: updatedTask.status,
+        due_date: updatedTask.dueDate ? updatedTask.dueDate.toISOString() : null,
+        project_id: updatedTask.projectId || null,
+        timer_total_seconds: updatedTask.timer.totalSeconds,
+        timer_is_running: updatedTask.timer.isRunning,
+        timer_start_time: updatedTask.timer.startTime || null,
+      })
+      .eq('id', updatedTask.id);
+
+    if (error) {
+      toast.error('Failed to update task');
+      return;
+    }
+
+    setSavedTasks((prev) =>
+      prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+    );
   };
 
-  const addExtractedItem = () => {
-    setExtractedItems((prev) => [...prev, { title: '', priority: 'medium' }]);
+  const addReviewTask = () => {
+    setReviewTasks((prev) => [
+      ...prev,
+      {
+        id: `review-${Date.now()}`,
+        title: '',
+        priority: 'medium' as TaskPriority,
+        status: 'todo' as const,
+        timer: { totalSeconds: 0, isRunning: false },
+        projectId: meeting?.project_id || undefined,
+      },
+    ]);
+  };
+
+  const removeReviewTask = (taskId: string) => {
+    setReviewTasks((prev) => prev.filter((t) => t.id !== taskId));
   };
 
   const formatDuration = (seconds: number) => {
@@ -248,6 +361,15 @@ const MeetingDetail = () => {
     const secs = seconds % 60;
     if (hrs > 0) return `${hrs}h ${mins % 60}m ${secs}s`;
     return `${mins}m ${secs}s`;
+  };
+
+  const toggleExpand = (taskId: string) => {
+    setExpandedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
   };
 
   if (authLoading || loading) {
@@ -338,41 +460,50 @@ const MeetingDetail = () => {
           </Card>
         )}
 
-        {/* Action Items - Saved */}
-        {meeting.action_items.length > 0 && !showReview && (
+        {/* Saved Action Items - Real Tasks */}
+        {savedTasks.length > 0 && !showReview && (
           <Card>
             <CardContent className="p-5">
-              <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-                Action Items ({meeting.action_items.length})
-              </h2>
-              <div className="space-y-2">
-                {meeting.action_items.map((item: any, i: number) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2.5 border"
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Action Items ({savedTasks.length})
+                </h2>
+                {meeting.transcript_gcs_path && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={handleExtractActionItems}
+                    disabled={extracting}
                   >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{item.title}</p>
-                      <div className="flex gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">
-                          {item.priority}
-                        </Badge>
-                        {item.assignee && item.assignee !== 'Unassigned' && (
-                          <Badge variant="secondary" className="text-xs">
-                            {item.assignee}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                    {extracting ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    Re-extract
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {savedTasks.map((task) => (
+                  <TaskListItem
+                    key={task.id}
+                    task={task}
+                    onUpdate={handleSavedTaskUpdate}
+                    globalViewMode="compact"
+                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
+                    onTaskClick={() => toggleExpand(task.id)}
+                    projects={allProjects}
+                  />
                 ))}
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Extract Action Items Button - show when no items exist yet */}
-        {meeting.action_items.length === 0 && !showReview && meeting.transcript_gcs_path && (
+        {/* Extract Action Items Button - show when no saved tasks exist */}
+        {savedTasks.length === 0 && !showReview && meeting.transcript_gcs_path && (
           <Card>
             <CardContent className="p-5 text-center">
               <Sparkles className="h-8 w-8 mx-auto mb-2 text-primary/60" />
@@ -395,13 +526,13 @@ const MeetingDetail = () => {
           </Card>
         )}
 
-        {/* Brain Dump Review UI */}
+        {/* Review UI using TaskListItem */}
         {showReview && (
           <Card className="border-primary/30">
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Review Action Items ({extractedItems.length})
+                  Review Action Items ({reviewTasks.length})
                 </h2>
                 <div className="flex gap-2">
                   <Button
@@ -409,7 +540,7 @@ const MeetingDetail = () => {
                     size="sm"
                     onClick={() => {
                       setShowReview(false);
-                      setExtractedItems([]);
+                      setReviewTasks([]);
                     }}
                   >
                     <X className="h-4 w-4 mr-1" />
@@ -419,7 +550,7 @@ const MeetingDetail = () => {
                     size="sm"
                     className="gap-1"
                     onClick={handleSaveActionItems}
-                    disabled={savingItems || extractedItems.length === 0}
+                    disabled={savingItems || reviewTasks.length === 0}
                   >
                     {savingItems ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -431,38 +562,17 @@ const MeetingDetail = () => {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {extractedItems.map((item, i) => (
-                  <div key={i} className="flex items-start gap-2 bg-muted/30 rounded-lg p-3 border">
-                    <div className="flex-1 space-y-2">
-                      <Input
-                        value={item.title}
-                        onChange={(e) => updateExtractedItem(i, 'title', e.target.value)}
-                        placeholder="Task title"
-                        className="text-sm"
-                      />
-                      <div className="flex gap-2">
-                        {['low', 'medium', 'high'].map((p) => (
-                          <Badge
-                            key={p}
-                            variant={item.priority === p ? 'default' : 'outline'}
-                            className="cursor-pointer text-xs"
-                            onClick={() => updateExtractedItem(i, 'priority', p)}
-                          >
-                            {p}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeExtractedItem(i)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+              <div className="space-y-2">
+                {reviewTasks.map((task) => (
+                  <TaskListItem
+                    key={task.id}
+                    task={task}
+                    onUpdate={handleReviewTaskUpdate}
+                    globalViewMode="full"
+                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
+                    onTaskClick={() => toggleExpand(task.id)}
+                    projects={allProjects}
+                  />
                 ))}
               </div>
 
@@ -470,7 +580,7 @@ const MeetingDetail = () => {
                 variant="outline"
                 size="sm"
                 className="mt-3 gap-1 text-xs"
-                onClick={addExtractedItem}
+                onClick={addReviewTask}
               >
                 <Plus className="h-3 w-3" />
                 Add Item
