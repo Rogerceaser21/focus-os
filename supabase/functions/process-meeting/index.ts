@@ -124,8 +124,8 @@ serve(async (req) => {
     if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
     const serviceAccount: ServiceAccount = JSON.parse(gcsKeyJson);
 
-    // Determine GCS bucket from service account project
-    const gcsBucket = `focusos-meetings`;
+    const gcsBucket = Deno.env.get("GCS_BUCKET_NAME");
+    if (!gcsBucket) throw new Error("GCS_BUCKET_NAME not configured");
 
     console.log("Step 1: Getting GCS access token...");
     const gcsToken = await getGcsAccessToken(serviceAccount);
