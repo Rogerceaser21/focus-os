@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,17 +12,16 @@ import {
   Clock,
   FileText,
   Folder,
-  Plus,
   Loader2,
   Calendar,
   Users,
   Sparkles,
-  Check,
-  X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { TaskListItem } from '@/components/TaskListItem';
 import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
+import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
+import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 
 interface Participant {
   name: string;
@@ -60,14 +59,15 @@ const MeetingDetail = () => {
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
 
-  // Saved tasks from DB
+  // Saved tasks from DB (linked by meeting_id)
   const [savedTasks, setSavedTasks] = useState<Task[]>([]);
 
-  // Extraction / review state
+  // Extraction state
   const [extracting, setExtracting] = useState(false);
-  const [reviewTasks, setReviewTasks] = useState<Task[]>([]);
-  const [showReview, setShowReview] = useState(false);
-  const [savingItems, setSavingItems] = useState(false);
+
+  // Brain Dump dialog state for review
+  const [brainDumpOpen, setBrainDumpOpen] = useState(false);
+  const [extractedBrainDumpTasks, setExtractedBrainDumpTasks] = useState<BrainDumpTask[]>([]);
 
   // Individual expand tracking for TaskListItem
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
@@ -127,25 +127,19 @@ const MeetingDetail = () => {
       if (proj) setProject(proj);
     }
 
-    // Fetch saved tasks that were created from this meeting's action items
-    if (meetingData.action_items.length > 0) {
-      await fetchSavedTasks(meetingData);
-    }
+    // Fetch saved tasks linked to this meeting
+    await fetchSavedTasks();
 
     setLoading(false);
   };
 
-  const fetchSavedTasks = async (meetingData: Meeting) => {
-    if (!user) return;
-    // Fetch tasks that match the action item titles for this meeting
-    const titles = meetingData.action_items.map((item: any) => item.title).filter(Boolean);
-    if (titles.length === 0) return;
-
+  const fetchSavedTasks = async () => {
+    if (!user || !id) return;
     const { data: tasks } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', user.id)
-      .in('title', titles);
+      .eq('meeting_id', id);
 
     if (tasks) {
       setSavedTasks(tasks.map(mapDbTaskToTask));
@@ -223,9 +217,14 @@ const MeetingDetail = () => {
     setExtracting(true);
 
     try {
+      // Also include summary for better context
+      const fullText = meeting?.summary
+        ? `Meeting Summary:\n${meeting.summary}\n\nFull Transcript:\n${transcriptText}`
+        : transcriptText;
+
       const { data, error } = await supabase.functions.invoke('extract-tasks', {
         body: {
-          transcription: transcriptText,
+          transcription: fullText,
           mode: 'tasks-only',
         },
       });
@@ -233,18 +232,24 @@ const MeetingDetail = () => {
       if (error) throw error;
 
       const tasks = data?.tasks || [];
-      setReviewTasks(
-        tasks.map((t: any, i: number) => ({
-          id: `review-${Date.now()}-${i}`,
-          title: t.title || t.description || '',
-          description: t.description || undefined,
-          priority: (t.priority || 'medium') as TaskPriority,
-          status: 'todo' as const,
-          timer: { totalSeconds: 0, isRunning: false },
-          projectId: meeting?.project_id || undefined,
-        }))
-      );
-      setShowReview(true);
+      if (tasks.length === 0) {
+        toast.info('No action items found in the transcript');
+        return;
+      }
+
+      // Convert to BrainDumpTask format for the dialog
+      const brainDumpTasks: BrainDumpTask[] = tasks.map((t: any, i: number) => ({
+        id: `meeting-extract-${Date.now()}-${i}`,
+        title: t.title || '',
+        description: t.description || undefined,
+        priority: (t.priority || 'medium') as TaskPriority,
+        destination: meeting?.project_id ? 'existing-project' as const : 'today' as const,
+        projectId: meeting?.project_id || undefined,
+        projectName: project?.name || undefined,
+      }));
+
+      setExtractedBrainDumpTasks(brainDumpTasks);
+      setBrainDumpOpen(true);
     } catch (err) {
       console.error('Extract error:', err);
       toast.error('Failed to extract action items');
@@ -253,65 +258,12 @@ const MeetingDetail = () => {
     }
   };
 
-  const handleSaveActionItems = async () => {
-    if (!user || !meeting) return;
-    setSavingItems(true);
-
-    try {
-      const taskInserts = reviewTasks.map((task) => ({
-        user_id: user.id,
-        project_id: task.projectId || meeting.project_id || null,
-        title: task.title,
-        description: task.description || null,
-        priority: task.priority || 'medium',
-        status: 'todo' as const,
-        due_date: task.dueDate ? task.dueDate.toISOString() : new Date().toISOString(),
-      }));
-
-      const { data: insertedTasks, error: taskError } = await supabase
-        .from('tasks')
-        .insert(taskInserts)
-        .select();
-      if (taskError) throw taskError;
-
-      // Store action item metadata on the meeting
-      const actionItemsMeta = reviewTasks.map((t) => ({
-        title: t.title,
-        priority: t.priority,
-      }));
-
-      const { error: meetingError } = await supabase
-        .from('meetings')
-        .update({ action_items: actionItemsMeta as any })
-        .eq('id', meeting.id);
-      if (meetingError) throw meetingError;
-
-      setMeeting({ ...meeting, action_items: actionItemsMeta });
-
-      // Update saved tasks with real DB data
-      if (insertedTasks) {
-        setSavedTasks(insertedTasks.map(mapDbTaskToTask));
-      }
-
-      setShowReview(false);
-      setReviewTasks([]);
-      toast.success(`${taskInserts.length} tasks created!`);
-    } catch (err) {
-      console.error('Save error:', err);
-      toast.error('Failed to save action items');
-    } finally {
-      setSavingItems(false);
-    }
-  };
-
-  const handleReviewTaskUpdate = (updatedTask: Task) => {
-    setReviewTasks((prev) =>
-      prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
-    );
+  const handleBrainDumpTasksCreated = () => {
+    // Refresh saved tasks from DB
+    fetchSavedTasks();
   };
 
   const handleSavedTaskUpdate = async (updatedTask: Task) => {
-    // Update in DB
     const { error } = await supabase
       .from('tasks')
       .update({
@@ -335,24 +287,6 @@ const MeetingDetail = () => {
     setSavedTasks((prev) =>
       prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
     );
-  };
-
-  const addReviewTask = () => {
-    setReviewTasks((prev) => [
-      ...prev,
-      {
-        id: `review-${Date.now()}`,
-        title: '',
-        priority: 'medium' as TaskPriority,
-        status: 'todo' as const,
-        timer: { totalSeconds: 0, isRunning: false },
-        projectId: meeting?.project_id || undefined,
-      },
-    ]);
-  };
-
-  const removeReviewTask = (taskId: string) => {
-    setReviewTasks((prev) => prev.filter((t) => t.id !== taskId));
   };
 
   const formatDuration = (seconds: number) => {
@@ -461,7 +395,7 @@ const MeetingDetail = () => {
         )}
 
         {/* Saved Action Items - Real Tasks */}
-        {savedTasks.length > 0 && !showReview && (
+        {savedTasks.length > 0 && (
           <Card>
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
@@ -503,7 +437,7 @@ const MeetingDetail = () => {
         )}
 
         {/* Extract Action Items Button - show when no saved tasks exist */}
-        {savedTasks.length === 0 && !showReview && meeting.transcript_gcs_path && (
+        {savedTasks.length === 0 && meeting.transcript_gcs_path && (
           <Card>
             <CardContent className="p-5 text-center">
               <Sparkles className="h-8 w-8 mx-auto mb-2 text-primary/60" />
@@ -526,67 +460,17 @@ const MeetingDetail = () => {
           </Card>
         )}
 
-        {/* Review UI using TaskListItem */}
-        {showReview && (
-          <Card className="border-primary/30">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Review Action Items ({reviewTasks.length})
-                </h2>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setShowReview(false);
-                      setReviewTasks([]);
-                    }}
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="gap-1"
-                    onClick={handleSaveActionItems}
-                    disabled={savingItems || reviewTasks.length === 0}
-                  >
-                    {savingItems ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
-                    {savingItems ? 'Saving...' : "I'm Ready"}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {reviewTasks.map((task) => (
-                  <TaskListItem
-                    key={task.id}
-                    task={task}
-                    onUpdate={handleReviewTaskUpdate}
-                    globalViewMode="full"
-                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
-                    onTaskClick={() => toggleExpand(task.id)}
-                    projects={allProjects}
-                  />
-                ))}
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 gap-1 text-xs"
-                onClick={addReviewTask}
-              >
-                <Plus className="h-3 w-3" />
-                Add Item
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Brain Dump Dialog for reviewing extracted action items */}
+        {user && (
+          <BrainDumpLiveDialog
+            open={brainDumpOpen}
+            onOpenChange={setBrainDumpOpen}
+            userId={user.id}
+            projects={allProjects.map(p => ({ id: p.id, name: p.name }))}
+            onTasksCreated={handleBrainDumpTasksCreated}
+            initialTasks={extractedBrainDumpTasks}
+            meetingId={meeting.id}
+          />
         )}
 
         {/* Transcript */}

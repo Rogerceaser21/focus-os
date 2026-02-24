@@ -130,6 +130,7 @@ export type Database = {
           end_date: string | null
           id: string
           images: Json | null
+          meeting_id: string | null
           priority: string
           project_id: string | null
           sort_order: number | null
@@ -150,6 +151,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           images?: Json | null
+          meeting_id?: string | null
           priority?: string
           project_id?: string | null
           sort_order?: number | null
@@ -170,6 +172,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           images?: Json | null
+          meeting_id?: string | null
           priority?: string
           project_id?: string | null
           sort_order?: number | null
@@ -183,6 +186,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_project_id_fkey"
             columns: ["project_id"]

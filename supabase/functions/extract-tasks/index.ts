@@ -62,7 +62,6 @@ Special rules:
         }
       },
       required: ["title", "priority"],
-      additionalProperties: false
     };
 
     // Different function schemas based on mode
@@ -79,7 +78,6 @@ Special rules:
               }
             },
             required: ["tasks"],
-            additionalProperties: false
           }
         }
       : {
@@ -98,7 +96,6 @@ Special rules:
               }
             },
             required: ["projectName", "tasks"],
-            additionalProperties: false
           }
         };
 
