@@ -1010,8 +1010,8 @@ https://www.skyscanner.com`,
   };
   const filteredTasks = tasks.filter(task => {
     // First, filter by search query
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (task.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         (task.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     if (!matchesSearch) return false;
     
