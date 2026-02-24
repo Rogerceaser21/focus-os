@@ -123,6 +123,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          assigned_to_email: string | null
           completed_at: string | null
           created_at: string
           description: string | null
@@ -133,6 +134,7 @@ export type Database = {
           meeting_id: string | null
           priority: string
           project_id: string | null
+          share_token: string | null
           sort_order: number | null
           start_date: string | null
           status: string
@@ -144,6 +146,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assigned_to_email?: string | null
           completed_at?: string | null
           created_at?: string
           description?: string | null
@@ -154,6 +157,7 @@ export type Database = {
           meeting_id?: string | null
           priority?: string
           project_id?: string | null
+          share_token?: string | null
           sort_order?: number | null
           start_date?: string | null
           status?: string
@@ -165,6 +169,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          assigned_to_email?: string | null
           completed_at?: string | null
           created_at?: string
           description?: string | null
@@ -175,6 +180,7 @@ export type Database = {
           meeting_id?: string | null
           priority?: string
           project_id?: string | null
+          share_token?: string | null
           sort_order?: number | null
           start_date?: string | null
           status?: string

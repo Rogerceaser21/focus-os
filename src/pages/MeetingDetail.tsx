@@ -16,12 +16,14 @@ import {
   Calendar,
   Users,
   Sparkles,
+  Mail,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { TaskListItem } from '@/components/TaskListItem';
 import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
+import { AssignTaskDialog } from '@/components/AssignTaskDialog';
 
 interface Participant {
   name: string;
@@ -71,6 +73,10 @@ const MeetingDetail = () => {
 
   // Individual expand tracking for TaskListItem
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
+
+  // Assign task dialog state
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -146,7 +152,7 @@ const MeetingDetail = () => {
     }
   };
 
-  const mapDbTaskToTask = (t: any): Task => ({
+  const mapDbTaskToTask = (t: any): Task & { assignedToEmail?: string } => ({
     id: t.id,
     title: t.title,
     description: t.description || undefined,
@@ -163,6 +169,7 @@ const MeetingDetail = () => {
     },
     projectId: t.project_id || undefined,
     sortOrder: t.sort_order || 0,
+    assignedToEmail: t.assigned_to_email || undefined,
   });
 
   const fetchTranscript = async () => {
@@ -297,6 +304,16 @@ const MeetingDetail = () => {
     return `${mins}m ${secs}s`;
   };
 
+  const handleAssignTask = (task: Task) => {
+    setTaskToAssign(task);
+    setAssignDialogOpen(true);
+  };
+
+  const handleTaskAssigned = (taskId: string, email: string) => {
+    // Refresh tasks to show the assigned badge
+    fetchSavedTasks();
+  };
+
   const toggleExpand = (taskId: string) => {
     setExpandedTaskIds((prev) => {
       const next = new Set(prev);
@@ -421,15 +438,34 @@ const MeetingDetail = () => {
               </div>
               <div className="space-y-2">
                 {savedTasks.map((task) => (
-                  <TaskListItem
-                    key={task.id}
-                    task={task}
-                    onUpdate={handleSavedTaskUpdate}
-                    globalViewMode="compact"
-                    isIndividuallyExpanded={expandedTaskIds.has(task.id)}
-                    onTaskClick={() => toggleExpand(task.id)}
-                    projects={allProjects}
-                  />
+                  <div key={task.id} className="relative group/task">
+                    <TaskListItem
+                      task={task}
+                      onUpdate={handleSavedTaskUpdate}
+                      globalViewMode="compact"
+                      isIndividuallyExpanded={expandedTaskIds.has(task.id)}
+                      onTaskClick={() => toggleExpand(task.id)}
+                      projects={allProjects}
+                    />
+                    {/* Assign button + assigned badge */}
+                    <div className="flex items-center gap-2 mt-1 ml-8">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
+                        onClick={() => handleAssignTask(task)}
+                      >
+                        <Mail className="h-3 w-3" />
+                        Assign
+                      </Button>
+                      {(task as any).assignedToEmail && (
+                        <Badge variant="secondary" className="text-xs py-0">
+                          <Mail className="h-2.5 w-2.5 mr-1" />
+                          {(task as any).assignedToEmail}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             </CardContent>
@@ -472,6 +508,14 @@ const MeetingDetail = () => {
             meetingId={meeting.id}
           />
         )}
+
+        {/* Assign Task Dialog */}
+        <AssignTaskDialog
+          task={taskToAssign}
+          open={assignDialogOpen}
+          onOpenChange={setAssignDialogOpen}
+          onAssigned={handleTaskAssigned}
+        />
 
         {/* Transcript */}
         {meeting.transcript_gcs_path && (

@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.get-meeting-transcript]
 verify_jwt = false
+
+[functions.send-task-email]
+verify_jwt = false
+
+[functions.complete-shared-task]
+verify_jwt = false
