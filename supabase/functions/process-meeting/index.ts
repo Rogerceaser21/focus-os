@@ -114,8 +114,12 @@ serve(async (req) => {
     if (!user) throw new Error("Unauthorized");
 
     // Parse request
-    const { audioBase64, mimeType, projectId, title, durationSeconds } = await req.json();
+    const { audioBase64, mimeType, projectId, title, durationSeconds, participants } = await req.json();
     if (!audioBase64) throw new Error("No audio data provided");
+
+    const participantNames = (participants || [])
+      .filter((p: any) => p.name?.trim())
+      .map((p: any) => p.name.trim());
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
@@ -159,7 +163,11 @@ serve(async (req) => {
               },
             },
             {
-              text: `Transcribe this audio recording of a meeting. Include speaker diarization where possible (label speakers as Speaker 1, Speaker 2, etc.). 
+              text: `Transcribe this audio recording of a meeting.${
+                participantNames.length > 0
+                  ? ` The participants are: ${participantNames.join(", ")}. Label each speaker by their name where possible.`
+                  : " Include speaker diarization where possible (label speakers as Speaker 1, Speaker 2, etc.)."
+              }
               
 Format the output as a clean transcript with speaker labels and timestamps where detectable. Be thorough and accurate.`,
             },
@@ -204,16 +212,14 @@ Format the output as a clean transcript with speaker labels and timestamps where
       "application/json"
     );
 
-    // Step 5: Summarize + extract action items with Gemini
-    console.log("Step 5: Generating summary and action items...");
+    // Step 5: Summarize with Gemini (no action items - extracted on-demand)
+    console.log("Step 5: Generating summary...");
     const summarizeBody = {
       contents: [
         {
           parts: [
             {
-              text: `Analyze this meeting transcript and extract:
-1. A concise summary (2-4 sentences)
-2. A list of action items with assignee (if mentioned) and priority
+              text: `Analyze this meeting transcript and provide a concise summary (2-4 sentences) of the key topics discussed and decisions made.
 
 Transcript:
 ${transcript}`,
@@ -221,55 +227,6 @@ ${transcript}`,
           ],
         },
       ],
-      tools: [
-        {
-          functionDeclarations: [
-            {
-              name: "save_meeting_analysis",
-              description:
-                "Save the meeting summary and action items",
-              parameters: {
-                type: "object",
-                properties: {
-                  summary: {
-                    type: "string",
-                    description: "Concise meeting summary",
-                  },
-                  action_items: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        title: {
-                          type: "string",
-                          description: "Action item description",
-                        },
-                        assignee: {
-                          type: "string",
-                          description:
-                            "Person responsible, or 'Unassigned'",
-                        },
-                        priority: {
-                          type: "string",
-                          enum: ["low", "medium", "high"],
-                        },
-                      },
-                      required: ["title", "priority"],
-                    },
-                  },
-                },
-                required: ["summary", "action_items"],
-              },
-            },
-          ],
-        },
-      ],
-      toolConfig: {
-        functionCallingConfig: {
-          mode: "ANY",
-          allowedFunctionNames: ["save_meeting_analysis"],
-        },
-      },
     };
 
     const summarizeResp = await fetch(
@@ -281,22 +238,15 @@ ${transcript}`,
       }
     );
 
-    if (!summarizeResp.ok) {
-      const errText = await summarizeResp.text();
-      console.error("Gemini summary error:", errText);
-      throw new Error(`Summary failed: ${errText}`);
+    let summary = "No summary available";
+    if (summarizeResp.ok) {
+      const summarizeData = await summarizeResp.json();
+      summary = summarizeData.candidates?.[0]?.content?.parts?.[0]?.text || summary;
+    } else {
+      console.error("Summary generation failed, continuing without summary");
     }
 
-    const summarizeData = await summarizeResp.json();
-    const functionCall = summarizeData.candidates?.[0]?.content?.parts?.find(
-      (p: any) => p.functionCall
-    )?.functionCall;
-
-    const summary = functionCall?.args?.summary || "No summary available";
-    const actionItems = functionCall?.args?.action_items || [];
-
     console.log("Summary:", summary);
-    console.log("Action items:", actionItems.length);
 
     // Step 6: Save to database
     console.log("Step 6: Saving meeting to database...");
@@ -309,7 +259,8 @@ ${transcript}`,
         title: title || `Meeting ${new Date().toLocaleDateString()}`,
         duration_seconds: durationSeconds || 0,
         summary,
-        action_items: actionItems,
+        action_items: [],
+        participants: participants || [],
         recording_gcs_path: audioGcsPath,
         transcript_gcs_path: transcriptGcsPath,
       })
@@ -328,7 +279,6 @@ ${transcript}`,
         id: meeting.id,
         title: meeting.title,
         summary,
-        action_items: actionItems,
         transcript,
         duration_seconds: durationSeconds,
       }),

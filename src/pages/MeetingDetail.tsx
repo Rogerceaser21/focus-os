@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -15,9 +16,18 @@ import {
   Plus,
   Loader2,
   Calendar,
-  CheckCircle2,
+  Users,
+  Sparkles,
+  Check,
+  X,
+  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+interface Participant {
+  name: string;
+  email: string;
+}
 
 interface Meeting {
   id: string;
@@ -25,6 +35,7 @@ interface Meeting {
   duration_seconds: number;
   summary: string | null;
   action_items: any[];
+  participants: Participant[];
   project_id: string | null;
   created_at: string;
   transcript_gcs_path: string | null;
@@ -34,6 +45,12 @@ interface Project {
   id: string;
   name: string;
   color: string;
+}
+
+interface ActionItem {
+  title: string;
+  assignee?: string;
+  priority: string;
 }
 
 const MeetingDetail = () => {
@@ -47,6 +64,12 @@ const MeetingDetail = () => {
   const [loading, setLoading] = useState(true);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+
+  // Action item extraction state
+  const [extracting, setExtracting] = useState(false);
+  const [extractedItems, setExtractedItems] = useState<ActionItem[]>([]);
+  const [showReview, setShowReview] = useState(false);
+  const [savingItems, setSavingItems] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -73,6 +96,7 @@ const MeetingDetail = () => {
     setMeeting({
       ...data,
       action_items: Array.isArray(data.action_items) ? data.action_items : [],
+      participants: Array.isArray((data as any).participants) ? (data as any).participants : [],
     });
 
     if (data.project_id) {
@@ -112,23 +136,110 @@ const MeetingDetail = () => {
     }
   };
 
-  const handleAddAsTask = async (item: { title: string; priority?: string }) => {
-    if (!user) return;
+  /* ─── Extract Action Items ─── */
 
-    const { error } = await supabase.from('tasks').insert({
-      user_id: user.id,
-      project_id: meeting?.project_id || null,
-      title: item.title,
-      priority: item.priority || 'medium',
-      status: 'todo',
-      due_date: new Date().toISOString(),
-    });
-
-    if (error) {
-      toast.error('Failed to create task');
-    } else {
-      toast.success('Task created!');
+  const handleExtractActionItems = async () => {
+    // First make sure we have the transcript
+    let transcriptText = transcript;
+    if (!transcriptText) {
+      setExtracting(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('get-meeting-transcript', {
+          body: { meetingId: id },
+        });
+        if (error) throw error;
+        transcriptText = data.transcript || '';
+        setTranscript(transcriptText);
+      } catch (err) {
+        toast.error('Failed to load transcript for extraction');
+        setExtracting(false);
+        return;
+      }
     }
+
+    if (!transcriptText) {
+      toast.error('No transcript available to extract from');
+      return;
+    }
+
+    setExtracting(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-tasks', {
+        body: {
+          transcription: transcriptText,
+          mode: 'tasks-only',
+        },
+      });
+
+      if (error) throw error;
+
+      const tasks = data?.tasks || [];
+      setExtractedItems(
+        tasks.map((t: any) => ({
+          title: t.title || t.description || '',
+          assignee: 'Unassigned',
+          priority: t.priority || 'medium',
+        }))
+      );
+      setShowReview(true);
+    } catch (err) {
+      console.error('Extract error:', err);
+      toast.error('Failed to extract action items');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleSaveActionItems = async () => {
+    if (!user || !meeting) return;
+    setSavingItems(true);
+
+    try {
+      // Save each as a task
+      const taskInserts = extractedItems.map((item) => ({
+        user_id: user.id,
+        project_id: meeting.project_id || null,
+        title: item.title,
+        priority: item.priority || 'medium',
+        status: 'todo' as const,
+        due_date: new Date().toISOString(),
+      }));
+
+      const { error: taskError } = await supabase.from('tasks').insert(taskInserts);
+      if (taskError) throw taskError;
+
+      // Update meeting record with action items
+      const { error: meetingError } = await supabase
+        .from('meetings')
+        .update({ action_items: extractedItems as any })
+        .eq('id', meeting.id);
+      if (meetingError) throw meetingError;
+
+      setMeeting({ ...meeting, action_items: extractedItems });
+      setShowReview(false);
+      setExtractedItems([]);
+      toast.success(`${taskInserts.length} tasks created!`);
+    } catch (err) {
+      console.error('Save error:', err);
+      toast.error('Failed to save action items');
+    } finally {
+      setSavingItems(false);
+    }
+  };
+
+  const updateExtractedItem = (index: number, field: keyof ActionItem, value: string) => {
+    setExtractedItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const removeExtractedItem = (index: number) => {
+    setExtractedItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addExtractedItem = () => {
+    setExtractedItems((prev) => [...prev, { title: '', priority: 'medium' }]);
   };
 
   const formatDuration = (seconds: number) => {
@@ -193,6 +304,28 @@ const MeetingDetail = () => {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {/* Participants */}
+        {meeting.participants.length > 0 && (
+          <Card>
+            <CardContent className="p-5">
+              <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Participants ({meeting.participants.length})
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {meeting.participants.map((p, i) => (
+                  <Badge key={i} variant="secondary" className="text-sm py-1 px-3">
+                    {p.name}
+                    {p.email && (
+                      <span className="text-muted-foreground ml-1.5 text-xs">({p.email})</span>
+                    )}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Summary */}
         {meeting.summary && (
           <Card>
@@ -205,8 +338,8 @@ const MeetingDetail = () => {
           </Card>
         )}
 
-        {/* Action Items */}
-        {meeting.action_items.length > 0 && (
+        {/* Action Items - Saved */}
+        {meeting.action_items.length > 0 && !showReview && (
           <Card>
             <CardContent className="p-5">
               <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
@@ -231,18 +364,117 @@ const MeetingDetail = () => {
                         )}
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Extract Action Items Button - show when no items exist yet */}
+        {meeting.action_items.length === 0 && !showReview && meeting.transcript_gcs_path && (
+          <Card>
+            <CardContent className="p-5 text-center">
+              <Sparkles className="h-8 w-8 mx-auto mb-2 text-primary/60" />
+              <p className="text-sm text-muted-foreground mb-3">
+                Extract action items from the transcript using AI
+              </p>
+              <Button
+                className="gap-2"
+                onClick={handleExtractActionItems}
+                disabled={extracting}
+              >
+                {extracting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {extracting ? 'Extracting...' : 'Extract Action Items'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Brain Dump Review UI */}
+        {showReview && (
+          <Card className="border-primary/30">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Review Action Items ({extractedItems.length})
+                </h2>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowReview(false);
+                      setExtractedItems([]);
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-1"
+                    onClick={handleSaveActionItems}
+                    disabled={savingItems || extractedItems.length === 0}
+                  >
+                    {savingItems ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    {savingItems ? 'Saving...' : "I'm Ready"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {extractedItems.map((item, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-muted/30 rounded-lg p-3 border">
+                    <div className="flex-1 space-y-2">
+                      <Input
+                        value={item.title}
+                        onChange={(e) => updateExtractedItem(i, 'title', e.target.value)}
+                        placeholder="Task title"
+                        className="text-sm"
+                      />
+                      <div className="flex gap-2">
+                        {['low', 'medium', 'high'].map((p) => (
+                          <Badge
+                            key={p}
+                            variant={item.priority === p ? 'default' : 'outline'}
+                            className="cursor-pointer text-xs"
+                            onClick={() => updateExtractedItem(i, 'priority', p)}
+                          >
+                            {p}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                     <Button
-                      variant="outline"
-                      size="sm"
-                      className="ml-2 shrink-0 gap-1 text-xs"
-                      onClick={() => handleAddAsTask(item)}
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeExtractedItem(i)}
                     >
-                      <Plus className="h-3 w-3" />
-                      Add as Task
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
               </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 gap-1 text-xs"
+                onClick={addExtractedItem}
+              >
+                <Plus className="h-3 w-3" />
+                Add Item
+              </Button>
             </CardContent>
           </Card>
         )}
