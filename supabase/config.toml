@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.complete-shared-task]
 verify_jwt = false
+
+[functions.delete-meeting]
+verify_jwt = false
+
+[functions.get-meeting-audio]
+verify_jwt = false

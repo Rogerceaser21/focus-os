@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -17,7 +18,23 @@ import {
   Users,
   Sparkles,
   Mail,
+  Play,
+  Pause,
+  Download,
+  Trash2,
+  List,
+  AlignLeft,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { TaskListItem } from '@/components/TaskListItem';
 import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
@@ -40,12 +57,18 @@ interface Meeting {
   project_id: string | null;
   created_at: string;
   transcript_gcs_path: string | null;
+  recording_gcs_path: string | null;
 }
 
 interface Project {
   id: string;
   name: string;
   color: string;
+}
+
+interface StructuredSummary {
+  overview: string;
+  outline: { heading: string; points: string[] }[];
 }
 
 const MeetingDetail = () => {
@@ -59,7 +82,12 @@ const MeetingDetail = () => {
   const [transcript, setTranscript] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
-  const [showTranscript, setShowTranscript] = useState(false);
+
+  // Audio playback
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Saved tasks from DB (linked by meeting_id)
   const [savedTasks, setSavedTasks] = useState<Task[]>([]);
@@ -78,6 +106,10 @@ const MeetingDetail = () => {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
 
+  // Delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
@@ -88,6 +120,13 @@ const MeetingDetail = () => {
       fetchProjects();
     }
   }, [user, id]);
+
+  // Cleanup audio URL on unmount
+  useEffect(() => {
+    return () => {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    };
+  }, [audioUrl]);
 
   const fetchProjects = async () => {
     if (!user) return;
@@ -133,9 +172,7 @@ const MeetingDetail = () => {
       if (proj) setProject(proj);
     }
 
-    // Fetch saved tasks linked to this meeting
     await fetchSavedTasks();
-
     setLoading(false);
   };
 
@@ -172,15 +209,19 @@ const MeetingDetail = () => {
     assignedToEmail: t.assigned_to_email || undefined,
   });
 
+  const parseSummary = (raw: string | null): StructuredSummary => {
+    if (!raw) return { overview: '', outline: [] };
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.overview) return parsed;
+    } catch {}
+    // Legacy plain text summary
+    return { overview: raw, outline: [] };
+  };
+
   const fetchTranscript = async () => {
-    if (transcript) {
-      setShowTranscript(!showTranscript);
-      return;
-    }
-
+    if (transcript) return;
     setTranscriptLoading(true);
-    setShowTranscript(true);
-
     try {
       const { data, error } = await supabase.functions.invoke('get-meeting-transcript', {
         body: { meetingId: id },
@@ -194,6 +235,51 @@ const MeetingDetail = () => {
     } finally {
       setTranscriptLoading(false);
     }
+  };
+
+  const fetchAudio = async () => {
+    if (audioUrl) return;
+    setAudioLoading(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-meeting-audio`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify({ meetingId: id }),
+        }
+      );
+      if (!response.ok) throw new Error('Failed to fetch audio');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+    } catch (err) {
+      console.error('Audio fetch error:', err);
+      toast.error('Failed to load audio');
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
+  const togglePlayback = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleDownloadAudio = () => {
+    if (!audioUrl) return;
+    const a = document.createElement('a');
+    a.href = audioUrl;
+    a.download = `${meeting?.title || 'meeting'}-recording.webm`;
+    a.click();
   };
 
   /* ─── Extract Action Items ─── */
@@ -224,7 +310,6 @@ const MeetingDetail = () => {
     setExtracting(true);
 
     try {
-      // Also include summary for better context
       const fullText = meeting?.summary
         ? `Meeting Summary:\n${meeting.summary}\n\nFull Transcript:\n${transcriptText}`
         : transcriptText;
@@ -244,7 +329,6 @@ const MeetingDetail = () => {
         return;
       }
 
-      // Convert to BrainDumpTask format for the dialog
       const brainDumpTasks: BrainDumpTask[] = tasks.map((t: any, i: number) => ({
         id: `meeting-extract-${Date.now()}-${i}`,
         title: t.title || '',
@@ -266,7 +350,6 @@ const MeetingDetail = () => {
   };
 
   const handleBrainDumpTasksCreated = () => {
-    // Refresh saved tasks from DB
     fetchSavedTasks();
   };
 
@@ -310,7 +393,6 @@ const MeetingDetail = () => {
   };
 
   const handleTaskAssigned = (taskId: string, email: string) => {
-    // Refresh tasks to show the assigned badge
     fetchSavedTasks();
   };
 
@@ -321,6 +403,24 @@ const MeetingDetail = () => {
       else next.add(taskId);
       return next;
     });
+  };
+
+  const handleDeleteMeeting = async (deleteTasks: boolean) => {
+    setDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke('delete-meeting', {
+        body: { meetingId: id, deleteTasks },
+      });
+      if (error) throw error;
+      toast.success('Meeting deleted');
+      navigate('/meetings');
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Failed to delete meeting');
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
   };
 
   if (authLoading || loading) {
@@ -342,6 +442,8 @@ const MeetingDetail = () => {
   }
 
   if (!meeting) return null;
+
+  const summary = parseSummary(meeting.summary);
 
   return (
     <div className="min-h-screen bg-background">
@@ -372,6 +474,14 @@ const MeetingDetail = () => {
               )}
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
         </div>
       </div>
 
@@ -399,104 +509,224 @@ const MeetingDetail = () => {
           </Card>
         )}
 
-        {/* Summary */}
-        {meeting.summary && (
-          <Card>
-            <CardContent className="p-5">
-              <h2 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-                Summary
-              </h2>
-              <p className="text-sm leading-relaxed">{meeting.summary}</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Tabbed Content: Meeting Overview / Transcript & Recording */}
+        <Tabs defaultValue="overview" onValueChange={(val) => {
+          if (val === 'transcript') {
+            fetchTranscript();
+            if (meeting.recording_gcs_path) fetchAudio();
+          }
+        }}>
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="overview" className="gap-1.5">
+              <AlignLeft className="h-3.5 w-3.5" />
+              Meeting Overview
+            </TabsTrigger>
+            <TabsTrigger value="transcript" className="gap-1.5">
+              <FileText className="h-3.5 w-3.5" />
+              Transcript & Recording
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Saved Action Items - Real Tasks */}
-        {savedTasks.length > 0 && (
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Action Items ({savedTasks.length})
-                </h2>
-                {meeting.transcript_gcs_path && (
+          {/* Meeting Overview Tab */}
+          <TabsContent value="overview" className="space-y-4 mt-4">
+            {/* Overview */}
+            {summary.overview && (
+              <Card>
+                <CardContent className="p-5">
+                  <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+                    <AlignLeft className="h-4 w-4" />
+                    Overview
+                  </h2>
+                  <p className="text-sm leading-relaxed">{summary.overview}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Outline */}
+            {summary.outline.length > 0 && (
+              <Card>
+                <CardContent className="p-5">
+                  <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+                    <List className="h-4 w-4" />
+                    Outline
+                  </h2>
+                  <div className="space-y-4">
+                    {summary.outline.map((section, i) => (
+                      <div key={i}>
+                        <h3 className="font-semibold text-sm mb-2">{section.heading}</h3>
+                        <ul className="space-y-1.5 ml-1">
+                          {section.points.map((point, j) => (
+                            <li key={j} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Action Items */}
+            {savedTasks.length > 0 && (
+              <Card>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                      Action Items ({savedTasks.length})
+                    </h2>
+                    {meeting.transcript_gcs_path && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={handleExtractActionItems}
+                        disabled={extracting}
+                      >
+                        {extracting ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        Re-extract
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {savedTasks.map((task) => (
+                      <div key={task.id} className="relative group/task">
+                        <TaskListItem
+                          task={task}
+                          onUpdate={handleSavedTaskUpdate}
+                          globalViewMode="compact"
+                          isIndividuallyExpanded={expandedTaskIds.has(task.id)}
+                          onTaskClick={() => toggleExpand(task.id)}
+                          projects={allProjects}
+                        />
+                        <div className="flex items-center gap-2 mt-1 ml-8">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
+                            onClick={() => handleAssignTask(task)}
+                          >
+                            <Mail className="h-3 w-3" />
+                            Assign
+                          </Button>
+                          {(task as any).assignedToEmail && (
+                            <Badge variant="secondary" className="text-xs py-0">
+                              <Mail className="h-2.5 w-2.5 mr-1" />
+                              {(task as any).assignedToEmail}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Extract Action Items Button */}
+            {savedTasks.length === 0 && meeting.transcript_gcs_path && (
+              <Card>
+                <CardContent className="p-5 text-center">
+                  <Sparkles className="h-8 w-8 mx-auto mb-2 text-primary/60" />
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Extract action items from the transcript using AI
+                  </p>
                   <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
+                    className="gap-2"
                     onClick={handleExtractActionItems}
                     disabled={extracting}
                   >
                     {extracting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="h-4 w-4" />
                     )}
-                    Re-extract
+                    {extracting ? 'Extracting...' : 'Extract Action Items'}
                   </Button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {savedTasks.map((task) => (
-                  <div key={task.id} className="relative group/task">
-                    <TaskListItem
-                      task={task}
-                      onUpdate={handleSavedTaskUpdate}
-                      globalViewMode="compact"
-                      isIndividuallyExpanded={expandedTaskIds.has(task.id)}
-                      onTaskClick={() => toggleExpand(task.id)}
-                      projects={allProjects}
-                    />
-                    {/* Assign button + assigned badge */}
-                    <div className="flex items-center gap-2 mt-1 ml-8">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
-                        onClick={() => handleAssignTask(task)}
-                      >
-                        <Mail className="h-3 w-3" />
-                        Assign
-                      </Button>
-                      {(task as any).assignedToEmail && (
-                        <Badge variant="secondary" className="text-xs py-0">
-                          <Mail className="h-2.5 w-2.5 mr-1" />
-                          {(task as any).assignedToEmail}
-                        </Badge>
-                      )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Transcript & Recording Tab */}
+          <TabsContent value="transcript" className="space-y-4 mt-4">
+            {/* Audio Player */}
+            {meeting.recording_gcs_path && (
+              <Card>
+                <CardContent className="p-5">
+                  <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+                    <Play className="h-4 w-4" />
+                    Recording
+                  </h2>
+                  {audioLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading audio...
                     </div>
+                  ) : audioUrl ? (
+                    <div className="space-y-3">
+                      <audio
+                        ref={audioRef}
+                        src={audioUrl}
+                        onEnded={() => setIsPlaying(false)}
+                        onPause={() => setIsPlaying(false)}
+                        onPlay={() => setIsPlaying(true)}
+                        className="w-full"
+                        controls
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadAudio}>
+                          <Download className="h-3.5 w-3.5" />
+                          Download
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No audio available.</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Transcript */}
+            <Card>
+              <CardContent className="p-5">
+                <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Transcript
+                </h2>
+                {transcriptLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Extract Action Items Button - show when no saved tasks exist */}
-        {savedTasks.length === 0 && meeting.transcript_gcs_path && (
-          <Card>
-            <CardContent className="p-5 text-center">
-              <Sparkles className="h-8 w-8 mx-auto mb-2 text-primary/60" />
-              <p className="text-sm text-muted-foreground mb-3">
-                Extract action items from the transcript using AI
-              </p>
-              <Button
-                className="gap-2"
-                onClick={handleExtractActionItems}
-                disabled={extracting}
-              >
-                {extracting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : transcript ? (
+                  <div className="bg-muted/30 rounded-lg p-4 max-h-[60vh] overflow-y-auto">
+                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">
+                      {transcript}
+                    </pre>
+                  </div>
+                ) : !meeting.transcript_gcs_path ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No transcript available for this meeting.</p>
+                  </div>
                 ) : (
-                  <Sparkles className="h-4 w-4" />
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
                 )}
-                {extracting ? 'Extracting...' : 'Extract Action Items'}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
-        {/* Brain Dump Dialog for reviewing extracted action items */}
+        {/* Brain Dump Dialog */}
         {user && (
           <BrainDumpLiveDialog
             open={brainDumpOpen}
@@ -517,47 +747,37 @@ const MeetingDetail = () => {
           onAssigned={handleTaskAssigned}
         />
 
-        {/* Transcript */}
-        {meeting.transcript_gcs_path && (
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Transcript
-                </h2>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchTranscript}>
-                  <FileText className="h-3.5 w-3.5" />
-                  {showTranscript ? 'Hide' : 'Show'} Transcript
-                </Button>
-              </div>
-              {showTranscript && (
-                <div className="mt-2">
-                  {transcriptLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    <div className="bg-muted/30 rounded-lg p-4 max-h-[60vh] overflow-y-auto">
-                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">
-                        {transcript}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* No transcript fallback */}
-        {!meeting.transcript_gcs_path && (
-          <Card>
-            <CardContent className="p-5 text-center text-muted-foreground">
-              <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">No transcript available for this meeting.</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the meeting recording, transcript, and all metadata.
+                What would you like to do with associated action items/tasks?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <Button
+                variant="outline"
+                disabled={deleting}
+                onClick={() => handleDeleteMeeting(false)}
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Keep Tasks & Delete Meeting
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={() => handleDeleteMeeting(true)}
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Delete Everything
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

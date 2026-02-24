@@ -212,14 +212,30 @@ Format the output as a clean transcript with speaker labels and timestamps where
       "application/json"
     );
 
-    // Step 5: Summarize with Gemini (no action items - extracted on-demand)
-    console.log("Step 5: Generating summary...");
+    // Step 5: Summarize with Gemini - structured overview + outline
+    console.log("Step 5: Generating structured summary...");
     const summarizeBody = {
       contents: [
         {
           parts: [
             {
-              text: `Analyze this meeting transcript and provide a concise summary (2-4 sentences) of the key topics discussed and decisions made.
+              text: `Analyze this meeting transcript and provide a structured summary in JSON format.
+
+Return ONLY valid JSON with this structure:
+{
+  "overview": "A comprehensive paragraph (3-6 sentences) summarizing what was discussed, key decisions made, and outcomes.",
+  "outline": [
+    {
+      "heading": "Topic Heading",
+      "points": [
+        "Key point or detail discussed under this topic",
+        "Another important point"
+      ]
+    }
+  ]
+}
+
+The overview should read like an executive summary. The outline should break down the meeting into distinct topics with bullet points for key details under each topic. Be thorough and capture all important points.
 
 Transcript:
 ${transcript}`,
@@ -238,15 +254,28 @@ ${transcript}`,
       }
     );
 
-    let summary = "No summary available";
+    let summary = JSON.stringify({ overview: "No summary available", outline: [] });
     if (summarizeResp.ok) {
       const summarizeData = await summarizeResp.json();
-      summary = summarizeData.candidates?.[0]?.content?.parts?.[0]?.text || summary;
+      const rawText = summarizeData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      // Extract JSON from response (may be wrapped in markdown code block)
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          summary = JSON.stringify(parsed);
+        } catch {
+          // Fallback: use raw text as overview
+          summary = JSON.stringify({ overview: rawText, outline: [] });
+        }
+      } else {
+        summary = JSON.stringify({ overview: rawText, outline: [] });
+      }
     } else {
       console.error("Summary generation failed, continuing without summary");
     }
 
-    console.log("Summary:", summary);
+    console.log("Summary generated");
 
     // Step 6: Save to database
     console.log("Step 6: Saving meeting to database...");
