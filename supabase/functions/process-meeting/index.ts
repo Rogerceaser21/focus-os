@@ -114,7 +114,7 @@ serve(async (req) => {
     if (!user) throw new Error("Unauthorized");
 
     // Parse request
-    const { audioBase64, mimeType, projectId, title } = await req.json();
+    const { audioBase64, mimeType, projectId, title, durationSeconds } = await req.json();
     if (!audioBase64) throw new Error("No audio data provided");
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
@@ -300,7 +300,6 @@ ${transcript}`,
 
     // Step 6: Save to database
     console.log("Step 6: Saving meeting to database...");
-    const durationSeconds = Math.round(audioBytes.length / (16000 * 2)); // rough estimate
 
     const { data: meeting, error: dbError } = await supabase
       .from("meetings")
@@ -308,7 +307,7 @@ ${transcript}`,
         user_id: user.id,
         project_id: projectId || null,
         title: title || `Meeting ${new Date().toLocaleDateString()}`,
-        duration_seconds: durationSeconds,
+        duration_seconds: durationSeconds || 0,
         summary,
         action_items: actionItems,
         recording_gcs_path: audioGcsPath,
