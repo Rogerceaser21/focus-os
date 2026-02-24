@@ -18,6 +18,8 @@ interface BrainDumpLiveDialogProps {
   onProjectCreated?: (newProjectId: string) => void;
   onTasksCreated: () => void;
   onRecordingChange?: (isRecording: boolean) => void;
+  initialTasks?: BrainDumpTask[];
+  meetingId?: string;
 }
 
 export const BrainDumpLiveDialog = ({
@@ -28,16 +30,28 @@ export const BrainDumpLiveDialog = ({
   onProjectCreated,
   onTasksCreated,
   onRecordingChange,
+  initialTasks,
+  meetingId,
 }: BrainDumpLiveDialogProps) => {
-  const { tasks, connectionState, start, stop, updateTask, removeTask, resetTasks } = useBrainDumpLive();
+  const { tasks, connectionState, start, stop, updateTask, removeTask, resetTasks, setInitialTasks } = useBrainDumpLive();
   const [isSaving, setIsSaving] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const hasLoadedInitialTasks = React.useRef(false);
 
 
   // Report recording state changes to parent
   React.useEffect(() => {
     onRecordingChange?.(connectionState === 'listening');
   }, [connectionState, onRecordingChange]);
+
+  // Load initial tasks (from meeting extraction) when dialog opens
+  React.useEffect(() => {
+    if (open && initialTasks && initialTasks.length > 0 && !hasLoadedInitialTasks.current) {
+      setInitialTasks(initialTasks);
+      setIsDone(true);
+      hasLoadedInitialTasks.current = true;
+    }
+  }, [open, initialTasks, setInitialTasks]);
 
   // Group tasks by destination
   const groupedTasks = useMemo(() => {
@@ -112,6 +126,7 @@ export const BrainDumpLiveDialog = ({
     stop();
     resetTasks();
     setIsDone(false);
+    hasLoadedInitialTasks.current = false;
     onOpenChange(false);
   };
 
@@ -177,6 +192,7 @@ export const BrainDumpLiveDialog = ({
           due_date: explicitDueDate || fallbackDueDate,
           ...(task.startDate ? { start_date: new Date(task.startDate).toISOString() } : {}),
           ...(task.endDate ? { end_date: new Date(task.endDate).toISOString() } : {}),
+          ...(meetingId ? { meeting_id: meetingId } : {}),
           timer_total_seconds: 0,
           timer_is_running: false,
         };

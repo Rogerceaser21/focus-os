@@ -520,6 +520,11 @@ SILENT MODE:
     newProjectsRef.current = new Map();
   }, []);
 
+  const setInitialTasks = useCallback((initialTasks: BrainDumpTask[]) => {
+    setTasks(initialTasks);
+    taskCounterRef.current = initialTasks.length;
+  }, []);
+
   return {
     tasks,
     connectionState,
@@ -528,6 +533,7 @@ SILENT MODE:
     updateTask,
     removeTask,
     resetTasks,
+    setInitialTasks,
   };
 }
 
