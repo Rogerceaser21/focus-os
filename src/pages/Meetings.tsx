@@ -434,6 +434,7 @@ const Meetings = () => {
                 <Card
                   key={meeting.id}
                   className="cursor-pointer hover:border-primary/30 transition-colors"
+                  onClick={() => navigate(`/meetings/${meeting.id}`)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">

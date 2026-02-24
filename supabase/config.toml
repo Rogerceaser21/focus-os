@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.process-meeting]
 verify_jwt = false
+
+[functions.get-meeting-transcript]
+verify_jwt = false
