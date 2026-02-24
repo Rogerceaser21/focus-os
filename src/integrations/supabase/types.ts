@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           duration_seconds: number | null
           id: string
+          participants: Json | null
           project_id: string | null
           recording_gcs_path: string | null
           summary: string | null
@@ -33,6 +34,7 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           id?: string
+          participants?: Json | null
           project_id?: string | null
           recording_gcs_path?: string | null
           summary?: string | null
@@ -46,6 +48,7 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           id?: string
+          participants?: Json | null
           project_id?: string | null
           recording_gcs_path?: string | null
           summary?: string | null

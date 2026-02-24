@@ -5,10 +5,16 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, CheckCircle2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, CheckCircle2, X, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+
+interface Participant {
+  name: string;
+  email: string;
+}
 
 interface Meeting {
   id: string;
@@ -45,10 +51,16 @@ const Meetings = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Participants
+  const [participants, setParticipants] = useState<Participant[]>([
+    { name: '', email: '' },
+    { name: '', email: '' },
+  ]);
+  const [showParticipants, setShowParticipants] = useState(false);
+
   // Latest processed meeting
   const [processedMeeting, setProcessedMeeting] = useState<{
     summary: string;
-    action_items: any[];
     transcript: string;
   } | null>(null);
 
@@ -210,6 +222,8 @@ const Meetings = () => {
       }
       const audioBase64 = btoa(binary);
 
+      const validParticipants = participants.filter(p => p.name.trim());
+
       const { data, error } = await supabase.functions.invoke('process-meeting', {
         body: {
           audioBase64,
@@ -217,6 +231,7 @@ const Meetings = () => {
           projectId: projectId || null,
           title: `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
           durationSeconds: recordingSeconds,
+          participants: validParticipants,
         },
       });
 
@@ -224,7 +239,6 @@ const Meetings = () => {
 
       setProcessedMeeting({
         summary: data.summary,
-        action_items: data.action_items,
         transcript: data.transcript,
       });
 
@@ -235,27 +249,6 @@ const Meetings = () => {
       console.error('Process meeting error:', error);
       toast.error('Failed to process meeting. Please try again.');
       setRecordingState('idle');
-    }
-  };
-
-  /* ─── Add action item as task ──────────────────────────── */
-
-  const handleAddAsTask = async (item: { title: string; priority?: string }) => {
-    if (!user) return;
-
-    const { error } = await supabase.from('tasks').insert({
-      user_id: user.id,
-      project_id: projectId || null,
-      title: item.title,
-      priority: item.priority || 'medium',
-      status: 'todo',
-      due_date: new Date().toISOString(),
-    });
-
-    if (error) {
-      toast.error('Failed to create task');
-    } else {
-      toast.success('Task created!');
     }
   };
 
@@ -286,16 +279,88 @@ const Meetings = () => {
               </div>
             )}
           </div>
-          {recordingState === 'idle' && (
-            <Button className="gap-2" onClick={handleStartRecording}>
+          {recordingState === 'idle' && !showParticipants && (
+            <Button className="gap-2" onClick={() => setShowParticipants(true)}>
               <Plus className="h-4 w-4" />
               New Meeting
+            </Button>
+          )}
+          {recordingState === 'idle' && showParticipants && (
+            <Button variant="ghost" size="sm" onClick={() => setShowParticipants(false)}>
+              <X className="h-4 w-4" />
             </Button>
           )}
         </div>
       </div>
 
-      {/* Recording Banner */}
+      {/* Participant Setup */}
+      {showParticipants && recordingState === 'idle' && (
+        <div className="border-b bg-card/50">
+          <div className="max-w-4xl mx-auto px-4 py-4 space-y-3">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Meeting Participants
+            </h3>
+            {participants.map((p, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  placeholder={`Name ${i + 1}`}
+                  value={p.name}
+                  onChange={(e) => {
+                    const updated = [...participants];
+                    updated[i] = { ...updated[i], name: e.target.value };
+                    setParticipants(updated);
+                  }}
+                  className="flex-1"
+                />
+                <Input
+                  placeholder="Email (optional)"
+                  type="email"
+                  value={p.email}
+                  onChange={(e) => {
+                    const updated = [...participants];
+                    updated[i] = { ...updated[i], email: e.target.value };
+                    setParticipants(updated);
+                  }}
+                  className="flex-1"
+                />
+                {participants.length > 2 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => setParticipants(participants.filter((_, j) => j !== i))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 text-xs"
+                onClick={() => setParticipants([...participants, { name: '', email: '' }])}
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Add Participant
+              </Button>
+              <div className="flex-1" />
+              <Button
+                className="gap-2"
+                onClick={() => {
+                  setShowParticipants(false);
+                  handleStartRecording();
+                }}
+              >
+                <Mic className="h-4 w-4" />
+                Start Recording
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {recordingState === 'recording' && (
         <div className="bg-destructive/10 border-b border-destructive/30">
           <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -331,7 +396,7 @@ const Meetings = () => {
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
             <p className="font-semibold">Processing your meeting...</p>
             <p className="text-sm text-muted-foreground">
-              Transcribing, summarizing, and extracting action items
+              Transcribing and summarizing your meeting...
             </p>
           </div>
         </div>
@@ -362,46 +427,6 @@ const Meetings = () => {
               <h3 className="text-sm font-semibold text-muted-foreground mb-1">Summary</h3>
               <p className="text-sm">{processedMeeting.summary}</p>
             </div>
-
-            {/* Action Items */}
-            {processedMeeting.action_items.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-2">
-                  Action Items ({processedMeeting.action_items.length})
-                </h3>
-                <div className="space-y-2">
-                  {processedMeeting.action_items.map((item: any, i: number) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between bg-card/50 rounded-lg px-3 py-2 border"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.title}</p>
-                        <div className="flex gap-2 mt-0.5">
-                          <Badge variant="outline" className="text-xs">
-                            {item.priority}
-                          </Badge>
-                          {item.assignee && item.assignee !== 'Unassigned' && (
-                            <Badge variant="secondary" className="text-xs">
-                              {item.assignee}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="ml-2 shrink-0 gap-1 text-xs"
-                        onClick={() => handleAddAsTask(item)}
-                      >
-                        <Plus className="h-3 w-3" />
-                        Add as Task
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
