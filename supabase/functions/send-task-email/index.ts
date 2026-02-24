@@ -194,7 +194,7 @@ serve(async (req) => {
     const resend = new Resend(RESEND_API_KEY);
 
     const { error: emailError } = await resend.emails.send({
-      from: "Focus OS <onboarding@resend.dev>",
+      from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
       to: [recipientEmail],
       subject: `Task assigned: ${task.title}`,
       html: buildTaskEmailHtml(task, completeUrl, userEmail),
