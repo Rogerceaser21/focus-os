@@ -152,6 +152,18 @@ serve(async (req) => {
     const userId = claimsData.claims.sub;
     const userEmail = claimsData.claims.email as string;
 
+    // Try to get sender's name from profiles
+    let senderName = userEmail;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("user_id", userId)
+      .single();
+    
+    if (profile?.first_name || profile?.last_name) {
+      senderName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
+    }
+
     const { taskId, recipientEmail } = await req.json();
 
     if (!taskId || !recipientEmail) {
@@ -197,7 +209,7 @@ serve(async (req) => {
       from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
       to: [recipientEmail],
       subject: `Task assigned: ${task.title}`,
-      html: buildTaskEmailHtml(task, completeUrl, userEmail),
+      html: buildTaskEmailHtml(task, completeUrl, senderName),
     });
 
     if (emailError) {

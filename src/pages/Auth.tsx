@@ -12,6 +12,8 @@ const Auth = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     // Check if already logged in
@@ -27,18 +29,23 @@ const Auth = () => {
   }, [navigate]);
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!email || !password || !firstName.trim() || !lastName.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
     setLoading(true);
     const {
+      data,
       error
     } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/`
+        emailRedirectTo: `${window.location.origin}/`,
+        data: {
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        }
       }
     });
     setLoading(false);
@@ -104,6 +111,16 @@ const Auth = () => {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-firstname">First Name</Label>
+                    <Input id="signup-firstname" type="text" placeholder="John" value={firstName} onChange={e => setFirstName(e.target.value)} disabled={loading} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-lastname">Surname</Label>
+                    <Input id="signup-lastname" type="text" placeholder="Smith" value={lastName} onChange={e => setLastName(e.target.value)} disabled={loading} />
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input id="signup-email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
