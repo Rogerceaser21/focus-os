@@ -6,7 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, CheckCircle2, X, UserPlus } from 'lucide-react';
+import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, CheckCircle2, X, UserPlus, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
@@ -57,6 +67,12 @@ const Meetings = () => {
     { name: '', email: '' },
   ]);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [meetingName, setMeetingName] = useState('');
+
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [meetingToDelete, setMeetingToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Latest processed meeting
   const [processedMeeting, setProcessedMeeting] = useState<{
@@ -229,7 +245,7 @@ const Meetings = () => {
           audioBase64,
           mimeType: mimeType.split(';')[0],
           projectId: projectId || null,
-          title: `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+          title: meetingName.trim() || `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
           durationSeconds: recordingSeconds,
           participants: validParticipants,
         },
@@ -253,6 +269,26 @@ const Meetings = () => {
   };
 
   const currentProject = projects.find(p => p.id === projectId);
+
+  const handleDeleteMeeting = async (deleteTasks: boolean) => {
+    if (!meetingToDelete) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-meeting', {
+        body: { meetingId: meetingToDelete, deleteTasks },
+      });
+      if (error) throw error;
+      toast.success('Meeting deleted');
+      fetchMeetings();
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Failed to delete meeting');
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setMeetingToDelete(null);
+    }
+  };
 
   if (authLoading) {
     return (
@@ -297,6 +333,17 @@ const Meetings = () => {
       {showParticipants && recordingState === 'idle' && (
         <div className="border-b bg-card/50">
           <div className="max-w-4xl mx-auto px-4 py-4 space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Meeting Name
+              </h3>
+              <Input
+                placeholder="Enter meeting name (required)"
+                value={meetingName}
+                onChange={(e) => setMeetingName(e.target.value)}
+                className="max-w-md"
+              />
+            </div>
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Meeting Participants
             </h3>
@@ -349,6 +396,10 @@ const Meetings = () => {
               <Button
                 className="gap-2"
                 onClick={() => {
+                  if (!meetingName.trim()) {
+                    toast.error('Please enter a meeting name');
+                    return;
+                  }
                   setShowParticipants(false);
                   handleStartRecording();
                 }}
@@ -473,11 +524,18 @@ const Meetings = () => {
                             </Badge>
                           )}
                         </div>
-                        {meeting.summary && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                            {meeting.summary}
-                          </p>
-                        )}
+                        {meeting.summary && (() => {
+                          let displaySummary = meeting.summary;
+                          try {
+                            const parsed = JSON.parse(meeting.summary);
+                            if (parsed.overview) displaySummary = parsed.overview;
+                          } catch {}
+                          return (
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                              {displaySummary}
+                            </p>
+                          );
+                        })()}
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           {meeting.duration_seconds > 0 && (
                             <span className="flex items-center gap-1">
@@ -496,7 +554,21 @@ const Meetings = () => {
                           )}
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
+                      <div className="flex items-center gap-1 shrink-0 mt-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMeetingToDelete(meeting.id);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -505,6 +577,38 @@ const Meetings = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the meeting recording, transcript, and all metadata.
+              What would you like to do with associated action items/tasks?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => handleDeleteMeeting(false)}
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Keep Tasks & Delete Meeting
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={() => handleDeleteMeeting(true)}
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Delete Everything
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
