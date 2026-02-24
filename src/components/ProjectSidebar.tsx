@@ -162,19 +162,19 @@ export const ProjectSidebar = ({
             <Plus className="h-4 w-4" />
             New Project
           </Button>
-          <Button 
-            variant="outline"
-            size="sm" 
-            className="gap-2"
-            onClick={() => {
-              navigate('/meetings');
-              if (isActuallyMobile) setOpenMobile(false);
-            }}
-          >
-            <Mic className="h-4 w-4" />
-            Meetings
-          </Button>
         </div>
+        <Button 
+          variant="outline"
+          size="sm" 
+          className="w-full gap-2 mt-2 border-teal-500/50 text-teal-400 hover:bg-teal-500/10 hover:border-teal-400"
+          onClick={() => {
+            navigate('/meetings');
+            if (isActuallyMobile) setOpenMobile(false);
+          }}
+        >
+          <Mic className="h-4 w-4" />
+          Meetings
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
