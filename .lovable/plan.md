@@ -1,4 +1,3 @@
-
 # Brain Dump: Fix Move/Update/Remove Reliability + Add Date Support
 
 ## Summary of Changes
@@ -142,3 +141,74 @@ When `TaskListItem` calls `onUpdate`, also map `updatedTask.startDate`, `endDate
 | `update_task` doesn't change project | `move_task` handles project/destination changes; `update_task` gains ID-based matching for title/priority/description/dates |
 | Gemini doesn't set dates | All creation + update tools gain `start_date`, `end_date`, `due_date` params + system prompt with today's date |
 | Model unchanged | Staying on `gemini-2.5-flash-native-audio-preview-12-2025` with `Modality.AUDIO` — no change |
+
+---
+
+# Meeting Summary & Outline Improvements
+
+## Problem
+- Outlines are far too detailed for short meetings (e.g. a 2-min recording gets 6+ sections with 4+ bullets each)
+- Markdown formatting leaks through (`**bold**`, `#` headers) into the UI
+- No way to re-summarize old meetings
+- No user control over detail level
+
+## Prompting Strategy
+
+### Duration-Aware Defaults
+| Duration | Max Sections | Max Bullets/Section | Default Level |
+|----------|-------------|---------------------|---------------|
+| < 5 min  | 2-3         | 1-3                 | concise       |
+| 5-30 min | 3-5         | 2-4                 | concise       |
+| 30+ min  | 5-8         | 3-5                 | standard      |
+
+### Detail Levels
+- **concise**: Only key decisions, action items, and major topics. Ruthlessly cut fluff. Each heading gets 1-3 short bullets.
+- **standard**: Main discussion points and conclusions. 3-5 bullets per section. Include context where helpful.
+- **detailed**: Thorough capture of discussion nuances, supporting arguments, and side points. No hard limit.
+
+### Prompt Template (for outline generation)
+```
+Analyze this meeting transcript and provide a structured summary.
+Today's date: {today}. Meeting duration: {duration_minutes} minutes.
+
+Detail level: {detail_level} ({description}).
+
+CRITICAL RULES:
+- Do NOT use any markdown formatting. No bold (**), no italic (*), no headers (#). Plain text only.
+- For "{detail_level}" level: max {max_sections} outline sections, max {max_bullets} bullets per section.
+- Focus on SIGNAL over noise. What decisions were made? What actions are needed? What are the key takeaways?
+- Omit filler, small talk, and repetitive points.
+- Overview should be {overview_length} for a {duration_minutes}-minute meeting.
+
+Return JSON: { "overview": "...", "outline": [{ "heading": "...", "points": ["..."] }] }
+```
+
+### Overview Length Scaling
+- < 5 min: 1-2 sentences
+- 5-30 min: 2-4 sentences
+- 30+ min: 3-6 sentences
+
+## Implementation Plan
+
+### File 1: `supabase/functions/process-meeting/index.ts`
+
+1. **Add `detailLevel` parameter** to request body parsing (default: auto-select based on duration)
+2. **Add `resummarize` flag** — when true, fetch existing transcript from GCS and re-summarize only (skip audio upload/transcription)
+3. **Replace hardcoded summary prompt** with the duration-aware tiered prompt template above
+4. **Strip markdown** from Gemini output as a safety net (remove `**`, `*`, `#` prefixes)
+
+### File 2: `src/pages/MeetingDetail.tsx`
+
+1. **Add `- Detail` / `+ Detail` buttons** inline in the Outline section header
+   - Use compact text for mobile: `- Detail` and `+ Detail`
+   - Three states: concise ↔ standard ↔ detailed
+   - Show current level as a small label between buttons (e.g. "Concise")
+2. **Add "Re-summarize" button** in the overview/outline area
+   - Clicking either detail button OR the re-summarize button triggers a call to `process-meeting` with `resummarize: true` and the chosen `detailLevel`
+3. **Strip markdown** from rendered outline text (safety net on frontend too)
+4. **Loading state** while re-summarizing
+
+### Mobile Considerations
+- Buttons use `size="sm"` with icon + short text
+- Detail controls sit inline with the "OUTLINE" header
+- Layout uses `flex-wrap` so buttons wrap below heading on very narrow screens
