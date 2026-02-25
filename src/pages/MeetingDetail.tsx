@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -116,6 +117,11 @@ const MeetingDetail = () => {
   // Re-summarize state
   const [detailLevel, setDetailLevel] = useState<'concise' | 'standard' | 'detailed'>('concise');
   const [resummarizing, setResummarizing] = useState(false);
+
+  // Inline title editing
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -467,6 +473,35 @@ const MeetingDetail = () => {
     });
   };
 
+  const startEditingTitle = () => {
+    if (!meeting) return;
+    setEditTitle(meeting.title);
+    setEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 50);
+  };
+
+  const saveTitle = async () => {
+    const trimmed = editTitle.trim();
+    if (!trimmed || !meeting) {
+      setEditingTitle(false);
+      return;
+    }
+    if (trimmed === meeting.title) {
+      setEditingTitle(false);
+      return;
+    }
+    const { error } = await supabase
+      .from('meetings')
+      .update({ title: trimmed })
+      .eq('id', meeting.id);
+    if (error) {
+      toast.error('Failed to rename meeting');
+    } else {
+      setMeeting({ ...meeting, title: trimmed });
+    }
+    setEditingTitle(false);
+  };
+
   const handleDeleteMeeting = async (deleteTasks: boolean) => {
     setDeleting(true);
     try {
@@ -516,7 +551,27 @@ const MeetingDetail = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold truncate">{meeting.title}</h1>
+            {editingTitle ? (
+              <Input
+                ref={titleInputRef}
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={saveTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveTitle();
+                  if (e.key === 'Escape') setEditingTitle(false);
+                }}
+                className="text-xl font-bold h-auto py-0.5 px-1 -ml-1"
+              />
+            ) : (
+              <h1
+                className="text-xl font-bold truncate cursor-pointer hover:text-primary/80 transition-colors"
+                onClick={startEditingTitle}
+                title="Click to rename"
+              >
+                {meeting.title}
+              </h1>
+            )}
             <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
