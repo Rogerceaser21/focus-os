@@ -258,7 +258,12 @@ export const BrainDumpLiveDialog = ({
   return (
     <>
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent
+        className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>Brain Dump</DialogTitle>
           <DialogDescription>Just start talking. AI will listen, extract tasks, and route them automatically.</DialogDescription>
