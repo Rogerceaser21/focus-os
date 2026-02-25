@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import PullToRefresh from '@/components/PullToRefresh';
 import { useTheme } from 'next-themes';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -1094,7 +1095,8 @@ https://www.skyscanner.com`,
     }
   ];
 
-  return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+  return <PullToRefresh>
+    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} />
       <div className="min-h-screen flex w-full relative">
         <div ref={containerRef} className="dock-particle-container" />
@@ -1779,6 +1781,7 @@ https://www.skyscanner.com`,
       <TaskTour isOpen={showTaskTour} onComplete={handleTaskTourComplete} onStepChange={handleTaskTourStepChange} />
 
       <ProjectTour isOpen={showProjectsTour} onComplete={handleProjectsTourComplete} onStepChange={handleProjectsTourStepChange} />
-    </SidebarProvider>;
+    </SidebarProvider>
+  </PullToRefresh>;
 };
 export default Index;
