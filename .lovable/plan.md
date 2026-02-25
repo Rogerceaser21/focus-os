@@ -1,3 +1,4 @@
+
 # Brain Dump: Fix Move/Update/Remove Reliability + Add Date Support
 
 ## Summary of Changes
@@ -147,68 +148,90 @@ When `TaskListItem` calls `onUpdate`, also map `updatedTask.startDate`, `endDate
 # Meeting Summary & Outline Improvements
 
 ## Problem
-- Outlines are far too detailed for short meetings (e.g. a 2-min recording gets 6+ sections with 4+ bullets each)
+- Outlines capture too much — repeating points, including filler, not distinguishing signal from noise
 - Markdown formatting leaks through (`**bold**`, `#` headers) into the UI
 - No way to re-summarize old meetings
 - No user control over detail level
+- Meeting name not always displayed (stale closure bug)
 
 ## Prompting Strategy
 
-### Duration-Aware Defaults
-| Duration | Max Sections | Max Bullets/Section | Default Level |
-|----------|-------------|---------------------|---------------|
-| < 5 min  | 2-3         | 1-3                 | concise       |
-| 5-30 min | 3-5         | 2-4                 | concise       |
-| 30+ min  | 5-8         | 3-5                 | standard      |
+### Core Principle: Signal Over Noise (NOT duration-based)
+The prompt must instruct Gemini to **think like an executive assistant**:
+- What were the KEY DECISIONS made?
+- What ACTION ITEMS came out of this?
+- What are the 2-3 MAIN TOPICS discussed?
+- Ignore filler, small talk, repeated points, and tangential comments.
+- NEVER repeat the same point under different headings.
+- Each bullet should convey a UNIQUE piece of information.
+
+Duration is used only as a soft guardrail (fewer sections for shorter meetings), NOT as the primary quality signal.
 
 ### Detail Levels
-- **concise**: Only key decisions, action items, and major topics. Ruthlessly cut fluff. Each heading gets 1-3 short bullets.
-- **standard**: Main discussion points and conclusions. 3-5 bullets per section. Include context where helpful.
-- **detailed**: Thorough capture of discussion nuances, supporting arguments, and side points. No hard limit.
+- **concise** (default): Only decisions, action items, and key takeaways. Each heading gets 1-3 SHORT bullets. Merge related points. Ruthlessly cut anything that doesn't change understanding.
+- **standard**: Add supporting context and discussion points. 2-5 bullets per section. Still no repetition.
+- **detailed**: Thorough capture including nuances, disagreements, and supporting arguments. No hard limit on bullets but still NO repetition.
 
-### Prompt Template (for outline generation)
+### Duration as Soft Guardrail
+| Duration | Suggested Max Sections |
+|----------|----------------------|
+| < 5 min  | 2-3                  |
+| 5-30 min | 3-5                  |
+| 30+ min  | 5-8                  |
+
+### Prompt Template
 ```
 Analyze this meeting transcript and provide a structured summary.
-Today's date: {today}. Meeting duration: {duration_minutes} minutes.
 
-Detail level: {detail_level} ({description}).
+Detail level: {detail_level}.
 
 CRITICAL RULES:
-- Do NOT use any markdown formatting. No bold (**), no italic (*), no headers (#). Plain text only.
-- For "{detail_level}" level: max {max_sections} outline sections, max {max_bullets} bullets per section.
-- Focus on SIGNAL over noise. What decisions were made? What actions are needed? What are the key takeaways?
-- Omit filler, small talk, and repetitive points.
-- Overview should be {overview_length} for a {duration_minutes}-minute meeting.
+1. Think like an executive assistant. Extract ONLY what matters: decisions, action items, key topics.
+2. Do NOT repeat information. If a point was made once, it appears once — in the most relevant section.
+3. Each bullet must convey a UNIQUE piece of information. Merge similar points.
+4. Omit filler, greetings, small talk, and tangential comments entirely.
+5. Do NOT use any markdown formatting. No **bold**, no *italic*, no # headers. Plain text only.
+6. Headings should be short descriptive labels (3-6 words), not full sentences.
+7. For "concise": max {max_sections} sections, 1-3 bullets each. Only decisions and actions.
+8. For "standard": max {max_sections} sections, 2-5 bullets each. Add key context.
+9. For "detailed": up to {max_sections} sections, thorough but never redundant.
+10. Overview: {overview_guidance}
 
 Return JSON: { "overview": "...", "outline": [{ "heading": "...", "points": ["..."] }] }
 ```
 
-### Overview Length Scaling
-- < 5 min: 1-2 sentences
-- 5-30 min: 2-4 sentences
-- 30+ min: 3-6 sentences
+### Overview Guidance
+- concise: "1-2 sentences. What happened and what's next."
+- standard: "2-4 sentences. Key topics, decisions, and outcomes."
+- detailed: "3-6 sentences. Comprehensive executive summary."
 
 ## Implementation Plan
 
 ### File 1: `supabase/functions/process-meeting/index.ts`
 
-1. **Add `detailLevel` parameter** to request body parsing (default: auto-select based on duration)
-2. **Add `resummarize` flag** — when true, fetch existing transcript from GCS and re-summarize only (skip audio upload/transcription)
-3. **Replace hardcoded summary prompt** with the duration-aware tiered prompt template above
-4. **Strip markdown** from Gemini output as a safety net (remove `**`, `*`, `#` prefixes)
+1. **Add `detailLevel` parameter** to request body parsing (values: "concise" | "standard" | "detailed", default: "concise")
+2. **Add `resummarize` flag** — when true, accept `transcript` and `meetingId` instead of audio. Re-run summary prompt only, update the meeting record, return new summary.
+3. **Replace hardcoded summary prompt** with the signal-over-noise tiered prompt template above
+4. **Strip markdown** from Gemini output as a safety net (remove `**`, `*`, `#` prefixes from text)
+5. **Use `durationSeconds`** only for soft section-count guardrails, not as the primary quality driver
 
 ### File 2: `src/pages/MeetingDetail.tsx`
 
 1. **Add `- Detail` / `+ Detail` buttons** inline in the Outline section header
-   - Use compact text for mobile: `- Detail` and `+ Detail`
+   - Compact text for mobile: `- Detail` and `+ Detail`
    - Three states: concise ↔ standard ↔ detailed
-   - Show current level as a small label between buttons (e.g. "Concise")
-2. **Add "Re-summarize" button** in the overview/outline area
-   - Clicking either detail button OR the re-summarize button triggers a call to `process-meeting` with `resummarize: true` and the chosen `detailLevel`
-3. **Strip markdown** from rendered outline text (safety net on frontend too)
-4. **Loading state** while re-summarizing
+   - Show current level label between buttons (e.g. "Concise")
+   - Clicking a detail button triggers re-summarize with new level
+2. **Add standalone "Re-summarize" button** (for regenerating at current detail level)
+3. **Strip markdown** from rendered outline/overview text (frontend safety net: remove `**`, `*`, `##` etc.)
+4. **Loading state** spinner/skeleton while re-summarizing
+5. **Display meeting title** prominently — use the user-entered name, not the auto-generated timestamp fallback
+
+### File 3: `src/pages/Meetings.tsx`
+
+6. **Verify meeting name capture** — ensure `useRef` pattern is correctly passing the user-entered meeting name to `process-meeting`. The stale closure fix (using refs for meetingName, participants, recordingSeconds) must be confirmed working.
 
 ### Mobile Considerations
-- Buttons use `size="sm"` with icon + short text
-- Detail controls sit inline with the "OUTLINE" header
-- Layout uses `flex-wrap` so buttons wrap below heading on very narrow screens
+- Detail buttons use `size="sm"` with short text (`- Detail` / `+ Detail`)
+- Controls sit inline with "OUTLINE" header using `flex-wrap` for narrow screens
+- Re-summarize button is full-width on mobile
