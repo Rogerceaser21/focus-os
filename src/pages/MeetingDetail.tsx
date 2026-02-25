@@ -17,7 +17,7 @@ import {
   Loader2,
   Calendar,
   Users,
-  Sparkles,
+  ClipboardList,
   Mail,
   Play,
   Pause,
@@ -45,6 +45,7 @@ import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { AssignTaskDialog } from '@/components/AssignTaskDialog';
+import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 
 interface Participant {
   name: string;
@@ -122,6 +123,7 @@ const MeetingDetail = () => {
   const [editingTitle, setEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const [showSendSummaryDialog, setShowSendSummaryDialog] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -729,6 +731,21 @@ const MeetingDetail = () => {
               </Card>
             )}
 
+            {/* Share Summary via Email */}
+            {(summary.overview || summary.outline.length > 0) && (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setShowSendSummaryDialog(true)}
+                >
+                  <Mail className="h-4 w-4" />
+                  Share Summary via Email
+                </Button>
+              </div>
+            )}
+
             {/* Action Items */}
             {savedTasks.length > 0 && (
               <Card>
@@ -748,7 +765,7 @@ const MeetingDetail = () => {
                         {extracting ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Sparkles className="h-3.5 w-3.5" />
+                          <ClipboardList className="h-3.5 w-3.5" />
                         )}
                         Re-extract
                       </Button>
@@ -793,7 +810,7 @@ const MeetingDetail = () => {
             {savedTasks.length === 0 && meeting.transcript_gcs_path && (
               <Card>
                 <CardContent className="p-5 text-center">
-                  <Sparkles className="h-8 w-8 mx-auto mb-2 text-primary/60" />
+                  <ClipboardList className="h-8 w-8 mx-auto mb-2 text-primary/60" />
                   <p className="text-sm text-muted-foreground mb-3">
                     Extract action items from the transcript using AI
                   </p>
@@ -805,7 +822,7 @@ const MeetingDetail = () => {
                     {extracting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Sparkles className="h-4 w-4" />
+                      <ClipboardList className="h-4 w-4" />
                     )}
                     {extracting ? 'Extracting...' : 'Extract Action Items'}
                   </Button>
@@ -939,6 +956,15 @@ const MeetingDetail = () => {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      {meeting && (
+        <SendMeetingSummaryDialog
+          meetingId={meeting.id}
+          meetingTitle={meeting.title}
+          hasRecording={!!meeting.recording_gcs_path}
+          open={showSendSummaryDialog}
+          onOpenChange={setShowSendSummaryDialog}
+        />
+      )}
     </div>
   );
 };
