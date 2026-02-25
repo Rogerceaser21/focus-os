@@ -151,6 +151,39 @@ export type Database = {
         }
         Relationships: []
       }
+      recording_sessions: {
+        Row: {
+          chunk_count: number
+          created_at: string
+          gcs_folder_path: string
+          id: string
+          mime_type: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chunk_count?: number
+          created_at?: string
+          gcs_folder_path: string
+          id?: string
+          mime_type?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chunk_count?: number
+          created_at?: string
+          gcs_folder_path?: string
+          id?: string
+          mime_type?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assigned_to_email: string | null

@@ -62,6 +62,12 @@ const Meetings = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Chunked upload state
+  const sessionIdRef = useRef<string | null>(null);
+  const chunkIndexRef = useRef(0);
+  const chunkUploadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isUploadingChunkRef = useRef(false);
+
   // Refs for values needed inside recorder.onstop closure
   const meetingNameRef = useRef('');
   const participantsRef = useRef<Participant[]>([{ name: '', email: '' }, { name: '', email: '' }]);
@@ -102,6 +108,7 @@ const Meetings = () => {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (chunkUploadIntervalRef.current) clearInterval(chunkUploadIntervalRef.current);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
       }
@@ -144,6 +151,46 @@ const Meetings = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  /* ─── Chunk upload helper ──────────────────────────────── */
+
+  const flushChunksToGcs = useCallback(async () => {
+    if (isUploadingChunkRef.current || chunksRef.current.length === 0 || !sessionIdRef.current) return;
+    isUploadingChunkRef.current = true;
+
+    try {
+      const blob = new Blob(chunksRef.current, { type: mediaRecorderRef.current?.mimeType || 'audio/webm' });
+      chunksRef.current = []; // Clear buffer immediately
+
+      const arrayBuffer = await blob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const batchSize = 8192;
+      for (let i = 0; i < uint8Array.length; i += batchSize) {
+        const slice = uint8Array.subarray(i, i + batchSize);
+        binary += String.fromCharCode(...slice);
+      }
+      const audioBase64 = btoa(binary);
+
+      const currentIndex = chunkIndexRef.current;
+      chunkIndexRef.current += 1;
+
+      const { error } = await supabase.functions.invoke('upload-audio-chunk', {
+        body: { sessionId: sessionIdRef.current, chunkIndex: currentIndex, audioBase64 },
+      });
+
+      if (error) {
+        console.error(`Chunk ${currentIndex} upload failed:`, error);
+        // Don't crash the recording - next flush will try again
+      } else {
+        console.log(`Chunk ${currentIndex} uploaded (${uint8Array.length} bytes)`);
+      }
+    } catch (err) {
+      console.error('Chunk flush error:', err);
+    } finally {
+      isUploadingChunkRef.current = false;
+    }
+  }, []);
+
   /* ─── Recording ────────────────────────────────────────── */
 
   const handleStartRecording = useCallback(async () => {
@@ -170,6 +217,19 @@ const Meetings = () => {
         ? 'audio/webm'
         : 'audio/mp4';
 
+      // Start a recording session on the backend
+      const { data: sessionData, error: sessionError } = await supabase.functions.invoke('start-recording-session', {
+        body: { mimeType: mimeType.split(';')[0] },
+      });
+
+      if (sessionError || !sessionData?.sessionId) {
+        throw new Error('Failed to start recording session');
+      }
+
+      sessionIdRef.current = sessionData.sessionId;
+      chunkIndexRef.current = 0;
+      console.log('Recording session started:', sessionData.sessionId);
+
       const recorder = new MediaRecorder(stream, { mimeType });
       chunksRef.current = [];
 
@@ -178,28 +238,34 @@ const Meetings = () => {
       };
 
       recorder.onstop = async () => {
+        // Stop chunk upload interval
+        if (chunkUploadIntervalRef.current) {
+          clearInterval(chunkUploadIntervalRef.current);
+          chunkUploadIntervalRef.current = null;
+        }
+
         // Stop all tracks
         stream.getTracks().forEach(t => t.stop());
         streamRef.current = null;
 
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-        chunksRef.current = [];
+        // Final flush of remaining chunks
+        await flushChunksToGcs();
 
-        if (blob.size < 1000) {
-          toast.error('Recording too short. Please try again.');
-          setRecordingState('idle');
-          return;
-        }
-
-        await processMeeting(blob, mimeType);
+        // Now process the meeting using sessionId (no huge payload!)
+        await processSessionMeeting(mimeType);
       };
 
       mediaRecorderRef.current = recorder;
-      recorder.start(1000);
+      recorder.start(1000); // Collect data every 1 second
 
       setRecordingState('recording');
       setRecordingSeconds(0);
       setIsPaused(false);
+
+      // Flush chunks to GCS every 30 seconds
+      chunkUploadIntervalRef.current = setInterval(() => {
+        flushChunksToGcs();
+      }, 30000);
 
       timerRef.current = setInterval(() => {
         // Only increment when not paused
@@ -217,14 +283,16 @@ const Meetings = () => {
         console.error('Recording error:', error);
       }
     }
-  }, []);
+  }, [flushChunksToGcs]);
 
   const handlePauseRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.pause();
       setIsPaused(true);
+      // Flush current chunks before pausing
+      flushChunksToGcs();
     }
-  }, []);
+  }, [flushChunksToGcs]);
 
   const handleResumeRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
@@ -245,27 +313,16 @@ const Meetings = () => {
     }
   }, []);
 
-  const processMeeting = async (blob: Blob, mimeType: string) => {
+  const processSessionMeeting = async (mimeType: string) => {
     setRecordingState('processing');
     toast.info('Processing your meeting...');
 
     try {
-      // Convert blob to base64
-      const arrayBuffer = await blob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      let binary = '';
-      const chunkSize = 8192;
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.subarray(i, i + chunkSize);
-        binary += String.fromCharCode(...chunk);
-      }
-      const audioBase64 = btoa(binary);
-
       const validParticipants = participantsRef.current.filter(p => p.name.trim());
 
       const { data, error } = await supabase.functions.invoke('process-meeting', {
         body: {
-          audioBase64,
+          sessionId: sessionIdRef.current,
           mimeType: mimeType.split(';')[0],
           projectId: projectId || null,
           title: meetingNameRef.current.trim() || `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
@@ -276,8 +333,8 @@ const Meetings = () => {
 
       if (error) throw error;
 
+      sessionIdRef.current = null;
       toast.success('Meeting processed successfully!');
-      // Navigate directly to the new meeting's detail page
       navigate(`/meetings/${data.id}`);
     } catch (error) {
       console.error('Process meeting error:', error);

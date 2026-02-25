@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.get-meeting-audio]
 verify_jwt = false
+
+[functions.start-recording-session]
+verify_jwt = false
+
+[functions.upload-audio-chunk]
+verify_jwt = false
