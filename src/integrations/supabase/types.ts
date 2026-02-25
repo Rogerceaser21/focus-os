@@ -23,6 +23,7 @@ export type Database = {
           participants: Json | null
           project_id: string | null
           recording_gcs_path: string | null
+          share_token: string | null
           summary: string | null
           title: string
           transcript_gcs_path: string | null
@@ -37,6 +38,7 @@ export type Database = {
           participants?: Json | null
           project_id?: string | null
           recording_gcs_path?: string | null
+          share_token?: string | null
           summary?: string | null
           title?: string
           transcript_gcs_path?: string | null
@@ -51,6 +53,7 @@ export type Database = {
           participants?: Json | null
           project_id?: string | null
           recording_gcs_path?: string | null
+          share_token?: string | null
           summary?: string | null
           title?: string
           transcript_gcs_path?: string | null

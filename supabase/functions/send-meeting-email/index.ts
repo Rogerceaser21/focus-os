@@ -222,8 +222,8 @@ serve(async (req) => {
 
     // Build recording URL if requested
     let recordingUrl: string | null = null;
-    if (includeRecordingLink && meeting.recording_gcs_path) {
-      recordingUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/get-meeting-audio`;
+    if (includeRecordingLink && meeting.recording_gcs_path && meeting.share_token) {
+      recordingUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/get-shared-meeting-audio?token=${meeting.share_token}`;
     }
 
     const resend = new Resend(RESEND_API_KEY);
