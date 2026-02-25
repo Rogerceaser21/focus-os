@@ -478,7 +478,6 @@ export const BrainDumpLiveDialog = ({
             handleTaskUpdate(updatedTask);
             setEditingTask(null);
           }}
-          projects={projects.map(p => ({ id: p.id, name: p.name, color: '#3b82f6', timer: { totalSeconds: 0, isRunning: false } }))}
         />
       )}
     </>
