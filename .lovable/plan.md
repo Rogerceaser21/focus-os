@@ -116,7 +116,17 @@ parameters:
 
 ## File 2: `src/components/BrainDumpLiveDialog.tsx`
 
-### 7. Pass dates through in `handleSave`
+### 7. Manual project reassignment from EditTaskDialog
+
+When the user opens the Edit Task dialog from within the Brain Dump panel and changes the project:
+- `EditTaskDialog` receives the full `projects` list so the project dropdown is populated.
+- `toPreviewTask` passes `projectId` so the current project is pre-selected.
+- `handleTaskUpdate` detects project changes by comparing `updatedTask.projectId` against the existing `bdTask.projectId`:
+  - If changed to an existing project → set `destination: 'existing-project'`, `projectId`, and `projectName` from the matched project.
+  - If cleared → set `destination: 'today'` and clear project fields.
+- The `groupedTasks` memo automatically re-groups tasks under the correct header.
+
+### 8. Pass dates through in `handleSave`
 
 In the `tasksToInsert` map, add:
 ```typescript
@@ -127,7 +137,7 @@ In the `tasksToInsert` map, add:
 
 Note: For tasks with `destination === 'today'`, the current code sets `due_date` to today's date. With this change, if Gemini extracted an explicit `due_date` it takes priority; otherwise today's date is still used as the fallback for today-tasks.
 
-### 8. Update `handleTaskUpdate` to pass dates back
+### 9. Update `handleTaskUpdate` to pass dates back
 
 When `TaskListItem` calls `onUpdate`, also map `updatedTask.startDate`, `endDate`, `dueDate` back to the `BrainDumpTask` store.
 

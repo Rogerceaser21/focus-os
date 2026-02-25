@@ -222,6 +222,26 @@ export const BrainDumpLiveDialog = ({
   const handleTaskUpdate = (updatedTask: Task) => {
     const bdTask = tasks.find(t => t.id === updatedTask.id);
     if (bdTask) {
+      // Determine if project changed and update destination/grouping
+      let destinationUpdate: Partial<BrainDumpTask> = {};
+      if (updatedTask.projectId && updatedTask.projectId !== bdTask.projectId) {
+        const matchedProject = projects.find(p => p.id === updatedTask.projectId);
+        if (matchedProject) {
+          destinationUpdate = {
+            destination: 'existing-project',
+            projectId: matchedProject.id,
+            projectName: matchedProject.name,
+          };
+        }
+      } else if (!updatedTask.projectId && bdTask.projectId) {
+        // Cleared project — move to today
+        destinationUpdate = {
+          destination: 'today',
+          projectId: undefined,
+          projectName: undefined,
+        };
+      }
+
       updateTask(updatedTask.id, {
         title: updatedTask.title,
         description: updatedTask.description,
@@ -229,6 +249,7 @@ export const BrainDumpLiveDialog = ({
         ...(updatedTask.startDate ? { startDate: updatedTask.startDate.toISOString().split('T')[0] } : { startDate: undefined }),
         ...(updatedTask.endDate ? { endDate: updatedTask.endDate.toISOString().split('T')[0] } : { endDate: undefined }),
         ...(updatedTask.dueDate ? { dueDate: updatedTask.dueDate.toISOString().split('T')[0] } : { dueDate: undefined }),
+        ...destinationUpdate,
       });
     }
   };
@@ -241,6 +262,7 @@ export const BrainDumpLiveDialog = ({
     priority: t.priority,
     status: 'todo' as const,
     timer: { totalSeconds: 0, isRunning: false },
+    projectId: t.projectId,
   });
 
   const getGroupIcon = (icon: 'today' | 'existing' | 'new') => {
@@ -483,6 +505,7 @@ export const BrainDumpLiveDialog = ({
             handleTaskUpdate(updatedTask);
             setEditingTask(null);
           }}
+          projects={projects.map(p => ({ id: p.id, name: p.name, color: '#3b82f6', timer: { totalSeconds: 0, isRunning: false } }))}
         />
       )}
     </>
