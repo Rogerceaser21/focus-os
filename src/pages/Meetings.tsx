@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2, Pause, Play } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +56,7 @@ const Meetings = () => {
   // Recording state
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -198,9 +199,13 @@ const Meetings = () => {
 
       setRecordingState('recording');
       setRecordingSeconds(0);
+      setIsPaused(false);
 
       timerRef.current = setInterval(() => {
-        setRecordingSeconds(s => s + 1);
+        // Only increment when not paused
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          setRecordingSeconds(s => s + 1);
+        }
       }, 1000);
 
       toast.success('Recording started');
@@ -214,11 +219,26 @@ const Meetings = () => {
     }
   }, []);
 
+  const handlePauseRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+    }
+  }, []);
+
+  const handleResumeRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+    }
+  }, []);
+
   const handleStopRecording = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    setIsPaused(false);
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
@@ -411,29 +431,60 @@ const Meetings = () => {
       )}
 
       {recordingState === 'recording' && (
-        <div className="bg-destructive/10 border-b border-destructive/30">
+        <div className={`border-b ${isPaused ? 'bg-amber-500/10 border-amber-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
           <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <Mic className="h-6 w-6 text-destructive" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-pulse" />
+                {isPaused ? (
+                  <Pause className="h-6 w-6 text-amber-500" />
+                ) : (
+                  <>
+                    <Mic className="h-6 w-6 text-destructive" />
+                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-pulse" />
+                  </>
+                )}
               </div>
               <div>
-                <p className="font-semibold text-destructive">Recording...</p>
+                <p className={`font-semibold ${isPaused ? 'text-amber-500' : 'text-destructive'}`}>
+                  {isPaused ? 'Paused' : 'Recording...'}
+                </p>
                 <p className="text-sm text-muted-foreground font-mono">
                   {formatDuration(recordingSeconds)}
                 </p>
               </div>
             </div>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="gap-2"
-              onClick={handleStopRecording}
-            >
-              <Square className="h-4 w-4" />
-              Stop Recording
-            </Button>
+            <div className="flex items-center gap-2">
+              {isPaused ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+                  onClick={handleResumeRecording}
+                >
+                  <Play className="h-4 w-4" />
+                  Resume
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handlePauseRecording}
+                >
+                  <Pause className="h-4 w-4" />
+                  Pause
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-2"
+                onClick={handleStopRecording}
+              >
+                <Square className="h-4 w-4" />
+                Stop
+              </Button>
+            </div>
           </div>
         </div>
       )}
