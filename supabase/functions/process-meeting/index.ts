@@ -29,7 +29,6 @@ async function getGcsAccessToken(sa: ServiceAccount): Promise<string> {
   );
   const unsignedToken = `${header}.${claim}`;
 
-  // Import private key
   const pemBody = sa.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -91,6 +90,196 @@ async function uploadToGcs(
   return `gs://${bucket}/${result.name}`;
 }
 
+/* ─── Summary helpers ───────────────────────────────────────────── */
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/`([^`]+)`/g, "$1");
+}
+
+function getSummaryPrompt(transcript: string, detailLevel: string, durationSeconds: number): string {
+  const durationMin = Math.round(durationSeconds / 60);
+
+  const levelConfig: Record<string, { maxSections: number; bulletGuidance: string; overviewGuidance: string; description: string }> = {
+    concise: {
+      maxSections: durationMin < 5 ? 2 : durationMin < 30 ? 3 : 5,
+      bulletGuidance: "1-3 SHORT bullets per section. Only decisions and action items.",
+      overviewGuidance: "1-2 sentences. What happened and what is next.",
+      description: "Only key decisions, action items, and major takeaways. Ruthlessly cut fluff. Merge related points.",
+    },
+    standard: {
+      maxSections: durationMin < 5 ? 3 : durationMin < 30 ? 5 : 6,
+      bulletGuidance: "2-5 bullets per section. Include key context.",
+      overviewGuidance: "2-4 sentences. Key topics, decisions, and outcomes.",
+      description: "Main discussion points and conclusions with supporting context. Still no repetition.",
+    },
+    detailed: {
+      maxSections: durationMin < 5 ? 4 : durationMin < 30 ? 6 : 8,
+      bulletGuidance: "Thorough but never redundant. Include nuances and supporting arguments.",
+      overviewGuidance: "3-6 sentences. Comprehensive executive summary.",
+      description: "Thorough capture including nuances, disagreements, and supporting arguments. Never repeat information.",
+    },
+  };
+
+  const config = levelConfig[detailLevel] || levelConfig.concise;
+
+  return `Analyze this meeting transcript and provide a structured summary.
+Detail level: ${detailLevel} — ${config.description}
+
+CRITICAL RULES:
+1. Think like an executive assistant. Extract ONLY what matters: decisions, action items, key topics.
+2. Do NOT repeat information. If a point was made once, it appears once in the most relevant section only.
+3. Each bullet must convey a UNIQUE piece of information. Merge similar points into one.
+4. Omit filler, greetings, small talk, and tangential comments entirely.
+5. Do NOT use any markdown formatting. No **bold**, no *italic*, no # headers. Plain text only.
+6. Headings should be short descriptive labels (3-6 words), not full sentences.
+7. Maximum ${config.maxSections} sections. ${config.bulletGuidance}
+8. Overview: ${config.overviewGuidance}
+9. Return ONLY valid JSON — no code blocks, no extra text.
+
+Return JSON with this structure:
+{ "overview": "string", "outline": [{ "heading": "string", "points": ["string"] }] }
+
+Transcript:
+${transcript}`;
+}
+
+function parseGeminiSummaryResponse(rawText: string): string {
+  try {
+    const parsed = JSON.parse(rawText);
+    if (parsed.overview) {
+      parsed.overview = stripMarkdown(parsed.overview);
+      if (parsed.outline) {
+        parsed.outline = parsed.outline.map((s: any) => ({
+          heading: stripMarkdown(s.heading || ""),
+          points: (s.points || []).map((p: string) => stripMarkdown(p)),
+        }));
+      }
+      return JSON.stringify(parsed);
+    }
+    return JSON.stringify({ overview: stripMarkdown(rawText), outline: [] });
+  } catch {
+    let cleaned = rawText
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "")
+      .trim();
+
+    const jsonStart = cleaned.search(/[\{\[]/);
+    const jsonEnd = cleaned.lastIndexOf("}");
+
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+        .replace(/,\s*}/g, "}")
+        .replace(/,\s*]/g, "]")
+        .replace(/[\x00-\x1F\x7F]/g, "");
+      try {
+        const parsed = JSON.parse(cleaned);
+        parsed.overview = stripMarkdown(parsed.overview || "");
+        if (parsed.outline) {
+          parsed.outline = parsed.outline.map((s: any) => ({
+            heading: stripMarkdown(s.heading || ""),
+            points: (s.points || []).map((p: string) => stripMarkdown(p)),
+          }));
+        }
+        return JSON.stringify(parsed);
+      } catch {
+        return JSON.stringify({ overview: stripMarkdown(rawText), outline: [] });
+      }
+    }
+    return JSON.stringify({ overview: stripMarkdown(rawText), outline: [] });
+  }
+}
+
+async function generateSummary(apiKey: string, transcript: string, detailLevel: string, durationSeconds: number): Promise<string> {
+  const prompt = getSummaryPrompt(transcript, detailLevel, durationSeconds);
+
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" },
+      }),
+    }
+  );
+
+  if (!resp.ok) {
+    console.error("Summary generation failed:", await resp.text());
+    return JSON.stringify({ overview: "Summary generation failed.", outline: [] });
+  }
+
+  const data = await resp.json();
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  if (!rawText) return JSON.stringify({ overview: "No summary available.", outline: [] });
+
+  return parseGeminiSummaryResponse(rawText);
+}
+
+async function handleResummarize(
+  supabase: any,
+  meetingId: string,
+  transcript: string,
+  detailLevel: string,
+  durationSeconds: number,
+  corsHeaders: Record<string, string>
+): Promise<Response> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+
+  let transcriptText = transcript;
+  if (!transcriptText) {
+    const { data: meeting, error } = await supabase
+      .from("meetings")
+      .select("transcript_gcs_path, duration_seconds")
+      .eq("id", meetingId)
+      .single();
+
+    if (error || !meeting) throw new Error("Meeting not found");
+    if (meeting.duration_seconds) durationSeconds = meeting.duration_seconds;
+
+    if (meeting.transcript_gcs_path) {
+      const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
+      if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
+      const sa: ServiceAccount = JSON.parse(gcsKeyJson);
+      const token = await getGcsAccessToken(sa);
+      const gcsBucket = Deno.env.get("GCS_BUCKET_NAME")!;
+
+      const path = meeting.transcript_gcs_path.replace(`gs://${gcsBucket}/`, "");
+      const encodedPath = encodeURIComponent(path);
+      const gcsResp = await fetch(
+        `https://storage.googleapis.com/storage/v1/b/${gcsBucket}/o/${encodedPath}?alt=media`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (gcsResp.ok) {
+        const transcriptData = await gcsResp.json();
+        transcriptText = transcriptData.transcript || "";
+      }
+    }
+  }
+
+  if (!transcriptText) throw new Error("No transcript available to re-summarize");
+
+  console.log(`Re-summarizing meeting ${meetingId} at detail level: ${detailLevel}`);
+  const summary = await generateSummary(GEMINI_API_KEY, transcriptText, detailLevel, durationSeconds);
+
+  const { error: updateError } = await supabase
+    .from("meetings")
+    .update({ summary })
+    .eq("id", meetingId);
+
+  if (updateError) throw new Error(`Failed to update meeting: ${updateError.message}`);
+
+  return new Response(
+    JSON.stringify({ summary, detailLevel }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 /* ─── Main handler ──────────────────────────────────────────────── */
 
 serve(async (req) => {
@@ -114,7 +303,14 @@ serve(async (req) => {
     if (!user) throw new Error("Unauthorized");
 
     // Parse request
-    const { audioBase64, mimeType, projectId, title, durationSeconds, participants } = await req.json();
+    const body = await req.json();
+    const { audioBase64, mimeType, projectId, title, durationSeconds, participants, resummarize, meetingId, detailLevel, transcript: providedTranscript } = body;
+
+    // ─── Re-summarize flow ───
+    if (resummarize && meetingId) {
+      return await handleResummarize(supabase, meetingId, providedTranscript, detailLevel || "concise", durationSeconds || 0, corsHeaders);
+    }
+
     if (!audioBase64) throw new Error("No audio data provided");
 
     const participantNames = (participants || [])
@@ -212,101 +408,9 @@ Format the output as a clean transcript with speaker labels and timestamps where
       "application/json"
     );
 
-    // Step 5: Summarize with Gemini - structured overview + outline
+    // Step 5: Summarize with Gemini
     console.log("Step 5: Generating structured summary...");
-    const summarizeBody = {
-      contents: [
-        {
-          parts: [
-            {
-              text: `Analyze this meeting transcript and provide a structured summary.
-
-You MUST return a JSON object with exactly this structure:
-{
-  "overview": "A comprehensive paragraph (3-6 sentences) summarizing what was discussed, key decisions made, and outcomes.",
-  "outline": [
-    {
-      "heading": "Topic Heading",
-      "points": [
-        "Key point or detail discussed under this topic",
-        "Another important point"
-      ]
-    }
-  ]
-}
-
-IMPORTANT RULES:
-- The "overview" field must be a single paragraph executive summary.
-- The "outline" field MUST contain at least 2-3 sections with headings and bullet points, even for short meetings.
-- Each outline section MUST have a "heading" string and a "points" array with at least 1 bullet point.
-- Be thorough and capture ALL important points discussed.
-- Do NOT return an empty outline array unless the transcript truly contains no discernible speech.
-
-Transcript:
-${transcript}`,
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-      },
-    };
-
-    const summarizeResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(summarizeBody),
-      }
-    );
-
-    let summary = JSON.stringify({ overview: "No summary available", outline: [] });
-    if (summarizeResp.ok) {
-      const summarizeData = await summarizeResp.json();
-      const rawText = summarizeData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      
-      // Robust JSON extraction
-      try {
-        // First try direct parse (responseMimeType should give clean JSON)
-        const parsed = JSON.parse(rawText);
-        if (parsed.overview) {
-          summary = JSON.stringify(parsed);
-        } else {
-          summary = JSON.stringify({ overview: rawText, outline: [] });
-        }
-      } catch {
-        // Fallback: strip markdown code blocks and find JSON
-        let cleaned = rawText
-          .replace(/```json\s*/gi, "")
-          .replace(/```\s*/g, "")
-          .trim();
-        
-        const jsonStart = cleaned.search(/[\{\[]/);
-        const jsonEnd = cleaned.lastIndexOf("}");
-        
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
-          try {
-            // Fix common issues
-            cleaned = cleaned
-              .replace(/,\s*}/g, "}")
-              .replace(/,\s*]/g, "]")
-              .replace(/[\x00-\x1F\x7F]/g, "");
-            const parsed = JSON.parse(cleaned);
-            summary = JSON.stringify(parsed);
-          } catch {
-            summary = JSON.stringify({ overview: rawText, outline: [] });
-          }
-        } else {
-          summary = JSON.stringify({ overview: rawText, outline: [] });
-        }
-      }
-    } else {
-      console.error("Summary generation failed, continuing without summary");
-    }
-
+    const summary = await generateSummary(GEMINI_API_KEY, transcript, "concise", durationSeconds || 0);
     console.log("Summary generated");
 
     // Step 6: Save to database
