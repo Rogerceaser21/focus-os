@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, CheckCircle2, X, UserPlus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,11 +74,6 @@ const Meetings = () => {
   const [meetingToDelete, setMeetingToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Latest processed meeting
-  const [processedMeeting, setProcessedMeeting] = useState<{
-    summary: string;
-    transcript: string;
-  } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -194,7 +189,6 @@ const Meetings = () => {
 
       setRecordingState('recording');
       setRecordingSeconds(0);
-      setProcessedMeeting(null);
 
       timerRef.current = setInterval(() => {
         setRecordingSeconds(s => s + 1);
@@ -253,14 +247,9 @@ const Meetings = () => {
 
       if (error) throw error;
 
-      setProcessedMeeting({
-        summary: data.summary,
-        transcript: data.transcript,
-      });
-
-      setRecordingState('done');
       toast.success('Meeting processed successfully!');
-      fetchMeetings(); // Refresh list
+      // Navigate directly to the new meeting's detail page
+      navigate(`/meetings/${data.id}`);
     } catch (error) {
       console.error('Process meeting error:', error);
       toast.error('Failed to process meeting. Please try again.');
@@ -449,35 +438,6 @@ const Meetings = () => {
             <p className="text-sm text-muted-foreground">
               Transcribing and summarizing your meeting...
             </p>
-          </div>
-        </div>
-      )}
-
-      {/* Processed Meeting Result */}
-      {recordingState === 'done' && processedMeeting && (
-        <div className="bg-success/5 border-b border-success/20">
-          <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
-            <div className="flex items-center gap-2 text-success">
-              <CheckCircle2 className="h-5 w-5" />
-              <span className="font-semibold">Meeting processed!</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-auto"
-                onClick={() => {
-                  setRecordingState('idle');
-                  setProcessedMeeting(null);
-                }}
-              >
-                Dismiss
-              </Button>
-            </div>
-
-            {/* Summary */}
-            <div>
-              <h3 className="text-sm font-semibold text-muted-foreground mb-1">Summary</h3>
-              <p className="text-sm">{processedMeeting.summary}</p>
-            </div>
           </div>
         </div>
       )}
