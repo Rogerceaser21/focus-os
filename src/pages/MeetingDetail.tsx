@@ -24,6 +24,9 @@ import {
   Trash2,
   List,
   AlignLeft,
+  RefreshCw,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -109,6 +112,10 @@ const MeetingDetail = () => {
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Re-summarize state
+  const [detailLevel, setDetailLevel] = useState<'concise' | 'standard' | 'detailed'>('concise');
+  const [resummarizing, setResummarizing] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -209,14 +216,69 @@ const MeetingDetail = () => {
     assignedToEmail: t.assigned_to_email || undefined,
   });
 
+  const stripMarkdown = (text: string): string => {
+    return text
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/`([^`]+)`/g, '$1');
+  };
+
   const parseSummary = (raw: string | null): StructuredSummary => {
     if (!raw) return { overview: '', outline: [] };
     try {
       const parsed = JSON.parse(raw);
-      if (parsed.overview) return parsed;
+      if (parsed.overview) {
+        return {
+          overview: stripMarkdown(parsed.overview),
+          outline: (parsed.outline || []).map((s: any) => ({
+            heading: stripMarkdown(s.heading || ''),
+            points: (s.points || []).map((p: string) => stripMarkdown(p)),
+          })),
+        };
+      }
     } catch {}
-    // Legacy plain text summary
-    return { overview: raw, outline: [] };
+    return { overview: stripMarkdown(raw), outline: [] };
+  };
+
+  const handleResummarize = async (level?: 'concise' | 'standard' | 'detailed') => {
+    const targetLevel = level || detailLevel;
+    setResummarizing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-meeting', {
+        body: {
+          resummarize: true,
+          meetingId: id,
+          detailLevel: targetLevel,
+          transcript: transcript || undefined,
+          durationSeconds: meeting?.duration_seconds || 0,
+        },
+      });
+      if (error) throw error;
+
+      // Update local meeting state with new summary
+      if (data?.summary && meeting) {
+        setMeeting({ ...meeting, summary: data.summary });
+      }
+      if (level) setDetailLevel(level);
+      toast.success(`Summary regenerated (${targetLevel})`);
+    } catch (err) {
+      console.error('Re-summarize error:', err);
+      toast.error('Failed to re-summarize meeting');
+    } finally {
+      setResummarizing(false);
+    }
+  };
+
+  const handleDetailChange = (direction: 'less' | 'more') => {
+    const levels: ('concise' | 'standard' | 'detailed')[] = ['concise', 'standard', 'detailed'];
+    const currentIdx = levels.indexOf(detailLevel);
+    const newIdx = direction === 'less' ? Math.max(0, currentIdx - 1) : Math.min(2, currentIdx + 1);
+    if (newIdx !== currentIdx) {
+      const newLevel = levels[newIdx];
+      setDetailLevel(newLevel);
+      handleResummarize(newLevel);
+    }
   };
 
   const fetchTranscript = async () => {
@@ -533,10 +595,26 @@ const MeetingDetail = () => {
             {summary.overview && (
               <Card>
                 <CardContent className="p-5">
-                  <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
-                    <AlignLeft className="h-4 w-4" />
-                    Overview
-                  </h2>
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <AlignLeft className="h-4 w-4" />
+                      Overview
+                    </h2>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => handleResummarize()}
+                      disabled={resummarizing}
+                    >
+                      {resummarizing ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                      Re-summarize
+                    </Button>
+                  </div>
                   <p className="text-sm leading-relaxed">{summary.overview}</p>
                 </CardContent>
               </Card>
@@ -546,10 +624,37 @@ const MeetingDetail = () => {
             {summary.outline.length > 0 && (
               <Card>
                 <CardContent className="p-5">
-                  <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
-                    <List className="h-4 w-4" />
-                    Outline
-                  </h2>
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <List className="h-4 w-4" />
+                      Outline
+                    </h2>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => handleDetailChange('less')}
+                        disabled={resummarizing || detailLevel === 'concise'}
+                      >
+                        <Minus className="h-3 w-3 mr-1" />
+                        Detail
+                      </Button>
+                      <span className="text-xs text-muted-foreground min-w-[60px] text-center capitalize">
+                        {resummarizing ? <Loader2 className="h-3 w-3 animate-spin inline" /> : detailLevel}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => handleDetailChange('more')}
+                        disabled={resummarizing || detailLevel === 'detailed'}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Detail
+                      </Button>
+                    </div>
+                  </div>
                   <div className="space-y-4">
                     {summary.outline.map((section, i) => (
                       <div key={i}>

@@ -61,6 +61,11 @@ const Meetings = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Refs for values needed inside recorder.onstop closure
+  const meetingNameRef = useRef('');
+  const participantsRef = useRef<Participant[]>([{ name: '', email: '' }, { name: '', email: '' }]);
+  const recordingSecondsRef = useRef(0);
+
   // Participants
   const [participants, setParticipants] = useState<Participant[]>([
     { name: '', email: '' },
@@ -74,6 +79,10 @@ const Meetings = () => {
   const [meetingToDelete, setMeetingToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Keep refs in sync with state
+  useEffect(() => { meetingNameRef.current = meetingName; }, [meetingName]);
+  useEffect(() => { participantsRef.current = participants; }, [participants]);
+  useEffect(() => { recordingSecondsRef.current = recordingSeconds; }, [recordingSeconds]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -232,15 +241,15 @@ const Meetings = () => {
       }
       const audioBase64 = btoa(binary);
 
-      const validParticipants = participants.filter(p => p.name.trim());
+      const validParticipants = participantsRef.current.filter(p => p.name.trim());
 
       const { data, error } = await supabase.functions.invoke('process-meeting', {
         body: {
           audioBase64,
           mimeType: mimeType.split(';')[0],
           projectId: projectId || null,
-          title: meetingName.trim() || `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
-          durationSeconds: recordingSeconds,
+          title: meetingNameRef.current.trim() || `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+          durationSeconds: recordingSecondsRef.current,
           participants: validParticipants,
         },
       });
