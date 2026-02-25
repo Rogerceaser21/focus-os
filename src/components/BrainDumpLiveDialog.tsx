@@ -5,6 +5,7 @@ import { Mic, MicOff, Loader2, Check, X, AlertCircle, Calendar, FolderPlus, Fold
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TaskListItem } from '@/components/TaskListItem';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { useBrainDumpLive, BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Task, TaskPriority } from '@/types/task';
@@ -36,6 +37,7 @@ export const BrainDumpLiveDialog = ({
   const { tasks, connectionState, start, stop, updateTask, removeTask, resetTasks, setInitialTasks } = useBrainDumpLive();
   const [isSaving, setIsSaving] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const hasLoadedInitialTasks = React.useRef(false);
 
 
@@ -254,6 +256,7 @@ export const BrainDumpLiveDialog = ({
   const isError = connectionState === 'error';
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader className="sr-only">
@@ -387,6 +390,7 @@ export const BrainDumpLiveDialog = ({
                           <TaskListItem
                             task={toPreviewTask(task)}
                             onUpdate={handleTaskUpdate}
+                            onEditTask={(t) => setEditingTask(t)}
                             globalViewMode="full"
                             isIndividuallyExpanded={false}
                             onTaskClick={() => {}}
@@ -463,5 +467,19 @@ export const BrainDumpLiveDialog = ({
         </div>
       </DialogContent>
     </Dialog>
+
+      {/* Edit Task Dialog — rendered outside the Brain Dump dialog so it layers above */}
+      {editingTask && (
+        <EditTaskDialog
+          task={editingTask}
+          open={!!editingTask}
+          onOpenChange={(open) => { if (!open) setEditingTask(null); }}
+          onUpdateTask={(updatedTask) => {
+            handleTaskUpdate(updatedTask);
+            setEditingTask(null);
+          }}
+        />
+      )}
+    </>
   );
 };
