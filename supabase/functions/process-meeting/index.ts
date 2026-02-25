@@ -219,9 +219,9 @@ Format the output as a clean transcript with speaker labels and timestamps where
         {
           parts: [
             {
-              text: `Analyze this meeting transcript and provide a structured summary in JSON format.
+              text: `Analyze this meeting transcript and provide a structured summary.
 
-Return ONLY valid JSON with this structure:
+You MUST return a JSON object with exactly this structure:
 {
   "overview": "A comprehensive paragraph (3-6 sentences) summarizing what was discussed, key decisions made, and outcomes.",
   "outline": [
@@ -235,7 +235,12 @@ Return ONLY valid JSON with this structure:
   ]
 }
 
-The overview should read like an executive summary. The outline should break down the meeting into distinct topics with bullet points for key details under each topic. Be thorough and capture all important points.
+IMPORTANT RULES:
+- The "overview" field must be a single paragraph executive summary.
+- The "outline" field MUST contain at least 2-3 sections with headings and bullet points, even for short meetings.
+- Each outline section MUST have a "heading" string and a "points" array with at least 1 bullet point.
+- Be thorough and capture ALL important points discussed.
+- Do NOT return an empty outline array unless the transcript truly contains no discernible speech.
 
 Transcript:
 ${transcript}`,
@@ -243,6 +248,9 @@ ${transcript}`,
           ],
         },
       ],
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
     };
 
     const summarizeResp = await fetch(
@@ -258,18 +266,42 @@ ${transcript}`,
     if (summarizeResp.ok) {
       const summarizeData = await summarizeResp.json();
       const rawText = summarizeData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      // Extract JSON from response (may be wrapped in markdown code block)
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0]);
+      
+      // Robust JSON extraction
+      try {
+        // First try direct parse (responseMimeType should give clean JSON)
+        const parsed = JSON.parse(rawText);
+        if (parsed.overview) {
           summary = JSON.stringify(parsed);
-        } catch {
-          // Fallback: use raw text as overview
+        } else {
           summary = JSON.stringify({ overview: rawText, outline: [] });
         }
-      } else {
-        summary = JSON.stringify({ overview: rawText, outline: [] });
+      } catch {
+        // Fallback: strip markdown code blocks and find JSON
+        let cleaned = rawText
+          .replace(/```json\s*/gi, "")
+          .replace(/```\s*/g, "")
+          .trim();
+        
+        const jsonStart = cleaned.search(/[\{\[]/);
+        const jsonEnd = cleaned.lastIndexOf("}");
+        
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+          try {
+            // Fix common issues
+            cleaned = cleaned
+              .replace(/,\s*}/g, "}")
+              .replace(/,\s*]/g, "]")
+              .replace(/[\x00-\x1F\x7F]/g, "");
+            const parsed = JSON.parse(cleaned);
+            summary = JSON.stringify(parsed);
+          } catch {
+            summary = JSON.stringify({ overview: rawText, outline: [] });
+          }
+        } else {
+          summary = JSON.stringify({ overview: rawText, outline: [] });
+        }
       }
     } else {
       console.error("Summary generation failed, continuing without summary");
