@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2, Pause, Play } from 'lucide-react';
+import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2, Pause, Play, RefreshCw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -393,6 +393,9 @@ const Meetings = () => {
         // Start polling
         setProcessingMeetingId(data.id);
         setProcessingStatus(data.processing_status);
+
+        // Frontend triggers transcribe-meeting directly (no more fire-and-forget)
+        triggerTranscription(data);
       } else {
         // Legacy sync flow - navigate directly
         toast.success('Meeting processed successfully!');
@@ -403,6 +406,88 @@ const Meetings = () => {
       console.error('Process meeting error:', error);
       toast.error('Failed to process meeting. Please try again.');
       setRecordingState('idle');
+    }
+  };
+
+  const triggerTranscription = async (meetingData: any) => {
+    try {
+      console.log('Frontend triggering transcribe-meeting for:', meetingData.id);
+      // Don't await - let it run in background while we poll
+      supabase.functions.invoke('transcribe-meeting', {
+        body: {
+          meetingId: meetingData.id,
+          geminiFileUri: meetingData.geminiFileUri,
+          mimeType: meetingData.mimeType,
+          participantNames: meetingData.participantNames || [],
+          durationSeconds: meetingData.durationSeconds || 0,
+          gcsBucket: meetingData.gcsBucket,
+          gcsFolder: meetingData.gcsFolder,
+        },
+      }).catch(err => {
+        // This may "fail" due to timeout but the function keeps running server-side
+        console.log('transcribe-meeting invoke completed or timed out (expected):', err?.message);
+      });
+    } catch (err) {
+      console.error('Failed to trigger transcription:', err);
+    }
+  };
+
+  const handleRetryMeeting = async (e: React.MouseEvent, meeting: Meeting) => {
+    e.stopPropagation();
+    toast.info('Retrying meeting processing...');
+
+    try {
+      // Fetch full meeting data for retry
+      const { data: meetingData, error } = await supabase
+        .from('meetings')
+        .select('*')
+        .eq('id', meeting.id)
+        .single();
+
+      if (error || !meetingData) throw new Error('Could not fetch meeting data');
+
+      const geminiFileUri = (meetingData as any).gemini_file_uri;
+      const recordingGcsPath = (meetingData as any).recording_gcs_path as string;
+
+      if (!recordingGcsPath) {
+        toast.error('No recording found for this meeting. Cannot retry.');
+        return;
+      }
+
+      // If we still have a Gemini file URI, try transcribe-meeting directly
+      if (geminiFileUri) {
+        // Extract bucket and folder from recording_gcs_path (gs://bucket/folder/recording.webm)
+        const gcsMatch = recordingGcsPath.match(/gs:\/\/([^/]+)\/(.+)\/recording\./);
+        if (!gcsMatch) {
+          toast.error('Could not parse recording path for retry.');
+          return;
+        }
+
+        // Update status to transcribing
+        await supabase
+          .from('meetings')
+          .update({ processing_status: 'transcribing', processing_error: null })
+          .eq('id', meeting.id);
+
+        setProcessingMeetingId(meeting.id);
+        setProcessingStatus('transcribing');
+        setRecordingState('processing');
+
+        triggerTranscription({
+          id: meeting.id,
+          geminiFileUri,
+          mimeType: 'audio/webm',
+          participantNames: [],
+          durationSeconds: meeting.duration_seconds || 0,
+          gcsBucket: gcsMatch[1],
+          gcsFolder: gcsMatch[2],
+        });
+      } else {
+        toast.error('Gemini file expired. This meeting needs to be re-recorded.');
+      }
+    } catch (err) {
+      console.error('Retry error:', err);
+      toast.error('Failed to retry processing.');
     }
   };
 
@@ -726,6 +811,17 @@ const Meetings = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0 mt-1">
+                        {(hasError || isProcessing) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            onClick={(e) => handleRetryMeeting(e, meeting)}
+                            title="Retry processing"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
