@@ -331,7 +331,8 @@ async function uploadToGeminiFileAPI(
   if (!uploadUrl) throw new Error("No upload URL returned from Gemini File API");
   console.log("Got Gemini resumable upload URL");
 
-  // Step 3: Stream from GCS → Gemini (piped, never fully in memory)
+  // Step 3: Stream from GCS → Gemini in chunks (never buffer full file)
+  const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB chunks
   const downloadResp = await fetch(
     `https://storage.googleapis.com/storage/v1/b/${gcsBucket}/o/${encodedPath}?alt=media`,
     { headers: { Authorization: `Bearer ${gcsToken}` } }
@@ -340,51 +341,65 @@ async function uploadToGeminiFileAPI(
     throw new Error(`GCS download failed: ${await downloadResp.text()}`);
   }
 
-  // Read the stream and upload in chunks to Gemini
-  // We'll upload the entire file in one finalize command by buffering through the stream
   const reader = downloadResp.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let totalRead = 0;
+  let uploadOffset = 0;
+  let buffer = new Uint8Array(0);
 
   while (true) {
     const { done, value } = await reader.read();
+
+    if (value) {
+      // Append to buffer
+      const newBuffer = new Uint8Array(buffer.length + value.length);
+      newBuffer.set(buffer);
+      newBuffer.set(value, buffer.length);
+      buffer = newBuffer;
+    }
+
+    // Send chunks when we have enough data, or on final read
+    while (buffer.length >= CHUNK_SIZE || (done && buffer.length > 0)) {
+      const isLast = done && buffer.length <= CHUNK_SIZE;
+      const chunkSize = Math.min(buffer.length, CHUNK_SIZE);
+      const chunk = buffer.slice(0, chunkSize);
+      buffer = buffer.slice(chunkSize);
+
+      const command = isLast ? "upload, finalize" : "upload";
+
+      const uploadResp = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Length": String(chunk.length),
+          "X-Goog-Upload-Offset": String(uploadOffset),
+          "X-Goog-Upload-Command": command,
+        },
+        body: chunk,
+      });
+
+      if (!uploadResp.ok) {
+        const err = await uploadResp.text();
+        throw new Error(`Gemini chunked upload failed at offset ${uploadOffset}: ${err}`);
+      }
+
+      uploadOffset += chunk.length;
+      console.log(`Uploaded ${(uploadOffset / 1024 / 1024).toFixed(1)} MB / ${(fileSize / 1024 / 1024).toFixed(1)} MB to Gemini`);
+
+      if (isLast) {
+        // Parse the final response
+        const uploadResult = await uploadResp.json();
+        const fileUri = uploadResult.file?.uri;
+        if (!fileUri) throw new Error("No file URI returned from Gemini File API");
+        console.log(`File uploaded to Gemini: ${fileUri}, state: ${uploadResult.file?.state}`);
+        return fileUri;
+      } else {
+        await uploadResp.text(); // consume response body
+      }
+    }
+
     if (done) break;
-    chunks.push(value);
-    totalRead += value.length;
   }
 
-  // Concatenate all chunks
-  const fullData = new Uint8Array(totalRead);
-  let offset = 0;
-  for (const chunk of chunks) {
-    fullData.set(chunk, offset);
-    offset += chunk.length;
-  }
+  throw new Error("Upload loop ended without finalizing");
 
-  console.log(`Streamed ${totalRead} bytes from GCS, uploading to Gemini...`);
-
-  // Upload to Gemini with finalize command
-  const uploadResp = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Length": String(totalRead),
-      "X-Goog-Upload-Offset": "0",
-      "X-Goog-Upload-Command": "upload, finalize",
-    },
-    body: fullData,
-  });
-
-  if (!uploadResp.ok) {
-    const err = await uploadResp.text();
-    throw new Error(`Gemini File API upload failed: ${err}`);
-  }
-
-  const uploadResult = await uploadResp.json();
-  const fileUri = uploadResult.file?.uri;
-  if (!fileUri) throw new Error("No file URI returned from Gemini File API");
-
-  console.log(`File uploaded to Gemini: ${fileUri}, state: ${uploadResult.file?.state}`);
-  return fileUri;
 }
 
 /* ─── Main handler ──────────────────────────────────────────────── */
