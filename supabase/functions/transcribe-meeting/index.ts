@@ -297,9 +297,10 @@ Format the output as a clean transcript with speaker labels and timestamps where
       ],
     };
 
-    // Use streaming to avoid idle timeout on long audio
+    // Use non-streaming call — edge function timeout is the constraint,
+    // but Gemini processes the file server-side and returns the full result
     const transcribeResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -313,37 +314,8 @@ Format the output as a clean transcript with speaker labels and timestamps where
       throw new Error(`Transcription failed: ${errText}`);
     }
 
-    // Read SSE stream and accumulate transcript parts
-    const reader = transcribeResp.body!.getReader();
-    const decoder = new TextDecoder();
-    let transcriptParts: string[] = [];
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      // Parse SSE events
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const jsonStr = line.slice(6).trim();
-          if (!jsonStr || jsonStr === "[DONE]") continue;
-          try {
-            const chunk = JSON.parse(jsonStr);
-            const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) transcriptParts.push(text);
-          } catch {
-            // Skip malformed chunks
-          }
-        }
-      }
-    }
-
-    const transcript = transcriptParts.join("");
+    const transcribeData = await transcribeResp.json();
+    const transcript = transcribeData.candidates?.[0]?.content?.parts?.[0]?.text || "";
     if (!transcript) throw new Error("Empty transcript returned from Gemini");
     console.log("Transcript length:", transcript.length);
 

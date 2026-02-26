@@ -35,6 +35,7 @@ interface Meeting {
   action_items: any[];
   project_id: string | null;
   created_at: string;
+  updated_at?: string;
   processing_status?: string;
   processing_error?: string | null;
 }
@@ -865,8 +866,10 @@ const Meetings = () => {
           <div className="space-y-3">
             {meetings.map(meeting => {
               const project = projects.find(p => p.id === meeting.project_id);
-              const isProcessing = meeting.processing_status && meeting.processing_status !== 'done' && meeting.processing_status !== 'error';
-              const hasError = meeting.processing_status === 'error';
+              const updatedAt = new Date(meeting.updated_at || meeting.created_at).getTime();
+              const isStale = (Date.now() - updatedAt) > 5 * 60 * 1000; // 5 minutes
+              const isProcessing = meeting.processing_status && meeting.processing_status !== 'done' && meeting.processing_status !== 'error' && !isStale;
+              const hasError = meeting.processing_status === 'error' || (isStale && meeting.processing_status !== 'done');
               return (
                 <Card
                   key={meeting.id}
