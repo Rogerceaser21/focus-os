@@ -561,34 +561,18 @@ serve(async (req) => {
         .update({ status: "done" })
         .eq("id", sessionId);
 
-      // ─── Fire-and-forget: invoke transcribe-meeting ───
-      const transcribeMeetingUrl = `${supabaseUrl}/functions/v1/transcribe-meeting`;
-      fetch(transcribeMeetingUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authHeader,
-          apikey: supabaseKey,
-        },
-        body: JSON.stringify({
-          meetingId: meeting.id,
+      // Return all data needed for frontend to trigger transcribe-meeting
+      return new Response(
+        JSON.stringify({
+          id: meeting.id,
+          title: meetingTitle,
+          processing_status: "transcribing",
           geminiFileUri,
           mimeType: actualMimeType,
           participantNames,
           durationSeconds: durationSeconds || 0,
           gcsBucket,
           gcsFolder: session.gcs_folder_path,
-        }),
-      }).catch((err) => {
-        console.error("Fire-and-forget transcribe-meeting failed:", err);
-      });
-
-      // Return immediately - frontend will poll
-      return new Response(
-        JSON.stringify({
-          id: meeting.id,
-          title: meetingTitle,
-          processing_status: "transcribing",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
