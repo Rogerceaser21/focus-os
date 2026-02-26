@@ -19,8 +19,11 @@ export type Database = {
           action_items: Json | null
           created_at: string
           duration_seconds: number | null
+          gemini_file_uri: string | null
           id: string
           participants: Json | null
+          processing_error: string | null
+          processing_status: string
           project_id: string | null
           recording_gcs_path: string | null
           share_token: string | null
@@ -34,8 +37,11 @@ export type Database = {
           action_items?: Json | null
           created_at?: string
           duration_seconds?: number | null
+          gemini_file_uri?: string | null
           id?: string
           participants?: Json | null
+          processing_error?: string | null
+          processing_status?: string
           project_id?: string | null
           recording_gcs_path?: string | null
           share_token?: string | null
@@ -49,8 +55,11 @@ export type Database = {
           action_items?: Json | null
           created_at?: string
           duration_seconds?: number | null
+          gemini_file_uri?: string | null
           id?: string
           participants?: Json | null
+          processing_error?: string | null
+          processing_status?: string
           project_id?: string | null
           recording_gcs_path?: string | null
           share_token?: string | null

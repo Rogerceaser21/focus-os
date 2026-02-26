@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.upload-audio-chunk]
 verify_jwt = false
+
+[functions.transcribe-meeting]
+verify_jwt = false

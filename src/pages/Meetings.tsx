@@ -20,6 +20,7 @@ import {
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { Progress } from '@/components/ui/progress';
 
 interface Participant {
   name: string;
@@ -34,6 +35,8 @@ interface Meeting {
   action_items: any[];
   project_id: string | null;
   created_at: string;
+  processing_status?: string;
+  processing_error?: string | null;
 }
 
 interface Project {
@@ -43,6 +46,14 @@ interface Project {
 }
 
 type RecordingState = 'idle' | 'recording' | 'processing' | 'done';
+
+const PROCESSING_LABELS: Record<string, { label: string; progress: number }> = {
+  uploading: { label: 'Uploading audio to AI...', progress: 20 },
+  transcribing: { label: 'Transcribing your meeting...', progress: 50 },
+  summarizing: { label: 'Generating summary...', progress: 80 },
+  done: { label: 'Complete!', progress: 100 },
+  error: { label: 'Processing failed', progress: 0 },
+};
 
 const Meetings = () => {
   const navigate = useNavigate();
@@ -86,6 +97,11 @@ const Meetings = () => {
   const [meetingToDelete, setMeetingToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Async processing polling state
+  const [processingMeetingId, setProcessingMeetingId] = useState<string | null>(null);
+  const [processingStatus, setProcessingStatus] = useState<string>('uploading');
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Keep refs in sync with state
   useEffect(() => { meetingNameRef.current = meetingName; }, [meetingName]);
   useEffect(() => { participantsRef.current = participants; }, [participants]);
@@ -109,11 +125,56 @@ const Meetings = () => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (chunkUploadIntervalRef.current) clearInterval(chunkUploadIntervalRef.current);
+      if (pollingRef.current) clearInterval(pollingRef.current);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
       }
     };
   }, []);
+
+  // Polling for async processing
+  useEffect(() => {
+    if (!processingMeetingId) return;
+
+    const poll = async () => {
+      const { data, error } = await supabase
+        .from('meetings')
+        .select('processing_status, processing_error')
+        .eq('id', processingMeetingId)
+        .single();
+
+      if (error || !data) return;
+
+      const status = (data as any).processing_status as string;
+      const procError = (data as any).processing_error as string | null;
+
+      setProcessingStatus(status);
+
+      if (status === 'done') {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        pollingRef.current = null;
+        toast.success('Meeting processed successfully!');
+        navigate(`/meetings/${processingMeetingId}`);
+        setProcessingMeetingId(null);
+        setRecordingState('idle');
+      } else if (status === 'error') {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        pollingRef.current = null;
+        toast.error(`Processing failed: ${procError || 'Unknown error'}`);
+        setProcessingMeetingId(null);
+        setRecordingState('idle');
+        fetchMeetings();
+      }
+    };
+
+    pollingRef.current = setInterval(poll, 5000);
+    // Initial poll
+    poll();
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [processingMeetingId, navigate]);
 
   const fetchProjects = async () => {
     const { data } = await supabase.from('projects').select('id, name, color');
@@ -137,6 +198,8 @@ const Meetings = () => {
         data.map(m => ({
           ...m,
           action_items: Array.isArray(m.action_items) ? m.action_items : [],
+          processing_status: (m as any).processing_status || 'done',
+          processing_error: (m as any).processing_error || null,
         }))
       );
     }
@@ -159,7 +222,7 @@ const Meetings = () => {
 
     try {
       const blob = new Blob(chunksRef.current, { type: mediaRecorderRef.current?.mimeType || 'audio/webm' });
-      chunksRef.current = []; // Clear buffer immediately
+      chunksRef.current = [];
 
       const arrayBuffer = await blob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
@@ -180,7 +243,6 @@ const Meetings = () => {
 
       if (error) {
         console.error(`Chunk ${currentIndex} upload failed:`, error);
-        // Don't crash the recording - next flush will try again
       } else {
         console.log(`Chunk ${currentIndex} uploaded (${uint8Array.length} bytes)`);
       }
@@ -195,12 +257,10 @@ const Meetings = () => {
 
   const handleStartRecording = useCallback(async () => {
     try {
-      // Release any existing stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
       }
 
-      // CRITICAL: getUserMedia directly in click handler
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
@@ -217,7 +277,6 @@ const Meetings = () => {
         ? 'audio/webm'
         : 'audio/mp4';
 
-      // Start a recording session on the backend
       const { data: sessionData, error: sessionError } = await supabase.functions.invoke('start-recording-session', {
         body: { mimeType: mimeType.split(';')[0] },
       });
@@ -238,37 +297,31 @@ const Meetings = () => {
       };
 
       recorder.onstop = async () => {
-        // Stop chunk upload interval
         if (chunkUploadIntervalRef.current) {
           clearInterval(chunkUploadIntervalRef.current);
           chunkUploadIntervalRef.current = null;
         }
 
-        // Stop all tracks
         stream.getTracks().forEach(t => t.stop());
         streamRef.current = null;
 
-        // Final flush of remaining chunks
         await flushChunksToGcs();
 
-        // Now process the meeting using sessionId (no huge payload!)
         await processSessionMeeting(mimeType);
       };
 
       mediaRecorderRef.current = recorder;
-      recorder.start(1000); // Collect data every 1 second
+      recorder.start(1000);
 
       setRecordingState('recording');
       setRecordingSeconds(0);
       setIsPaused(false);
 
-      // Flush chunks to GCS every 30 seconds
       chunkUploadIntervalRef.current = setInterval(() => {
         flushChunksToGcs();
       }, 30000);
 
       timerRef.current = setInterval(() => {
-        // Only increment when not paused
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
           setRecordingSeconds(s => s + 1);
         }
@@ -289,7 +342,6 @@ const Meetings = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.pause();
       setIsPaused(true);
-      // Flush current chunks before pausing
       flushChunksToGcs();
     }
   }, [flushChunksToGcs]);
@@ -315,7 +367,8 @@ const Meetings = () => {
 
   const processSessionMeeting = async (mimeType: string) => {
     setRecordingState('processing');
-    toast.info('Processing your meeting...');
+    setProcessingStatus('uploading');
+    toast.info('Uploading and processing your meeting...');
 
     try {
       const validParticipants = participantsRef.current.filter(p => p.name.trim());
@@ -334,8 +387,18 @@ const Meetings = () => {
       if (error) throw error;
 
       sessionIdRef.current = null;
-      toast.success('Meeting processed successfully!');
-      navigate(`/meetings/${data.id}`);
+
+      // Check if this is the new async flow
+      if (data.processing_status && data.processing_status !== 'done') {
+        // Start polling
+        setProcessingMeetingId(data.id);
+        setProcessingStatus(data.processing_status);
+      } else {
+        // Legacy sync flow - navigate directly
+        toast.success('Meeting processed successfully!');
+        navigate(`/meetings/${data.id}`);
+        setRecordingState('idle');
+      }
     } catch (error) {
       console.error('Process meeting error:', error);
       toast.error('Failed to process meeting. Please try again.');
@@ -372,6 +435,8 @@ const Meetings = () => {
       </div>
     );
   }
+
+  const processingInfo = PROCESSING_LABELS[processingStatus] || PROCESSING_LABELS.uploading;
 
   return (
     <div className="min-h-screen bg-background">
@@ -546,15 +611,22 @@ const Meetings = () => {
         </div>
       )}
 
-      {/* Processing Banner */}
+      {/* Processing Banner with Progress */}
       {recordingState === 'processing' && (
         <div className="bg-primary/10 border-b border-primary/30">
-          <div className="max-w-4xl mx-auto px-4 py-6 text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-            <p className="font-semibold">Processing your meeting...</p>
-            <p className="text-sm text-muted-foreground">
-              Transcribing and summarizing your meeting...
-            </p>
+          <div className="max-w-4xl mx-auto px-4 py-6">
+            <div className="flex items-center gap-3 mb-3">
+              <Loader2 className="h-6 w-6 animate-spin text-primary shrink-0" />
+              <div className="flex-1">
+                <p className="font-semibold">{processingInfo.label}</p>
+                <p className="text-sm text-muted-foreground">
+                  This may take a few minutes for long recordings
+                </p>
+              </div>
+            </div>
+            {processingStatus !== 'error' && (
+              <Progress value={processingInfo.progress} className="h-2" />
+            )}
           </div>
         </div>
       )}
@@ -583,17 +655,36 @@ const Meetings = () => {
           <div className="space-y-3">
             {meetings.map(meeting => {
               const project = projects.find(p => p.id === meeting.project_id);
+              const isProcessing = meeting.processing_status && meeting.processing_status !== 'done' && meeting.processing_status !== 'error';
+              const hasError = meeting.processing_status === 'error';
               return (
                 <Card
                   key={meeting.id}
-                  className="cursor-pointer hover:border-primary/30 transition-colors"
-                  onClick={() => navigate(`/meetings/${meeting.id}`)}
+                  className={`cursor-pointer hover:border-primary/30 transition-colors ${isProcessing ? 'opacity-70' : ''} ${hasError ? 'border-destructive/30' : ''}`}
+                  onClick={() => {
+                    if (isProcessing) {
+                      toast.info('This meeting is still being processed...');
+                      return;
+                    }
+                    navigate(`/meetings/${meeting.id}`);
+                  }}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold truncate">{meeting.title}</h3>
+                          {isProcessing && (
+                            <Badge variant="secondary" className="text-xs shrink-0 gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Processing
+                            </Badge>
+                          )}
+                          {hasError && (
+                            <Badge variant="destructive" className="text-xs shrink-0">
+                              Failed
+                            </Badge>
+                          )}
                           {project && (
                             <Badge variant="outline" className="text-xs shrink-0">
                               <Folder className="h-3 w-3 mr-1" style={{ color: project.color }} />
@@ -601,7 +692,10 @@ const Meetings = () => {
                             </Badge>
                           )}
                         </div>
-                        {meeting.summary && (() => {
+                        {hasError && meeting.processing_error && (
+                          <p className="text-sm text-destructive mb-2">{meeting.processing_error}</p>
+                        )}
+                        {meeting.summary && !isProcessing && (() => {
                           let displaySummary = meeting.summary;
                           try {
                             const parsed = JSON.parse(meeting.summary);
