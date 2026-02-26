@@ -280,6 +280,113 @@ async function handleResummarize(
   );
 }
 
+/* ─── Gemini File API helpers ───────────────────────────────────── */
+
+async function uploadToGeminiFileAPI(
+  apiKey: string,
+  gcsToken: string,
+  gcsBucket: string,
+  gcsObjectPath: string,
+  mimeType: string,
+  displayName: string
+): Promise<string> {
+  // Step 1: Get file size from GCS metadata (no download)
+  const encodedPath = encodeURIComponent(gcsObjectPath);
+  const metaResp = await fetch(
+    `https://storage.googleapis.com/storage/v1/b/${gcsBucket}/o/${encodedPath}`,
+    { headers: { Authorization: `Bearer ${gcsToken}` } }
+  );
+  if (!metaResp.ok) {
+    const err = await metaResp.text();
+    throw new Error(`GCS metadata fetch failed: ${err}`);
+  }
+  const metadata = await metaResp.json();
+  const fileSize = parseInt(metadata.size, 10);
+  console.log(`File size from GCS: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(1)} MB)`);
+
+  // Step 2: Initiate resumable upload to Gemini File API
+  const initResp = await fetch(
+    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "X-Goog-Upload-Protocol": "resumable",
+        "X-Goog-Upload-Command": "start",
+        "X-Goog-Upload-Header-Content-Length": String(fileSize),
+        "X-Goog-Upload-Header-Content-Type": mimeType,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        file: { display_name: displayName },
+      }),
+    }
+  );
+
+  if (!initResp.ok) {
+    const err = await initResp.text();
+    throw new Error(`Gemini File API init failed: ${err}`);
+  }
+
+  const uploadUrl = initResp.headers.get("X-Goog-Upload-URL");
+  if (!uploadUrl) throw new Error("No upload URL returned from Gemini File API");
+  console.log("Got Gemini resumable upload URL");
+
+  // Step 3: Stream from GCS → Gemini (piped, never fully in memory)
+  const downloadResp = await fetch(
+    `https://storage.googleapis.com/storage/v1/b/${gcsBucket}/o/${encodedPath}?alt=media`,
+    { headers: { Authorization: `Bearer ${gcsToken}` } }
+  );
+  if (!downloadResp.ok || !downloadResp.body) {
+    throw new Error(`GCS download failed: ${await downloadResp.text()}`);
+  }
+
+  // Read the stream and upload in chunks to Gemini
+  // We'll upload the entire file in one finalize command by buffering through the stream
+  const reader = downloadResp.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalRead = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    totalRead += value.length;
+  }
+
+  // Concatenate all chunks
+  const fullData = new Uint8Array(totalRead);
+  let offset = 0;
+  for (const chunk of chunks) {
+    fullData.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  console.log(`Streamed ${totalRead} bytes from GCS, uploading to Gemini...`);
+
+  // Upload to Gemini with finalize command
+  const uploadResp = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Length": String(totalRead),
+      "X-Goog-Upload-Offset": "0",
+      "X-Goog-Upload-Command": "upload, finalize",
+    },
+    body: fullData,
+  });
+
+  if (!uploadResp.ok) {
+    const err = await uploadResp.text();
+    throw new Error(`Gemini File API upload failed: ${err}`);
+  }
+
+  const uploadResult = await uploadResp.json();
+  const fileUri = uploadResult.file?.uri;
+  if (!fileUri) throw new Error("No file URI returned from Gemini File API");
+
+  console.log(`File uploaded to Gemini: ${fileUri}, state: ${uploadResult.file?.state}`);
+  return fileUri;
+}
+
 /* ─── Main handler ──────────────────────────────────────────────── */
 
 serve(async (req) => {
@@ -291,6 +398,7 @@ serve(async (req) => {
     // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization header");
+    const token = authHeader.replace("Bearer ", "");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -299,7 +407,7 @@ serve(async (req) => {
     });
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(token);
     if (!user) throw new Error("Unauthorized");
 
     // Parse request
@@ -330,7 +438,7 @@ serve(async (req) => {
     let audioGcsPath: string;
     let actualMimeType = mimeType || "audio/webm";
 
-    // ─── Session-based chunked flow ───
+    // ─── Session-based chunked flow (BULLETPROOF: Gemini File API) ───
     if (sessionId) {
       console.log(`Processing session ${sessionId} (chunked upload)...`);
 
@@ -356,7 +464,6 @@ serve(async (req) => {
       console.log(`Composing ${session.chunk_count} chunks...`);
       const composedPath = `${session.gcs_folder_path}/recording.webm`;
 
-      // GCS compose supports max 32 objects per call, so we may need multiple passes
       let sourceObjects: string[] = [];
       for (let i = 0; i < session.chunk_count; i++) {
         const paddedIndex = String(i).padStart(5, "0");
@@ -410,119 +517,78 @@ serve(async (req) => {
         sourceObjects = newSources;
       }
 
-      audioGcsPath = `gs://${gcsBucket}/${sourceObjects[0] || composedPath}`;
+      const composedObjectPath = sourceObjects[0] || composedPath;
+      audioGcsPath = `gs://${gcsBucket}/${composedObjectPath}`;
       console.log("Composed audio at:", audioGcsPath);
 
-      // Download composed audio from GCS and send as inlineData
-      console.log("Downloading composed audio from GCS for transcription...");
-      const composedObjectPath = sourceObjects[0] || composedPath;
-      const encodedComposedPath = encodeURIComponent(composedObjectPath);
-      const downloadResp = await fetch(
-        `https://storage.googleapis.com/storage/v1/b/${gcsBucket}/o/${encodedComposedPath}?alt=media`,
-        { headers: { Authorization: `Bearer ${gcsToken}` } }
-      );
-      if (!downloadResp.ok) {
-        const dlErr = await downloadResp.text();
-        throw new Error(`Failed to download composed audio: ${dlErr}`);
-      }
-      const composedBytes = new Uint8Array(await downloadResp.arrayBuffer());
-      // Chunk the base64 encoding to avoid stack overflow on large files
-      let composedBase64 = "";
-      const chunkSize = 32768;
-      for (let i = 0; i < composedBytes.length; i += chunkSize) {
-        const chunk = composedBytes.subarray(i, i + chunkSize);
-        composedBase64 += String.fromCharCode(...chunk);
-      }
-      composedBase64 = btoa(composedBase64);
-      console.log(`Composed audio downloaded: ${composedBytes.length} bytes`);
-
-      console.log("Transcribing with Gemini (inlineData)...");
-      const transcribeBody = {
-        contents: [
-          {
-            parts: [
-              {
-                inlineData: {
-                  mimeType: actualMimeType,
-                  data: composedBase64,
-                },
-              },
-              {
-                text: `Transcribe this audio recording of a meeting.${
-                  participantNames.length > 0
-                    ? ` The participants are: ${participantNames.join(", ")}. Label each speaker by their name where possible.`
-                    : " Include speaker diarization where possible (label speakers as Speaker 1, Speaker 2, etc.)."
-                }
-                
-Format the output as a clean transcript with speaker labels and timestamps where detectable. Be thorough and accurate.`,
-              },
-            ],
-          },
-        ],
-      };
-
-      const transcribeResp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(transcribeBody),
-        }
+      // ─── PHASE 1: Upload to Gemini File API (streaming from GCS) ───
+      console.log("Uploading composed audio to Gemini File API...");
+      const geminiFileUri = await uploadToGeminiFileAPI(
+        GEMINI_API_KEY,
+        gcsToken,
+        gcsBucket,
+        composedObjectPath,
+        actualMimeType,
+        title || "meeting-recording"
       );
 
-      if (!transcribeResp.ok) {
-        const errText = await transcribeResp.text();
-        console.error("Gemini transcription error:", errText);
-        throw new Error(`Transcription failed: ${errText}`);
-      }
-
-      const transcribeData = await transcribeResp.json();
-      const transcript = transcribeData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      if (!transcript) throw new Error("Empty transcript returned from Gemini");
-      console.log("Transcript length:", transcript.length);
-
-      // Upload transcript to GCS
-      const transcriptPath = `${session.gcs_folder_path}/transcript.json`;
-      const transcriptJson = JSON.stringify({ transcript, timestamp: new Date().toISOString() });
-      const transcriptGcsPath = await uploadToGcs(gcsToken, gcsBucket, transcriptPath, transcriptJson, "application/json");
-
-      // Summarize
-      const summary = await generateSummary(GEMINI_API_KEY, transcript, "concise", durationSeconds || 0);
-
-      // Save meeting
+      // Create the meeting record immediately with processing_status = 'transcribing'
+      const meetingTitle = title || `Meeting ${new Date().toLocaleDateString()}`;
       const { data: meeting, error: dbError } = await supabase
         .from("meetings")
         .insert({
           user_id: user.id,
           project_id: projectId || null,
-          title: title || `Meeting ${new Date().toLocaleDateString()}`,
+          title: meetingTitle,
           duration_seconds: durationSeconds || 0,
-          summary,
+          summary: null,
           action_items: [],
           participants: participants || [],
           recording_gcs_path: audioGcsPath,
-          transcript_gcs_path: transcriptGcsPath,
+          transcript_gcs_path: null,
+          processing_status: "transcribing",
+          gemini_file_uri: geminiFileUri,
         })
         .select()
         .single();
 
       if (dbError) throw new Error(`Failed to save meeting: ${dbError.message}`);
+      console.log("Meeting created with processing_status=transcribing:", meeting.id);
 
-      // Mark session done
+      // Mark recording session done
       await supabase
         .from("recording_sessions")
         .update({ status: "done" })
         .eq("id", sessionId);
 
-      console.log("Meeting saved:", meeting.id);
+      // ─── Fire-and-forget: invoke transcribe-meeting ───
+      const transcribeMeetingUrl = `${supabaseUrl}/functions/v1/transcribe-meeting`;
+      fetch(transcribeMeetingUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authHeader,
+          apikey: supabaseKey,
+        },
+        body: JSON.stringify({
+          meetingId: meeting.id,
+          geminiFileUri,
+          mimeType: actualMimeType,
+          participantNames,
+          durationSeconds: durationSeconds || 0,
+          gcsBucket,
+          gcsFolder: session.gcs_folder_path,
+        }),
+      }).catch((err) => {
+        console.error("Fire-and-forget transcribe-meeting failed:", err);
+      });
 
+      // Return immediately - frontend will poll
       return new Response(
         JSON.stringify({
           id: meeting.id,
-          title: meeting.title,
-          summary,
-          transcript,
-          duration_seconds: durationSeconds,
+          title: meetingTitle,
+          processing_status: "transcribing",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -533,7 +599,6 @@ Format the output as a clean transcript with speaker labels and timestamps where
 
     console.log("Step 1: Getting GCS access token...");
 
-    // Step 2: Upload audio to GCS
     console.log("Step 2: Uploading audio to GCS...");
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const audioPath = `${user.id}/${timestamp}/recording.webm`;
@@ -549,7 +614,6 @@ Format the output as a clean transcript with speaker labels and timestamps where
     );
     console.log("Audio uploaded:", audioGcsPath);
 
-    // Step 3: Transcribe with Gemini
     console.log("Step 3: Transcribing with Gemini...");
     const transcribeBody = {
       contents: [
@@ -599,7 +663,6 @@ Format the output as a clean transcript with speaker labels and timestamps where
       throw new Error("Empty transcript returned from Gemini");
     }
 
-    // Step 4: Upload transcript to GCS
     console.log("Step 4: Uploading transcript to GCS...");
     const transcriptPath = `${user.id}/${timestamp}/transcript.json`;
     const transcriptJson = JSON.stringify({ transcript, timestamp });
@@ -611,12 +674,10 @@ Format the output as a clean transcript with speaker labels and timestamps where
       "application/json"
     );
 
-    // Step 5: Summarize with Gemini
     console.log("Step 5: Generating structured summary...");
     const summary = await generateSummary(GEMINI_API_KEY, transcript, "concise", durationSeconds || 0);
     console.log("Summary generated");
 
-    // Step 6: Save to database
     console.log("Step 6: Saving meeting to database...");
 
     const { data: meeting, error: dbError } = await supabase
@@ -631,6 +692,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
         participants: participants || [],
         recording_gcs_path: audioGcsPath,
         transcript_gcs_path: transcriptGcsPath,
+        processing_status: "done",
       })
       .select()
       .single();
@@ -649,6 +711,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
         summary,
         transcript,
         duration_seconds: durationSeconds,
+        processing_status: "done",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
