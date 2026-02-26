@@ -100,6 +100,11 @@ const Meetings = () => {
   // Async processing polling state
   const [processingMeetingId, setProcessingMeetingId] = useState<string | null>(null);
   const [processingStatus, setProcessingStatus] = useState<string>('uploading');
+
+  // Orphaned session recovery
+  const [orphanedSession, setOrphanedSession] = useState<{ id: string; chunkCount: number; createdAt: string; gcsFolder: string; mimeType: string } | null>(null);
+  const [recoveringSession, setRecoveringSession] = useState(false);
+  const failedSessionRef = useRef<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Keep refs in sync with state
@@ -117,6 +122,7 @@ const Meetings = () => {
     if (user) {
       fetchMeetings();
       fetchProjects();
+      checkOrphanedSessions();
     }
   }, [user, projectId]);
 
@@ -179,6 +185,84 @@ const Meetings = () => {
   const fetchProjects = async () => {
     const { data } = await supabase.from('projects').select('id, name, color');
     if (data) setProjects(data);
+  };
+
+  const checkOrphanedSessions = async () => {
+    try {
+      const { data: sessions } = await supabase
+        .from('recording_sessions')
+        .select('id, chunk_count, created_at, gcs_folder_path, mime_type, status')
+        .in('status', ['processing', 'recording'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (sessions && sessions.length > 0) {
+        const session = sessions[0];
+        // Only show recovery if session has chunks and is older than 2 minutes
+        const ageMs = Date.now() - new Date(session.created_at).getTime();
+        if (session.chunk_count > 0 && ageMs > 120000) {
+          setOrphanedSession({
+            id: session.id,
+            chunkCount: session.chunk_count,
+            createdAt: session.created_at,
+            gcsFolder: session.gcs_folder_path,
+            mimeType: session.mime_type,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error checking orphaned sessions:', err);
+    }
+  };
+
+  const recoverOrphanedSession = async () => {
+    if (!orphanedSession) return;
+    setRecoveringSession(true);
+    toast.info('Recovering your recording...');
+
+    try {
+      const validParticipants = participantsRef.current.filter(p => p.name.trim());
+
+      const { data, error } = await supabase.functions.invoke('process-meeting', {
+        body: {
+          sessionId: orphanedSession.id,
+          mimeType: orphanedSession.mimeType.split(';')[0],
+          projectId: projectId || null,
+          title: meetingNameRef.current.trim() || `Recovered Meeting ${new Date(orphanedSession.createdAt).toLocaleDateString()} ${new Date(orphanedSession.createdAt).toLocaleTimeString()}`,
+          durationSeconds: orphanedSession.chunkCount * 30, // approximate
+          participants: validParticipants,
+        },
+      });
+
+      if (error) throw error;
+
+      setOrphanedSession(null);
+
+      if (data.processing_status && data.processing_status !== 'done') {
+        setProcessingMeetingId(data.id);
+        setProcessingStatus(data.processing_status);
+        setRecordingState('processing');
+        triggerTranscription(data);
+      } else {
+        toast.success('Meeting recovered successfully!');
+        navigate(`/meetings/${data.id}`);
+      }
+    } catch (err) {
+      console.error('Recovery error:', err);
+      toast.error('Failed to recover recording. Please try again.');
+    } finally {
+      setRecoveringSession(false);
+    }
+  };
+
+  const dismissOrphanedSession = async () => {
+    if (!orphanedSession) return;
+    // Mark the session as failed so it won't show again
+    await supabase
+      .from('recording_sessions')
+      .update({ status: 'failed' })
+      .eq('id', orphanedSession.id);
+    setOrphanedSession(null);
   };
 
   const fetchMeetings = async () => {
@@ -404,7 +488,13 @@ const Meetings = () => {
       }
     } catch (error) {
       console.error('Process meeting error:', error);
-      toast.error('Failed to process meeting. Please try again.');
+      // Save sessionId so we can offer recovery
+      if (sessionIdRef.current) {
+        failedSessionRef.current = sessionIdRef.current;
+        // Re-check for orphaned sessions to show the recovery banner
+        checkOrphanedSessions();
+      }
+      toast.error('Failed to process meeting. Your recording is saved — use the recovery banner to retry.');
       setRecordingState('idle');
     }
   };
@@ -718,6 +808,41 @@ const Meetings = () => {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Orphaned session recovery banner */}
+        {orphanedSession && recordingState === 'idle' && (
+          <Card className="mb-4 border-amber-500/50 bg-amber-500/10">
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-amber-500" />
+                  Unprocessed Recording Found
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  A {orphanedSession.chunkCount * 30}s recording from {new Date(orphanedSession.createdAt).toLocaleString()} wasn't fully processed. Your audio is safe.
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={dismissOrphanedSession}
+                  disabled={recoveringSession}
+                >
+                  Dismiss
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-1"
+                  onClick={recoverOrphanedSession}
+                  disabled={recoveringSession}
+                >
+                  {recoveringSession ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Recover
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
