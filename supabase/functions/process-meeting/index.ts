@@ -413,16 +413,38 @@ serve(async (req) => {
       audioGcsPath = `gs://${gcsBucket}/${sourceObjects[0] || composedPath}`;
       console.log("Composed audio at:", audioGcsPath);
 
-      // Transcribe using GCS URI (no need to download the file!)
-      console.log("Transcribing from GCS URI...");
+      // Download composed audio from GCS and send as inlineData
+      console.log("Downloading composed audio from GCS for transcription...");
+      const composedObjectPath = sourceObjects[0] || composedPath;
+      const encodedComposedPath = encodeURIComponent(composedObjectPath);
+      const downloadResp = await fetch(
+        `https://storage.googleapis.com/storage/v1/b/${gcsBucket}/o/${encodedComposedPath}?alt=media`,
+        { headers: { Authorization: `Bearer ${gcsToken}` } }
+      );
+      if (!downloadResp.ok) {
+        const dlErr = await downloadResp.text();
+        throw new Error(`Failed to download composed audio: ${dlErr}`);
+      }
+      const composedBytes = new Uint8Array(await downloadResp.arrayBuffer());
+      // Chunk the base64 encoding to avoid stack overflow on large files
+      let composedBase64 = "";
+      const chunkSize = 32768;
+      for (let i = 0; i < composedBytes.length; i += chunkSize) {
+        const chunk = composedBytes.subarray(i, i + chunkSize);
+        composedBase64 += String.fromCharCode(...chunk);
+      }
+      composedBase64 = btoa(composedBase64);
+      console.log(`Composed audio downloaded: ${composedBytes.length} bytes`);
+
+      console.log("Transcribing with Gemini (inlineData)...");
       const transcribeBody = {
         contents: [
           {
             parts: [
               {
-                fileData: {
+                inlineData: {
                   mimeType: actualMimeType,
-                  fileUri: audioGcsPath,
+                  data: composedBase64,
                 },
               },
               {
