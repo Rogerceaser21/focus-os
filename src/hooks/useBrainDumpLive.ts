@@ -317,49 +317,105 @@ SILENT MODE:
                 const getCurrentTasksSummary = (tasksState: BrainDumpTask[]) => 
                   tasksState.map(t => ({ task_id: t.id, title: t.title, priority: t.priority, destination: t.destination, projectName: t.projectName }));
 
+                // DEDUPLICATION GUARD: Check if a task with a very similar title already exists.
+                // If so, merge/update instead of creating a duplicate. This prevents the LLM
+                // from re-creating tasks during "Keep Talking" sessions.
+                const findDuplicateTask = (title: string): BrainDumpTask | undefined => {
+                  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+                  const normalizedTitle = normalize(title);
+                  return tasksRef.current.find(t => {
+                    const existing = normalize(t.title);
+                    // Exact match after normalization, or one contains the other
+                    return existing === normalizedTitle 
+                      || existing.includes(normalizedTitle) 
+                      || normalizedTitle.includes(existing);
+                  });
+                };
+
                 let result: any = { result: 'ok' };
 
                 if (fc.name === 'add_task_to_today') {
-                  const taskId = `brain-dump-${++taskCounterRef.current}`;
-                  const newTask: BrainDumpTask = {
-                    id: taskId,
-                    title: args.title || 'Untitled Task',
-                    description: args.description,
-                    priority: (args.priority as TaskPriority) || 'medium',
-                    destination: 'today',
-                    ...(args.start_date && { startDate: args.start_date }),
-                    ...(args.end_date && { endDate: args.end_date }),
-                    ...(args.due_date && { dueDate: args.due_date }),
-                  };
-                  setTasks(prev => {
-                    const next = [...prev, newTask];
-                    result = { result: 'ok', task_id: taskId, current_tasks: getCurrentTasksSummary(next) };
-                    return next;
-                  });
+                  const title = args.title || 'Untitled Task';
+                  const existingTask = findDuplicateTask(title);
+                  
+                  if (existingTask) {
+                    // DEDUP: Merge into existing task instead of creating duplicate
+                    console.log(`DEDUP: "${title}" matches existing task "${existingTask.title}" (${existingTask.id}), updating instead`);
+                    setTasks(prev => {
+                      const next = prev.map(t => t.id === existingTask.id ? {
+                        ...t,
+                        ...(args.description && { description: args.description }),
+                        ...(args.priority && { priority: args.priority as TaskPriority }),
+                        ...(args.start_date && { startDate: args.start_date }),
+                        ...(args.end_date && { endDate: args.end_date }),
+                        ...(args.due_date && { dueDate: args.due_date }),
+                      } : t);
+                      result = { result: 'ok', task_id: existingTask.id, note: 'duplicate_prevented_updated_existing', current_tasks: getCurrentTasksSummary(next) };
+                      return next;
+                    });
+                  } else {
+                    const taskId = `brain-dump-${++taskCounterRef.current}`;
+                    const newTask: BrainDumpTask = {
+                      id: taskId,
+                      title,
+                      description: args.description,
+                      priority: (args.priority as TaskPriority) || 'medium',
+                      destination: 'today',
+                      ...(args.start_date && { startDate: args.start_date }),
+                      ...(args.end_date && { endDate: args.end_date }),
+                      ...(args.due_date && { dueDate: args.due_date }),
+                    };
+                    setTasks(prev => {
+                      const next = [...prev, newTask];
+                      result = { result: 'ok', task_id: taskId, current_tasks: getCurrentTasksSummary(next) };
+                      return next;
+                    });
+                  }
 
                 } else if (fc.name === 'add_task_to_project') {
                   const projectName = args.project_name || '';
                   const match = projectsRef.current.find(
                     p => p.name.toLowerCase() === projectName.toLowerCase()
                   );
-                  const taskId = `brain-dump-${++taskCounterRef.current}`;
-                  const newTask: BrainDumpTask = {
-                    id: taskId,
-                    title: args.title || 'Untitled Task',
-                    description: args.description,
-                    priority: (args.priority as TaskPriority) || 'medium',
-                    destination: match ? 'existing-project' : 'today',
-                    projectName: match?.name || projectName,
-                    projectId: match?.id,
-                    ...(args.start_date && { startDate: args.start_date }),
-                    ...(args.end_date && { endDate: args.end_date }),
-                    ...(args.due_date && { dueDate: args.due_date }),
-                  };
-                  setTasks(prev => {
-                    const next = [...prev, newTask];
-                    result = { result: 'ok', task_id: taskId, matched_project: match?.name || 'none', current_tasks: getCurrentTasksSummary(next) };
-                    return next;
-                  });
+                  const title = args.title || 'Untitled Task';
+                  const existingTask = findDuplicateTask(title);
+                  
+                  if (existingTask) {
+                    // DEDUP: Merge into existing task instead of creating duplicate
+                    console.log(`DEDUP: "${title}" matches existing task "${existingTask.title}" (${existingTask.id}), updating instead`);
+                    setTasks(prev => {
+                      const next = prev.map(t => t.id === existingTask.id ? {
+                        ...t,
+                        ...(args.description && { description: args.description }),
+                        ...(args.priority && { priority: args.priority as TaskPriority }),
+                        ...(match && { destination: 'existing-project' as const, projectName: match.name, projectId: match.id }),
+                        ...(args.start_date && { startDate: args.start_date }),
+                        ...(args.end_date && { endDate: args.end_date }),
+                        ...(args.due_date && { dueDate: args.due_date }),
+                      } : t);
+                      result = { result: 'ok', task_id: existingTask.id, note: 'duplicate_prevented_updated_existing', current_tasks: getCurrentTasksSummary(next) };
+                      return next;
+                    });
+                  } else {
+                    const taskId = `brain-dump-${++taskCounterRef.current}`;
+                    const newTask: BrainDumpTask = {
+                      id: taskId,
+                      title,
+                      description: args.description,
+                      priority: (args.priority as TaskPriority) || 'medium',
+                      destination: match ? 'existing-project' : 'today',
+                      projectName: match?.name || projectName,
+                      projectId: match?.id,
+                      ...(args.start_date && { startDate: args.start_date }),
+                      ...(args.end_date && { endDate: args.end_date }),
+                      ...(args.due_date && { dueDate: args.due_date }),
+                    };
+                    setTasks(prev => {
+                      const next = [...prev, newTask];
+                      result = { result: 'ok', task_id: taskId, matched_project: match?.name || 'none', current_tasks: getCurrentTasksSummary(next) };
+                      return next;
+                    });
+                  }
 
                 } else if (fc.name === 'create_project_and_add_task') {
                   const projectName = args.project_name || 'New Project';
@@ -369,23 +425,45 @@ SILENT MODE:
                     newProjectsRef.current.set(normalizedName, projectName);
                   }
 
-                  const taskId = `brain-dump-${++taskCounterRef.current}`;
-                  const newTask: BrainDumpTask = {
-                    id: taskId,
-                    title: args.title || 'Untitled Task',
-                    description: args.description,
-                    priority: (args.priority as TaskPriority) || 'medium',
-                    destination: 'new-project',
-                    projectName: newProjectsRef.current.get(normalizedName) || projectName,
-                    ...(args.start_date && { startDate: args.start_date }),
-                    ...(args.end_date && { endDate: args.end_date }),
-                    ...(args.due_date && { dueDate: args.due_date }),
-                  };
-                  setTasks(prev => {
-                    const next = [...prev, newTask];
-                    result = { result: 'ok', task_id: taskId, new_project: projectName, current_tasks: getCurrentTasksSummary(next) };
-                    return next;
-                  });
+                  const title = args.title || 'Untitled Task';
+                  const existingTask = findDuplicateTask(title);
+                  
+                  if (existingTask) {
+                    // DEDUP: Merge into existing task instead of creating duplicate
+                    console.log(`DEDUP: "${title}" matches existing task "${existingTask.title}" (${existingTask.id}), updating instead`);
+                    setTasks(prev => {
+                      const next = prev.map(t => t.id === existingTask.id ? {
+                        ...t,
+                        ...(args.description && { description: args.description }),
+                        ...(args.priority && { priority: args.priority as TaskPriority }),
+                        destination: 'new-project' as const,
+                        projectName: newProjectsRef.current.get(normalizedName) || projectName,
+                        ...(args.start_date && { startDate: args.start_date }),
+                        ...(args.end_date && { endDate: args.end_date }),
+                        ...(args.due_date && { dueDate: args.due_date }),
+                      } : t);
+                      result = { result: 'ok', task_id: existingTask.id, note: 'duplicate_prevented_updated_existing', current_tasks: getCurrentTasksSummary(next) };
+                      return next;
+                    });
+                  } else {
+                    const taskId = `brain-dump-${++taskCounterRef.current}`;
+                    const newTask: BrainDumpTask = {
+                      id: taskId,
+                      title,
+                      description: args.description,
+                      priority: (args.priority as TaskPriority) || 'medium',
+                      destination: 'new-project',
+                      projectName: newProjectsRef.current.get(normalizedName) || projectName,
+                      ...(args.start_date && { startDate: args.start_date }),
+                      ...(args.end_date && { endDate: args.end_date }),
+                      ...(args.due_date && { dueDate: args.due_date }),
+                    };
+                    setTasks(prev => {
+                      const next = [...prev, newTask];
+                      result = { result: 'ok', task_id: taskId, new_project: projectName, current_tasks: getCurrentTasksSummary(next) };
+                      return next;
+                    });
+                  }
 
                 } else if (fc.name === 'move_task') {
                   const taskId = args.task_id as string;
