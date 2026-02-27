@@ -33,6 +33,7 @@ interface ProjectSidebarProps {
   createDialogOpen?: boolean;
   onCreateDialogOpenChange?: (open: boolean) => void;
   isTourActive?: boolean;
+  userId?: string;
 }
 
 export const ProjectSidebar = ({ 
@@ -47,7 +48,8 @@ export const ProjectSidebar = ({
   onStartProjectsTour,
   createDialogOpen,
   onCreateDialogOpenChange,
-  isTourActive
+  isTourActive,
+  userId
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);
@@ -81,12 +83,11 @@ export const ProjectSidebar = ({
   };
 
   const handleCreateProject = async (name: string, color: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!userId) return;
 
     const { error } = await supabase
       .from('projects')
-      .insert({ name, color, user_id: user.id });
+      .insert({ name, color, user_id: userId });
 
     if (error) {
       toast.error('Failed to create project');

@@ -7,13 +7,14 @@ interface UseTimerAlertOptions {
   intervalMinutes: number;
   enabled: boolean;
   taskTitle?: string;
+  userId?: string;
 }
 
-export function useTimerAlert({ isRunning, displaySeconds, intervalMinutes, enabled, taskTitle }: UseTimerAlertOptions) {
+export function useTimerAlert({ isRunning, displaySeconds, intervalMinutes, enabled, taskTitle, userId }: UseTimerAlertOptions) {
   const lastAlertAt = useRef<number>(0);
 
   useEffect(() => {
-    if (!enabled || !isRunning || intervalMinutes <= 0) return;
+    if (!enabled || !isRunning || intervalMinutes <= 0 || !userId) return;
 
     const intervalSeconds = intervalMinutes * 60;
     
@@ -30,12 +31,9 @@ export function useTimerAlert({ isRunning, displaySeconds, intervalMinutes, enab
       // Send push notification
       (async () => {
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
-
           await supabase.functions.invoke('send-push-notification', {
             body: {
-              user_id: user.id,
+              user_id: userId,
               payload: {
                 title: '⏱️ Timer Check-in',
                 body: `You've been working on ${title} for ${minutesElapsed} minutes. Time for a break?`,
@@ -48,7 +46,7 @@ export function useTimerAlert({ isRunning, displaySeconds, intervalMinutes, enab
         }
       })();
     }
-  }, [displaySeconds, isRunning, intervalMinutes, enabled, taskTitle]);
+  }, [displaySeconds, isRunning, intervalMinutes, enabled, taskTitle, userId]);
 
   // Reset when timer stops
   useEffect(() => {
