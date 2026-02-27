@@ -8,7 +8,7 @@ serve(async (req) => {
   if (!token) {
     return new Response(buildPage("Invalid Link", "This link appears to be broken or incomplete."), {
       status: 400,
-      headers: { "Content-Type": "text/html" },
+      headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }
 
@@ -28,14 +28,14 @@ serve(async (req) => {
     if (fetchError || !task) {
       return new Response(buildPage("Task Not Found", "This link may have expired or the task was deleted."), {
         status: 404,
-        headers: { "Content-Type": "text/html" },
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
     if (task.status === "completed") {
       return new Response(buildPage("Already Complete", `"${escapeHtml(task.title)}" was already marked as complete.`), {
         status: 200,
-        headers: { "Content-Type": "text/html" },
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
@@ -50,14 +50,14 @@ serve(async (req) => {
     }
 
     return new Response(
-      buildPage("Task Completed!", `"${escapeHtml(task.title)}" has been marked as complete. Nice work! 🎉`, true),
-      { status: 200, headers: { "Content-Type": "text/html" } }
+      buildPage("Task Completed!", `"${escapeHtml(task.title)}" has been marked as complete. Nice work! 🎉`, true, true),
+      { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
     );
   } catch (error: any) {
     console.error("Error completing task:", error);
     return new Response(buildPage("Something Went Wrong", "We couldn't complete this task right now. Please try again later."), {
       status: 500,
-      headers: { "Content-Type": "text/html" },
+      headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }
 });
@@ -66,7 +66,7 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function buildPage(title: string, message: string, isSuccess: boolean = false): string {
+function buildPage(title: string, message: string, isSuccess: boolean = false, redirect: boolean = false): string {
   const icon = isSuccess
     ? `<div style="width:80px;height:80px;margin:0 auto 24px;border-radius:50%;background:linear-gradient(135deg,#4FD1C5,#3B82F6);display:flex;align-items:center;justify-content:center;">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -155,6 +155,7 @@ function buildPage(title: string, message: string, isSuccess: boolean = false): 
       background: linear-gradient(135deg, #4FD1C5, #3B82F6);
     }
   </style>
+  ${redirect ? `<script>setTimeout(function(){ window.location.href = "https://focusos.thefeedbackapp.net"; }, 3000);</script>` : ""}
 </head>
 <body>
   <div class="bg-glow glow-1"></div>
