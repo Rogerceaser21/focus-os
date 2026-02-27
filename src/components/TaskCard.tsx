@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Play, Pause, Clock, Calendar } from 'lucide-react';
+import { Play, Pause, Clock, Calendar, Mail } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -18,6 +18,7 @@ interface TaskCardProps {
   task: Task;
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
+  onAssignTask?: (task: Task) => void;
   projects?: Project[];
 }
 
@@ -34,7 +35,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCardProps) => {
+export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, projects = [] }: TaskCardProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { preferences } = useUserPreferences();
   useTimerAlert({
@@ -272,6 +273,15 @@ export const TaskCard = ({ task, onUpdate, onEditTask, projects = [] }: TaskCard
               Pause
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onAssignTask?.(task)}
+            className="gap-1 ml-auto text-muted-foreground hover:text-primary"
+            title="Assign & Email"
+          >
+            <Mail className="h-3 w-3" />
+          </Button>
         </div>
       </div>
     </Card>

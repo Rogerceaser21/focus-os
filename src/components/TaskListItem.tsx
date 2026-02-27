@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Play, Pause, Calendar, Clock, Image } from 'lucide-react';
+import { Play, Pause, Calendar, Clock, Image, Mail } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -18,6 +18,7 @@ interface TaskListItemProps {
   task: Task;
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
+  onAssignTask?: (task: Task) => void;
   globalViewMode: 'full' | 'compact';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
@@ -37,7 +38,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { preferences } = useUserPreferences();
   useTimerAlert({
@@ -419,6 +420,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
                   </span>
                 )}
               </button>
+
+              <button
+                data-description-safe-zone="true"
+                onClick={(e) => { e.stopPropagation(); onAssignTask?.(task); }}
+                className="p-1 rounded transition-colors text-muted-foreground border border-border bg-muted/20 hover:text-primary hover:border-primary"
+                title="Assign & Email"
+              >
+                <Mail className="w-3 h-3" />
+              </button>
             </div>
           )}
         </div>
@@ -574,6 +584,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, globalViewMode, isInd
                     {task.images.length}
                   </span>
                 )}
+              </button>
+
+              <button
+                data-description-safe-zone="true"
+                onClick={() => onAssignTask?.(task)}
+                className="p-1.5 rounded transition-colors text-muted-foreground border border-border bg-muted/20 hover:text-primary hover:border-primary"
+                title="Assign & Email"
+              >
+                <Mail className="w-4 h-4" />
               </button>
             </div>
           )}

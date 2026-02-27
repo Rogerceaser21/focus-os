@@ -27,6 +27,7 @@ interface DraggableTaskListProps {
   onUpdate: (task: Task) => void;
   onBatchUpdate?: (tasks: Task[]) => void;
   onEditTask?: (task: Task) => void;
+  onAssignTask?: (task: Task) => void;
   globalViewMode: 'full' | 'compact';
   expandedTaskIds: Set<string>;
   onTaskClick: (taskId: string) => void;
@@ -47,6 +48,7 @@ interface SortableTaskItemProps {
   task: Task;
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
+  onAssignTask?: (task: Task) => void;
   globalViewMode: 'full' | 'compact';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
@@ -58,6 +60,7 @@ const SortableTaskItem = ({
   task,
   onUpdate,
   onEditTask,
+  onAssignTask,
   globalViewMode,
   isIndividuallyExpanded,
   onTaskClick,
@@ -97,6 +100,7 @@ const SortableTaskItem = ({
           task={task}
           onUpdate={onUpdate}
           onEditTask={onEditTask}
+          onAssignTask={onAssignTask}
           globalViewMode={globalViewMode}
           isIndividuallyExpanded={isIndividuallyExpanded}
           onTaskClick={onTaskClick}
@@ -112,6 +116,7 @@ export const DraggableTaskList = ({
   onUpdate,
   onBatchUpdate,
   onEditTask,
+  onAssignTask,
   globalViewMode,
   expandedTaskIds,
   onTaskClick,
@@ -265,6 +270,7 @@ export const DraggableTaskList = ({
                       task={task}
                       onUpdate={onUpdate}
                       onEditTask={onEditTask}
+                      onAssignTask={onAssignTask}
                       globalViewMode={globalViewMode}
                       isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                       onTaskClick={() => onTaskClick(task.id)}

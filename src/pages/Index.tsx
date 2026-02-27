@@ -44,6 +44,7 @@ import { TaskTour } from '@/components/TaskTour';
 import { ProjectTour } from '@/components/ProjectTour';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { DraggableTaskList } from '@/components/DraggableTaskList';
+import { AssignTaskDialog } from '@/components/AssignTaskDialog';
 import { addDays } from 'date-fns';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
@@ -136,6 +137,8 @@ const Index = () => {
   const [showTaskTour, setShowTaskTour] = useState(false);
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
@@ -907,13 +910,16 @@ https://www.skyscanner.com`,
   };
   const handleTaskClick = (taskId: string) => {
     setExpandedTaskIds(prev => {
-      // If this task is already the only expanded one, collapse it
       if (prev.has(taskId) && prev.size === 1) {
         return new Set();
       }
-      // Otherwise, expand only this task (replacing any other expanded task)
       return new Set([taskId]);
     });
+  };
+
+  const handleAssignTask = (task: Task) => {
+    setTaskToAssign(task);
+    setAssignDialogOpen(true);
   };
 
   const handleSignOut = async () => {
@@ -1456,6 +1462,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onAssignTask={handleAssignTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -1470,6 +1477,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onAssignTask={handleAssignTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -1484,6 +1492,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onAssignTask={handleAssignTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -1498,6 +1507,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onAssignTask={handleAssignTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -1605,19 +1615,19 @@ https://www.skyscanner.com`,
                 </div>}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
               </TabsContent>
             </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
               <GanttChart 
@@ -1778,6 +1788,13 @@ https://www.skyscanner.com`,
       <TaskTour isOpen={showTaskTour} onComplete={handleTaskTourComplete} onStepChange={handleTaskTourStepChange} />
 
       <ProjectTour isOpen={showProjectsTour} onComplete={handleProjectsTourComplete} onStepChange={handleProjectsTourStepChange} />
+
+      <AssignTaskDialog
+        task={taskToAssign}
+        open={assignDialogOpen}
+        onOpenChange={setAssignDialogOpen}
+        onAssigned={() => fetchTasks()}
+      />
     </SidebarProvider>
   </PullToRefresh>;
 };
