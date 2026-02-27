@@ -20,26 +20,22 @@ export interface UserPreferences {
   updated_at: string;
 }
 
-export const useUserPreferences = () => {
+export const useUserPreferences = (userId?: string | null) => {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchPreferences = async () => {
+  const fetchPreferences = async (uid: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('user_preferences')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', uid)
         .maybeSingle();
 
       if (error) throw error;
 
       if (!data) {
-        // Create default preferences
-        await createDefaultPreferences(user.id);
+        await createDefaultPreferences(uid);
       } else {
         setPreferences(data as UserPreferences);
       }
@@ -51,12 +47,12 @@ export const useUserPreferences = () => {
     }
   };
 
-  const createDefaultPreferences = async (userId: string) => {
+  const createDefaultPreferences = async (uid: string) => {
     try {
       const { data, error } = await supabase
         .from('user_preferences')
         .insert({
-          user_id: userId,
+          user_id: uid,
           default_view: 'today',
           default_display_mode: 'list',
           default_task_filter: 'all',
@@ -77,15 +73,12 @@ export const useUserPreferences = () => {
   };
 
   const markOnboardingComplete = async () => {
-    // Silently update onboarding status without showing toast
+    if (!userId || !preferences) return;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !preferences) return;
-
       const { data, error } = await supabase
         .from('user_preferences')
         .update({ has_completed_onboarding: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -97,15 +90,12 @@ export const useUserPreferences = () => {
   };
 
   const markTaskTourComplete = async () => {
-    // Silently update task tour status without showing toast
+    if (!userId || !preferences) return;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !preferences) return;
-
       const { data, error } = await supabase
         .from('user_preferences')
         .update({ has_completed_task_tour: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -117,15 +107,12 @@ export const useUserPreferences = () => {
   };
 
   const markProjectsTourComplete = async () => {
-    // Silently update projects tour status without showing toast
+    if (!userId || !preferences) return;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !preferences) return;
-
       const { data, error } = await supabase
         .from('user_preferences')
         .update({ has_completed_projects_tour: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -137,14 +124,12 @@ export const useUserPreferences = () => {
   };
 
   const updatePreferences = async (updates: Partial<UserPreferences>) => {
+    if (!userId || !preferences) return;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !preferences) return;
-
       const { data, error } = await supabase
         .from('user_preferences')
         .update(updates)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -159,8 +144,12 @@ export const useUserPreferences = () => {
   };
 
   useEffect(() => {
-    fetchPreferences();
-  }, []);
+    if (userId) {
+      fetchPreferences(userId);
+    } else {
+      setLoading(false);
+    }
+  }, [userId]);
 
   return { preferences, loading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete };
 };

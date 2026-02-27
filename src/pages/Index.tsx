@@ -148,7 +148,7 @@ const Index = () => {
   const [tourCreateDialogOpen, setTourCreateDialogOpen] = useState(false);
   const [lastProcessedTourStep, setLastProcessedTourStep] = useState<number | null>(null);
   
-  const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences();
+  const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences(user?.id);
   const { setTheme } = useTheme();
   const { triggerParticles, containerRef } = useParticleAnimation({
     particleCount: 12,
@@ -332,15 +332,12 @@ const Index = () => {
   useEffect(() => {
     const loadInitialData = async () => {
       if (user && preferences && !initialLoadComplete) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          // Fetch initial view tasks and all projects in parallel
-          await Promise.all([
-            fetchInitialTasks(preferences.default_view),
-            fetchProjects()
-          ]);
-          setInitialLoadComplete(true);
-        }
+        // User is already authenticated via useAuth - no need to re-check session
+        await Promise.all([
+          fetchInitialTasks(preferences.default_view),
+          fetchProjects()
+        ]);
+        setInitialLoadComplete(true);
       }
     };
     loadInitialData();
@@ -1106,7 +1103,7 @@ https://www.skyscanner.com`,
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
             {/* Sidebar */}
-            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => setProjectRefreshTrigger(prev => prev + 1)} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : undefined} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : undefined} isTourActive={showProjectsTour} />
+            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => setProjectRefreshTrigger(prev => prev + 1)} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : undefined} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : undefined} isTourActive={showProjectsTour} userId={user?.id} />
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
