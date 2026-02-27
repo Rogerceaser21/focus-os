@@ -33,9 +33,9 @@ serve(async (req) => {
     }
 
     if (task.status === "completed") {
-      return new Response(buildPage("Already Complete", `"${escapeHtml(task.title)}" was already marked as complete.`), {
-        status: 200,
-        headers: { "Content-Type": "text/html; charset=utf-8" },
+      return new Response(null, {
+        status: 302,
+        headers: { "Location": "https://focusos.thefeedbackapp.net" },
       });
     }
 
@@ -49,10 +49,10 @@ serve(async (req) => {
       throw updateError;
     }
 
-    return new Response(
-      buildPage("Task Completed!", `"${escapeHtml(task.title)}" has been marked as complete. Nice work! 🎉`, true, true),
-      { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
-    );
+    return new Response(null, {
+      status: 302,
+      headers: { "Location": "https://focusos.thefeedbackapp.net" },
+    });
   } catch (error: any) {
     console.error("Error completing task:", error);
     return new Response(buildPage("Something Went Wrong", "We couldn't complete this task right now. Please try again later."), {
