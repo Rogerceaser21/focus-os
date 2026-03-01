@@ -26,13 +26,16 @@ serve(async (req) => {
 
     // Different system prompts based on mode
     const systemPrompt = mode === "tasks-only" 
-      ? `You are a task extraction assistant. Extract individual tasks from the transcription.
-     
+      ? `You are a task extraction assistant. Extract HIGH-LEVEL actionable tasks from the transcription.
+
 Rules:
-- Extract each distinct task as a separate item
-- Each task should be clear and actionable
+- Return a MAXIMUM of 8 tasks. Fewer is better — only extract what truly matters.
+- Focus on OUTCOMES and GOALS, not granular tutorial steps or sub-steps.
+- If multiple steps contribute to one goal (e.g. "copy template", "paste template", "deploy"), combine them into ONE task. Put the sub-steps in the description field.
+- Skip anything purely informational, already completed in the recording, or that is background context rather than an action item.
+- Each task should be something the user would put on a real to-do list — not a micro-instruction.
 - Do NOT extract or infer a project name
-- Focus only on the tasks mentioned`
+- Prioritize tasks that represent decisions, integrations, setups, or deliverables.`
       : `You are a task extraction assistant. Analyze the user's voice transcription and extract:
 1. A project name (if mentioned or implied)
 2. Individual tasks mentioned
