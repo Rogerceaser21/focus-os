@@ -28,7 +28,11 @@ import {
   RefreshCw,
   Minus,
   Plus,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,6 +128,12 @@ const MeetingDetail = () => {
   const [editTitle, setEditTitle] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [showSendSummaryDialog, setShowSendSummaryDialog] = useState(false);
+
+  // Summary/Outline editing
+  const [editingSummary, setEditingSummary] = useState(false);
+  const [editOverview, setEditOverview] = useState('');
+  const [editOutline, setEditOutline] = useState<{ heading: string; points: string[] }[]>([]);
+  const [savingSummary, setSavingSummary] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -504,6 +514,67 @@ const MeetingDetail = () => {
     setEditingTitle(false);
   };
 
+  const startEditingSummary = () => {
+    const s = parseSummary(meeting?.summary || null);
+    setEditOverview(s.overview);
+    setEditOutline(s.outline.map(sec => ({ heading: sec.heading, points: [...sec.points] })));
+    setEditingSummary(true);
+  };
+
+  const cancelEditingSummary = () => {
+    setEditingSummary(false);
+  };
+
+  const saveSummaryEdits = async () => {
+    if (!meeting) return;
+    setSavingSummary(true);
+    try {
+      const newSummary = JSON.stringify({ overview: editOverview.trim(), outline: editOutline });
+      const { error } = await supabase
+        .from('meetings')
+        .update({ summary: newSummary })
+        .eq('id', meeting.id);
+      if (error) throw error;
+      setMeeting({ ...meeting, summary: newSummary });
+      setEditingSummary(false);
+      toast.success('Summary updated');
+    } catch (err) {
+      toast.error('Failed to save summary');
+    } finally {
+      setSavingSummary(false);
+    }
+  };
+
+  const updateOutlineHeading = (idx: number, value: string) => {
+    setEditOutline(prev => prev.map((s, i) => i === idx ? { ...s, heading: value } : s));
+  };
+
+  const updateOutlinePoint = (sectionIdx: number, pointIdx: number, value: string) => {
+    setEditOutline(prev => prev.map((s, i) =>
+      i === sectionIdx ? { ...s, points: s.points.map((p, j) => j === pointIdx ? value : p) } : s
+    ));
+  };
+
+  const removeOutlinePoint = (sectionIdx: number, pointIdx: number) => {
+    setEditOutline(prev => prev.map((s, i) =>
+      i === sectionIdx ? { ...s, points: s.points.filter((_, j) => j !== pointIdx) } : s
+    ));
+  };
+
+  const addOutlinePoint = (sectionIdx: number) => {
+    setEditOutline(prev => prev.map((s, i) =>
+      i === sectionIdx ? { ...s, points: [...s.points, ''] } : s
+    ));
+  };
+
+  const removeOutlineSection = (idx: number) => {
+    setEditOutline(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const addOutlineSection = () => {
+    setEditOutline(prev => [...prev, { heading: '', points: [''] }]);
+  };
+
   const handleDeleteMeeting = async (deleteTasks: boolean) => {
     setDeleting(true);
     try {
@@ -648,8 +719,29 @@ const MeetingDetail = () => {
 
           {/* Meeting Overview Tab */}
           <TabsContent value="overview" className="space-y-4 mt-4">
+            {/* Edit / Save / Cancel controls */}
+            {(summary.overview || summary.outline.length > 0) && (
+              <div className="flex justify-end gap-2">
+                {editingSummary ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={cancelEditingSummary} disabled={savingSummary}>
+                      <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                    </Button>
+                    <Button size="sm" onClick={saveSummaryEdits} disabled={savingSummary}>
+                      {savingSummary ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                      Save
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={startEditingSummary}>
+                    <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                  </Button>
+                )}
+              </div>
+            )}
+
             {/* Overview */}
-            {summary.overview && (
+            {(summary.overview || editingSummary) && (
               <Card>
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -657,28 +749,38 @@ const MeetingDetail = () => {
                       <AlignLeft className="h-4 w-4" />
                       Overview
                     </h2>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs"
-                      onClick={() => handleResummarize()}
-                      disabled={resummarizing}
-                    >
-                      {resummarizing ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-3.5 w-3.5" />
-                      )}
-                      Re-summarize
-                    </Button>
+                    {!editingSummary && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                        onClick={() => handleResummarize()}
+                        disabled={resummarizing}
+                      >
+                        {resummarizing ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
+                        Re-summarize
+                      </Button>
+                    )}
                   </div>
-                  <p className="text-sm leading-relaxed">{summary.overview}</p>
+                  {editingSummary ? (
+                    <Textarea
+                      value={editOverview}
+                      onChange={(e) => setEditOverview(e.target.value)}
+                      className="min-h-[100px] text-sm"
+                    />
+                  ) : (
+                    <p className="text-sm leading-relaxed">{summary.overview}</p>
+                  )}
                 </CardContent>
               </Card>
             )}
 
             {/* Outline */}
-            {summary.outline.length > 0 && (
+            {(summary.outline.length > 0 || editingSummary) && (
               <Card>
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -686,47 +788,90 @@ const MeetingDetail = () => {
                       <List className="h-4 w-4" />
                       Outline
                     </h2>
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => handleDetailChange('less')}
-                        disabled={resummarizing || detailLevel === 'concise'}
-                      >
-                        <Minus className="h-3 w-3 mr-1" />
-                        Detail
-                      </Button>
-                      <span className="text-xs text-muted-foreground min-w-[60px] text-center capitalize">
-                        {resummarizing ? <Loader2 className="h-3 w-3 animate-spin inline" /> : detailLevel}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => handleDetailChange('more')}
-                        disabled={resummarizing || detailLevel === 'detailed'}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Detail
+                    {!editingSummary && (
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => handleDetailChange('less')}
+                          disabled={resummarizing || detailLevel === 'concise'}
+                        >
+                          <Minus className="h-3 w-3 mr-1" />
+                          Detail
+                        </Button>
+                        <span className="text-xs text-muted-foreground min-w-[60px] text-center capitalize">
+                          {resummarizing ? <Loader2 className="h-3 w-3 animate-spin inline" /> : detailLevel}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => handleDetailChange('more')}
+                          disabled={resummarizing || detailLevel === 'detailed'}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Detail
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {editingSummary ? (
+                    <div className="space-y-4">
+                      {editOutline.map((section, i) => (
+                        <div key={i} className="space-y-2 border border-border rounded-lg p-3">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={section.heading}
+                              onChange={(e) => updateOutlineHeading(i, e.target.value)}
+                              placeholder="Section heading"
+                              className="text-sm font-semibold"
+                            />
+                            <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8 text-destructive" onClick={() => removeOutlineSection(i)}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          {section.points.map((point, j) => (
+                            <div key={j} className="flex items-start gap-2 ml-2">
+                              <span className="mt-3 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                              <Input
+                                value={point}
+                                onChange={(e) => updateOutlinePoint(i, j, e.target.value)}
+                                placeholder="Bullet point"
+                                className="text-sm"
+                              />
+                              <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8 text-muted-foreground" onClick={() => removeOutlinePoint(i, j)}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button variant="ghost" size="sm" className="text-xs ml-2" onClick={() => addOutlinePoint(i)}>
+                            <Plus className="h-3 w-3 mr-1" /> Add point
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" className="text-xs" onClick={addOutlineSection}>
+                        <Plus className="h-3 w-3 mr-1" /> Add section
                       </Button>
                     </div>
-                  </div>
-                  <div className="space-y-4">
-                    {summary.outline.map((section, i) => (
-                      <div key={i}>
-                        <h3 className="font-semibold text-sm mb-2">{section.heading}</h3>
-                        <ul className="space-y-1.5 ml-1">
-                          {section.points.map((point, j) => (
-                            <li key={j} className="flex items-start gap-2 text-sm text-muted-foreground">
-                              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                              {point}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {summary.outline.map((section, i) => (
+                        <div key={i}>
+                          <h3 className="font-semibold text-sm mb-2">{section.heading}</h3>
+                          <ul className="space-y-1.5 ml-1">
+                            {section.points.map((point, j) => (
+                              <li key={j} className="flex items-start gap-2 text-sm text-muted-foreground">
+                                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                                {point}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
