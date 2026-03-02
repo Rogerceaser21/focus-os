@@ -719,24 +719,16 @@ const MeetingDetail = () => {
 
           {/* Meeting Overview Tab */}
           <TabsContent value="overview" className="space-y-4 mt-4">
-            {/* Edit / Save / Cancel controls */}
-            {(summary.overview || summary.outline.length > 0) && (
+            {/* Save / Cancel controls (only shown when editing) */}
+            {editingSummary && (
               <div className="flex justify-end gap-2">
-                {editingSummary ? (
-                  <>
-                    <Button variant="outline" size="sm" onClick={cancelEditingSummary} disabled={savingSummary}>
-                      <X className="h-3.5 w-3.5 mr-1" /> Cancel
-                    </Button>
-                    <Button size="sm" onClick={saveSummaryEdits} disabled={savingSummary}>
-                      {savingSummary ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
-                      Save
-                    </Button>
-                  </>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={startEditingSummary}>
-                    <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
-                  </Button>
-                )}
+                <Button variant="outline" size="sm" onClick={cancelEditingSummary} disabled={savingSummary}>
+                  <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                </Button>
+                <Button size="sm" onClick={saveSummaryEdits} disabled={savingSummary}>
+                  {savingSummary ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                  Save
+                </Button>
               </div>
             )}
 
@@ -750,20 +742,31 @@ const MeetingDetail = () => {
                       Overview
                     </h2>
                     {!editingSummary && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        onClick={() => handleResummarize()}
-                        disabled={resummarizing}
-                      >
-                        {resummarizing ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3.5 w-3.5" />
-                        )}
-                        Re-summarize
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={startEditingSummary}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={() => handleResummarize()}
+                          disabled={resummarizing}
+                        >
+                          {resummarizing ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          )}
+                          Re-summarize
+                        </Button>
+                      </div>
                     )}
                   </div>
                   {editingSummary ? (
@@ -835,11 +838,23 @@ const MeetingDetail = () => {
                           {section.points.map((point, j) => (
                             <div key={j} className="flex items-start gap-2 ml-2">
                               <span className="mt-3 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                              <Input
+                              <Textarea
                                 value={point}
                                 onChange={(e) => updateOutlinePoint(i, j, e.target.value)}
                                 placeholder="Bullet point"
-                                className="text-sm"
+                                className="text-sm min-h-0 resize-none overflow-hidden"
+                                rows={1}
+                                onInput={(e) => {
+                                  const target = e.target as HTMLTextAreaElement;
+                                  target.style.height = 'auto';
+                                  target.style.height = target.scrollHeight + 'px';
+                                }}
+                                ref={(el) => {
+                                  if (el) {
+                                    el.style.height = 'auto';
+                                    el.style.height = el.scrollHeight + 'px';
+                                  }
+                                }}
                               />
                               <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8 text-muted-foreground" onClick={() => removeOutlinePoint(i, j)}>
                                 <X className="h-3 w-3" />
