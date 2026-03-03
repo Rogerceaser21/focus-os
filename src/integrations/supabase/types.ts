@@ -197,6 +197,7 @@ export type Database = {
         Row: {
           assigned_to_email: string | null
           completed_at: string | null
+          completed_by_email: string | null
           created_at: string
           description: string | null
           due_date: string | null
@@ -220,6 +221,7 @@ export type Database = {
         Insert: {
           assigned_to_email?: string | null
           completed_at?: string | null
+          completed_by_email?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
@@ -243,6 +245,7 @@ export type Database = {
         Update: {
           assigned_to_email?: string | null
           completed_at?: string | null
+          completed_by_email?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
