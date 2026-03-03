@@ -232,6 +232,7 @@ const MeetingDetail = () => {
     projectId: t.project_id || undefined,
     sortOrder: t.sort_order || 0,
     assignedToEmail: t.assigned_to_email || undefined,
+    completedByEmail: t.completed_by_email || undefined,
   });
 
   const stripMarkdown = (text: string): string => {
