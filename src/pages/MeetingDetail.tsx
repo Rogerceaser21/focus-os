@@ -942,24 +942,8 @@ const MeetingDetail = () => {
                           isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                           onTaskClick={() => toggleExpand(task.id)}
                           projects={allProjects}
+                          onAssignTask={handleAssignTask}
                         />
-                        <div className="flex items-center gap-2 mt-1 ml-8">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
-                            onClick={() => handleAssignTask(task)}
-                          >
-                            <Mail className="h-3 w-3" />
-                            Assign
-                          </Button>
-                          {(task as any).assignedToEmail && (
-                            <Badge variant="secondary" className="text-xs py-0">
-                              <Mail className="h-2.5 w-2.5 mr-1" />
-                              {(task as any).assignedToEmail}
-                            </Badge>
-                          )}
-                        </div>
                       </div>
                     ))}
                   </div>
