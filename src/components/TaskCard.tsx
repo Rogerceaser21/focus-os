@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Play, Pause, Clock, Calendar, Mail } from 'lucide-react';
+import { Play, Pause, Clock, Calendar, Mail, CheckCircle2 } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -152,7 +152,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, projects = 
                   />
                 ) : (
                   <h3 
-                    className={`font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                    className={`font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors ${task.status === 'completed' || isFading || task.completedByEmail ? 'line-through opacity-50' : ''}`}
                     onClick={() => setIsEditingTitle(true)}
                   >
                     {editedTitle}
@@ -282,6 +282,22 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, projects = 
           >
             <Mail className="h-3 w-3" />
           </Button>
+          {task.completedByEmail && task.status !== 'completed' && (
+            <>
+              <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs ml-auto">
+                ✅ Completed by {task.completedByEmail}
+              </Badge>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-6 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                onClick={() => onUpdate({ ...task, status: 'completed' })}
+              >
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Move to Done
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </Card>

@@ -18,10 +18,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find task by share_token
+    // Find task by share_token — fetch assigned_to_email and user_id too
     const { data: task, error: fetchError } = await supabase
       .from("tasks")
-      .select("id, title, status")
+      .select("id, title, status, assigned_to_email, user_id")
       .eq("share_token", token)
       .single();
 
@@ -32,21 +32,40 @@ serve(async (req) => {
       });
     }
 
-    if (task.status === "completed") {
+    // If already marked as completed by assignee, just redirect
+    if (task.completed_by_email) {
       return new Response(null, {
         status: 302,
         headers: { "Location": "https://focusos.thefeedbackapp.net" },
       });
     }
 
-    // Mark complete
+    // Mark as completed by assignee — but do NOT change status
+    const completedByEmail = task.assigned_to_email || "unknown";
     const { error: updateError } = await supabase
       .from("tasks")
-      .update({ status: "completed" })
+      .update({ completed_by_email: completedByEmail })
       .eq("id", task.id);
 
     if (updateError) {
       throw updateError;
+    }
+
+    // Send push notification to task owner
+    try {
+      await supabase.functions.invoke("send-push-notification", {
+        body: {
+          user_id: task.user_id,
+          payload: JSON.stringify({
+            title: "✅ Task Completed",
+            body: `"${task.title}" was completed by ${completedByEmail}`,
+            url: "https://focusos.thefeedbackapp.net",
+          }),
+        },
+      });
+    } catch (notifError) {
+      console.error("Failed to send push notification:", notifError);
+      // Don't fail the whole request if notification fails
     }
 
     return new Response(null, {

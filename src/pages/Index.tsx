@@ -215,7 +215,8 @@ const Index = () => {
       startTime: dbTask.timer_start_time
     },
     projectId: dbTask.project_id,
-    sortOrder: dbTask.sort_order ?? 0
+    sortOrder: dbTask.sort_order ?? 0,
+    completedByEmail: dbTask.completed_by_email ?? undefined
   }), []);
 
   // Fetch projects (lightweight - just names for sidebar)

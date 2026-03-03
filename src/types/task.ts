@@ -20,6 +20,7 @@ export interface Task {
   timer: TaskTimer;
   projectId?: string;
   sortOrder?: number;
+  completedByEmail?: string;
 }
 
 export interface Project {
