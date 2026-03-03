@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Play, Pause, Calendar, Clock, Image, Mail } from 'lucide-react';
+import { Play, Pause, Calendar, Clock, Image, Mail, CheckCircle2 } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -291,7 +291,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
             ) : (
               <h3
                 ref={titleContainerRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || task.completedByEmail ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
@@ -429,6 +429,23 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
               >
                 <Mail className="w-3 h-3" />
               </button>
+
+              {task.completedByEmail && task.status !== 'completed' && (
+                <>
+                  <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs">
+                    ✅ Completed by {task.completedByEmail}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-6 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                    onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, status: 'completed' }); }}
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Move to Done
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -458,7 +475,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
             ) : (
               <h3
                 ref={titleContainerRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || task.completedByEmail ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
@@ -594,6 +611,23 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
               >
                 <Mail className="w-4 h-4" />
               </button>
+
+              {task.completedByEmail && task.status !== 'completed' && (
+                <>
+                  <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30">
+                    ✅ Completed by {task.completedByEmail}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                    onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, status: 'completed' }); }}
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Move to Done
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>
