@@ -448,6 +448,24 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
               )}
             </div>
           )}
+
+          {/* Always-visible completed by badge (mobile) */}
+          {!isExpanded && task.completedByEmail && task.status !== 'completed' && (
+            <div className="flex items-center gap-2 flex-wrap ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
+              <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs">
+                ✅ Completed by {task.completedByEmail}
+              </Badge>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-6 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, status: 'completed' }); }}
+              >
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Move to Done
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Desktop Layout */}
@@ -628,6 +646,24 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
                   </Button>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Always-visible completed by badge (desktop) */}
+          {!isExpanded && task.completedByEmail && task.status !== 'completed' && (
+            <div className="flex items-center gap-2 ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
+              <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30">
+                ✅ Completed by {task.completedByEmail}
+              </Badge>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, status: 'completed' }); }}
+              >
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Move to Done
+              </Button>
             </div>
           )}
         </div>
