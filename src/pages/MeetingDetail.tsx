@@ -932,21 +932,52 @@ const MeetingDetail = () => {
                       </Button>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    {savedTasks.map((task) => (
-                      <div key={task.id} className="relative group/task">
-                        <TaskListItem
-                          task={task}
-                          onUpdate={handleSavedTaskUpdate}
-                          globalViewMode="compact"
-                          isIndividuallyExpanded={expandedTaskIds.has(task.id)}
-                          onTaskClick={() => toggleExpand(task.id)}
-                          projects={allProjects}
-                          onAssignTask={handleAssignTask}
-                        />
-                      </div>
+
+                  <Tabs defaultValue="all" className="mb-3">
+                    <TabsList className="w-full">
+                      <TabsTrigger value="all" className="flex-1">All({savedTasks.length})</TabsTrigger>
+                      <TabsTrigger value="todo" className="flex-1">To Do({savedTasks.filter(t => t.status === 'todo').length})</TabsTrigger>
+                      <TabsTrigger value="in-progress" className="flex-1">Progress({savedTasks.filter(t => t.status === 'in-progress').length})</TabsTrigger>
+                      <TabsTrigger value="completed" className="flex-1">Done({savedTasks.filter(t => t.status === 'completed').length})</TabsTrigger>
+                    </TabsList>
+                    {['all', 'todo', 'in-progress', 'completed'].map((filterValue) => (
+                      <TabsContent key={filterValue} value={filterValue}>
+                        <div className="space-y-2">
+                          {savedTasks
+                            .filter(t => filterValue === 'all' || t.status === filterValue)
+                            .map((task) => (
+                              <div key={task.id} className="relative group/task">
+                                <TaskListItem
+                                  task={task}
+                                  onUpdate={handleSavedTaskUpdate}
+                                  globalViewMode="compact"
+                                  isIndividuallyExpanded={expandedTaskIds.has(task.id)}
+                                  onTaskClick={() => toggleExpand(task.id)}
+                                  projects={allProjects}
+                                />
+                                <div className="flex items-center gap-2 mt-1 ml-8">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
+                                    onClick={() => handleAssignTask(task)}
+                                  >
+                                    <Mail className="h-3 w-3" />
+                                    Assign
+                                  </Button>
+                                  {(task as any).assignedToEmail && (
+                                    <Badge variant="secondary" className="text-xs py-0">
+                                      <Mail className="h-2.5 w-2.5 mr-1" />
+                                      {(task as any).assignedToEmail}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </TabsContent>
                     ))}
-                  </div>
+                  </Tabs>
                 </CardContent>
               </Card>
             )}
