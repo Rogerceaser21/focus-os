@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
-import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { toast } from 'sonner';
 import AnimatedList from './AnimatedList';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
+import Fuse from 'fuse.js';
 import {
   Sheet,
   SheetContent,
@@ -52,8 +54,17 @@ export const ProjectSidebar = ({
   userId
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [meetings, setMeetings] = useState<{ id: string; title: string }[]>([]);
   const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);
+  const [sidebarSearchInput, setSidebarSearchInput] = useState('');
+  const [sidebarSearchQuery, setSidebarSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  // Debounce sidebar search
+  useEffect(() => {
+    const timer = setTimeout(() => setSidebarSearchQuery(sidebarSearchInput), 300);
+    return () => clearTimeout(timer);
+  }, [sidebarSearchInput]);
   
   // Use controlled state if provided, otherwise use internal state
   const isCreateOpen = createDialogOpen !== undefined ? createDialogOpen : isCreateOpenInternal;
@@ -61,6 +72,7 @@ export const ProjectSidebar = ({
 
   useEffect(() => {
     fetchProjects();
+    fetchMeetings();
   }, [projectRefreshTrigger]);
 
   const fetchProjects = async () => {
@@ -81,6 +93,36 @@ export const ProjectSidebar = ({
       timer: { totalSeconds: 0, isRunning: false }
     })));
   };
+
+  const fetchMeetings = async () => {
+    const { data, error } = await supabase
+      .from('meetings')
+      .select('id, title')
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setMeetings(data.map(m => ({ id: m.id, title: m.title })));
+    }
+  };
+
+  // Fuzzy search instances
+  const projectFuse = useMemo(() => new Fuse(projects, {
+    keys: ['name'],
+    threshold: 0.4,
+    ignoreLocation: true,
+    minMatchCharLength: 2,
+  }), [projects]);
+
+  const meetingFuse = useMemo(() => new Fuse(meetings, {
+    keys: ['title'],
+    threshold: 0.4,
+    ignoreLocation: true,
+    minMatchCharLength: 2,
+  }), [meetings]);
+
+  const isSearching = sidebarSearchQuery.trim().length > 0;
+  const matchedProjects = isSearching ? projectFuse.search(sidebarSearchQuery.trim()).map(r => r.item) : [];
+  const matchedMeetings = isSearching ? meetingFuse.search(sidebarSearchQuery.trim()).map(r => r.item) : [];
 
   const handleCreateProject = async (name: string, color: string) => {
     if (!userId) return;
@@ -176,73 +218,139 @@ export const ProjectSidebar = ({
           <Mic className="h-4 w-4" />
           Meetings
         </Button>
+        {/* Search bar */}
+        <div className="relative mt-2">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input 
+            placeholder="Search projects & meetings..." 
+            value={sidebarSearchInput} 
+            onChange={e => setSidebarSearchInput(e.target.value)} 
+            className="pl-8 h-8 text-sm bg-card/80 backdrop-blur-sm border"
+          />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="p-2 space-y-1">
-          {/* Special Lists */}
-          <Button
-            variant={selectedSpecialList === 'today' ? 'secondary' : 'ghost'}
-            className="w-full justify-start gap-2"
-            onClick={() => {
-              handleSelectSpecial('today');
-              if (isActuallyMobile) setOpenMobile(false);
-            }}
-          >
-            <Calendar className="h-4 w-4" />
-            Today's To-Do
-          </Button>
-          
-          <Button
-            variant={selectedSpecialList === 'unassigned' ? 'secondary' : 'ghost'}
-            className="w-full justify-start gap-2"
-            onClick={() => {
-              handleSelectSpecial('unassigned');
-              if (isActuallyMobile) setOpenMobile(false);
-            }}
-          >
-            <ListTodo className="h-4 w-4" />
-            Unassigned
-          </Button>
-        </div>
-
-        {/* Projects with AnimatedList */}
-        {projects.length > 0 && (
-          <div className="mt-4">
-            <div className="px-4 mb-2">
-              <h3 className="text-sm font-medium text-muted-foreground">My Projects ({projects.length})</h3>
-            </div>
-            <div className="px-2">
-              <AnimatedList
-                items={projects}
-                onItemSelect={(project) => {
-                  handleSelectProject(project.id);
+        {isSearching ? (
+          /* Search results */
+          <div className="p-2 space-y-3">
+            {matchedProjects.length > 0 && (
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground px-2 mb-1">Projects</h3>
+                <div className="space-y-1">
+                  {matchedProjects.map(project => (
+                    <Button
+                      key={project.id}
+                      variant="ghost"
+                      className="w-full justify-start gap-2"
+                      onClick={() => {
+                        handleSelectProject(project.id);
+                        setSidebarSearchInput('');
+                        if (isActuallyMobile) setOpenMobile(false);
+                      }}
+                    >
+                      <Folder className="h-4 w-4" style={{ color: project.color }} />
+                      <span className="truncate">{project.name}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {matchedMeetings.length > 0 && (
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground px-2 mb-1">Meetings</h3>
+                <div className="space-y-1">
+                  {matchedMeetings.map(meeting => (
+                    <Button
+                      key={meeting.id}
+                      variant="ghost"
+                      className="w-full justify-start gap-2"
+                      onClick={() => {
+                        navigate(`/meetings/${meeting.id}`);
+                        setSidebarSearchInput('');
+                        if (isActuallyMobile) setOpenMobile(false);
+                      }}
+                    >
+                      <Mic className="h-4 w-4 text-teal-400" />
+                      <span className="truncate">{meeting.title}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {matchedProjects.length === 0 && matchedMeetings.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">No results found</p>
+            )}
+          </div>
+        ) : (
+          /* Normal sidebar content */
+          <>
+            <div className="p-2 space-y-1">
+              {/* Special Lists */}
+              <Button
+                variant={selectedSpecialList === 'today' ? 'secondary' : 'ghost'}
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  handleSelectSpecial('today');
                   if (isActuallyMobile) setOpenMobile(false);
                 }}
-                showGradients={false}
-                enableArrowNavigation={false}
-                displayScrollbar={true}
-                className="w-full"
-                getItemDataAttributes={(project) => 
-                  project.name.startsWith('Demo Project') 
-                    ? { 'data-projects-tour-step': 'demo-project' } 
-                    : {}
-                }
-                renderItem={(project, isSelected) => (
-                  <Button
-                    variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
-                    className="w-full justify-start gap-2"
-                  >
-                    <Folder 
-                      className="h-4 w-4" 
-                      style={{ color: project.color }}
-                    />
-                    <span className="truncate">{project.name}</span>
-                  </Button>
-                )}
-              />
+              >
+                <Calendar className="h-4 w-4" />
+                Today's To-Do
+              </Button>
+              
+              <Button
+                variant={selectedSpecialList === 'unassigned' ? 'secondary' : 'ghost'}
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  handleSelectSpecial('unassigned');
+                  if (isActuallyMobile) setOpenMobile(false);
+                }}
+              >
+                <ListTodo className="h-4 w-4" />
+                Unassigned
+              </Button>
             </div>
-          </div>
+
+            {/* Projects with AnimatedList */}
+            {projects.length > 0 && (
+              <div className="mt-4">
+                <div className="px-4 mb-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">My Projects ({projects.length})</h3>
+                </div>
+                <div className="px-2">
+                  <AnimatedList
+                    items={projects}
+                    onItemSelect={(project) => {
+                      handleSelectProject(project.id);
+                      if (isActuallyMobile) setOpenMobile(false);
+                    }}
+                    showGradients={false}
+                    enableArrowNavigation={false}
+                    displayScrollbar={true}
+                    className="w-full"
+                    getItemDataAttributes={(project) => 
+                      project.name.startsWith('Demo Project') 
+                        ? { 'data-projects-tour-step': 'demo-project' } 
+                        : {}
+                    }
+                    renderItem={(project, isSelected) => (
+                      <Button
+                        variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                        className="w-full justify-start gap-2"
+                      >
+                        <Folder 
+                          className="h-4 w-4" 
+                          style={{ color: project.color }}
+                        />
+                        <span className="truncate">{project.name}</span>
+                      </Button>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>
