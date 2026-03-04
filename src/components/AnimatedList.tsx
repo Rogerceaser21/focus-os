@@ -94,10 +94,10 @@ const AnimatedList = ({
   }, [selectedIndex, keyboardNav]);
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative flex-1 min-h-0 ${className}`}>
       <div
         ref={listRef}
-        className={`max-h-[400px] overflow-y-auto ${
+        className={`h-full overflow-y-auto ${
           displayScrollbar
             ? '[&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-background [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-[4px]'
             : 'scrollbar-hide'
