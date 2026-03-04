@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 interface UseTimerAlertOptions {
   isRunning: boolean;
@@ -14,11 +13,9 @@ export function useTimerAlert({ isRunning, displaySeconds, intervalMinutes, enab
   const lastAlertAt = useRef<number>(0);
 
   useEffect(() => {
-    if (!enabled || !isRunning || intervalMinutes <= 0 || !userId) return;
+    if (!enabled || !isRunning || intervalMinutes <= 0) return;
 
     const intervalSeconds = intervalMinutes * 60;
-    
-    // Check if we've crossed a new interval boundary
     const currentInterval = Math.floor(displaySeconds / intervalSeconds);
     const lastInterval = Math.floor(lastAlertAt.current / intervalSeconds);
 
@@ -28,25 +25,15 @@ export function useTimerAlert({ isRunning, displaySeconds, intervalMinutes, enab
       const minutesElapsed = Math.floor(displaySeconds / 60);
       const title = taskTitle ? `"${taskTitle}"` : 'your task';
 
-      // Send push notification
-      (async () => {
-        try {
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              user_id: userId,
-              payload: {
-                title: '⏱️ Timer Check-in',
-                body: `You've been working on ${title} for ${minutesElapsed} minutes. Time for a break?`,
-                url: '/app'
-              }
-            }
-          });
-        } catch (err) {
-          console.error('[TimerAlert] Failed to send:', err);
-        }
-      })();
+      // Show browser notification if permitted
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('⏱️ Timer Check-in', {
+          body: `You've been working on ${title} for ${minutesElapsed} minutes. Time for a break?`,
+          icon: '/icon-192.png',
+        });
+      }
     }
-  }, [displaySeconds, isRunning, intervalMinutes, enabled, taskTitle, userId]);
+  }, [displaySeconds, isRunning, intervalMinutes, enabled, taskTitle]);
 
   // Reset when timer stops
   useEffect(() => {

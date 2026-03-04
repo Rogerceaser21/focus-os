@@ -21,7 +21,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { UserPreferences } from '@/hooks/useUserPreferences';
-import { PushNotificationSettings } from '@/components/PushNotificationSettings';
 
 interface Project {
   id: string;
@@ -103,11 +102,6 @@ export default function SettingsDialog({
           </div>
         ) : (
           <div className="space-y-6 py-4 overflow-y-auto flex-1 pr-2">
-            {/* Push Notifications */}
-            <PushNotificationSettings preferences={preferences} onSave={onSave} />
-
-            <Separator />
-
             {/* Theme Selection */}
             <div className="space-y-3">
               <Label className="text-base font-semibold">Theme</Label>
