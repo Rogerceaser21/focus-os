@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Fuse from 'fuse.js';
 import PullToRefresh from '@/components/PullToRefresh';
 import { useTheme } from 'next-themes';
 import { useNavigate } from 'react-router-dom';
@@ -1013,31 +1014,38 @@ https://www.skyscanner.com`,
     }
     return '';
   };
-  const filteredTasks = tasks.filter(task => {
-    // First, filter by search query
-    const matchesSearch = (task.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         (task.description || '').toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (!matchesSearch) return false;
-    
-    // Then filter by selected project or special list
-    if (selectedProjectId) {
-      return task.projectId === selectedProjectId;
-    } else if (selectedSpecialList === 'unassigned') {
-      return !task.projectId;
-    } else if (selectedSpecialList === 'today') {
-      // Tasks with due date = today or earlier (overdue)
-      if (!task.dueDate) return false;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Normalize to start of day
-      const taskDueDate = new Date(task.dueDate);
-      taskDueDate.setHours(0, 0, 0, 0); // Normalize to start of day
-      return taskDueDate <= today; // Show tasks due today or earlier
+  // Fuse.js instance for fuzzy search across all tasks
+  const fuse = useMemo(() => new Fuse(allTasks.length > 0 ? allTasks : tasks, {
+    keys: ['title', 'description'],
+    threshold: 0.4, // 0 = exact, 1 = match anything
+    ignoreLocation: true,
+    minMatchCharLength: 2,
+  }), [allTasks, tasks]);
+
+  const filteredTasks = useMemo(() => {
+    // If searching, fuzzy search across ALL tasks (ignore project filter)
+    if (searchQuery.trim().length > 0) {
+      const results = fuse.search(searchQuery.trim());
+      return results.map(r => r.item);
     }
-    
-    // If nothing is selected, show all tasks
-    return true;
-  });
+
+    // No search — filter by selected project or special list
+    return tasks.filter(task => {
+      if (selectedProjectId) {
+        return task.projectId === selectedProjectId;
+      } else if (selectedSpecialList === 'unassigned') {
+        return !task.projectId;
+      } else if (selectedSpecialList === 'today') {
+        if (!task.dueDate) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const taskDueDate = new Date(task.dueDate);
+        taskDueDate.setHours(0, 0, 0, 0);
+        return taskDueDate <= today;
+      }
+      return true;
+    });
+  }, [searchQuery, fuse, tasks, selectedProjectId, selectedSpecialList]);
 
   // Priority order for sorting
   const priorityOrder = {
