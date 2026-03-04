@@ -230,7 +230,7 @@ export const ProjectSidebar = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {isSearching ? (
           /* Search results */
           <div className="p-2 space-y-3">
@@ -314,11 +314,11 @@ export const ProjectSidebar = ({
 
             {/* Projects with AnimatedList */}
             {projects.length > 0 && (
-              <div className="mt-4">
+              <div className="mt-4 flex-1 min-h-0 flex flex-col">
                 <div className="px-4 mb-2">
                   <h3 className="text-sm font-medium text-muted-foreground">My Projects ({projects.length})</h3>
                 </div>
-                <div className="px-2">
+                <div className="px-2 flex-1 min-h-0 flex flex-col">
                   <AnimatedList
                     items={projects}
                     onItemSelect={(project) => {
