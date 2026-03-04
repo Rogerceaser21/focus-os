@@ -146,6 +146,29 @@ const MeetingDetail = () => {
     }
   }, [user, id]);
 
+  // Realtime subscription for task updates (e.g. external completion via email)
+  useEffect(() => {
+    if (!user || !id) return;
+    const channel = supabase
+      .channel(`meeting-tasks-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tasks',
+          filter: `meeting_id=eq.${id}`,
+        },
+        () => {
+          fetchSavedTasks();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, id]);
+
   // Cleanup audio URL on unmount
   useEffect(() => {
     return () => {
