@@ -230,7 +230,7 @@ export const ProjectSidebar = ({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
         {isSearching ? (
           /* Search results */
           <div className="p-2 space-y-3">
