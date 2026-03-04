@@ -117,7 +117,15 @@ const Index = () => {
   } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Debounce search input → searchQuery (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'gantt' | 'time-tracking'>('grid');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | null>(null);
@@ -1146,8 +1154,8 @@ https://www.skyscanner.com`,
           <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6">
             <div className="relative flex-[2] md:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hidden lg:block" />
-              <Input placeholder="Search" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10 lg:hidden" />
-              <Input placeholder="Search tasks..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10 hidden lg:block" />
+              <Input placeholder="Search" value={searchInput} onChange={e => setSearchInput(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10 lg:hidden" />
+              <Input placeholder="Search tasks..." value={searchInput} onChange={e => setSearchInput(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10 hidden lg:block" />
             </div>
             <div className="flex gap-2">
               {/* Mobile/Tablet: Display Dropdown */}
