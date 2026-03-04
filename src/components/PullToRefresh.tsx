@@ -17,7 +17,7 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, onRefresh, thre
     if (isRefreshing) return;
     // Skip if touch originated inside a sheet/sidebar overlay
     const target = e.target as HTMLElement;
-    if (target.closest('[data-radix-dialog-overlay]') || target.closest('[data-radix-dialog-content]') || target.closest('[data-sidebar]') || target.closest('[role="dialog"]')) return;
+    if (target.closest('[data-radix-dialog-overlay]') || target.closest('[data-radix-dialog-content]') || target.closest('[data-sidebar]') || target.closest('[role="dialog"]') || document.querySelector('[data-state="open"][data-radix-dialog-overlay]')) return;
     // Only start pull if scrolled to top
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
     if (scrollTop <= 0) {

@@ -230,10 +230,10 @@ export const ProjectSidebar = ({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {isSearching ? (
           /* Search results */
-          <div className="p-2 space-y-3">
+          <div className="p-2 space-y-3 flex-1 min-h-0 overflow-y-auto">
             {matchedProjects.length > 0 && (
               <div>
                 <h3 className="text-xs font-medium text-muted-foreground px-2 mb-1">Projects</h3>
