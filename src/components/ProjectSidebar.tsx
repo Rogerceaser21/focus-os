@@ -401,7 +401,7 @@ export const ProjectSidebar = ({
         <Sheet open={openMobile} onOpenChange={setOpenMobile}>
           <SheetContent 
             side="left" 
-            className="w-[280px] p-0 bg-card/50 backdrop-blur-sm"
+            className="w-[280px] p-0 bg-card/50 backdrop-blur-sm flex flex-col"
           >
             {sidebarContent}
           </SheetContent>
