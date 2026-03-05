@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Play, Pause, Calendar, Clock, Image, Mail, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, Calendar, Clock, Image, Mail, CheckCircle2, Pencil } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -304,6 +304,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
                 {editedTitle}
               </h3>
             )}
+            {onEditTask && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
+                className="h-8 w-8 p-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Edit task"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -505,6 +516,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
               >
                 {editedTitle}
               </h3>
+            )}
+            {onEditTask && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
+                className="h-8 w-8 p-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Edit task"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
             )}
             <Button
               variant="ghost"

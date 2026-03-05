@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, ImageIcon } from 'lucide-react';
+import { CalendarIcon, ImageIcon, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ImageViewer } from '@/components/ImageViewer';
+import { AssignTaskDialog } from '@/components/AssignTaskDialog';
 
 interface EditTaskDialogProps {
   task: Task;
@@ -20,9 +21,10 @@ interface EditTaskDialogProps {
   onOpenChange: (open: boolean) => void;
   onUpdateTask: (task: Task) => void;
   projects?: Project[];
+  onAssigned?: (taskId: string, email: string) => void;
 }
 
-export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, projects = [] }: EditTaskDialogProps) => {
+export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, projects = [], onAssigned }: EditTaskDialogProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
@@ -35,6 +37,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
   const [maxHeight, setMaxHeight] = useState('300px');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const MAX_IMAGES = 8;
@@ -190,7 +193,18 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-full mx-0 sm:mx-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle>Edit Task</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Edit Task</DialogTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setAssignDialogOpen(true)}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+              title="Assign & Email"
+            >
+              <Mail className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
@@ -405,6 +419,13 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
         onNavigate={setCurrentImageIndex}
       />
     )}
+
+    <AssignTaskDialog
+      task={task}
+      open={assignDialogOpen}
+      onOpenChange={setAssignDialogOpen}
+      onAssigned={onAssigned}
+    />
   </>
   );
 };
