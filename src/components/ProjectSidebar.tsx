@@ -171,7 +171,7 @@ export const ProjectSidebar = ({
 
   const sidebarContent = (
     <>
-      <div className="border-b p-4">
+      <div className="border-b p-4 flex-shrink-0">
         <h2 className="font-semibold text-lg mb-3">Projects</h2>
         <div className="flex gap-2">
           <DropdownMenu>
@@ -230,7 +230,7 @@ export const ProjectSidebar = ({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
         {isSearching ? (
           /* Search results */
           <div className="p-2 space-y-3 flex-1 min-h-0 overflow-y-auto">
