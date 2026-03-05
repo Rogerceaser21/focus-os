@@ -48,6 +48,7 @@ import { TaskListItem } from '@/components/TaskListItem';
 import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { AssignTaskDialog } from '@/components/AssignTaskDialog';
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 
@@ -84,6 +85,7 @@ const MeetingDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
+  const { preferences } = useUserPreferences(user?.id);
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -973,7 +975,7 @@ const MeetingDetail = () => {
                                 <TaskListItem
                                   task={task}
                                   onUpdate={handleSavedTaskUpdate}
-                                  globalViewMode="compact"
+                                  globalViewMode={preferences?.default_task_card_view ?? 'full'}
                                   isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                                   onTaskClick={() => toggleExpand(task.id)}
                                   projects={allProjects}
