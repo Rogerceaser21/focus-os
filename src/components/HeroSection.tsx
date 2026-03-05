@@ -55,7 +55,7 @@ const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen }: HeroSectionP
         ) : (
           <>
             <TrueFocus
-              sentence="Try the Mic"
+              sentence="Try Brain Dump Feature"
               manualMode={false}
               blurAmount={8}
               borderColor="#4FD1C5"
