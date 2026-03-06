@@ -80,6 +80,7 @@ export interface DockItem {
   className?: string;
   isRecording?: boolean;
   tourStepId?: string;
+  isHighlighted?: boolean;
 }
 
 interface DockProps {
@@ -108,7 +109,7 @@ export default function Dock({
             {items.map((item, index) => (
               <div 
                 key={index} 
-                className="relative"
+                className={`relative ${item.isHighlighted ? 'dock-highlight-pulse' : ''}`}
                 {...(item.tourStepId ? { 'data-tour-step': item.tourStepId } : {})}
               >
                 <DockItem

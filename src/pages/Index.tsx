@@ -133,6 +133,7 @@ const Index = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isBrainDumpRecording, setIsBrainDumpRecording] = useState(false);
+  const [isBrainDumpCtaActive, setIsBrainDumpCtaActive] = useState(false);
   const [globalCardView, setGlobalCardView] = useState<'full' | 'compact'>('full');
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -1107,6 +1108,7 @@ https://www.skyscanner.com`,
       label: 'Brain Dump',
       permanentLabel: 'Brain Dump',
       isRecording: isBrainDumpRecording,
+      isHighlighted: isBrainDumpCtaActive,
       tourStepId: 'brain-dump',
       onClick: (e?: React.MouseEvent<HTMLElement>) => {
         if (e) triggerParticles(e.currentTarget);
@@ -1138,7 +1140,7 @@ https://www.skyscanner.com`,
                     <HeroSection onTasksCreated={() => {
                     fetchTasks();
                     setProjectRefreshTrigger(prev => prev + 1);
-                  }} dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} />
+                  }} dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} onCtaPhaseChange={setIsBrainDumpCtaActive} />
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <Button variant="outline" onClick={() => setSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-0 shrink-0">

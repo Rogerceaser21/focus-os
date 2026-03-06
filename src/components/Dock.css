@@ -145,3 +145,17 @@
   text-align: center;
   pointer-events: none;
 }
+
+/* Brain Dump highlight pulse during CTA animation */
+@keyframes dock-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+  }
+  50% {
+    box-shadow: 0 0 16px 6px hsl(var(--primary) / 0.5);
+  }
+}
+
+.dock-highlight-pulse .dock-item {
+  animation: dock-glow-pulse 1.5s ease-in-out infinite;
+}
