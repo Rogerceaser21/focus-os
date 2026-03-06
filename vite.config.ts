@@ -16,9 +16,19 @@ export default defineConfig(({ mode }) => ({
       name: 'html-cache-bust',
       transformIndexHtml(html: string) {
         return html.replace(
-          /src="\/src\/main\.tsx"/,
+          /src="\/src\/main\.tsx(?:\?v=\d+)?"/,
           `src="/src/main.tsx?v=${Date.now()}"`
         );
+      },
+      configureServer(server: any) {
+        server.middlewares.use((req: any, res: any, next: any) => {
+          if (req.url === '/' || req.url?.startsWith('/?') || req.url?.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+          }
+          next();
+        });
       },
     },
   ].filter(Boolean),
