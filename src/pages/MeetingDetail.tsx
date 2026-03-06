@@ -51,6 +51,7 @@ import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { AssignTaskDialog } from '@/components/AssignTaskDialog';
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
 
 interface Participant {
   name: string;
@@ -116,6 +117,9 @@ const MeetingDetail = () => {
   // Assign task dialog state
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
+
+  // Edit task dialog state
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -975,6 +979,8 @@ const MeetingDetail = () => {
                                 <TaskListItem
                                   task={task}
                                   onUpdate={handleSavedTaskUpdate}
+                                  onEditTask={setEditingTask}
+                                  onAssignTask={(t) => handleAssignTask(t)}
                                   globalViewMode={preferences?.default_task_card_view ?? 'full'}
                                   isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                                   onTaskClick={() => toggleExpand(task.id)}
@@ -1114,6 +1120,21 @@ const MeetingDetail = () => {
             onTasksCreated={handleBrainDumpTasksCreated}
             initialTasks={extractedBrainDumpTasks}
             meetingId={meeting.id}
+          />
+        )}
+
+        {/* Edit Task Dialog */}
+        {editingTask && (
+          <EditTaskDialog
+            task={editingTask}
+            open={!!editingTask}
+            onOpenChange={(open) => { if (!open) setEditingTask(null); }}
+            onUpdateTask={(updated) => {
+              handleSavedTaskUpdate(updated);
+              setEditingTask(null);
+            }}
+            projects={allProjects}
+            onAssigned={(taskId, email) => handleTaskAssigned(taskId, email)}
           />
         )}
 
