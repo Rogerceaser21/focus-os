@@ -149,13 +149,13 @@
 /* Brain Dump highlight pulse during CTA animation */
 @keyframes dock-glow-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+    box-shadow: 0 0 0 0 hsl(var(--accent) / 0);
   }
   50% {
-    box-shadow: 0 0 16px 6px hsl(var(--primary) / 0.5);
+    box-shadow: 0 0 28px 12px hsl(var(--accent) / 0.6);
   }
 }
 
 .dock-highlight-pulse .dock-item {
-  animation: dock-glow-pulse 1.5s ease-in-out infinite;
+  animation: dock-glow-pulse 2.5s ease-in-out infinite;
 }
