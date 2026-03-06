@@ -19,6 +19,45 @@
   </head>
 
   <body>
+    <script>
+      // Service Worker Killer — unregister any lingering SW from legacy PWA
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          registrations.forEach(function(registration) {
+            registration.unregister();
+          });
+        });
+        // Also clear all caches left by old service workers
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            names.forEach(function(name) {
+              caches.delete(name);
+            });
+          });
+        }
+      }
+    </script>
+    <script>
+      // Cache-busting version check
+      // __BUILD_VERSION__ is injected by Vite's transformIndexHtml at build time
+      (function() {
+        var buildVersion = '__BUILD_VERSION__';
+        var storageKey = 'focusos_build_version';
+        var reloadKey = 'focusos_cache_busted';
+        try {
+          var stored = localStorage.getItem(storageKey);
+          var alreadyBusted = sessionStorage.getItem(reloadKey);
+          if (stored && stored !== buildVersion && !alreadyBusted) {
+            localStorage.setItem(storageKey, buildVersion);
+            sessionStorage.setItem(reloadKey, '1');
+            window.location.reload();
+            return;
+          }
+          localStorage.setItem(storageKey, buildVersion);
+          sessionStorage.removeItem(reloadKey);
+        } catch(e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

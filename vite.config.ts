@@ -15,10 +15,15 @@ export default defineConfig(({ mode }) => ({
     {
       name: 'html-cache-bust',
       transformIndexHtml(html: string) {
-        return html.replace(
+        const buildVersion = Date.now().toString();
+        // Inject build version for cache-bust script
+        html = html.replace(/__BUILD_VERSION__/g, buildVersion);
+        // Also cache-bust the main script tag
+        html = html.replace(
           /src="\/src\/main\.tsx(?:\?v=\d+)?"/,
-          `src="/src/main.tsx?v=${Date.now()}"`
+          `src="/src/main.tsx?v=${buildVersion}"`
         );
+        return html;
       },
       configureServer(server: any) {
         server.middlewares.use((req: any, res: any, next: any) => {
