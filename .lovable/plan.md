@@ -68,3 +68,30 @@ In `vite.config.ts`, add a custom plugin:
 
 Both changes are small and targeted. The first fixes the flash. The second ensures new code is always loaded on refresh.
 
+## Diagnostic Findings (2026-03-06)
+
+### Environment-Specific Behavior
+Key observation: the caching/loading issues are **resource-dependent**, not purely a code bug.
+
+**Chrome on Mac (heavy load — ~75 tabs, Claude Code, other apps):**
+- `tasks.thefeedbackapp.net` — only works after hard refresh; normal refresh serves stale content
+- `focusos.thefeedbackapp.net` — does not load properly at all
+- Hypothesis: Chrome under heavy memory pressure may aggressively serve from disk/memory cache or fail to complete network requests for updated assets
+
+**Safari on Mac Desktop:**
+- `tasks.thefeedbackapp.net` — **works correctly**
+- This contradicts the earlier assumption that Safari Desktop was universally broken
+
+**Windows machine (Chrome, light load):**
+- Everything works correctly — all domains, no hard refresh needed
+
+**Mobile Safari:**
+- Works fine
+
+### Conclusions
+1. The issue is NOT a universal browser/CDN caching problem — it's exacerbated (or possibly caused) by **resource-constrained environments** (heavy Chrome usage on Mac)
+2. Safari Desktop works, disproving the earlier theory that Safari had a fundamental SW/cache issue
+3. The `configureServer` middleware fix in vite.config.ts only helps dev mode — it has no effect in production
+4. The Service Worker killer script in index.html is still important as a safety net for legacy PWA remnants
+5. Before implementing aggressive cache-busting (which could hurt performance for all users), we should consider whether the real fix is simply ensuring proper CDN cache headers on the Lovable hosting side
+
