@@ -70,28 +70,30 @@ Both changes are small and targeted. The first fixes the flash. The second ensur
 
 ## Diagnostic Findings (2026-03-06)
 
-### Environment-Specific Behavior
-Key observation: the caching/loading issues are **resource-dependent**, not purely a code bug.
+### The Problem
+After publishing, the app serves STALE cached code on normal refresh. Users must hard-refresh (Cmd+Shift+R) to get the latest version. This is unacceptable — **the app must always serve fresh code on every normal refresh, on every device, every browser, no exceptions.**
 
-**Chrome on Mac (heavy load — ~75 tabs, Claude Code, other apps):**
-- `tasks.thefeedbackapp.net` — only works after hard refresh; normal refresh serves stale content
-- `focusos.thefeedbackapp.net` — does not load properly at all
-- Hypothesis: Chrome under heavy memory pressure may aggressively serve from disk/memory cache or fail to complete network requests for updated assets
+### Observed Behavior
+- **Chrome Desktop (Mac, heavy load):** `tasks.thefeedbackapp.net` only works after hard refresh. `focusos.thefeedbackapp.net` doesn't load properly at all.
+- **Safari Desktop (Mac):** `tasks.thefeedbackapp.net` works correctly.
+- **Chrome Desktop (Windows, light load):** Everything works correctly.
+- **Mobile Safari:** Works fine.
+- **Preview mode:** Same stale-code issue — only shows new features after hard refresh.
 
-**Safari on Mac Desktop:**
-- `tasks.thefeedbackapp.net` — **works correctly**
-- This contradicts the earlier assumption that Safari Desktop was universally broken
+### Root Cause Analysis
+1. The `configureServer` middleware in `vite.config.ts` ONLY applies to the Vite dev server — it has **zero effect** in production or preview deployments.
+2. The `transformIndexHtml` cache-bust (appending `?v=timestamp` to main.tsx) works at build time, but the **CDN caches the built `index.html` itself**, so returning visitors get the old `index.html` with the old timestamp, defeating the purpose.
+3. The real problem: **there is no client-side mechanism to detect and bust stale cached content in production.**
+4. This is NOT a device/resource issue — it's a fundamental missing cache invalidation strategy for production builds.
 
-**Windows machine (Chrome, light load):**
-- Everything works correctly — all domains, no hard refresh needed
+### What Needs to Happen
+The app needs a **client-side cache invalidation mechanism** that works regardless of CDN caching behavior. Two approaches:
+1. **Service Worker Killer** (already planned) — unregister any lingering service workers from legacy PWA
+2. **Client-side version check** — an inline script in `index.html` that checks a version endpoint or uses a cache-busting redirect when it detects stale content
 
-**Mobile Safari:**
-- Works fine
-
-### Conclusions
-1. The issue is NOT a universal browser/CDN caching problem — it's exacerbated (or possibly caused) by **resource-constrained environments** (heavy Chrome usage on Mac)
-2. Safari Desktop works, disproving the earlier theory that Safari had a fundamental SW/cache issue
-3. The `configureServer` middleware fix in vite.config.ts only helps dev mode — it has no effect in production
-4. The Service Worker killer script in index.html is still important as a safety net for legacy PWA remnants
-5. Before implementing aggressive cache-busting (which could hurt performance for all users), we should consider whether the real fix is simply ensuring proper CDN cache headers on the Lovable hosting side
+### Current State of Fixes
+- ✅ `setLoading(true)` in useUserPreferences — fixes the flash/flicker
+- ✅ `transformIndexHtml` cache-bust — helps for fresh builds but CDN can cache the HTML
+- ⚠️ `configureServer` middleware — dev-only, useless in production
+- ❌ No production cache invalidation strategy exists yet
 
