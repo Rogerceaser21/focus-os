@@ -145,6 +145,7 @@ export const useUserPreferences = (userId?: string | null) => {
 
   useEffect(() => {
     if (userId) {
+      setLoading(true);
       fetchPreferences(userId);
     } else {
       setLoading(false);
