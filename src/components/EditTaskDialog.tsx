@@ -199,7 +199,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
               variant="ghost"
               size="sm"
               onClick={() => setAssignDialogOpen(true)}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+              className="h-8 w-8 p-0 mr-6 text-muted-foreground hover:text-primary"
               title="Assign & Email"
             >
               <Mail className="h-4 w-4" />
