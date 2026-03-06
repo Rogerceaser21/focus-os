@@ -1075,7 +1075,7 @@ https://www.skyscanner.com`,
   const sortedTasks = sortTasksByPriority(filteredTasks);
   
   // Show loading screen while auth, preferences, or initial tasks are loading
-  if (authLoading || prefsLoading || (user && !initialLoadComplete)) {
+  if (authLoading || prefsLoading || (user && !preferences) || (user && !initialLoadComplete)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">

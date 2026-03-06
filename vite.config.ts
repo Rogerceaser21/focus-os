@@ -12,6 +12,15 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === "development" && componentTagger(),
+    {
+      name: 'html-cache-bust',
+      transformIndexHtml(html: string) {
+        return html.replace(
+          /src="\/src\/main\.tsx"/,
+          `src="/src/main.tsx?v=${Date.now()}"`
+        );
+      },
+    },
   ].filter(Boolean),
   resolve: {
     alias: {
