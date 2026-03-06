@@ -6,12 +6,18 @@ interface HeroSectionProps {
   onTasksCreated: () => void;
   dialogOpen: boolean;
   setDialogOpen: (open: boolean) => void;
+  onCtaPhaseChange?: (isCtaPhase: boolean) => void;
 }
 
-const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen }: HeroSectionProps) => {
+const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen, onCtaPhaseChange }: HeroSectionProps) => {
   const [phase, setPhase] = useState<'title' | 'cta'>('title');
   const [isVisible, setIsVisible] = useState(true);
   const { user } = useAuth();
+
+  // Notify parent when CTA phase changes
+  useEffect(() => {
+    onCtaPhaseChange?.(phase === 'cta' && isVisible);
+  }, [phase, isVisible, onCtaPhaseChange]);
 
   useEffect(() => {
     const initialTimer = setTimeout(() => {
@@ -55,7 +61,7 @@ const HeroSection = ({ onTasksCreated, dialogOpen, setDialogOpen }: HeroSectionP
         ) : (
           <>
             <TrueFocus
-              sentence="Try Brain Dump Feature"
+              sentence="Try Brain Dump"
               manualMode={false}
               blurAmount={8}
               borderColor="#4FD1C5"
