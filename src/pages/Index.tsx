@@ -559,7 +559,7 @@ https://www.skyscanner.com`,
     };
 
     // Insert into database
-    const { data, error } = await supabase.from('focusos_tasks').insert({
+    const { data, error } = await (supabase as any).from('focusos_tasks').insert({
       user_id: user.id,
       project_id: null,
       title: sampleTask.title,
