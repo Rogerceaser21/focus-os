@@ -1,49 +1,46 @@
 project_id = "ujwmqwmsqklocvzlqpbm"
 
-[functions.transcribe-audio]
+[functions.focusos-transcribe-audio]
 verify_jwt = true
 
-[functions.extract-tasks]
+[functions.focusos-extract-tasks]
 verify_jwt = true
 
-[functions.cleanup-old-images]
+[functions.focusos-cleanup-old-images]
 verify_jwt = false
 
-[functions.get-brain-dump-config]
+[functions.focusos-get-brain-dump-config]
 verify_jwt = true
 
-[functions.send-push-notification]
+[functions.focusos-process-meeting]
 verify_jwt = false
 
-[functions.get-vapid-public-key]
+[functions.focusos-get-meeting-transcript]
 verify_jwt = false
 
-[functions.check-due-reminders]
+[functions.focusos-send-task-email]
 verify_jwt = false
 
-[functions.process-meeting]
+[functions.focusos-complete-shared-task]
 verify_jwt = false
 
-[functions.get-meeting-transcript]
+[functions.focusos-delete-meeting]
 verify_jwt = false
 
-[functions.send-task-email]
+[functions.focusos-get-meeting-audio]
 verify_jwt = false
 
-[functions.complete-shared-task]
+[functions.focusos-start-recording-session]
 verify_jwt = false
 
-[functions.delete-meeting]
+[functions.focusos-upload-audio-chunk]
 verify_jwt = false
 
-[functions.get-meeting-audio]
+[functions.focusos-transcribe-meeting]
 verify_jwt = false
 
-[functions.start-recording-session]
+[functions.focusos-send-meeting-email]
 verify_jwt = false
 
-[functions.upload-audio-chunk]
-verify_jwt = false
-
-[functions.transcribe-meeting]
+[functions.focusos-get-shared-meeting-audio]
 verify_jwt = false
