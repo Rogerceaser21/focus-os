@@ -26,8 +26,8 @@ export const useUserPreferences = (userId?: string | null) => {
 
   const fetchPreferences = async (uid: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .select('*')
         .eq('user_id', uid)
         .maybeSingle();
