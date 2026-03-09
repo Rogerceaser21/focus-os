@@ -49,8 +49,8 @@ export const useUserPreferences = (userId?: string | null) => {
 
   const createDefaultPreferences = async (uid: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .insert({
           user_id: uid,
           default_view: 'today',
