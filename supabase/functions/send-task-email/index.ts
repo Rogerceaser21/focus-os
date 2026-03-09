@@ -155,7 +155,7 @@ serve(async (req) => {
     // Try to get sender's name from profiles
     let senderName = userEmail;
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("focusos_profiles")
       .select("first_name, last_name")
       .eq("user_id", userId)
       .single();
