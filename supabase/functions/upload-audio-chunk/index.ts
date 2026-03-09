@@ -129,7 +129,7 @@ serve(async (req) => {
     // Update chunk count
     const newCount = Math.max(session.chunk_count, chunkIndex + 1);
     await supabase
-      .from("recording_sessions")
+      .from("focusos_recording_sessions")
       .update({ chunk_count: newCount })
       .eq("id", sessionId);
 

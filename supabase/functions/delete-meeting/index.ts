@@ -164,7 +164,7 @@ serve(async (req) => {
 
     // Delete the meeting record
     const { error: deleteError } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .delete()
       .eq("id", meetingId)
       .eq("user_id", user.id);

@@ -169,7 +169,7 @@ serve(async (req) => {
     // Get sender name
     let senderName = user.email || "Someone";
     const { data: profile } = await supabase
-      .from("focusos_profiles")
+      .from("focusos_focusos_profiles")
       .select("first_name, last_name")
       .eq("user_id", user.id)
       .single();
@@ -188,7 +188,7 @@ serve(async (req) => {
 
     // Fetch meeting
     const { data: meeting, error: meetingError } = await supabase
-      .from("meetings")
+     focusos_ .from("meetings")
       .select("*")
       .eq("id", meetingId)
       .eq("user_id", user.id)

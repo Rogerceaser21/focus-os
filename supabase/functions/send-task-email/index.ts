@@ -190,7 +190,7 @@ serve(async (req) => {
 
     // Update the task with the assigned email
     const { error: updateError } = await supabase
-      .from("tasks")
+      .from("focusos_tasks")
       .update({ assigned_to_email: recipientEmail })
       .eq("id", taskId);
 

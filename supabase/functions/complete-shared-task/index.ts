@@ -43,7 +43,7 @@ serve(async (req) => {
     // Mark as completed by assignee — but do NOT change status
     const completedByEmail = task.assigned_to_email || "unknown";
     const { error: updateError } = await supabase
-      .from("tasks")
+      .from("focusos_tasks")
       .update({ completed_by_email: completedByEmail })
       .eq("id", task.id);
 

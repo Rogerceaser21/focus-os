@@ -31,7 +31,7 @@ serve(async (req) => {
     const gcsFolder = `${user.id}/${timestamp}`;
 
     const { data: session, error } = await supabase
-      .from("recording_sessions")
+      .from("focusos_recording_sessions")
       .insert({
         user_id: user.id,
         gcs_folder_path: gcsFolder,

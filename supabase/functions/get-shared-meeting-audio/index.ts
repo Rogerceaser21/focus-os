@@ -77,7 +77,7 @@ serve(async (req) => {
     );
 
     const { data: meeting, error } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .select("recording_gcs_path, title")
       .eq("share_token", token)
       .single();

@@ -84,7 +84,7 @@ serve(async (req) => {
 
     // Fetch meeting
     const { data: meeting, error } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .select("recording_gcs_path, user_id")
       .eq("id", meetingId)
       .single();

@@ -376,7 +376,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
     if (meetingId) {
       try {
         await supabase
-          .from("meetings")
+          .from("focusos_meetings")
           .update({
             processing_status: "error",
             processing_error: error instanceof Error ? error.message : "Unknown error",

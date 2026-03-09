@@ -84,7 +84,7 @@ serve(async (req) => {
 
     // Fetch meeting (RLS ensures ownership)
     const { data: meeting, error } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .select("*")
       .eq("id", meetingId)
       .single();

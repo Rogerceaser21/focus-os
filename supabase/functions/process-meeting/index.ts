@@ -680,7 +680,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
     console.log("Step 6: Saving meeting to database...");
 
     const { data: meeting, error: dbError } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .insert({
         user_id: user.id,
         project_id: projectId || null,

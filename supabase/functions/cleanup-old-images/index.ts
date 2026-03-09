@@ -61,7 +61,7 @@ serve(async (req) => {
     // Update tasks to clear their images
     const taskIds = tasksWithImages.map(t => t.id);
     const { error: updateError } = await supabase
-      .from('tasks')
+      .from('focusos_tasks')
       .update({ images: [] })
       .in('id', taskIds);
 
