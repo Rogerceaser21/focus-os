@@ -362,7 +362,7 @@ const Meetings = () => {
         ? 'audio/webm'
         : 'audio/mp4';
 
-      const { data: sessionData, error: sessionError } = await supabase.functions.invoke('start-recording-session', {
+      const { data: sessionData, error: sessionError } = await supabase.functions.invoke('focusos-start-recording-session', {
         body: { mimeType: mimeType.split(';')[0] },
       });
 
