@@ -253,7 +253,7 @@ const Index = () => {
   const fetchInitialTasks = useCallback(async (defaultView: string) => {
     setTasksLoading(true);
     try {
-      let query =( (supabase as any).from('focusos_asks').select('*').order('created_at', {
+      let query = (supabase as any).from('focusos_tasks').select('*').order('created_at', {
         ascending: false
       });
       
