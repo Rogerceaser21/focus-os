@@ -169,7 +169,7 @@ serve(async (req) => {
     // Get sender name
     let senderName = user.email || "Someone";
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("focusos_profiles")
       .select("first_name, last_name")
       .eq("user_id", user.id)
       .single();
