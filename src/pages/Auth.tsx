@@ -28,6 +28,18 @@ const Auth = () => {
       }
     });
   }, [navigate]);
+  const handleGoogleSignIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+    if (error) {
+      toast.error(error.message);
+    }
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || !firstName.trim() || !lastName.trim()) {
@@ -35,10 +47,7 @@ const Auth = () => {
       return;
     }
     setLoading(true);
-    const {
-      data,
-      error
-    } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -64,9 +73,7 @@ const Auth = () => {
       return;
     }
     setLoading(true);
-    const {
-      error
-    } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
