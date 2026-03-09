@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import DarkVeil from '@/components/DarkVeil';
+import { Separator } from '@/components/ui/separator';
 const Auth = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
