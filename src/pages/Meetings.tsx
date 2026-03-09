@@ -144,8 +144,8 @@ const Meetings = () => {
     if (!processingMeetingId) return;
 
     const poll = async () => {
-      const { data, error } = await supabase
-        .from('meetings')
+      const { data, error } = await (supabase as any)
+        .from('focusos_meetings')
         .select('processing_status, processing_error')
         .eq('id', processingMeetingId)
         .single();
