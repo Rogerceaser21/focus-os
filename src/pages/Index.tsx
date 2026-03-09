@@ -670,7 +670,7 @@ https://www.skyscanner.com`,
     if (project2Error) {
       toast.error('Failed to create demo project 2');
       // Clean up project 1
-      await supabase.from('focusos_projects').delete().eq('id', project1Data.id);
+      await (supabase as any).from('focusos_projects').delete().eq('id', project1Data.id);
       return;
     }
 
