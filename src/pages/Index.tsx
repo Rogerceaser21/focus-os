@@ -801,7 +801,7 @@ https://www.skyscanner.com`,
     // Delete demo projects
     for (const project of projectsTourProjects) {
       try {
-        await supabase.from('focusos_projects').delete().eq('id', project.id);
+        await (supabase as any).from('focusos_projects').delete().eq('id', project.id);
       } catch (error) {
         console.error('Failed to delete demo project:', error);
       }
