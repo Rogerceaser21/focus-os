@@ -953,8 +953,8 @@ https://www.skyscanner.com`,
     }
 
     try {
-      const { error } = await supabase
-        .from('focusos_projects' as any)
+      const { error } = await (supabase as any)
+        .from('focusos_projects')
         .update({ name: editedProjectName.trim() })
         .eq('id', selectedProjectId);
 
