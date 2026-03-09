@@ -504,7 +504,7 @@ const Meetings = () => {
     try {
       console.log('Frontend triggering transcribe-meeting for:', meetingData.id);
       // Don't await - let it run in background while we poll
-      supabase.functions.invoke('transcribe-meeting', {
+      supabase.functions.invoke('focusos-transcribe-meeting', {
         body: {
           meetingId: meetingData.id,
           geminiFileUri: meetingData.geminiFileUri,
