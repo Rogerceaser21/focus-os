@@ -981,8 +981,8 @@ https://www.skyscanner.com`,
 
     try {
       // Delete all tasks in the project first
-      const { error: tasksError } = await supabase
-        .from('focusos_tasks' as any)
+      const { error: tasksError } = await (supabase as any)
+        .from('focusos_tasks')
         .delete()
         .eq('project_id', selectedProjectId);
 
