@@ -293,7 +293,7 @@ const MeetingDetail = () => {
     const targetLevel = level || detailLevel;
     setResummarizing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('process-meeting', {
+      const { data, error } = await supabase.functions.invoke('focusos-process-meeting', {
         body: {
           resummarize: true,
           meetingId: id,
