@@ -341,7 +341,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
 
     // Step 5: Save everything to meeting
     const { error: updateError } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .update({
         summary,
         transcript_gcs_path: transcriptGcsPath,
