@@ -555,8 +555,8 @@ const Meetings = () => {
         }
 
         // Update status to transcribing
-        await supabase
-          .from('meetings')
+        await (supabase as any)
+          .from('focusos_meetings')
           .update({ processing_status: 'transcribing', processing_error: null })
           .eq('id', meeting.id);
 
