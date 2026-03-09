@@ -686,7 +686,7 @@ https://www.skyscanner.com`,
     };
 
     const { data: taskData, error: taskError } = await supabase
-      .from('tasks')
+      .from('focusos_tasks')
       .insert(demoTask)
       .select()
       .single();
