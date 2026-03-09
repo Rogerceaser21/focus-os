@@ -572,7 +572,7 @@ serve(async (req) => {
 
       // Mark recording session done
       await supabase
-        .from("recording_sessions")
+        .from("focusos_recording_sessions")
         .update({ status: "done" })
         .eq("id", sessionId);
 
