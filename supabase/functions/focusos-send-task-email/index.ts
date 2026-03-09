@@ -201,7 +201,7 @@ serve(async (req) => {
     // Build complete URL
     const siteUrl = Deno.env.get("SUPABASE_URL")!.replace(".supabase.co", "");
     const projectRef = Deno.env.get("SUPABASE_URL")!.split("//")[1]?.split(".")[0] || "";
-    const completeUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/complete-shared-task?token=${task.share_token}`;
+    const completeUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/focusos-complete-shared-task?token=${task.share_token}`;
 
     const resend = new Resend(RESEND_API_KEY);
 
