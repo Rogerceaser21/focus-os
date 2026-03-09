@@ -424,7 +424,7 @@ const MeetingDetail = () => {
         ? `Meeting Summary:\n${meeting.summary}\n\nFull Transcript:\n${transcriptText}`
         : transcriptText;
 
-      const { data, error } = await supabase.functions.invoke('extract-tasks', {
+      const { data, error } = await supabase.functions.invoke('focusos-extract-tasks', {
         body: {
           transcription: fullText,
           mode: 'tasks-only',
