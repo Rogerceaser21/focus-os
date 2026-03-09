@@ -94,7 +94,7 @@ export const TodayBrainDumpDialog = ({
     try {
       const base64Audio = await blobToBase64(audioBlob);
 
-      const { data, error } = await supabase.functions.invoke('focusos-transcribe-audio', {
+      const { data, error } = await supabase.functions.invoke('focusos-focusos-transcribe-audio', {
         body: { audio: base64Audio },
       });
 
@@ -118,7 +118,7 @@ export const TodayBrainDumpDialog = ({
     setIsExtracting(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('extract-tasks', {
+      const { data, error } = await supabase.functions.focusos-invoke('extract-tasks', {
         body: { 
           transcription: text,
           mode: 'tasks-only'
