@@ -231,7 +231,7 @@ const Index = () => {
 
   // Fetch projects (lightweight - just names for sidebar)
   const fetchProjects = useCallback(async () => {
-    const { data, error } = await (supabase as any).from('focusos_projects').select('*').order('created_at', {
+    const { data, error } = await (supabase as any).from(''focusos_projects').select('*').order('created_at', {
       ascending: false
     });
     if (error) {
@@ -253,7 +253,7 @@ const Index = () => {
   const fetchInitialTasks = useCallback(async (defaultView: string) => {
     setTasksLoading(true);
     try {
-      let query = supabasfocusos_e.from('tasks').select('*').order('created_at', {
+      let query =(supabase as any).from('focusos_'tasks').select('*').order('created_at', {
         ascending: false
       });
       
