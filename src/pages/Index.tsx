@@ -231,7 +231,7 @@ const Index = () => {
 
   // Fetch projects (lightweight - just names for sidebar)
   const fetchProjects = useCallback(async () => {
-    const { data, error } = await supabase.from('projects').select('*').order('created_at', {
+    const { data, error } = await (supabase as any).from('ocusos_projects').select('*').order('created_at', {
       ascending: false
     });
     if (error) {
@@ -253,7 +253,7 @@ const Index = () => {
   const fetchInitialTasks = useCallback(async (defaultView: string) => {
     setTasksLoading(true);
     try {
-      let query = supabase.from('tasks').select('*').order('created_at', {
+      let query = (supabase as any).from('focusos_tasks').select('*').order('created_at', {
         ascending: false
       });
       
@@ -283,8 +283,8 @@ const Index = () => {
   // Phase 2: Fetch ALL tasks in background
   const fetchAllTasks = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('tasks')
+      const { data, error } = await (supabase as any)
+        .from('focusos_tasks')
         .select('*')
         .order('created_at', { ascending: false });
       
@@ -397,7 +397,7 @@ const Index = () => {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'tasks',
+          table: 'focusos_tasks',
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
@@ -418,7 +418,7 @@ const Index = () => {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'tasks',
+          table: 'focusos_tasks',
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
@@ -433,7 +433,7 @@ const Index = () => {
         {
           event: 'DELETE',
           schema: 'public',
-          table: 'tasks',
+          table: 'focusos_tasks',
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
@@ -559,7 +559,7 @@ https://www.skyscanner.com`,
     };
 
     // Insert into database
-    const { data, error } = await supabase.from('tasks').insert({
+    const { data, error } = await (supabase as any).from('focusos_tasks').insert({
       user_id: user.id,
       project_id: null,
       title: sampleTask.title,
@@ -615,7 +615,7 @@ https://www.skyscanner.com`,
     // Delete the sample "Plan Holidays" task
     if (taskTourTask) {
       try {
-        await supabase.from('tasks').delete().eq('id', taskTourTask.id);
+        await (supabase as any).from('focusos_tasks').delete().eq('id', taskTourTask.id);
         setTasks(prev => prev.filter(t => t.id !== taskTourTask.id));
       } catch (error) {
         console.error('Failed to delete tour task:', error);
@@ -650,8 +650,8 @@ https://www.skyscanner.com`,
       user_id: user.id
     };
 
-    const { data: project1Data, error: project1Error } = await supabase
-      .from('projects')
+    const { data: project1Data, error: project1Error } = await (supabase as any)
+      .from('focusos_projects')
       .insert(demoProject1)
       .select()
       .single();
@@ -661,8 +661,8 @@ https://www.skyscanner.com`,
       return;
     }
 
-    const { data: project2Data, error: project2Error } = await supabase
-      .from('projects')
+    const { data: project2Data, error: project2Error } = await (supabase as any)
+      .from('focusos_projects')
       .insert(demoProject2)
       .select()
       .single();
@@ -670,7 +670,7 @@ https://www.skyscanner.com`,
     if (project2Error) {
       toast.error('Failed to create demo project 2');
       // Clean up project 1
-      await supabase.from('projects').delete().eq('id', project1Data.id);
+      await (supabase as any).from('focusos_projects').delete().eq('id', project1Data.id);
       return;
     }
 
@@ -685,8 +685,8 @@ https://www.skyscanner.com`,
       due_date: new Date().toISOString()
     };
 
-    const { data: taskData, error: taskError } = await supabase
-      .from('tasks')
+    const { data: taskData, error: taskError } = await (supabase as any)
+      .from('focusos_tasks')
       .insert(demoTask)
       .select()
       .single();
@@ -694,8 +694,8 @@ https://www.skyscanner.com`,
     if (taskError) {
       toast.error('Failed to create demo task');
       // Clean up projects
-      await supabase.from('projects').delete().eq('id', project1Data.id);
-      await supabase.from('projects').delete().eq('id', project2Data.id);
+      await (supabase as any).from('focusos_projects').delete().eq('id', project1Data.id);
+      await (supabase as any).from('focusos_projects').delete().eq('id', project2Data.id);
       return;
     }
 
@@ -792,7 +792,7 @@ https://www.skyscanner.com`,
     // Delete demo task
     if (projectsTourTask) {
       try {
-        await supabase.from('tasks').delete().eq('id', projectsTourTask.id);
+        await (supabase as any).from('focusos_tasks').delete().eq('id', projectsTourTask.id);
       } catch (error) {
         console.error('Failed to delete demo task:', error);
       }
@@ -801,7 +801,7 @@ https://www.skyscanner.com`,
     // Delete demo projects
     for (const project of projectsTourProjects) {
       try {
-        await supabase.from('projects').delete().eq('id', project.id);
+        await (supabase as any).from('focusos_projects').delete().eq('id', project.id);
       } catch (error) {
         console.error('Failed to delete demo project:', error);
       }
@@ -841,7 +841,7 @@ https://www.skyscanner.com`,
     if (!user) return;
     const {
       error
-    } = await supabase.from('tasks').insert({
+    } = await (supabase as any).from('focusos_tasks').insert({
       user_id: user.id,
       project_id: newTask.projectId || null,
       title: newTask.title,
@@ -870,7 +870,7 @@ https://www.skyscanner.com`,
     // Update database in background
     const {
       error
-    } = await supabase.from('tasks').update({
+    } = await (supabase as any).from('focusos_tasks').update({
       title: updatedTask.title,
       description: updatedTask.description,
       priority: updatedTask.priority,
@@ -907,7 +907,7 @@ https://www.skyscanner.com`,
     // Batch DB updates in parallel
     const results = await Promise.all(
       updatedTasks.map(t =>
-        supabase.from('tasks').update({
+        (supabase as any).from('focusos_tasks').update({
           priority: t.priority,
           sort_order: t.sortOrder ?? 0,
         }).eq('id', t.id)
@@ -953,8 +953,8 @@ https://www.skyscanner.com`,
     }
 
     try {
-      const { error } = await supabase
-        .from('projects')
+      const { error } = await (supabase as any)
+        .from('focusos_projects')
         .update({ name: editedProjectName.trim() })
         .eq('id', selectedProjectId);
 
@@ -981,16 +981,16 @@ https://www.skyscanner.com`,
 
     try {
       // Delete all tasks in the project first
-      const { error: tasksError } = await supabase
-        .from('tasks')
+      const { error: tasksError } = await (supabase as any)
+        .from('focusos_tasks')
         .delete()
         .eq('project_id', selectedProjectId);
 
       if (tasksError) throw tasksError;
 
       // Delete the project
-      const { error: projectError } = await supabase
-        .from('projects')
+      const { error: projectError } = await (supabase as any)
+        .from('focusos_projects')
         .delete()
         .eq('id', selectedProjectId);
 
