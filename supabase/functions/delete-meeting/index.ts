@@ -152,7 +152,7 @@ serve(async (req) => {
     } else {
       // Unlink tasks from the meeting but keep them
       const { error: unlinkError } = await supabase
-        .from("tasks")
+        .from("focusos_tasks")
         .update({ meeting_id: null })
         .eq("meeting_id", meetingId)
         .eq("user_id", user.id);
