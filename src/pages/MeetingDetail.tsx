@@ -198,8 +198,8 @@ const MeetingDetail = () => {
 
   const fetchMeeting = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('meetings')
+    const { data, error } = await (supabase as any)
+      .from('focusos_meetings')
       .select('*')
       .eq('id', id)
       .single();
