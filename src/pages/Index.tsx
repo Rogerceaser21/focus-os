@@ -694,8 +694,8 @@ https://www.skyscanner.com`,
     if (taskError) {
       toast.error('Failed to create demo task');
       // Clean up projects
-      await supabase.from('focusos_projects').delete().eq('id', project1Data.id);
-      await supabase.from('focusos_projects').delete().eq('id', project2Data.id);
+      await (supabase as any).from('focusos_projects').delete().eq('id', project1Data.id);
+      await (supabase as any).from('focusos_projects').delete().eq('id', project2Data.id);
       return;
     }
 
