@@ -20,7 +20,7 @@ serve(async (req) => {
 
     // Find task by share_token — fetch assigned_to_email and user_id too
     const { data: task, error: fetchError } = await supabase
-      .from("tasks")
+      .from("focusos_tasks")
       .select("id, title, status, assigned_to_email, user_id")
       .eq("share_token", token)
       .single();
