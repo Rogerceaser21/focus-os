@@ -161,8 +161,8 @@ export const BrainDumpLiveDialog = ({
       // Create new projects
       const newProjectIds = new Map<string, string>(); // normalized name -> id
       for (const [key, name] of newProjectNames) {
-        const { data: project, error: projectError } = await supabase
-          .from('projects')
+        const { data: project, error: projectError } = await (supabase as any)
+          .from('focusos_projects')
           .insert({ name: name.trim(), user_id: user.id, color: '#3b82f6' })
           .select()
           .single();
