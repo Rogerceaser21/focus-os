@@ -190,8 +190,8 @@ const Meetings = () => {
 
   const checkOrphanedSessions = async () => {
     try {
-      const { data: sessions } = await supabase
-        .from('recording_sessions')
+      const { data: sessions } = await (supabase as any)
+        .from('focusos_recording_sessions')
         .select('id, chunk_count, created_at, gcs_folder_path, mime_type, status')
         .in('status', ['processing', 'recording'])
         .order('created_at', { ascending: false })
