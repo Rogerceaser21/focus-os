@@ -108,7 +108,7 @@ serve(async (req) => {
 
     // Fetch meeting to get GCS paths
     const { data: meeting, error: meetingError } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .select("*")
       .eq("id", meetingId)
       .eq("user_id", user.id)
