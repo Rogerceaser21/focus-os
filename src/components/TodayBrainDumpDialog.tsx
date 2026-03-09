@@ -118,7 +118,7 @@ export const TodayBrainDumpDialog = ({
     setIsExtracting(true);
 
     try {
-      const { data, error } = await supabase.functions.focusos-invoke('extract-tasks', {
+      const { data, error } = await supabase.functions.invoke('focusos-extract-tasks', {
         body: { 
           transcription: text,
           mode: 'tasks-only'
