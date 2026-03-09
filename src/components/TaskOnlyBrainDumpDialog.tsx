@@ -159,8 +159,8 @@ export const TaskOnlyBrainDumpDialog = ({
         timer_is_running: false,
       }));
 
-      const { error: tasksError } = await supabase
-        .from('tasks')
+      const { error: tasksError } = await (supabase as any)
+        .from('focusos_tasks')
         .insert(tasksToInsert);
 
       if (tasksError) throw tasksError;

@@ -107,7 +107,7 @@ export function useBrainDumpLive() {
 
     try {
       // 1. Get API key from edge function
-      const { data, error } = await supabase.functions.invoke('get-brain-dump-config');
+      const { data, error } = await supabase.functions.invoke('focusos-get-brain-dump-config');
       if (error || !data?.apiKey) {
         throw new Error(error?.message || 'Failed to get config');
       }

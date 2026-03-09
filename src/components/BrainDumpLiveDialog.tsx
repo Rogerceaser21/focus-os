@@ -200,7 +200,7 @@ export const BrainDumpLiveDialog = ({
         };
       });
 
-      const { error: tasksError } = await supabase.from('tasks').insert(tasksToInsert);
+      const { error: tasksError } = await (supabase as any).from('focusos_tasks').insert(tasksToInsert);
       if (tasksError) throw tasksError;
 
       toast.success(`Added ${tasks.length} task${tasks.length > 1 ? 's' : ''}`);

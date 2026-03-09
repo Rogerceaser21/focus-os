@@ -199,8 +199,8 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId, on
 
       console.log('Tasks to insert:', tasksToInsert);
 
-      const { data: insertedTasks, error: tasksError } = await supabase
-        .from('tasks')
+      const { data: insertedTasks, error: tasksError } = await (supabase as any)
+        .from('focusos_tasks')
         .insert(tasksToInsert)
         .select();
 
