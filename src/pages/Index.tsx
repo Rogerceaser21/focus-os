@@ -989,8 +989,8 @@ https://www.skyscanner.com`,
       if (tasksError) throw tasksError;
 
       // Delete the project
-      const { error: projectError } = await supabase
-        .from('focusos_projects' as any)
+      const { error: projectError } = await (supabase as any)
+        .from('focusos_projects')
         .delete()
         .eq('id', selectedProjectId);
 
