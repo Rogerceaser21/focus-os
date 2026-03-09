@@ -529,8 +529,8 @@ const Meetings = () => {
 
     try {
       // Fetch full meeting data for retry
-      const { data: meetingData, error } = await supabase
-        .from('meetings')
+      const { data: meetingData, error } = await (supabase as any)
+        .from('focusos_meetings')
         .select('*')
         .eq('id', meeting.id)
         .single();
