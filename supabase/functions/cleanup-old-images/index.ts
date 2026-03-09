@@ -26,7 +26,7 @@ serve(async (req) => {
 
     // Get tasks that need cleanup
     const { data: tasksToClean, error: fetchError } = await supabase
-      .from('tasks')
+      .from('focusos_tasks')
       .select('id, title, images, completed_at')
       .eq('status', 'completed')
       .lt('completed_at', sevenDaysAgo.toISOString())
