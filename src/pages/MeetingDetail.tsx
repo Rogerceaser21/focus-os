@@ -333,7 +333,7 @@ const MeetingDetail = () => {
     if (transcript) return;
     setTranscriptLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-meeting-transcript', {
+      const { data, error } = await supabase.functions.invoke('focusos-get-meeting-transcript', {
         body: { meetingId: id },
       });
       if (error) throw error;
