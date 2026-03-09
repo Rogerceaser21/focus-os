@@ -662,7 +662,7 @@ https://www.skyscanner.com`,
     }
 
     const { data: project2Data, error: project2Error } = await supabase
-      .from('projects')
+      .from('focusos_projects')
       .insert(demoProject2)
       .select()
       .single();
