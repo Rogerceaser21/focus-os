@@ -231,7 +231,7 @@ const Index = () => {
 
   // Fetch projects (lightweight - just names for sidebar)
   const fetchProjects = useCallback(async () => {
-    const { data, error } = await supabase.from('projects').select('*').order('created_at', {
+    const { data, error } = await supabase.from('focusos_projects').select('*').order('created_at', {
       ascending: false
     });
     if (error) {
