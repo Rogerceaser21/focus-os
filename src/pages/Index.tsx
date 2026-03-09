@@ -661,8 +661,8 @@ https://www.skyscanner.com`,
       return;
     }
 
-    const { data: project2Data, error: project2Error } = await supabase
-      .from('focusos_projects' as any)
+    const { data: project2Data, error: project2Error } = await (supabase as any)
+      .from('focusos_projects')
       .insert(demoProject2)
       .select()
       .single();
