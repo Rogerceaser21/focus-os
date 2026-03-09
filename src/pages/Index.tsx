@@ -284,7 +284,7 @@ const Index = () => {
   const fetchAllTasks = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('tasks')
+        .from('focusos_tasks')
         .select('*')
         .order('created_at', { ascending: false });
       
