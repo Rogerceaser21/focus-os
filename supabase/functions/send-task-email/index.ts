@@ -175,7 +175,7 @@ serve(async (req) => {
 
     // Fetch the task (must belong to user)
     const { data: task, error: taskError } = await supabase
-      .from("tasks")
+      .from("focusos_tasks")
       .select("*")
       .eq("id", taskId)
       .eq("user_id", userId)
