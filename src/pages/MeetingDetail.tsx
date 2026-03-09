@@ -608,7 +608,7 @@ const MeetingDetail = () => {
   const handleDeleteMeeting = async (deleteTasks: boolean) => {
     setDeleting(true);
     try {
-      const { error } = await supabase.functions.invoke('delete-meeting', {
+      const { error } = await supabase.functions.invoke('focusos-delete-meeting', {
         body: { meetingId: id, deleteTasks },
       });
       if (error) throw error;
