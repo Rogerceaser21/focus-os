@@ -269,7 +269,7 @@ serve(async (req) => {
     // Step 2: Transcribe using file URI
     console.log("Transcribing with Gemini using file URI...");
     await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .update({ processing_status: "transcribing" })
       .eq("id", meetingId);
 
