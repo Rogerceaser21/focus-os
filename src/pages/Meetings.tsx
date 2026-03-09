@@ -259,10 +259,10 @@ const Meetings = () => {
   const dismissOrphanedSession = async () => {
     if (!orphanedSession) return;
     // Mark the session as failed so it won't show again
-    await supabase
-      .from('recording_sessions')
-      .update({ status: 'failed' })
-      .eq('id', orphanedSession.id);
+      await (supabase as any)
+        .from('focusos_recording_sessions')
+        .update({ status: 'failed' })
+        .eq('id', orphanedSession.id);
     setOrphanedSession(null);
   };
 
