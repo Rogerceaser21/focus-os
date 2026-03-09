@@ -218,8 +218,8 @@ const MeetingDetail = () => {
     setMeeting(meetingData);
 
     if (data.project_id) {
-      const { data: proj } = await supabase
-        .from('projects')
+      const { data: proj } = await (supabase as any)
+        .from('focusos_projects')
         .select('id, name, color')
         .eq('id', data.project_id)
         .single();
