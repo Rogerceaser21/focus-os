@@ -471,7 +471,7 @@ serve(async (req) => {
 
       // Mark session as processing
       await supabase
-        .from("recording_sessions")
+        .from("focusos_recording_sessions")
         .update({ status: "processing" })
         .eq("id", sessionId);
 
