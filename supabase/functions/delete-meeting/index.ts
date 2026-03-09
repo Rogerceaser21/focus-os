@@ -139,7 +139,7 @@ serve(async (req) => {
     // Optionally delete associated tasks
     if (deleteTasks) {
       const { error: taskError } = await supabase
-        .from("tasks")
+        .from("focusos_tasks")
         .delete()
         .eq("meeting_id", meetingId)
         .eq("user_id", user.id);
