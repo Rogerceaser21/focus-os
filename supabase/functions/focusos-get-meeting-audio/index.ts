@@ -66,23 +66,31 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const token = url.searchParams.get("token");
-    if (!token) throw new Error("Missing token parameter");
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Missing authorization header");
 
-    // Use service role to bypass RLS
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
 
+    const { meetingId } = await req.json();
+    if (!meetingId) throw new Error("meetingId is required");
+
+    // Fetch meeting
     const { data: meeting, error } = await supabase
-      .from("meetings")
-      .select("recording_gcs_path, title")
-      .eq("share_token", token)
+      .from("focusos_meetings")
+      .select("recording_gcs_path, user_id")
+      .eq("id", meetingId)
       .single();
 
-    if (error || !meeting) throw new Error("Recording not found");
+    if (error || !meeting) throw new Error("Meeting not found");
+    if (meeting.user_id !== user.id) throw new Error("Unauthorized");
     if (!meeting.recording_gcs_path) throw new Error("No recording available");
 
     // Parse GCS path
@@ -100,7 +108,9 @@ serve(async (req) => {
     const encodedPath = encodeURIComponent(objectPath);
     const gcsResp = await fetch(
       `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodedPath}?alt=media`,
-      { headers: { Authorization: `Bearer ${gcsToken}` } }
+      {
+        headers: { Authorization: `Bearer ${gcsToken}` },
+      }
     );
 
     if (!gcsResp.ok) {
@@ -108,22 +118,23 @@ serve(async (req) => {
       throw new Error(`GCS fetch failed: ${err}`);
     }
 
-    const safeTitle = (meeting.title || "recording").replace(/[^a-zA-Z0-9_-]/g, "_");
-
+    // Return the audio stream with proper headers
     return new Response(gcsResp.body, {
       headers: {
         ...corsHeaders,
         "Content-Type": gcsResp.headers.get("Content-Type") || "audio/webm",
         "Content-Length": gcsResp.headers.get("Content-Length") || "",
-        "Content-Disposition": `attachment; filename="${safeTitle}.webm"`,
+        "Content-Disposition": `attachment; filename="meeting-recording.webm"`,
       },
     });
   } catch (error) {
-    console.error("Get shared meeting audio error:", error);
+    console.error("Get meeting audio error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
       {
-        status: 404,
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

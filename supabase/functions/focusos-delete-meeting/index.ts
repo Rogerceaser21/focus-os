@@ -108,7 +108,7 @@ serve(async (req) => {
 
     // Fetch meeting to get GCS paths
     const { data: meeting, error: meetingError } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .select("*")
       .eq("id", meetingId)
       .eq("user_id", user.id)
@@ -139,7 +139,7 @@ serve(async (req) => {
     // Optionally delete associated tasks
     if (deleteTasks) {
       const { error: taskError } = await supabase
-        .from("tasks")
+        .from("focusos_tasks")
         .delete()
         .eq("meeting_id", meetingId)
         .eq("user_id", user.id);
@@ -152,7 +152,7 @@ serve(async (req) => {
     } else {
       // Unlink tasks from the meeting but keep them
       const { error: unlinkError } = await supabase
-        .from("tasks")
+        .from("focusos_tasks")
         .update({ meeting_id: null })
         .eq("meeting_id", meetingId)
         .eq("user_id", user.id);
@@ -164,7 +164,7 @@ serve(async (req) => {
 
     // Delete the meeting record
     const { error: deleteError } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .delete()
       .eq("id", meetingId)
       .eq("user_id", user.id);

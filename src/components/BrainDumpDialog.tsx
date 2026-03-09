@@ -94,7 +94,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId, on
     try {
       const base64Audio = await blobToBase64(audioBlob);
 
-      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+      const { data, error } = await supabase.functions.invoke('focusos-focusos-transcribe-audio', {
         body: { audio: base64Audio },
       });
 
@@ -117,7 +117,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId, on
   const handleExtractTasks = async (text: string) => {
     setIsExtracting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('extract-tasks', {
+      const { data, error } = await supabase.functions.invoke('focusos-extract-tasks', {
         body: { transcription: text },
       });
 
@@ -167,8 +167,8 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId, on
 
       // Create project
       console.log('Creating project...');
-      const { data: project, error: projectError } = await supabase
-        .from('projects')
+      const { data: project, error: projectError } = await (supabase as any)
+        .from('focusos_projects')
         .insert({
           name: editableProjectName.trim(),
           user_id: user.id,
@@ -199,8 +199,8 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId, on
 
       console.log('Tasks to insert:', tasksToInsert);
 
-      const { data: insertedTasks, error: tasksError } = await supabase
-        .from('tasks')
+      const { data: insertedTasks, error: tasksError } = await (supabase as any)
+        .from('focusos_tasks')
         .insert(tasksToInsert)
         .select();
 

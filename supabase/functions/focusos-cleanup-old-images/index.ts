@@ -26,7 +26,7 @@ serve(async (req) => {
 
     // Get tasks that need cleanup
     const { data: tasksToClean, error: fetchError } = await supabase
-      .from('tasks')
+      .from('focusos_tasks')
       .select('id, title, images, completed_at')
       .eq('status', 'completed')
       .lt('completed_at', sevenDaysAgo.toISOString())
@@ -61,7 +61,7 @@ serve(async (req) => {
     // Update tasks to clear their images
     const taskIds = tasksWithImages.map(t => t.id);
     const { error: updateError } = await supabase
-      .from('tasks')
+      .from('focusos_tasks')
       .update({ images: [] })
       .in('id', taskIds);
 

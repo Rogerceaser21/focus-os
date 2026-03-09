@@ -76,8 +76,8 @@ export const ProjectSidebar = ({
   }, [projectRefreshTrigger]);
 
   const fetchProjects = async () => {
-    const { data, error } = await supabase
-      .from('projects')
+    const { data, error } = await (supabase as any)
+      .from('focusos_projects')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -95,8 +95,8 @@ export const ProjectSidebar = ({
   };
 
   const fetchMeetings = async () => {
-    const { data, error } = await supabase
-      .from('meetings')
+    const { data, error } = await (supabase as any)
+      .from('focusos_meetings')
       .select('id, title')
       .order('created_at', { ascending: false });
 
@@ -127,8 +127,8 @@ export const ProjectSidebar = ({
   const handleCreateProject = async (name: string, color: string) => {
     if (!userId) return;
 
-    const { error } = await supabase
-      .from('projects')
+    const { error } = await (supabase as any)
+      .from('focusos_projects')
       .insert({ name, color, user_id: userId });
 
     if (error) {

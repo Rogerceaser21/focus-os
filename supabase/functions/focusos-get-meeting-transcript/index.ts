@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface ServiceAccount {
@@ -19,7 +19,7 @@ async function getGcsAccessToken(sa: ServiceAccount): Promise<string> {
   const claim = btoa(
     JSON.stringify({
       iss: sa.client_email,
-      scope: "https://www.googleapis.com/auth/devstorage.read_write",
+      scope: "https://www.googleapis.com/auth/devstorage.read_only",
       aud: sa.token_uri,
       exp: now + 3600,
       iat: now,
@@ -74,76 +74,69 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
     });
-
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
-    const { sessionId, chunkIndex, audioBase64 } = await req.json();
-    if (!sessionId || chunkIndex === undefined || !audioBase64) {
-      throw new Error("Missing sessionId, chunkIndex, or audioBase64");
-    }
+    const { meetingId } = await req.json();
+    if (!meetingId) throw new Error("Missing meetingId");
 
-    // Verify session belongs to user
-    const { data: session, error: sessionError } = await supabase
-      .from("recording_sessions")
+    // Fetch meeting (RLS ensures ownership)
+    const { data: meeting, error } = await supabase
+      .from("focusos_meetings")
       .select("*")
-      .eq("id", sessionId)
-      .eq("user_id", user.id)
+      .eq("id", meetingId)
       .single();
 
-    if (sessionError || !session) throw new Error("Session not found");
-    if (session.status !== "recording") throw new Error("Session is not in recording state");
+    if (error || !meeting) throw new Error("Meeting not found");
 
-    // Upload chunk to GCS
-    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
-    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
-    const sa: ServiceAccount = JSON.parse(gcsKeyJson);
-    const token = await getGcsAccessToken(sa);
-
-    const gcsBucket = Deno.env.get("GCS_BUCKET_NAME");
-    if (!gcsBucket) throw new Error("GCS_BUCKET_NAME not configured");
-
-    const paddedIndex = String(chunkIndex).padStart(5, "0");
-    const chunkPath = `${session.gcs_folder_path}/chunks/${paddedIndex}.webm`;
-
-    const audioBytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
-    const encodedPath = encodeURIComponent(chunkPath);
-
-    const uploadResp = await fetch(
-      `https://storage.googleapis.com/upload/storage/v1/b/${gcsBucket}/o?uploadType=media&name=${encodedPath}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": session.mime_type || "audio/webm",
-        },
-        body: audioBytes,
-      }
-    );
-
-    if (!uploadResp.ok) {
-      const err = await uploadResp.text();
-      throw new Error(`GCS upload failed: ${err}`);
+    if (!meeting.transcript_gcs_path) {
+      return new Response(
+        JSON.stringify({ transcript: null, message: "No transcript available" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Update chunk count
-    const newCount = Math.max(session.chunk_count, chunkIndex + 1);
-    await supabase
-      .from("recording_sessions")
-      .update({ chunk_count: newCount })
-      .eq("id", sessionId);
+    // Download transcript from GCS
+    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
+    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
+    const serviceAccount: ServiceAccount = JSON.parse(gcsKeyJson);
 
-    console.log(`Chunk ${chunkIndex} uploaded for session ${sessionId} (${audioBytes.length} bytes)`);
+    const gcsToken = await getGcsAccessToken(serviceAccount);
+
+    // Parse gs://bucket/path
+    const gcsPath = meeting.transcript_gcs_path.replace("gs://", "");
+    const slashIdx = gcsPath.indexOf("/");
+    const bucket = gcsPath.substring(0, slashIdx);
+    const objectPath = gcsPath.substring(slashIdx + 1);
+
+    const gcsResp = await fetch(
+      `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodeURIComponent(objectPath)}?alt=media`,
+      { headers: { Authorization: `Bearer ${gcsToken}` } }
+    );
+
+    if (!gcsResp.ok) {
+      const errText = await gcsResp.text();
+      throw new Error(`GCS download failed: ${errText}`);
+    }
+
+    const transcriptData = await gcsResp.json();
 
     return new Response(
-      JSON.stringify({ success: true, chunkIndex, bytesUploaded: audioBytes.length }),
+      JSON.stringify({ transcript: transcriptData.transcript || transcriptData }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Upload chunk error:", error);
+    console.error("Get transcript error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
 });

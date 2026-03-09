@@ -162,7 +162,7 @@ const MeetingDetail = () => {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'tasks',
+          table: 'focusos_tasks',
           filter: `meeting_id=eq.${id}`,
         },
         () => {
@@ -184,8 +184,8 @@ const MeetingDetail = () => {
 
   const fetchProjects = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('projects')
+    const { data } = await (supabase as any)
+      .from('focusos_projects')
       .select('id, name, color')
       .eq('user_id', user.id);
     if (data) {
@@ -198,8 +198,8 @@ const MeetingDetail = () => {
 
   const fetchMeeting = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('meetings')
+    const { data, error } = await (supabase as any)
+      .from('focusos_meetings')
       .select('*')
       .eq('id', id)
       .single();
@@ -218,8 +218,8 @@ const MeetingDetail = () => {
     setMeeting(meetingData);
 
     if (data.project_id) {
-      const { data: proj } = await supabase
-        .from('projects')
+      const { data: proj } = await (supabase as any)
+        .from('focusos_projects')
         .select('id, name, color')
         .eq('id', data.project_id)
         .single();
@@ -232,8 +232,8 @@ const MeetingDetail = () => {
 
   const fetchSavedTasks = async () => {
     if (!user || !id) return;
-    const { data: tasks } = await supabase
-      .from('tasks')
+    const { data: tasks } = await (supabase as any)
+      .from('focusos_tasks')
       .select('*')
       .eq('user_id', user.id)
       .eq('meeting_id', id);
@@ -293,7 +293,7 @@ const MeetingDetail = () => {
     const targetLevel = level || detailLevel;
     setResummarizing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('process-meeting', {
+      const { data, error } = await supabase.functions.invoke('focusos-process-meeting', {
         body: {
           resummarize: true,
           meetingId: id,
@@ -333,7 +333,7 @@ const MeetingDetail = () => {
     if (transcript) return;
     setTranscriptLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-meeting-transcript', {
+      const { data, error } = await supabase.functions.invoke('focusos-get-meeting-transcript', {
         body: { meetingId: id },
       });
       if (error) throw error;
@@ -352,7 +352,7 @@ const MeetingDetail = () => {
     setAudioLoading(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-meeting-audio`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/focusos-get-meeting-audio`,
         {
           method: 'POST',
           headers: {
@@ -399,7 +399,7 @@ const MeetingDetail = () => {
     if (!transcriptText) {
       setExtracting(true);
       try {
-        const { data, error } = await supabase.functions.invoke('get-meeting-transcript', {
+        const { data, error } = await supabase.functions.invoke('focusos-get-meeting-transcript', {
           body: { meetingId: id },
         });
         if (error) throw error;
@@ -424,7 +424,7 @@ const MeetingDetail = () => {
         ? `Meeting Summary:\n${meeting.summary}\n\nFull Transcript:\n${transcriptText}`
         : transcriptText;
 
-      const { data, error } = await supabase.functions.invoke('extract-tasks', {
+      const { data, error } = await supabase.functions.invoke('focusos-extract-tasks', {
         body: {
           transcription: fullText,
           mode: 'tasks-only',
@@ -464,8 +464,8 @@ const MeetingDetail = () => {
   };
 
   const handleSavedTaskUpdate = async (updatedTask: Task) => {
-    const { error } = await supabase
-      .from('tasks')
+    const { error } = await (supabase as any)
+      .from('focusos_tasks')
       .update({
         title: updatedTask.title,
         description: updatedTask.description || null,
@@ -532,8 +532,8 @@ const MeetingDetail = () => {
       setEditingTitle(false);
       return;
     }
-    const { error } = await supabase
-      .from('meetings')
+    const { error } = await (supabase as any)
+      .from('focusos_meetings')
       .update({ title: trimmed })
       .eq('id', meeting.id);
     if (error) {
@@ -560,8 +560,8 @@ const MeetingDetail = () => {
     setSavingSummary(true);
     try {
       const newSummary = JSON.stringify({ overview: editOverview.trim(), outline: editOutline });
-      const { error } = await supabase
-        .from('meetings')
+      const { error } = await (supabase as any)
+        .from('focusos_meetings')
         .update({ summary: newSummary })
         .eq('id', meeting.id);
       if (error) throw error;
@@ -608,7 +608,7 @@ const MeetingDetail = () => {
   const handleDeleteMeeting = async (deleteTasks: boolean) => {
     setDeleting(true);
     try {
-      const { error } = await supabase.functions.invoke('delete-meeting', {
+      const { error } = await supabase.functions.invoke('focusos-delete-meeting', {
         body: { meetingId: id, deleteTasks },
       });
       if (error) throw error;

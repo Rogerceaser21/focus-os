@@ -269,7 +269,7 @@ serve(async (req) => {
     // Step 2: Transcribe using file URI
     console.log("Transcribing with Gemini using file URI...");
     await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .update({ processing_status: "transcribing" })
       .eq("id", meetingId);
 
@@ -332,7 +332,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
     // Step 4: Summarize
     console.log("Generating summary...");
     await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .update({ processing_status: "summarizing" })
       .eq("id", meetingId);
 
@@ -341,7 +341,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
 
     // Step 5: Save everything to meeting
     const { error: updateError } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .update({
         summary,
         transcript_gcs_path: transcriptGcsPath,
@@ -376,7 +376,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
     if (meetingId) {
       try {
         await supabase
-          .from("meetings")
+          .from("focusos_meetings")
           .update({
             processing_status: "error",
             processing_error: error instanceof Error ? error.message : "Unknown error",

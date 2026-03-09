@@ -26,8 +26,8 @@ export const useUserPreferences = (userId?: string | null) => {
 
   const fetchPreferences = async (uid: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .select('*')
         .eq('user_id', uid)
         .maybeSingle();
@@ -49,8 +49,8 @@ export const useUserPreferences = (userId?: string | null) => {
 
   const createDefaultPreferences = async (uid: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .insert({
           user_id: uid,
           default_view: 'today',
@@ -75,8 +75,8 @@ export const useUserPreferences = (userId?: string | null) => {
   const markOnboardingComplete = async () => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .update({ has_completed_onboarding: true })
         .eq('user_id', userId)
         .select()
@@ -92,8 +92,8 @@ export const useUserPreferences = (userId?: string | null) => {
   const markTaskTourComplete = async () => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .update({ has_completed_task_tour: true })
         .eq('user_id', userId)
         .select()
@@ -109,8 +109,8 @@ export const useUserPreferences = (userId?: string | null) => {
   const markProjectsTourComplete = async () => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .update({ has_completed_projects_tour: true })
         .eq('user_id', userId)
         .select()
@@ -126,8 +126,8 @@ export const useUserPreferences = (userId?: string | null) => {
   const updatePreferences = async (updates: Partial<UserPreferences>) => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .update(updates)
         .eq('user_id', userId)
         .select()

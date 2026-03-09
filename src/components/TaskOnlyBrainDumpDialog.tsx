@@ -90,7 +90,7 @@ export const TaskOnlyBrainDumpDialog = ({
     try {
       const base64Audio = await blobToBase64(audioBlob);
 
-      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+      const { data, error } = await supabase.functions.invoke('focusos-focusos-transcribe-audio', {
         body: { audio: base64Audio },
       });
 
@@ -109,7 +109,7 @@ export const TaskOnlyBrainDumpDialog = ({
   const handleExtractTasks = async (text: string) => {
     setIsExtracting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('extract-tasks', {
+      const { data, error } = await supabase.functions.invoke('focusos-extract-tasks', {
         body: { 
           transcription: text,
           mode: 'tasks-only'
@@ -159,8 +159,8 @@ export const TaskOnlyBrainDumpDialog = ({
         timer_is_running: false,
       }));
 
-      const { error: tasksError } = await supabase
-        .from('tasks')
+      const { error: tasksError } = await (supabase as any)
+        .from('focusos_tasks')
         .insert(tasksToInsert);
 
       if (tasksError) throw tasksError;

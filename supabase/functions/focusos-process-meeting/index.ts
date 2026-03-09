@@ -234,7 +234,7 @@ async function handleResummarize(
   let transcriptText = transcript;
   if (!transcriptText) {
     const { data: meeting, error } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .select("transcript_gcs_path, duration_seconds")
       .eq("id", meetingId)
       .single();
@@ -268,7 +268,7 @@ async function handleResummarize(
   const summary = await generateSummary(GEMINI_API_KEY, transcriptText, detailLevel, durationSeconds);
 
   const { error: updateError } = await supabase
-    .from("meetings")
+      .from("focusos_meetings")
     .update({ summary })
     .eq("id", meetingId);
 
@@ -459,7 +459,7 @@ serve(async (req) => {
 
       // Get session info
       const { data: session, error: sessionError } = await supabase
-        .from("recording_sessions")
+        .from("focusos_recording_sessions")
         .select("*")
         .eq("id", sessionId)
         .eq("user_id", user.id)
@@ -471,7 +471,7 @@ serve(async (req) => {
 
       // Mark session as processing
       await supabase
-        .from("recording_sessions")
+        .from("focusos_recording_sessions")
         .update({ status: "processing" })
         .eq("id", sessionId);
 
@@ -550,7 +550,7 @@ serve(async (req) => {
       // Create the meeting record immediately with processing_status = 'transcribing'
       const meetingTitle = title || `Meeting ${new Date().toLocaleDateString()}`;
       const { data: meeting, error: dbError } = await supabase
-        .from("meetings")
+        .from("focusos_meetings")
         .insert({
           user_id: user.id,
           project_id: projectId || null,
@@ -572,7 +572,7 @@ serve(async (req) => {
 
       // Mark recording session done
       await supabase
-        .from("recording_sessions")
+        .from("focusos_recording_sessions")
         .update({ status: "done" })
         .eq("id", sessionId);
 
@@ -680,7 +680,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
     console.log("Step 6: Saving meeting to database...");
 
     const { data: meeting, error: dbError } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .insert({
         user_id: user.id,
         project_id: projectId || null,

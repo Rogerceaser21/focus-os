@@ -155,7 +155,7 @@ serve(async (req) => {
     // Try to get sender's name from profiles
     let senderName = userEmail;
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("focusos_profiles")
       .select("first_name, last_name")
       .eq("user_id", userId)
       .single();
@@ -175,7 +175,7 @@ serve(async (req) => {
 
     // Fetch the task (must belong to user)
     const { data: task, error: taskError } = await supabase
-      .from("tasks")
+      .from("focusos_tasks")
       .select("*")
       .eq("id", taskId)
       .eq("user_id", userId)
@@ -190,7 +190,7 @@ serve(async (req) => {
 
     // Update the task with the assigned email
     const { error: updateError } = await supabase
-      .from("tasks")
+      .from("focusos_tasks")
       .update({ assigned_to_email: recipientEmail })
       .eq("id", taskId);
 

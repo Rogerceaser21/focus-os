@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type",
 };
 
 interface ServiceAccount {
@@ -66,75 +66,64 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing authorization header");
+    const url = new URL(req.url);
+    const token = url.searchParams.get("token");
+    if (!token) throw new Error("Missing token parameter");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    // Use service role to bypass RLS
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    const { meetingId } = await req.json();
-    if (!meetingId) throw new Error("Missing meetingId");
-
-    // Fetch meeting (RLS ensures ownership)
     const { data: meeting, error } = await supabase
-      .from("meetings")
-      .select("*")
-      .eq("id", meetingId)
+      .from("focusos_meetings")
+      .select("recording_gcs_path, title")
+      .eq("share_token", token)
       .single();
 
-    if (error || !meeting) throw new Error("Meeting not found");
+    if (error || !meeting) throw new Error("Recording not found");
+    if (!meeting.recording_gcs_path) throw new Error("No recording available");
 
-    if (!meeting.transcript_gcs_path) {
-      return new Response(
-        JSON.stringify({ transcript: null, message: "No transcript available" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Parse GCS path
+    const match = meeting.recording_gcs_path.match(/^gs:\/\/([^/]+)\/(.+)$/);
+    if (!match) throw new Error("Invalid GCS path");
+    const [, bucket, objectPath] = match;
 
-    // Download transcript from GCS
+    // Get GCS token
     const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
-    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
+    if (!gcsKeyJson) throw new Error("GCS not configured");
     const serviceAccount: ServiceAccount = JSON.parse(gcsKeyJson);
-
     const gcsToken = await getGcsAccessToken(serviceAccount);
 
-    // Parse gs://bucket/path
-    const gcsPath = meeting.transcript_gcs_path.replace("gs://", "");
-    const slashIdx = gcsPath.indexOf("/");
-    const bucket = gcsPath.substring(0, slashIdx);
-    const objectPath = gcsPath.substring(slashIdx + 1);
-
+    // Stream audio from GCS
+    const encodedPath = encodeURIComponent(objectPath);
     const gcsResp = await fetch(
-      `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodeURIComponent(objectPath)}?alt=media`,
+      `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodedPath}?alt=media`,
       { headers: { Authorization: `Bearer ${gcsToken}` } }
     );
 
     if (!gcsResp.ok) {
-      const errText = await gcsResp.text();
-      throw new Error(`GCS download failed: ${errText}`);
+      const err = await gcsResp.text();
+      throw new Error(`GCS fetch failed: ${err}`);
     }
 
-    const transcriptData = await gcsResp.json();
+    const safeTitle = (meeting.title || "recording").replace(/[^a-zA-Z0-9_-]/g, "_");
 
-    return new Response(
-      JSON.stringify({ transcript: transcriptData.transcript || transcriptData }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(gcsResp.body, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": gcsResp.headers.get("Content-Type") || "audio/webm",
+        "Content-Length": gcsResp.headers.get("Content-Length") || "",
+        "Content-Disposition": `attachment; filename="${safeTitle}.webm"`,
+      },
+    });
   } catch (error) {
-    console.error("Get transcript error:", error);
+    console.error("Get shared meeting audio error:", error);
     return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       {
-        status: 500,
+        status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

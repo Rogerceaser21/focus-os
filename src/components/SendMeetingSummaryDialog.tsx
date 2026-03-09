@@ -32,7 +32,7 @@ export const SendMeetingSummaryDialog = ({ meetingId, meetingTitle, hasRecording
 
     setSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-meeting-email', {
+      const { data, error } = await supabase.functions.invoke('focusos-send-meeting-email', {
         body: {
           meetingId,
           recipientEmail: email.trim(),

@@ -30,7 +30,7 @@ export const AssignTaskDialog = ({ task, open, onOpenChange, onAssigned }: Assig
 
     setSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-task-email', {
+      const { data, error } = await supabase.functions.invoke('focusos-send-task-email', {
         body: { taskId: task.id, recipientEmail: email.trim() },
       });
 

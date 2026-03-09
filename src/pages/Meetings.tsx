@@ -144,8 +144,8 @@ const Meetings = () => {
     if (!processingMeetingId) return;
 
     const poll = async () => {
-      const { data, error } = await supabase
-        .from('meetings')
+      const { data, error } = await (supabase as any)
+        .from('focusos_meetings')
         .select('processing_status, processing_error')
         .eq('id', processingMeetingId)
         .single();
@@ -184,14 +184,14 @@ const Meetings = () => {
   }, [processingMeetingId, navigate]);
 
   const fetchProjects = async () => {
-    const { data } = await supabase.from('projects').select('id, name, color');
+    const { data } = await (supabase as any).from('focusos_projects').select('id, name, color');
     if (data) setProjects(data);
   };
 
   const checkOrphanedSessions = async () => {
     try {
-      const { data: sessions } = await supabase
-        .from('recording_sessions')
+      const { data: sessions } = await (supabase as any)
+        .from('focusos_recording_sessions')
         .select('id, chunk_count, created_at, gcs_folder_path, mime_type, status')
         .in('status', ['processing', 'recording'])
         .order('created_at', { ascending: false })
@@ -224,7 +224,7 @@ const Meetings = () => {
     try {
       const validParticipants = participantsRef.current.filter(p => p.name.trim());
 
-      const { data, error } = await supabase.functions.invoke('process-meeting', {
+      const { data, error } = await supabase.functions.invoke('focusos-process-meeting', {
         body: {
           sessionId: orphanedSession.id,
           mimeType: orphanedSession.mimeType.split(';')[0],
@@ -259,17 +259,17 @@ const Meetings = () => {
   const dismissOrphanedSession = async () => {
     if (!orphanedSession) return;
     // Mark the session as failed so it won't show again
-    await supabase
-      .from('recording_sessions')
-      .update({ status: 'failed' })
-      .eq('id', orphanedSession.id);
+      await (supabase as any)
+        .from('focusos_recording_sessions')
+        .update({ status: 'failed' })
+        .eq('id', orphanedSession.id);
     setOrphanedSession(null);
   };
 
   const fetchMeetings = async () => {
     setLoading(true);
-    let query = supabase
-      .from('meetings')
+    let query = (supabase as any)
+      .from('focusos_meetings')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -322,7 +322,7 @@ const Meetings = () => {
       const currentIndex = chunkIndexRef.current;
       chunkIndexRef.current += 1;
 
-      const { error } = await supabase.functions.invoke('upload-audio-chunk', {
+      const { error } = await supabase.functions.invoke('focusos-upload-audio-chunk', {
         body: { sessionId: sessionIdRef.current, chunkIndex: currentIndex, audioBase64 },
       });
 
@@ -362,7 +362,7 @@ const Meetings = () => {
         ? 'audio/webm'
         : 'audio/mp4';
 
-      const { data: sessionData, error: sessionError } = await supabase.functions.invoke('start-recording-session', {
+      const { data: sessionData, error: sessionError } = await supabase.functions.invoke('focusos-start-recording-session', {
         body: { mimeType: mimeType.split(';')[0] },
       });
 
@@ -458,7 +458,7 @@ const Meetings = () => {
     try {
       const validParticipants = participantsRef.current.filter(p => p.name.trim());
 
-      const { data, error } = await supabase.functions.invoke('process-meeting', {
+      const { data, error } = await supabase.functions.invoke('focusos-process-meeting', {
         body: {
           sessionId: sessionIdRef.current,
           mimeType: mimeType.split(';')[0],
@@ -504,7 +504,7 @@ const Meetings = () => {
     try {
       console.log('Frontend triggering transcribe-meeting for:', meetingData.id);
       // Don't await - let it run in background while we poll
-      supabase.functions.invoke('transcribe-meeting', {
+      supabase.functions.invoke('focusos-transcribe-meeting', {
         body: {
           meetingId: meetingData.id,
           geminiFileUri: meetingData.geminiFileUri,
@@ -529,8 +529,8 @@ const Meetings = () => {
 
     try {
       // Fetch full meeting data for retry
-      const { data: meetingData, error } = await supabase
-        .from('meetings')
+      const { data: meetingData, error } = await (supabase as any)
+        .from('focusos_meetings')
         .select('*')
         .eq('id', meeting.id)
         .single();
@@ -555,8 +555,8 @@ const Meetings = () => {
         }
 
         // Update status to transcribing
-        await supabase
-          .from('meetings')
+        await (supabase as any)
+          .from('focusos_meetings')
           .update({ processing_status: 'transcribing', processing_error: null })
           .eq('id', meeting.id);
 
@@ -588,7 +588,7 @@ const Meetings = () => {
     if (!meetingToDelete) return;
     setDeleting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('delete-meeting', {
+      const { data, error } = await supabase.functions.invoke('focusos-delete-meeting', {
         body: { meetingId: meetingToDelete, deleteTasks },
       });
       if (error) throw error;
