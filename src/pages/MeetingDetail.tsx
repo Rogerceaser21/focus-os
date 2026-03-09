@@ -560,8 +560,8 @@ const MeetingDetail = () => {
     setSavingSummary(true);
     try {
       const newSummary = JSON.stringify({ overview: editOverview.trim(), outline: editOutline });
-      const { error } = await supabase
-        .from('meetings')
+      const { error } = await (supabase as any)
+        .from('focusos_meetings')
         .update({ summary: newSummary })
         .eq('id', meeting.id);
       if (error) throw error;
