@@ -907,7 +907,7 @@ https://www.skyscanner.com`,
     // Batch DB updates in parallel
     const results = await Promise.all(
       updatedTasks.map(t =>
-        supabase.from('tasks').update({
+        supabase.from('focusos_tasks').update({
           priority: t.priority,
           sort_order: t.sortOrder ?? 0,
         }).eq('id', t.id)
