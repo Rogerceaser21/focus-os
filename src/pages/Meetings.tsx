@@ -458,7 +458,7 @@ const Meetings = () => {
     try {
       const validParticipants = participantsRef.current.filter(p => p.name.trim());
 
-      const { data, error } = await supabase.functions.invoke('process-meeting', {
+      const { data, error } = await supabase.functions.invoke('focusos-process-meeting', {
         body: {
           sessionId: sessionIdRef.current,
           mimeType: mimeType.split(';')[0],
