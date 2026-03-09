@@ -268,7 +268,7 @@ async function handleResummarize(
   const summary = await generateSummary(GEMINI_API_KEY, transcriptText, detailLevel, durationSeconds);
 
   const { error: updateError } = await supabase
-    .from("meetings")
+      .from("focusos_meetings")
     .update({ summary })
     .eq("id", meetingId);
 
