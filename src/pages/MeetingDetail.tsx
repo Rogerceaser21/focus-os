@@ -532,8 +532,8 @@ const MeetingDetail = () => {
       setEditingTitle(false);
       return;
     }
-    const { error } = await supabase
-      .from('meetings')
+    const { error } = await (supabase as any)
+      .from('focusos_meetings')
       .update({ title: trimmed })
       .eq('id', meeting.id);
     if (error) {
