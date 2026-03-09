@@ -322,7 +322,7 @@ const Meetings = () => {
       const currentIndex = chunkIndexRef.current;
       chunkIndexRef.current += 1;
 
-      const { error } = await supabase.functions.invoke('upload-audio-chunk', {
+      const { error } = await supabase.functions.invoke('focusos-upload-audio-chunk', {
         body: { sessionId: sessionIdRef.current, chunkIndex: currentIndex, audioBase64 },
       });
 
