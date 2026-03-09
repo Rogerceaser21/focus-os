@@ -92,8 +92,8 @@ export const useUserPreferences = (userId?: string | null) => {
   const markTaskTourComplete = async () => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .update({ has_completed_task_tour: true })
         .eq('user_id', userId)
         .select()
