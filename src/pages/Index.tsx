@@ -990,7 +990,7 @@ https://www.skyscanner.com`,
 
       // Delete the project
       const { error: projectError } = await supabase
-        .from('focusos_projects')
+        .from('focusos_projects' as any)
         .delete()
         .eq('id', selectedProjectId);
 
