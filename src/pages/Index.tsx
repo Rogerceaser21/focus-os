@@ -870,7 +870,7 @@ https://www.skyscanner.com`,
     // Update database in background
     const {
       error
-    } = await supabase.from('tasks').update({
+    } = await supabase.from('focusos_tasks').update({
       title: updatedTask.title,
       description: updatedTask.description,
       priority: updatedTask.priority,
