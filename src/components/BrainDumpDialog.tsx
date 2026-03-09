@@ -167,8 +167,8 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId, on
 
       // Create project
       console.log('Creating project...');
-      const { data: project, error: projectError } = await supabase
-        .from('projects')
+      const { data: project, error: projectError } = await (supabase as any)
+        .from('focusos_projects')
         .insert({
           name: editableProjectName.trim(),
           user_id: user.id,
