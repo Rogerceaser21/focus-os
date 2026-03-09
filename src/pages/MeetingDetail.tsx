@@ -352,7 +352,7 @@ const MeetingDetail = () => {
     setAudioLoading(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-meeting-audio`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/focusos-get-meeting-audio`,
         {
           method: 'POST',
           headers: {
