@@ -90,7 +90,7 @@ export const TaskOnlyBrainDumpDialog = ({
     try {
       const base64Audio = await blobToBase64(audioBlob);
 
-      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+      const { data, error } = await supabase.functions.invoke('focusos-transcribe-audio', {
         body: { audio: base64Audio },
       });
 
