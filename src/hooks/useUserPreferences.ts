@@ -126,8 +126,8 @@ export const useUserPreferences = (userId?: string | null) => {
   const updatePreferences = async (updates: Partial<UserPreferences>) => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
         .update(updates)
         .eq('user_id', userId)
         .select()
