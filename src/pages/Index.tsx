@@ -615,7 +615,7 @@ https://www.skyscanner.com`,
     // Delete the sample "Plan Holidays" task
     if (taskTourTask) {
       try {
-        await supabase.from('focusos_tasks').delete().eq('id', taskTourTask.id);
+        await (supabase as any).from('focusos_tasks').delete().eq('id', taskTourTask.id);
         setTasks(prev => prev.filter(t => t.id !== taskTourTask.id));
       } catch (error) {
         console.error('Failed to delete tour task:', error);
