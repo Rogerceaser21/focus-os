@@ -188,7 +188,7 @@ serve(async (req) => {
 
     // Fetch meeting
     const { data: meeting, error: meetingError } = await supabase
-     focusos_ .from("meetings")
+      .from("focusos_meetings")
       .select("*")
       .eq("id", meetingId)
       .eq("user_id", user.id)
