@@ -464,8 +464,8 @@ const MeetingDetail = () => {
   };
 
   const handleSavedTaskUpdate = async (updatedTask: Task) => {
-    const { error } = await supabase
-      .from('tasks')
+    const { error } = await (supabase as any)
+      .from('focusos_tasks')
       .update({
         title: updatedTask.title,
         description: updatedTask.description || null,
