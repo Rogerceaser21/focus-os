@@ -433,7 +433,7 @@ const Index = () => {
         {
           event: 'DELETE',
           schema: 'public',
-          table: 'tasks',
+          table: 'focusos_tasks',
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
