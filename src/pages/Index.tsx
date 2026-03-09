@@ -685,8 +685,8 @@ https://www.skyscanner.com`,
       due_date: new Date().toISOString()
     };
 
-    const { data: taskData, error: taskError } = await supabase
-      .from('focusos_tasks' as any)
+    const { data: taskData, error: taskError } = await (supabase as any)
+      .from('focusos_tasks')
       .insert(demoTask)
       .select()
       .single();
