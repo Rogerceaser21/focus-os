@@ -268,8 +268,8 @@ const Meetings = () => {
 
   const fetchMeetings = async () => {
     setLoading(true);
-    let query = supabase
-      .from('meetings')
+    let query = (supabase as any)
+      .from('focusos_meetings')
       .select('*')
       .order('created_at', { ascending: false });
 
