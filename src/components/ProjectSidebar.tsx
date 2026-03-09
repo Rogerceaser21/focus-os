@@ -95,8 +95,8 @@ export const ProjectSidebar = ({
   };
 
   const fetchMeetings = async () => {
-    const { data, error } = await supabase
-      .from('meetings')
+    const { data, error } = await (supabase as any)
+      .from('focusos_meetings')
       .select('id, title')
       .order('created_at', { ascending: false });
 
