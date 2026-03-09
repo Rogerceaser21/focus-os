@@ -162,7 +162,7 @@ const MeetingDetail = () => {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'tasks',
+          table: 'focusos_tasks',
           filter: `meeting_id=eq.${id}`,
         },
         () => {
