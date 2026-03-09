@@ -792,7 +792,7 @@ https://www.skyscanner.com`,
     // Delete demo task
     if (projectsTourTask) {
       try {
-        await supabase.from('tasks').delete().eq('id', projectsTourTask.id);
+        await supabase.from('focusos_tasks').delete().eq('id', projectsTourTask.id);
       } catch (error) {
         console.error('Failed to delete demo task:', error);
       }
