@@ -550,7 +550,7 @@ serve(async (req) => {
       // Create the meeting record immediately with processing_status = 'transcribing'
       const meetingTitle = title || `Meeting ${new Date().toLocaleDateString()}`;
       const { data: meeting, error: dbError } = await supabase
-        .from("meetings")
+        .from("focusos_meetings")
         .insert({
           user_id: user.id,
           project_id: projectId || null,
