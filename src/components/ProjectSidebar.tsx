@@ -76,8 +76,8 @@ export const ProjectSidebar = ({
   }, [projectRefreshTrigger]);
 
   const fetchProjects = async () => {
-    const { data, error } = await supabase
-      .from('projects')
+    const { data, error } = await (supabase as any)
+      .from('focusos_projects')
       .select('*')
       .order('created_at', { ascending: false });
 
