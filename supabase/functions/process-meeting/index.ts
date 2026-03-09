@@ -234,7 +234,7 @@ async function handleResummarize(
   let transcriptText = transcript;
   if (!transcriptText) {
     const { data: meeting, error } = await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .select("transcript_gcs_path, duration_seconds")
       .eq("id", meetingId)
       .single();
