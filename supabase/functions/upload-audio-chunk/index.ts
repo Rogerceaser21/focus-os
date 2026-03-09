@@ -85,7 +85,7 @@ serve(async (req) => {
 
     // Verify session belongs to user
     const { data: session, error: sessionError } = await supabase
-      .from("recording_sessions")
+      .from("focusos_recording_sessions")
       .select("*")
       .eq("id", sessionId)
       .eq("user_id", user.id)
