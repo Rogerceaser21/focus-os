@@ -459,7 +459,7 @@ serve(async (req) => {
 
       // Get session info
       const { data: session, error: sessionError } = await supabase
-        .from("recording_sessions")
+        .from("focusos_recording_sessions")
         .select("*")
         .eq("id", sessionId)
         .eq("user_id", user.id)
