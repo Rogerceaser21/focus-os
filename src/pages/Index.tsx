@@ -841,7 +841,7 @@ https://www.skyscanner.com`,
     if (!user) return;
     const {
       error
-    } = await supabase.from('focusos_tasks').insert({
+    } = await (supabase as any).from('focusos_tasks').insert({
       user_id: user.id,
       project_id: newTask.projectId || null,
       title: newTask.title,
