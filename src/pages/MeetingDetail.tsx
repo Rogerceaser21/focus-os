@@ -184,8 +184,8 @@ const MeetingDetail = () => {
 
   const fetchProjects = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('projects')
+    const { data } = await (supabase as any)
+      .from('focusos_projects')
       .select('id, name, color')
       .eq('user_id', user.id);
     if (data) {
