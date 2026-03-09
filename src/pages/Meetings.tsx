@@ -184,7 +184,7 @@ const Meetings = () => {
   }, [processingMeetingId, navigate]);
 
   const fetchProjects = async () => {
-    const { data } = await supabase.from('projects').select('id, name, color');
+    const { data } = await (supabase as any).from('focusos_projects').select('id, name, color');
     if (data) setProjects(data);
   };
 
