@@ -232,8 +232,8 @@ const MeetingDetail = () => {
 
   const fetchSavedTasks = async () => {
     if (!user || !id) return;
-    const { data: tasks } = await supabase
-      .from('tasks')
+    const { data: tasks } = await (supabase as any)
+      .from('focusos_tasks')
       .select('*')
       .eq('user_id', user.id)
       .eq('meeting_id', id);
