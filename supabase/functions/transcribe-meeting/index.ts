@@ -332,7 +332,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
     // Step 4: Summarize
     console.log("Generating summary...");
     await supabase
-      .from("meetings")
+      .from("focusos_meetings")
       .update({ processing_status: "summarizing" })
       .eq("id", meetingId);
 
