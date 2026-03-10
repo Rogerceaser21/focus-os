@@ -200,23 +200,28 @@ CREATE TRIGGER focusos_on_auth_user_created_registration
   EXECUTE FUNCTION public.focusos_handle_new_user_registration();
 
 -- Step 5: Insert all 16 users into focusos_users (app-specific registry)
-INSERT INTO public.focusos_users (user_id, email, created_at) VALUES
-('4f97eb51-30fb-4cb0-b82e-10b40eea090e', 't.oliva@outlook.es', '2026-01-29T15:17:01.776084Z'),
-('6a1e1a18-d517-4864-a850-245f1f409757', 'stephenjames7025@hotmail.co.uk', '2026-01-13T04:04:26.874382Z'),
-('cb0f9ba7-cbbf-458e-9cbd-7ab047352a8c', 'charlotte.hilton@ais.ae', '2026-01-11T05:54:36.425923Z'),
-('c256a26d-5daf-42d9-a34b-8070b8b8decf', 'toby.ayres@gmail.com', '2026-01-04T13:23:16.337101Z'),
-('4b27bb68-0c45-4fcd-96d2-41f3d22ac2e3', 'jasmina.sesar1@outlook.com', '2025-12-28T04:31:18.250488Z'),
-('9ad083ff-2a17-4a8b-a309-5b8894e10126', 'boyd.telford@ais.ae', '2025-12-11T13:47:21.707515Z'),
-('137f60f8-c870-44a8-87f7-5e202cf9c65b', 'arezoo.alavi@gmail.com', '2025-12-09T12:06:16.207309Z'),
-('35c41be3-1a20-450a-ae0f-0cfb9d7822ed', 'sara.seifen@ais.ae', '2025-11-24T06:17:26.472081Z'),
-('d78e4c0a-bcdc-4c93-9a3f-2d0f68665409', 'alisja.debruyn@ais.ae', '2025-11-24T06:16:13.405051Z'),
-('d0eb1596-7704-4bdf-b2de-a96d96172677', 'lauren.jordaan@ais.ae', '2025-11-24T06:11:53.152268Z'),
-('6b5a4910-b0ef-4926-9554-c9b3a460b111', 'odene.truter@ais.ae', '2025-11-19T11:47:48.609843Z'),
-('4feaa2b6-73b0-4e42-ad6a-301c2c38a561', 'brooke.pickett@ais.ae', '2025-11-17T06:36:03.016416Z'),
-('37682c71-cc67-4c17-bf65-0a5d33c6cc43', 'andrew.brown@ais.ae', '2025-11-11T04:06:00.32066Z'),
-('c5ba00c7-c167-4644-b8fe-4db632cb251e', 'ava.alavi@gmail.com', '2025-11-01T14:47:42.760769Z'),
-('774d56f9-f81b-46c6-9a1f-30c94e244cd8', 'igor.sesar@ais.ae', '2025-11-01T12:43:12.843187Z'),
-('fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'toby.ayres@ais.ae', '2026-03-06T08:03:01.535479Z')
+-- Uses the actual user_id from auth.users (in case a user already existed with a different UUID)
+INSERT INTO public.focusos_users (user_id, email, created_at)
+SELECT au.id, au.email, v.created_at
+FROM (VALUES
+  ('t.oliva@outlook.es'::text, '2026-01-29T15:17:01.776084Z'::timestamptz),
+  ('stephenjames7025@hotmail.co.uk', '2026-01-13T04:04:26.874382Z'),
+  ('charlotte.hilton@ais.ae', '2026-01-11T05:54:36.425923Z'),
+  ('toby.ayres@gmail.com', '2026-01-04T13:23:16.337101Z'),
+  ('jasmina.sesar1@outlook.com', '2025-12-28T04:31:18.250488Z'),
+  ('boyd.telford@ais.ae', '2025-12-11T13:47:21.707515Z'),
+  ('arezoo.alavi@gmail.com', '2025-12-09T12:06:16.207309Z'),
+  ('sara.seifen@ais.ae', '2025-11-24T06:17:26.472081Z'),
+  ('alisja.debruyn@ais.ae', '2025-11-24T06:16:13.405051Z'),
+  ('lauren.jordaan@ais.ae', '2025-11-24T06:11:53.152268Z'),
+  ('odene.truter@ais.ae', '2025-11-19T11:47:48.609843Z'),
+  ('brooke.pickett@ais.ae', '2025-11-17T06:36:03.016416Z'),
+  ('andrew.brown@ais.ae', '2025-11-11T04:06:00.32066Z'),
+  ('ava.alavi@gmail.com', '2025-11-01T14:47:42.760769Z'),
+  ('igor.sesar@ais.ae', '2025-11-01T12:43:12.843187Z'),
+  ('toby.ayres@ais.ae', '2026-03-06T08:03:01.535479Z')
+) AS v(email, created_at)
+JOIN auth.users au ON au.email = v.email
 ON CONFLICT (user_id) DO NOTHING;
 
 -- ============================================================
