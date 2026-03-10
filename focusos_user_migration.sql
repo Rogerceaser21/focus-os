@@ -216,7 +216,8 @@ INSERT INTO public.focusos_users (user_id, email, created_at) VALUES
 ('37682c71-cc67-4c17-bf65-0a5d33c6cc43', 'andrew.brown@ais.ae', '2025-11-11T04:06:00.32066Z'),
 ('c5ba00c7-c167-4644-b8fe-4db632cb251e', 'ava.alavi@gmail.com', '2025-11-01T14:47:42.760769Z'),
 ('774d56f9-f81b-46c6-9a1f-30c94e244cd8', 'igor.sesar@ais.ae', '2025-11-01T12:43:12.843187Z'),
-('fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'toby.ayres@ais.ae', '2026-03-06T08:03:01.535479Z');
+('fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'toby.ayres@ais.ae', '2026-03-06T08:03:01.535479Z')
+ON CONFLICT (user_id) DO NOTHING;
 
 -- ============================================================
 -- DONE! 16 users created in auth.users, auth.identities, AND focusos_users.
