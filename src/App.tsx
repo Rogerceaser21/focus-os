@@ -7,6 +7,7 @@ import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Intro from "./pages/Intro";
+import ResetPassword from "./pages/ResetPassword";
 import Meetings from "./pages/Meetings";
 import MeetingDetail from "./pages/MeetingDetail";
 import NotFound from "./pages/NotFound";
@@ -22,6 +23,7 @@ const App = () => (
         <Route path="/" element={<Landing />} />
         <Route path="/app" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/intro" element={<Intro />} />
         <Route path="/meetings" element={<Meetings />} />
         <Route path="/meetings/:id" element={<MeetingDetail />} />
