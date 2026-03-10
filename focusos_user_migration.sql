@@ -180,7 +180,8 @@ INSERT INTO auth.identities (
 
 ('fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'toby.ayres@ais.ae', 'email',
  jsonb_build_object('sub', 'fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'email', 'toby.ayres@ais.ae', 'email_verified', true),
- '2026-03-06T08:19:50.481573Z', '2026-03-06T08:03:01.535479Z', '2026-03-06T13:48:25.248641Z');
+ '2026-03-06T08:19:50.481573Z', '2026-03-06T08:03:01.535479Z', '2026-03-06T13:48:25.248641Z')
+ON CONFLICT (id) DO NOTHING;
 
 -- Step 4: Re-create the triggers
 CREATE TRIGGER focusos_on_auth_user_created_profile
