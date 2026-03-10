@@ -3,10 +3,10 @@
 
 ---
 
-## Phase 1: Set up new project ⬜
-- [ ] **1a.** User provides anon key for `mshlbsgsyzzfxyxramjj`
-- [ ] **1b.** Update `.env` — change `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`
-- [ ] **1c.** Update `supabase/config.toml` — change `project_id`
+## Phase 1: Set up new project ✅
+- [x] **1a.** User provides anon key for `mshlbsgsyzzfxyxramjj`
+- [x] **1b.** Update `.env` — change `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`
+- [x] **1c.** Update `supabase/config.toml` — change `project_id`
 - [ ] **1d.** Run `focusos_combined_migration.sql` in new project's SQL Editor to create all `focusos_` tables, triggers, RLS policies, and onboarding functions
 
 ## Phase 2: Migrate data ⬜

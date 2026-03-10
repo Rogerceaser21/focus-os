@@ -1,4 +1,4 @@
-project_id = "ujwmqwmsqklocvzlqpbm"
+project_id = "mshlbsgsyzzfxyxramjj"
 
 [functions.focusos-transcribe-audio]
 verify_jwt = true
