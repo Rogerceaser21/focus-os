@@ -4,8 +4,10 @@
 -- This creates all 16 users with their original UUIDs
 -- ============================================================
 
--- Step 1: Disable auto-creation triggers so we don't get duplicate profiles/onboarding data
-ALTER TABLE auth.users DISABLE TRIGGER ALL;
+-- Step 1: Disable focusos auto-creation triggers so we don't get duplicate profiles/onboarding data
+DROP TRIGGER IF EXISTS focusos_on_auth_user_created_profile ON auth.users;
+DROP TRIGGER IF EXISTS focusos_on_auth_user_created_onboarding ON auth.users;
+DROP TRIGGER IF EXISTS focusos_on_auth_user_created_registration ON auth.users;
 
 -- Step 2: Insert all 16 users into auth.users
 -- Password is set to a dummy bcrypt hash — users will need to use "Forgot Password" to set a new one
