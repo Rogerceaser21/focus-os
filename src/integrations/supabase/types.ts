@@ -10,11 +10,314 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "12.2.3 (519615d)"
   }
   public: {
     Tables: {
-      meetings: {
+      ais_art_active_theme: {
+        Row: {
+          active_theme: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          active_theme?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          active_theme?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ais_art_app_config: {
+        Row: {
+          created_at: string
+          id: string
+          signup_password: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          signup_password: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          signup_password?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ais_art_project_users: {
+        Row: {
+          created_at: string
+          id: string
+          password: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          password: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          password?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      ais_att_email_db_parents: {
+        Row: {
+          access_token_link: string | null
+          created_at: string | null
+          forename: string
+          form: string | null
+          id: string
+          is_active: boolean | null
+          parent_email: string | null
+          parent_forename: string | null
+          parent_mobile: string | null
+          parent_surname: string | null
+          relation_type: string | null
+          school_id: string
+          school_type: string
+          surname: string
+          updated_at: string | null
+          username: string | null
+          year_code: string | null
+        }
+        Insert: {
+          access_token_link?: string | null
+          created_at?: string | null
+          forename: string
+          form?: string | null
+          id?: string
+          is_active?: boolean | null
+          parent_email?: string | null
+          parent_forename?: string | null
+          parent_mobile?: string | null
+          parent_surname?: string | null
+          relation_type?: string | null
+          school_id: string
+          school_type: string
+          surname: string
+          updated_at?: string | null
+          username?: string | null
+          year_code?: string | null
+        }
+        Update: {
+          access_token_link?: string | null
+          created_at?: string | null
+          forename?: string
+          form?: string | null
+          id?: string
+          is_active?: boolean | null
+          parent_email?: string | null
+          parent_forename?: string | null
+          parent_mobile?: string | null
+          parent_surname?: string | null
+          relation_type?: string | null
+          school_id?: string
+          school_type?: string
+          surname?: string
+          updated_at?: string | null
+          username?: string | null
+          year_code?: string | null
+        }
+        Relationships: []
+      }
+      ais_att_email_db_students: {
+        Row: {
+          access_token_link: string | null
+          created_at: string | null
+          forename: string
+          form: string | null
+          id: string
+          is_active: boolean | null
+          pupil_email_address: string | null
+          school_id: string
+          school_type: string
+          surname: string
+          updated_at: string | null
+          username: string | null
+          year_code: string | null
+        }
+        Insert: {
+          access_token_link?: string | null
+          created_at?: string | null
+          forename: string
+          form?: string | null
+          id?: string
+          is_active?: boolean | null
+          pupil_email_address?: string | null
+          school_id: string
+          school_type: string
+          surname: string
+          updated_at?: string | null
+          username?: string | null
+          year_code?: string | null
+        }
+        Update: {
+          access_token_link?: string | null
+          created_at?: string | null
+          forename?: string
+          form?: string | null
+          id?: string
+          is_active?: boolean | null
+          pupil_email_address?: string | null
+          school_id?: string
+          school_type?: string
+          surname?: string
+          updated_at?: string | null
+          username?: string | null
+          year_code?: string | null
+        }
+        Relationships: []
+      }
+      ais_attendance_app_user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          password: string
+          role: Database["public"]["Enums"]["ais_attendance_app_role"]
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          password: string
+          role?: Database["public"]["Enums"]["ais_attendance_app_role"]
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          password?: string
+          role?: Database["public"]["Enums"]["ais_attendance_app_role"]
+          username?: string
+        }
+        Relationships: []
+      }
+      app_configuration: {
+        Row: {
+          created_at: string | null
+          id: string
+          settings_password: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          settings_password: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          settings_password?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      art_project_api: {
+        Row: {
+          api_key: string
+          created_at: string | null
+          id: string
+          key_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          api_key: string
+          created_at?: string | null
+          id?: string
+          key_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          api_key?: string
+          created_at?: string | null
+          id?: string
+          key_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      art_project_videos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          grade: string
+          id: string
+          is_hidden: boolean
+          is_pinned: boolean
+          pin_order: number | null
+          prompt: string | null
+          student_first_name: string
+          student_surname: string
+          video_url: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          grade: string
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          pin_order?: number | null
+          prompt?: string | null
+          student_first_name: string
+          student_surname: string
+          video_url: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          grade?: string
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          pin_order?: number | null
+          prompt?: string | null
+          student_first_name?: string
+          student_surname?: string
+          video_url?: string
+        }
+        Relationships: []
+      }
+      att_app_display_settings: {
+        Row: {
+          created_at: string
+          hide_early_leave_card: boolean
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hide_early_leave_card?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hide_early_leave_card?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      focusos_meetings: {
         Row: {
           action_items: Json | null
           created_at: string
@@ -69,17 +372,9 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "meetings_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      profiles: {
+      focusos_profiles: {
         Row: {
           created_at: string
           first_name: string | null
@@ -106,7 +401,7 @@ export type Database = {
         }
         Relationships: []
       }
-      projects: {
+      focusos_projects: {
         Row: {
           color: string
           created_at: string
@@ -133,7 +428,7 @@ export type Database = {
         }
         Relationships: []
       }
-      recording_sessions: {
+      focusos_recording_sessions: {
         Row: {
           chunk_count: number
           created_at: string
@@ -166,7 +461,7 @@ export type Database = {
         }
         Relationships: []
       }
-      tasks: {
+      focusos_tasks: {
         Row: {
           assigned_to_email: string | null
           completed_at: string | null
@@ -239,24 +534,9 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "tasks_meeting_id_fkey"
-            columns: ["meeting_id"]
-            isOneToOne: false
-            referencedRelation: "meetings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      user_preferences: {
+      focusos_user_preferences: {
         Row: {
           created_at: string | null
           default_display_mode: string
@@ -310,15 +590,258 @@ export type Database = {
         }
         Relationships: []
       }
+      focusos_users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          role?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      school_databases: {
+        Row: {
+          created_at: string | null
+          data: Json
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      student_access_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          id: string
+          school_id: string
+          school_type: string
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string
+          created_at?: string
+          id?: string
+          school_id: string
+          school_type: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          id?: string
+          school_id?: string
+          school_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      student_display_settings: {
+        Row: {
+          school_id: string
+          show_hidden: boolean
+          updated_at: string
+        }
+        Insert: {
+          school_id: string
+          show_hidden?: boolean
+          updated_at?: string
+        }
+        Update: {
+          school_id?: string
+          show_hidden?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      studentfeedback_appcredentials: {
+        Row: {
+          created_at: string
+          google_api_key: string | null
+          google_sheet_id: string | null
+          id: string
+          service_account_json: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          google_api_key?: string | null
+          google_sheet_id?: string | null
+          id?: string
+          service_account_json?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          google_api_key?: string | null
+          google_sheet_id?: string | null
+          id?: string
+          service_account_json?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_database_access: {
+        Row: {
+          active_class: string[] | null
+          active_grade: string[] | null
+          created_at: string | null
+          database_id: string
+          id: string
+          is_active: boolean
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          active_class?: string[] | null
+          active_grade?: string[] | null
+          created_at?: string | null
+          database_id: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          active_class?: string[] | null
+          active_grade?: string[] | null
+          created_at?: string | null
+          database_id?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_database_access_database_id_fkey"
+            columns: ["database_id"]
+            isOneToOne: false
+            referencedRelation: "school_databases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          category_presets: string | null
+          default_search_method: string | null
+          first_name: string | null
+          google_cloud_bucket_name: string | null
+          google_cloud_project_id: string | null
+          google_cloud_service_account_key: string | null
+          google_form_entry_key: string | null
+          google_form_url: string | null
+          google_sheet_url: string | null
+          id: string
+          last_name: string | null
+          name_mappings: string | null
+          openai_api_key: string | null
+          user_id: string
+        }
+        Insert: {
+          category_presets?: string | null
+          default_search_method?: string | null
+          first_name?: string | null
+          google_cloud_bucket_name?: string | null
+          google_cloud_project_id?: string | null
+          google_cloud_service_account_key?: string | null
+          google_form_entry_key?: string | null
+          google_form_url?: string | null
+          google_sheet_url?: string | null
+          id?: string
+          last_name?: string | null
+          name_mappings?: string | null
+          openai_api_key?: string | null
+          user_id: string
+        }
+        Update: {
+          category_presets?: string | null
+          default_search_method?: string | null
+          first_name?: string | null
+          google_cloud_bucket_name?: string | null
+          google_cloud_project_id?: string | null
+          google_cloud_service_account_key?: string | null
+          google_form_entry_key?: string | null
+          google_form_url?: string | null
+          google_sheet_url?: string | null
+          id?: string
+          last_name?: string | null
+          name_mappings?: string | null
+          openai_api_key?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      dreamlit_auth_admin_executor: {
+        Args: { command: string }
+        Returns: undefined
+      }
+      get_app_configuration: { Args: never; Returns: Json }
     }
     Enums: {
-      [_ in never]: never
+      ais_attendance_app_role: "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -445,6 +968,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      ais_attendance_app_role: ["admin"],
+    },
   },
 } as const
