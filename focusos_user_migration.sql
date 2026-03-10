@@ -112,7 +112,7 @@ INSERT INTO auth.users (
  'toby.ayres@ais.ae', '$2a$10$PznXtItQlMGSxWkFHaGMOOLGHPNjHPGBsNEEIBJTgqVehOrYL3S9G',
  '2026-03-06T08:03:01.56639Z', '2026-03-06T08:03:01.535479Z', '2026-03-06T13:48:25.248641Z', '2026-03-06T08:19:50.481573Z',
  '', '', '', '{"provider":"email","providers":["email"]}', '{}', false, false)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- Step 3: Insert matching auth.identities rows (required for email login to work)
 INSERT INTO auth.identities (
