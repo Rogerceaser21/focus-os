@@ -115,72 +115,33 @@ INSERT INTO auth.users (
 ON CONFLICT DO NOTHING;
 
 -- Step 3: Insert matching auth.identities rows (required for email login to work)
+-- Uses actual user_id from auth.users in case user already existed with different UUID
 INSERT INTO auth.identities (
   id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at
-) VALUES
-('4f97eb51-30fb-4cb0-b82e-10b40eea090e', '4f97eb51-30fb-4cb0-b82e-10b40eea090e', 't.oliva@outlook.es', 'email',
- jsonb_build_object('sub', '4f97eb51-30fb-4cb0-b82e-10b40eea090e', 'email', 't.oliva@outlook.es', 'email_verified', true),
- '2026-01-29T15:17:01.929667Z', '2026-01-29T15:17:01.776084Z', '2026-02-25T13:27:34.773445Z'),
-
-('6a1e1a18-d517-4864-a850-245f1f409757', '6a1e1a18-d517-4864-a850-245f1f409757', 'stephenjames7025@hotmail.co.uk', 'email',
- jsonb_build_object('sub', '6a1e1a18-d517-4864-a850-245f1f409757', 'email', 'stephenjames7025@hotmail.co.uk', 'email_verified', true),
- '2026-01-13T04:04:27.026367Z', '2026-01-13T04:04:26.874382Z', '2026-01-26T09:44:49.412986Z'),
-
-('cb0f9ba7-cbbf-458e-9cbd-7ab047352a8c', 'cb0f9ba7-cbbf-458e-9cbd-7ab047352a8c', 'charlotte.hilton@ais.ae', 'email',
- jsonb_build_object('sub', 'cb0f9ba7-cbbf-458e-9cbd-7ab047352a8c', 'email', 'charlotte.hilton@ais.ae', 'email_verified', true),
- '2026-01-26T04:07:48.113866Z', '2026-01-11T05:54:36.425923Z', '2026-01-27T02:57:57.079537Z'),
-
-('c256a26d-5daf-42d9-a34b-8070b8b8decf', 'c256a26d-5daf-42d9-a34b-8070b8b8decf', 'toby.ayres@gmail.com', 'email',
- jsonb_build_object('sub', 'c256a26d-5daf-42d9-a34b-8070b8b8decf', 'email', 'toby.ayres@gmail.com', 'email_verified', true),
- '2026-01-04T13:23:16.477405Z', '2026-01-04T13:23:16.337101Z', '2026-01-04T13:23:16.533625Z'),
-
-('4b27bb68-0c45-4fcd-96d2-41f3d22ac2e3', '4b27bb68-0c45-4fcd-96d2-41f3d22ac2e3', 'jasmina.sesar1@outlook.com', 'email',
- jsonb_build_object('sub', '4b27bb68-0c45-4fcd-96d2-41f3d22ac2e3', 'email', 'jasmina.sesar1@outlook.com', 'email_verified', true),
- '2025-12-28T04:31:18.390892Z', '2025-12-28T04:31:18.250488Z', '2025-12-28T05:50:31.958452Z'),
-
-('9ad083ff-2a17-4a8b-a309-5b8894e10126', '9ad083ff-2a17-4a8b-a309-5b8894e10126', 'boyd.telford@ais.ae', 'email',
- jsonb_build_object('sub', '9ad083ff-2a17-4a8b-a309-5b8894e10126', 'email', 'boyd.telford@ais.ae', 'email_verified', true),
- '2025-12-11T13:47:21.807578Z', '2025-12-11T13:47:21.707515Z', '2025-12-11T15:55:10.846476Z'),
-
-('137f60f8-c870-44a8-87f7-5e202cf9c65b', '137f60f8-c870-44a8-87f7-5e202cf9c65b', 'arezoo.alavi@gmail.com', 'email',
- jsonb_build_object('sub', '137f60f8-c870-44a8-87f7-5e202cf9c65b', 'email', 'arezoo.alavi@gmail.com', 'email_verified', true),
- '2025-12-13T16:27:41.776119Z', '2025-12-09T12:06:16.207309Z', '2025-12-22T09:54:58.227155Z'),
-
-('35c41be3-1a20-450a-ae0f-0cfb9d7822ed', '35c41be3-1a20-450a-ae0f-0cfb9d7822ed', 'sara.seifen@ais.ae', 'email',
- jsonb_build_object('sub', '35c41be3-1a20-450a-ae0f-0cfb9d7822ed', 'email', 'sara.seifen@ais.ae', 'email_verified', true),
- '2025-11-25T07:58:43.686408Z', '2025-11-24T06:17:26.472081Z', '2025-11-25T07:58:43.768562Z'),
-
-('d78e4c0a-bcdc-4c93-9a3f-2d0f68665409', 'd78e4c0a-bcdc-4c93-9a3f-2d0f68665409', 'alisja.debruyn@ais.ae', 'email',
- jsonb_build_object('sub', 'd78e4c0a-bcdc-4c93-9a3f-2d0f68665409', 'email', 'alisja.debruyn@ais.ae', 'email_verified', true),
- '2025-11-24T06:16:13.442751Z', '2025-11-24T06:16:13.405051Z', '2025-11-24T06:16:13.451181Z'),
-
-('d0eb1596-7704-4bdf-b2de-a96d96172677', 'd0eb1596-7704-4bdf-b2de-a96d96172677', 'lauren.jordaan@ais.ae', 'email',
- jsonb_build_object('sub', 'd0eb1596-7704-4bdf-b2de-a96d96172677', 'email', 'lauren.jordaan@ais.ae', 'email_verified', true),
- '2025-11-24T06:14:46.258635Z', '2025-11-24T06:11:53.152268Z', '2025-11-24T06:14:46.26387Z'),
-
-('6b5a4910-b0ef-4926-9554-c9b3a460b111', '6b5a4910-b0ef-4926-9554-c9b3a460b111', 'odene.truter@ais.ae', 'email',
- jsonb_build_object('sub', '6b5a4910-b0ef-4926-9554-c9b3a460b111', 'email', 'odene.truter@ais.ae', 'email_verified', true),
- '2025-11-19T11:53:17.374388Z', '2025-11-19T11:47:48.609843Z', '2026-01-20T12:13:31.966644Z'),
-
-('4feaa2b6-73b0-4e42-ad6a-301c2c38a561', '4feaa2b6-73b0-4e42-ad6a-301c2c38a561', 'brooke.pickett@ais.ae', 'email',
- jsonb_build_object('sub', '4feaa2b6-73b0-4e42-ad6a-301c2c38a561', 'email', 'brooke.pickett@ais.ae', 'email_verified', true),
- '2025-12-09T11:47:42.459223Z', '2025-11-17T06:36:03.016416Z', '2025-12-11T16:25:54.835652Z'),
-
-('37682c71-cc67-4c17-bf65-0a5d33c6cc43', '37682c71-cc67-4c17-bf65-0a5d33c6cc43', 'andrew.brown@ais.ae', 'email',
- jsonb_build_object('sub', '37682c71-cc67-4c17-bf65-0a5d33c6cc43', 'email', 'andrew.brown@ais.ae', 'email_verified', true),
- '2025-11-11T04:06:00.42132Z', '2025-11-11T04:06:00.32066Z', '2025-11-17T03:09:57.836171Z'),
-
-('c5ba00c7-c167-4644-b8fe-4db632cb251e', 'c5ba00c7-c167-4644-b8fe-4db632cb251e', 'ava.alavi@gmail.com', 'email',
- jsonb_build_object('sub', 'c5ba00c7-c167-4644-b8fe-4db632cb251e', 'email', 'ava.alavi@gmail.com', 'email_verified', true),
- '2026-03-09T06:24:21.847926Z', '2025-11-01T14:47:42.760769Z', '2026-03-09T06:24:21.852047Z'),
-
-('774d56f9-f81b-46c6-9a1f-30c94e244cd8', '774d56f9-f81b-46c6-9a1f-30c94e244cd8', 'igor.sesar@ais.ae', 'email',
- jsonb_build_object('sub', '774d56f9-f81b-46c6-9a1f-30c94e244cd8', 'email', 'igor.sesar@ais.ae', 'email_verified', true),
- '2026-03-09T08:20:54.234974Z', '2025-11-01T12:43:12.843187Z', '2026-03-10T09:57:03.348275Z'),
-
-('fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'toby.ayres@ais.ae', 'email',
- jsonb_build_object('sub', 'fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'email', 'toby.ayres@ais.ae', 'email_verified', true),
- '2026-03-06T08:19:50.481573Z', '2026-03-06T08:03:01.535479Z', '2026-03-06T13:48:25.248641Z')
+)
+SELECT
+  au.id, au.id, au.email, 'email',
+  jsonb_build_object('sub', au.id::text, 'email', au.email, 'email_verified', true),
+  v.last_sign_in_at, v.created_at, v.updated_at
+FROM (VALUES
+  ('t.oliva@outlook.es'::text, '2026-01-29T15:17:01.929667Z'::timestamptz, '2026-01-29T15:17:01.776084Z'::timestamptz, '2026-02-25T13:27:34.773445Z'::timestamptz),
+  ('stephenjames7025@hotmail.co.uk', '2026-01-13T04:04:27.026367Z', '2026-01-13T04:04:26.874382Z', '2026-01-26T09:44:49.412986Z'),
+  ('charlotte.hilton@ais.ae', '2026-01-26T04:07:48.113866Z', '2026-01-11T05:54:36.425923Z', '2026-01-27T02:57:57.079537Z'),
+  ('toby.ayres@gmail.com', '2026-01-04T13:23:16.477405Z', '2026-01-04T13:23:16.337101Z', '2026-01-04T13:23:16.533625Z'),
+  ('jasmina.sesar1@outlook.com', '2025-12-28T04:31:18.390892Z', '2025-12-28T04:31:18.250488Z', '2025-12-28T05:50:31.958452Z'),
+  ('boyd.telford@ais.ae', '2025-12-11T13:47:21.807578Z', '2025-12-11T13:47:21.707515Z', '2025-12-11T15:55:10.846476Z'),
+  ('arezoo.alavi@gmail.com', '2025-12-13T16:27:41.776119Z', '2025-12-09T12:06:16.207309Z', '2025-12-22T09:54:58.227155Z'),
+  ('sara.seifen@ais.ae', '2025-11-25T07:58:43.686408Z', '2025-11-24T06:17:26.472081Z', '2025-11-25T07:58:43.768562Z'),
+  ('alisja.debruyn@ais.ae', '2025-11-24T06:16:13.442751Z', '2025-11-24T06:16:13.405051Z', '2025-11-24T06:16:13.451181Z'),
+  ('lauren.jordaan@ais.ae', '2025-11-24T06:14:46.258635Z', '2025-11-24T06:11:53.152268Z', '2025-11-24T06:14:46.26387Z'),
+  ('odene.truter@ais.ae', '2025-11-19T11:53:17.374388Z', '2025-11-19T11:47:48.609843Z', '2026-01-20T12:13:31.966644Z'),
+  ('brooke.pickett@ais.ae', '2025-12-09T11:47:42.459223Z', '2025-11-17T06:36:03.016416Z', '2025-12-11T16:25:54.835652Z'),
+  ('andrew.brown@ais.ae', '2025-11-11T04:06:00.42132Z', '2025-11-11T04:06:00.32066Z', '2025-11-17T03:09:57.836171Z'),
+  ('ava.alavi@gmail.com', '2026-03-09T06:24:21.847926Z', '2025-11-01T14:47:42.760769Z', '2026-03-09T06:24:21.852047Z'),
+  ('igor.sesar@ais.ae', '2026-03-09T08:20:54.234974Z', '2025-11-01T12:43:12.843187Z', '2026-03-10T09:57:03.348275Z'),
+  ('toby.ayres@ais.ae', '2026-03-06T08:19:50.481573Z', '2026-03-06T08:03:01.535479Z', '2026-03-06T13:48:25.248641Z')
+) AS v(email, last_sign_in_at, created_at, updated_at)
+JOIN auth.users au ON au.email = v.email
 ON CONFLICT DO NOTHING;
 
 -- Step 4: Re-create the triggers
