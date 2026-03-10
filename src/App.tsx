@@ -7,6 +7,7 @@ import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Intro from "./pages/Intro";
+import ResetPassword from "./pages/ResetPassword";
 import Meetings from "./pages/Meetings";
 import MeetingDetail from "./pages/MeetingDetail";
 import NotFound from "./pages/NotFound";

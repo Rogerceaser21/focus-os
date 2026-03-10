@@ -16,6 +16,7 @@ const Auth = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
   useEffect(() => {
     // Check if already logged in
     supabase.auth.getSession().then(({
