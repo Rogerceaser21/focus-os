@@ -1,1 +1,4 @@
 project_id = "mshlbsgsyzzfxyxramjj"
+
+[functions.focusos-admin-reset-password]
+verify_jwt = false
