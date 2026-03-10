@@ -181,8 +181,21 @@ INSERT INTO auth.identities (
  jsonb_build_object('sub', 'fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'email', 'toby.ayres@ais.ae', 'email_verified', true),
  '2026-03-06T08:19:50.481573Z', '2026-03-06T08:03:01.535479Z', '2026-03-06T13:48:25.248641Z');
 
--- Step 4: Re-enable triggers
-ALTER TABLE auth.users ENABLE TRIGGER ALL;
+-- Step 4: Re-create the triggers
+CREATE TRIGGER focusos_on_auth_user_created_profile
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.focusos_handle_new_user_profile();
+
+CREATE TRIGGER focusos_on_auth_user_created_onboarding
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.focusos_handle_new_user_onboarding();
+
+CREATE TRIGGER focusos_on_auth_user_created_registration
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.focusos_handle_new_user_registration();
 
 -- Step 5: Insert all 16 users into focusos_users (app-specific registry)
 INSERT INTO public.focusos_users (user_id, email, created_at) VALUES
