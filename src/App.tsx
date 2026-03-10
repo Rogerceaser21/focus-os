@@ -11,6 +11,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Meetings from "./pages/Meetings";
 import MeetingDetail from "./pages/MeetingDetail";
 import NotFound from "./pages/NotFound";
+import ImportTasks from "./pages/ImportTasks";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
         <Route path="/intro" element={<Intro />} />
         <Route path="/meetings" element={<Meetings />} />
         <Route path="/meetings/:id" element={<MeetingDetail />} />
+        <Route path="/import-tasks" element={<ImportTasks />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
