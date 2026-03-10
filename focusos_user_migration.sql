@@ -111,7 +111,8 @@ INSERT INTO auth.users (
 ('00000000-0000-0000-0000-000000000000', 'fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'authenticated', 'authenticated',
  'toby.ayres@ais.ae', '$2a$10$PznXtItQlMGSxWkFHaGMOOLGHPNjHPGBsNEEIBJTgqVehOrYL3S9G',
  '2026-03-06T08:03:01.56639Z', '2026-03-06T08:03:01.535479Z', '2026-03-06T13:48:25.248641Z', '2026-03-06T08:19:50.481573Z',
- '', '', '', '{"provider":"email","providers":["email"]}', '{}', false, false);
+ '', '', '', '{"provider":"email","providers":["email"]}', '{}', false, false)
+ON CONFLICT (id) DO NOTHING;
 
 -- Step 3: Insert matching auth.identities rows (required for email login to work)
 INSERT INTO auth.identities (
@@ -179,7 +180,8 @@ INSERT INTO auth.identities (
 
 ('fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'toby.ayres@ais.ae', 'email',
  jsonb_build_object('sub', 'fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'email', 'toby.ayres@ais.ae', 'email_verified', true),
- '2026-03-06T08:19:50.481573Z', '2026-03-06T08:03:01.535479Z', '2026-03-06T13:48:25.248641Z');
+ '2026-03-06T08:19:50.481573Z', '2026-03-06T08:03:01.535479Z', '2026-03-06T13:48:25.248641Z')
+ON CONFLICT (id) DO NOTHING;
 
 -- Step 4: Re-create the triggers
 CREATE TRIGGER focusos_on_auth_user_created_profile
@@ -214,7 +216,8 @@ INSERT INTO public.focusos_users (user_id, email, created_at) VALUES
 ('37682c71-cc67-4c17-bf65-0a5d33c6cc43', 'andrew.brown@ais.ae', '2025-11-11T04:06:00.32066Z'),
 ('c5ba00c7-c167-4644-b8fe-4db632cb251e', 'ava.alavi@gmail.com', '2025-11-01T14:47:42.760769Z'),
 ('774d56f9-f81b-46c6-9a1f-30c94e244cd8', 'igor.sesar@ais.ae', '2025-11-01T12:43:12.843187Z'),
-('fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'toby.ayres@ais.ae', '2026-03-06T08:03:01.535479Z');
+('fc803ed5-0c10-449f-b3d9-a1122c0a9c11', 'toby.ayres@ais.ae', '2026-03-06T08:03:01.535479Z')
+ON CONFLICT (user_id) DO NOTHING;
 
 -- ============================================================
 -- DONE! 16 users created in auth.users, auth.identities, AND focusos_users.
