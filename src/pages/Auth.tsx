@@ -9,6 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import DarkVeil from '@/components/DarkVeil';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Shield } from 'lucide-react';
+
 const Auth = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -17,18 +20,22 @@ const Auth = () => {
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
+
+  // Admin reset state
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
+
   useEffect(() => {
-    // Check if already logged in
-    supabase.auth.getSession().then(({
-      data: {
-        session
-      }
-    }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         navigate('/');
       }
     });
   }, [navigate]);
+
   const handleGoogleSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -67,6 +74,7 @@ const Auth = () => {
       navigate('/');
     }
   };
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
@@ -105,7 +113,40 @@ const Auth = () => {
       navigate('/');
     }
   };
-  return <div className="min-h-screen relative flex items-center justify-center p-4">
+
+  const handleAdminReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminPassword || !resetEmail || !resetNewPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    setAdminLoading(true);
+    try {
+      const res = await supabase.functions.invoke('focusos-admin-reset-password', {
+        body: {
+          admin_password: adminPassword,
+          user_email: resetEmail,
+          new_password: resetNewPassword,
+        },
+      });
+
+      if (res.error) {
+        toast.error(res.error.message || 'Failed to reset password');
+      } else if (res.data?.error) {
+        toast.error(res.data.error);
+      } else {
+        toast.success(`Password reset for ${resetEmail}!`);
+        setResetEmail('');
+        setResetNewPassword('');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Something went wrong');
+    }
+    setAdminLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen relative flex items-center justify-center p-4">
       <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />
       <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
       
@@ -170,13 +211,72 @@ const Auth = () => {
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? 'Signing in...' : 'Sign In'}
                   </Button>
-                  <button
-                    type="button"
-                    className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setForgotPassword(true)}
-                  >
-                    Forgot Password?
-                  </button>
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => setForgotPassword(true)}
+                    >
+                      Forgot Password?
+                    </button>
+                    <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
+                      <DialogTrigger asChild>
+                        <button
+                          type="button"
+                          className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                        >
+                          <Shield className="h-3 w-3" />
+                          Admin Reset
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Admin Password Reset</DialogTitle>
+                          <DialogDescription>
+                            Enter the admin password to reset a user's password directly.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleAdminReset} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="admin-pw">Admin Password</Label>
+                            <Input
+                              id="admin-pw"
+                              type="password"
+                              placeholder="Settings password"
+                              value={adminPassword}
+                              onChange={e => setAdminPassword(e.target.value)}
+                              disabled={adminLoading}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="reset-user-email">User Email</Label>
+                            <Input
+                              id="reset-user-email"
+                              type="email"
+                              placeholder="user@example.com"
+                              value={resetEmail}
+                              onChange={e => setResetEmail(e.target.value)}
+                              disabled={adminLoading}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="reset-new-pw">New Password</Label>
+                            <Input
+                              id="reset-new-pw"
+                              type="password"
+                              placeholder="New password"
+                              value={resetNewPassword}
+                              onChange={e => setResetNewPassword(e.target.value)}
+                              disabled={adminLoading}
+                            />
+                          </div>
+                          <Button type="submit" className="w-full" disabled={adminLoading}>
+                            {adminLoading ? 'Resetting...' : 'Reset Password'}
+                          </Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </form>
               )}
             </TabsContent>
@@ -209,6 +309,8 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
-    </div>;
+    </div>
+  );
 };
+
 export default Auth;
