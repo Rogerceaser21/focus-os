@@ -362,5 +362,40 @@ CREATE TRIGGER focusos_on_auth_user_created_onboarding
   EXECUTE FUNCTION public.focusos_handle_new_user_onboarding();
 
 -- ============================================================
+-- TABLE: focusos_users (app-specific user registry)
+-- ============================================================
+
+CREATE TABLE public.focusos_users (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.focusos_users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "focusos_users_can_view_own_entry"
+  ON public.focusos_users FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Auto-register user in focusos_users on signup (via trigger)
+CREATE OR REPLACE FUNCTION public.focusos_handle_new_user_registration()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.focusos_users (user_id, email)
+  VALUES (NEW.id, NEW.email);
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER focusos_on_auth_user_created_registration
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.focusos_handle_new_user_registration();
+
+-- ============================================================
 -- DONE! All tables and functions prefixed with focusos_
 -- ============================================================
