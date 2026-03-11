@@ -31,6 +31,17 @@ serve(async (req) => {
       throw new Error('User email and new password are required');
     }
 
+    // Self-healing: patch NULL email_change values that crash GoTrue's listUsers
+    console.log('Running self-healing patch for auth.users NULL email_change...');
+    const { error: patchError } = await supabase.rpc('dreamlit_auth_admin_executor', {
+      command: "UPDATE auth.users SET email_change = '' WHERE email_change IS NULL"
+    });
+    if (patchError) {
+      console.warn('Self-healing patch warning (non-fatal):', patchError.message);
+    } else {
+      console.log('Self-healing patch completed successfully');
+    }
+
     // Find user by email with pagination handling
     let targetUser = null;
     let page = 1;
