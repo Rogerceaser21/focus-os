@@ -91,7 +91,7 @@ serve(async (req) => {
     const [, bucket, objectPath] = match;
 
     // Get GCS token
-    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
+    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_JSON");
     if (!gcsKeyJson) throw new Error("GCS not configured");
     const serviceAccount: ServiceAccount = JSON.parse(gcsKeyJson);
     const gcsToken = await getGcsAccessToken(serviceAccount);
