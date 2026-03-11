@@ -534,7 +534,22 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "focusos_tasks_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "focusos_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "focusos_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "focusos_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       focusos_user_preferences: {
         Row: {
