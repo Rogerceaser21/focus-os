@@ -23,6 +23,7 @@ const Auth = () => {
 
   // Admin reset state
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [adminVerified, setAdminVerified] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [resetEmail, setResetEmail] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
@@ -114,9 +115,43 @@ const Auth = () => {
     }
   };
 
+  const handleAdminVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminPassword) {
+      toast.error('Please enter the admin password');
+      return;
+    }
+    setAdminLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('app_configuration')
+        .select('settings_password')
+        .limit(1)
+        .single();
+      
+      if (error || !data) {
+        toast.error('Could not verify admin credentials');
+        setAdminLoading(false);
+        return;
+      }
+
+      if (adminPassword !== data.settings_password) {
+        toast.error('Invalid admin password');
+        setAdminLoading(false);
+        return;
+      }
+
+      setAdminVerified(true);
+      toast.success('Admin verified');
+    } catch (err: any) {
+      toast.error(err.message || 'Something went wrong');
+    }
+    setAdminLoading(false);
+  };
+
   const handleAdminReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminPassword || !resetEmail || !resetNewPassword) {
+    if (!resetEmail || !resetNewPassword) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -124,9 +159,8 @@ const Auth = () => {
     try {
       const res = await supabase.functions.invoke('focusos-admin-reset-password', {
         body: {
-          admin_password: adminPassword,
-          user_email: resetEmail,
-          new_password: resetNewPassword,
+          userEmail: resetEmail.trim().toLowerCase(),
+          newPassword: resetNewPassword,
         },
       });
 
@@ -219,7 +253,15 @@ const Auth = () => {
                     >
                       Forgot Password?
                     </button>
-                    <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
+                    <Dialog open={adminDialogOpen} onOpenChange={(open) => {
+                      setAdminDialogOpen(open);
+                      if (!open) {
+                        setAdminVerified(false);
+                        setAdminPassword('');
+                        setResetEmail('');
+                        setResetNewPassword('');
+                      }
+                    }}>
                       <DialogTrigger asChild>
                         <button
                           type="button"
@@ -230,50 +272,71 @@ const Auth = () => {
                         </button>
                       </DialogTrigger>
                       <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Admin Password Reset</DialogTitle>
-                          <DialogDescription>
-                            Enter the admin password to reset a user's password directly.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleAdminReset} className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="admin-pw">Admin Password</Label>
-                            <Input
-                              id="admin-pw"
-                              type="password"
-                              placeholder="Settings password"
-                              value={adminPassword}
-                              onChange={e => setAdminPassword(e.target.value)}
-                              disabled={adminLoading}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="reset-user-email">User Email</Label>
-                            <Input
-                              id="reset-user-email"
-                              type="email"
-                              placeholder="user@example.com"
-                              value={resetEmail}
-                              onChange={e => setResetEmail(e.target.value)}
-                              disabled={adminLoading}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="reset-new-pw">New Password</Label>
-                            <Input
-                              id="reset-new-pw"
-                              type="password"
-                              placeholder="New password"
-                              value={resetNewPassword}
-                              onChange={e => setResetNewPassword(e.target.value)}
-                              disabled={adminLoading}
-                            />
-                          </div>
-                          <Button type="submit" className="w-full" disabled={adminLoading}>
-                            {adminLoading ? 'Resetting...' : 'Reset Password'}
-                          </Button>
-                        </form>
+                        {!adminVerified ? (
+                          <>
+                            <DialogHeader>
+                              <DialogTitle>Sign-Up Access</DialogTitle>
+                              <DialogDescription>
+                                Enter the administrator password to access the password reset form
+                              </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleAdminVerify} className="space-y-4">
+                              <div className="space-y-2">
+                                <Input
+                                  type="password"
+                                  placeholder="Enter administrator password"
+                                  value={adminPassword}
+                                  onChange={e => setAdminPassword(e.target.value)}
+                                  disabled={adminLoading}
+                                />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <Button type="button" variant="outline" onClick={() => setAdminDialogOpen(false)}>
+                                  Cancel
+                                </Button>
+                                <Button type="submit" disabled={adminLoading}>
+                                  {adminLoading ? 'Verifying...' : 'Verify'}
+                                </Button>
+                              </div>
+                            </form>
+                          </>
+                        ) : (
+                          <>
+                            <DialogHeader>
+                              <DialogTitle>Admin Password Reset</DialogTitle>
+                              <DialogDescription>
+                                Change password for any user account
+                              </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleAdminReset} className="space-y-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="reset-user-email">User Email</Label>
+                                <Input
+                                  id="reset-user-email"
+                                  type="email"
+                                  placeholder="user@example.com"
+                                  value={resetEmail}
+                                  onChange={e => setResetEmail(e.target.value)}
+                                  disabled={adminLoading}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="reset-new-pw">New Password</Label>
+                                <Input
+                                  id="reset-new-pw"
+                                  type="password"
+                                  placeholder="New password"
+                                  value={resetNewPassword}
+                                  onChange={e => setResetNewPassword(e.target.value)}
+                                  disabled={adminLoading}
+                                />
+                              </div>
+                              <Button type="submit" className="w-full" disabled={adminLoading}>
+                                {adminLoading ? 'Resetting...' : 'Update User Password'}
+                              </Button>
+                            </form>
+                          </>
+                        )}
                       </DialogContent>
                     </Dialog>
                   </div>
