@@ -20,15 +20,15 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create a client with anon key to read app_configuration
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    const anonClient = createClient(supabaseUrl, supabaseAnonKey)
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    })
 
     // Verify admin password against app_configuration
-    const { data: config, error: configError } = await anonClient
+    const { data: config, error: configError } = await adminClient
       .from('app_configuration')
       .select('settings_password')
       .limit(1)
@@ -48,26 +48,15 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Use service role to find user by email and update password
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    })
+    // Look up user_id from focusos_users table (avoids broken listUsers API)
+    const { data: focusUser, error: focusError } = await adminClient
+      .from('focusos_users')
+      .select('user_id')
+      .ilike('email', user_email.trim())
+      .limit(1)
+      .single()
 
-    // Find the user by email
-    const { data: userList, error: listError } = await adminClient.auth.admin.listUsers()
-    
-    if (listError) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to list users' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const targetUser = userList.users.find(
-      (u) => u.email?.toLowerCase() === user_email.toLowerCase()
-    )
-
-    if (!targetUser) {
+    if (focusError || !focusUser) {
       return new Response(
         JSON.stringify({ error: `No user found with email: ${user_email}` }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -76,7 +65,7 @@ Deno.serve(async (req) => {
 
     // Reset the password
     const { error: updateError } = await adminClient.auth.admin.updateUserById(
-      targetUser.id,
+      focusUser.user_id,
       { password: new_password }
     )
 
