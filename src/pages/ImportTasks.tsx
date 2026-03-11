@@ -165,6 +165,17 @@ export default function ImportTasks() {
           Pick the exported tasks CSV file. It will parse and insert all tasks directly.
         </p>
 
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">Filter by User IDs (comma-separated, leave empty for all)</label>
+          <input
+            type="text"
+            value={userIdFilter}
+            onChange={e => setUserIdFilter(e.target.value)}
+            placeholder="e.g. uuid1, uuid2"
+            className="block w-full text-sm text-foreground bg-muted rounded px-3 py-2 border border-border"
+          />
+        </div>
+
         <input
           ref={fileRef}
           type="file"
