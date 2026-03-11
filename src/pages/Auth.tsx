@@ -23,6 +23,7 @@ const Auth = () => {
 
   // Admin reset state
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [adminVerified, setAdminVerified] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [resetEmail, setResetEmail] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
