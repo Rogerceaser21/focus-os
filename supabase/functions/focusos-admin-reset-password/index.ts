@@ -48,37 +48,62 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Look up user_id from focusos_users table (avoids broken listUsers API)
-    const { data: focusUser, error: focusError } = await adminClient
-      .from('focusos_users')
-      .select('user_id')
-      .ilike('email', user_email.trim())
-      .limit(1)
-      .single()
+    const emailLower = user_email.trim().toLowerCase()
 
-    if (focusError || !focusUser) {
+    // Try to create the user first
+    const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
+      email: emailLower,
+      password: new_password,
+      email_confirm: true, // auto-confirm so they can log in immediately
+    })
+
+    if (createData?.user) {
+      // User was created successfully
       return new Response(
-        JSON.stringify({ error: `No user found with email: ${user_email}` }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, message: `User created and password set for ${emailLower}` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Reset the password
-    const { error: updateError } = await adminClient.auth.admin.updateUserById(
-      focusUser.user_id,
-      { password: new_password }
-    )
+    // If user already exists, find them and update password
+    if (createError && createError.message?.includes('already been registered')) {
+      // Look up user_id from focusos_users table
+      const { data: focusUser, error: focusError } = await adminClient
+        .from('focusos_users')
+        .select('user_id')
+        .ilike('email', emailLower)
+        .limit(1)
+        .single()
 
-    if (updateError) {
+      if (focusError || !focusUser) {
+        return new Response(
+          JSON.stringify({ error: `User exists in auth but not in focusos_users: ${emailLower}. Try signing up via the app first.` }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { error: updateError } = await adminClient.auth.admin.updateUserById(
+        focusUser.user_id,
+        { password: new_password }
+      )
+
+      if (updateError) {
+        return new Response(
+          JSON.stringify({ error: `Failed to update password: ${updateError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
       return new Response(
-        JSON.stringify({ error: `Failed to update password: ${updateError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, message: `Password updated for ${emailLower}` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    // Some other creation error
     return new Response(
-      JSON.stringify({ success: true, message: `Password reset for ${user_email}` }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: `Failed: ${createError?.message || 'Unknown error'}` }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (err) {
