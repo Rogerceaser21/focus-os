@@ -320,8 +320,8 @@ Format the output as a clean transcript with speaker labels and timestamps where
     console.log("Transcript length:", transcript.length);
 
     // Step 3: Upload transcript to GCS
-    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
-    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
+    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_JSON");
+    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_JSON not configured");
     const sa: ServiceAccount = JSON.parse(gcsKeyJson);
     const gcsToken = await getGcsAccessToken(sa);
 

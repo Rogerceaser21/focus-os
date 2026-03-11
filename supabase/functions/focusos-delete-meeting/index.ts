@@ -119,7 +119,7 @@ serve(async (req) => {
     }
 
     // Delete GCS files
-    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
+    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_JSON");
     if (gcsKeyJson) {
       try {
         const serviceAccount: ServiceAccount = JSON.parse(gcsKeyJson);

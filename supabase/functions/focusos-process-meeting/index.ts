@@ -243,8 +243,8 @@ async function handleResummarize(
     if (meeting.duration_seconds) durationSeconds = meeting.duration_seconds;
 
     if (meeting.transcript_gcs_path) {
-      const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
-      if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
+      const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_JSON");
+      if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_JSON not configured");
       const sa: ServiceAccount = JSON.parse(gcsKeyJson);
       const token = await getGcsAccessToken(sa);
       const gcsBucket = Deno.env.get("GCS_BUCKET_NAME")!;
@@ -437,8 +437,8 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
-    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
+    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_JSON");
+    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_JSON not configured");
     const serviceAccount: ServiceAccount = JSON.parse(gcsKeyJson);
 
     const gcsBucket = Deno.env.get("GCS_BUCKET_NAME");

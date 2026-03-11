@@ -99,8 +99,8 @@ serve(async (req) => {
     }
 
     // Download transcript from GCS
-    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
-    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
+    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_JSON");
+    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_JSON not configured");
     const serviceAccount: ServiceAccount = JSON.parse(gcsKeyJson);
 
     const gcsToken = await getGcsAccessToken(serviceAccount);
