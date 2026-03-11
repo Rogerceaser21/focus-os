@@ -95,8 +95,8 @@ serve(async (req) => {
     if (session.status !== "recording") throw new Error("Session is not in recording state");
 
     // Upload chunk to GCS
-    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_KEY");
-    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_KEY not configured");
+    const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_JSON");
+    if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_JSON not configured");
     const sa: ServiceAccount = JSON.parse(gcsKeyJson);
     const token = await getGcsAccessToken(sa);
 
