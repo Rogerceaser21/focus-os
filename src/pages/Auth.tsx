@@ -115,9 +115,43 @@ const Auth = () => {
     }
   };
 
+  const handleAdminVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminPassword) {
+      toast.error('Please enter the admin password');
+      return;
+    }
+    setAdminLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('app_configuration')
+        .select('settings_password')
+        .limit(1)
+        .single();
+      
+      if (error || !data) {
+        toast.error('Could not verify admin credentials');
+        setAdminLoading(false);
+        return;
+      }
+
+      if (adminPassword !== data.settings_password) {
+        toast.error('Invalid admin password');
+        setAdminLoading(false);
+        return;
+      }
+
+      setAdminVerified(true);
+      toast.success('Admin verified');
+    } catch (err: any) {
+      toast.error(err.message || 'Something went wrong');
+    }
+    setAdminLoading(false);
+  };
+
   const handleAdminReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminPassword || !resetEmail || !resetNewPassword) {
+    if (!resetEmail || !resetNewPassword) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -125,9 +159,8 @@ const Auth = () => {
     try {
       const res = await supabase.functions.invoke('focusos-admin-reset-password', {
         body: {
-          admin_password: adminPassword,
-          user_email: resetEmail,
-          new_password: resetNewPassword,
+          userEmail: resetEmail.trim().toLowerCase(),
+          newPassword: resetNewPassword,
         },
       });
 
