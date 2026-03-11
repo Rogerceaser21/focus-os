@@ -68,6 +68,9 @@ export default function ImportTasks() {
   const [inserted, setInserted] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [userIdFilter, setUserIdFilter] = useState(
+    'fc803ed5-0c10-449f-b3d9-a1122c0a9c11, c256a26d-5daf-42d9-a34b-8070b8b8decf'
+  );
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleImport = async () => {
@@ -79,9 +82,19 @@ export default function ImportTasks() {
     const text = await file.text();
 
     setStatus('Parsing CSV...');
-    const records = parseCSV(text, ';');
+    let records = parseCSV(text, ';');
+
+    // Filter by user_id if specified
+    const filterIds = userIdFilter.trim()
+      ? userIdFilter.split(',').map(id => id.trim()).filter(Boolean)
+      : [];
+    if (filterIds.length > 0) {
+      records = records.filter(r => filterIds.includes(r.user_id));
+      setStatus(`Filtered to ${records.length} tasks for ${filterIds.length} user(s). Inserting...`);
+    } else {
+      setStatus(`Parsed ${records.length} tasks. Inserting...`);
+    }
     setTotal(records.length);
-    setStatus(`Parsed ${records.length} tasks. Inserting...`);
 
     let ok = 0;
     const errs: string[] = [];
