@@ -53,21 +53,55 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    // Find the user by email
-    const { data: userList, error: listError } = await adminClient.auth.admin.listUsers()
-    
-    if (listError) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to list users' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // Find the user by email via direct query (avoids listUsers() bug)
+    const { data: userData, error: userError } = await adminClient
+      .rpc('dreamlit_auth_admin_executor', {
+        command: `-- noop`
+      })
+
+    // Query auth.users directly using service role
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/dreamlit_auth_admin_executor`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseServiceKey,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({ command: `SELECT id FROM auth.users WHERE email = '${user_email.replace(/'/g, "''")}' LIMIT 1` })
+    })
+
+    // Alternative: use the auth admin API with a filter
+    const { data: listData, error: listError } = await adminClient.auth.admin.listUsers({
+      filter: `email.eq.${user_email.toLowerCase()}`,
+      page: 1,
+      perPage: 1,
+    })
+
+    let targetUserId: string | null = null
+
+    if (!listError && listData?.users?.length > 0) {
+      targetUserId = listData.users[0].id
     }
 
-    const targetUser = userList.users.find(
-      (u) => u.email?.toLowerCase() === user_email.toLowerCase()
-    )
+    if (!targetUserId) {
+      // Fallback: query focusos_users table
+      const { data: focusUser, error: focusError } = await adminClient
+        .from('focusos_users')
+        .select('user_id')
+        .ilike('email', user_email)
+        .limit(1)
+        .single()
 
-    if (!targetUser) {
+      if (focusError || !focusUser) {
+        return new Response(
+          JSON.stringify({ error: `No user found with email: ${user_email}` }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      targetUserId = focusUser.user_id
+    }
+
+    if (!targetUserId) {
       return new Response(
         JSON.stringify({ error: `No user found with email: ${user_email}` }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
