@@ -1,9 +1,63 @@
 -- ============================================================
--- STEP 2: Remap old user_ids to correct new ones, then restore constraints
+-- STEP 2: Clean up trigger duplicates, remap old user_ids, restore constraints
 -- Run this AFTER importing ALL CSVs
 -- ============================================================
 
--- Create temporary mapping of old_user_id → email
+-- ============================================================
+-- PHASE 0: Delete trigger-created rows (onboarding junk with NEW UUIDs)
+-- These were auto-created when users logged in before step2 ran.
+-- We keep only the CSV-imported rows (with OLD UUIDs) for remapping.
+-- ============================================================
+
+-- Identify new UUIDs for the 16 migrated users
+CREATE TEMP TABLE new_user_ids AS
+SELECT au.id as new_id, au.email
+FROM auth.users au
+WHERE au.email IN (
+  't.oliva@outlook.es',
+  'stephenjames7025@hotmail.co.uk',
+  'charlotte.hilton@ais.ae',
+  'toby.ayres@gmail.com',
+  'jasmina.sesar1@outlook.com',
+  'boyd.telford@ais.ae',
+  'arezoo.alavi@gmail.com',
+  'sara.seifen@ais.ae',
+  'alisja.debruyn@ais.ae',
+  'lauren.jordaan@ais.ae',
+  'odene.truter@ais.ae',
+  'brooke.pickett@ais.ae',
+  'andrew.brown@ais.ae',
+  'ava.alavi@gmail.com',
+  'igor.sesar@ais.ae',
+  'toby.ayres@ais.ae'
+);
+
+-- Delete trigger-created tasks (sample "Use the Purple microphone..." tasks)
+DELETE FROM public.focusos_tasks
+WHERE user_id IN (SELECT new_id FROM new_user_ids);
+
+-- Delete trigger-created projects (sample "Try THIS Project")
+DELETE FROM public.focusos_projects
+WHERE user_id IN (SELECT new_id FROM new_user_ids);
+
+-- Delete trigger-created user preferences (defaults)
+DELETE FROM public.focusos_user_preferences
+WHERE user_id IN (SELECT new_id FROM new_user_ids);
+
+-- Delete trigger-created profiles
+DELETE FROM public.focusos_profiles
+WHERE user_id IN (SELECT new_id FROM new_user_ids);
+
+-- Delete trigger-created focusos_users entries
+DELETE FROM public.focusos_users
+WHERE user_id IN (SELECT new_id FROM new_user_ids);
+
+DROP TABLE new_user_ids;
+
+-- ============================================================
+-- PHASE 1: Remap old user_ids to correct new ones
+-- ============================================================
+
 CREATE TEMP TABLE old_user_map (old_id UUID, email TEXT);
 INSERT INTO old_user_map VALUES
 ('4f97eb51-30fb-4cb0-b82e-10b40eea090e', 't.oliva@outlook.es'),
@@ -63,7 +117,10 @@ WHERE t.user_id = m.old_id AND m.old_id != au.id;
 -- Drop temp table
 DROP TABLE old_user_map;
 
--- Re-add FK constraints
+-- ============================================================
+-- PHASE 2: Re-add FK constraints
+-- ============================================================
+
 ALTER TABLE public.focusos_profiles
   ADD CONSTRAINT focusos_profiles_user_id_fkey
   FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
@@ -96,7 +153,10 @@ ALTER TABLE public.focusos_tasks
   ADD CONSTRAINT focusos_tasks_meeting_id_fkey
   FOREIGN KEY (meeting_id) REFERENCES public.focusos_meetings(id) ON DELETE SET NULL;
 
--- Re-enable RLS
+-- ============================================================
+-- PHASE 3: Re-enable RLS
+-- ============================================================
+
 ALTER TABLE public.focusos_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.focusos_user_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.focusos_projects ENABLE ROW LEVEL SECURITY;
@@ -105,5 +165,5 @@ ALTER TABLE public.focusos_recording_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.focusos_tasks ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- DONE! All user_ids remapped and constraints restored.
+-- DONE! Trigger junk cleaned, user_ids remapped, constraints + RLS restored.
 -- ============================================================
