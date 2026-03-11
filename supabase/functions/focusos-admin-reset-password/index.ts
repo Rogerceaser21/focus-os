@@ -1,154 +1,97 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
-Deno.serve(async (req) => {
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
+
+serve(async (req) => {
+  console.log('=== Admin Password Reset Function Started ===');
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { admin_password, user_email, new_password } = await req.json()
+    const { userEmail, newPassword } = await req.json();
+    console.log('Processing password reset for user:', userEmail);
 
-    if (!admin_password || !user_email || !new_password) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (!userEmail || !newPassword) {
+      throw new Error('User email and new password are required');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    // Find user by email with pagination handling
+    let targetUser = null;
+    let page = 1;
+    const perPage = 1000;
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    })
+    while (!targetUser) {
+      const { data: users, error: userError } = await supabase.auth.admin.listUsers({
+        page,
+        perPage
+      });
 
-    // Verify admin password against app_configuration
-    const { data: config, error: configError } = await adminClient
-      .from('app_configuration')
-      .select('settings_password')
-      .limit(1)
-      .single()
-
-    if (configError || !config) {
-      console.error('Config error:', configError)
-      return new Response(
-        JSON.stringify({ error: 'Could not verify admin credentials' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (admin_password !== config.settings_password) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid admin password' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const emailLower = user_email.trim().toLowerCase()
-
-    // Step 1: Check if user already exists by querying auth.users directly via REST API
-    // We use the admin API's listUsers with a workaround
-    // Actually, let's query focusos_users first, then fall back to creating
-    const { data: existingUser, error: lookupError } = await adminClient
-      .from('focusos_users')
-      .select('user_id')
-      .ilike('email', emailLower)
-      .limit(1)
-      .maybeSingle()
-
-    if (existingUser?.user_id) {
-      // User exists - update password directly by ID (bypasses broken email lookup)
-      console.log(`Found user in focusos_users: ${existingUser.user_id}, updating password`)
-      const { error: updateError } = await adminClient.auth.admin.updateUserById(
-        existingUser.user_id,
-        { password: new_password }
-      )
-
-      if (updateError) {
-        console.error('Update error:', updateError)
-        return new Response(
-          JSON.stringify({ error: `Failed to update password: ${updateError.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+      if (userError) {
+        console.error('Error fetching users:', userError);
+        throw new Error('Failed to fetch users');
       }
 
-      return new Response(
-        JSON.stringify({ success: true, message: `Password updated for ${emailLower}` }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+      targetUser = users.users.find(user => user.email === userEmail);
 
-    // User not in focusos_users - try to create them fresh
-    console.log(`User not found in focusos_users, attempting to create: ${emailLower}`)
-    const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
-      email: emailLower,
-      password: new_password,
-      email_confirm: true,
-    })
-
-    if (createData?.user) {
-      return new Response(
-        JSON.stringify({ success: true, message: `User created and password set for ${emailLower}` }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Creation failed - maybe user exists in auth but not in focusos_users
-    // Try to get their ID via the admin getUserByEmail equivalent using listUsers
-    console.error('Create failed:', createError?.message)
-    
-    // Last resort: use the Supabase Management API or direct SQL
-    // Since we can't query auth.users via the client, let's use a different approach
-    // We'll use the REST API directly to find the user
-    const listResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1000`, {
-      headers: {
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-        'apikey': supabaseServiceKey,
+      if (users.users.length < perPage && !targetUser) {
+        break;
       }
-    })
 
-    if (listResponse.ok) {
-      const listData = await listResponse.json()
-      const users = listData.users || []
-      const foundUser = users.find((u: any) => u.email?.toLowerCase() === emailLower)
-      
-      if (foundUser) {
-        console.log(`Found user via admin API: ${foundUser.id}, updating password`)
-        const { error: updateError } = await adminClient.auth.admin.updateUserById(
-          foundUser.id,
-          { password: new_password }
-        )
-
-        if (updateError) {
-          console.error('Update error:', updateError)
-          return new Response(
-            JSON.stringify({ error: `Failed to update password: ${updateError.message}` }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-
-        return new Response(
-          JSON.stringify({ success: true, message: `Password updated for ${emailLower}` }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      page++;
     }
 
-    return new Response(
-      JSON.stringify({ error: `Could not find or create user: ${emailLower}. Error: ${createError?.message || 'Unknown'}` }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    if (!targetUser) {
+      throw new Error(`User with email ${userEmail} not found`);
+    }
 
-  } catch (err) {
-    console.error('Unexpected error:', err)
-    return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    console.log('Found target user:', targetUser.id);
+
+    const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(
+      targetUser.id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      console.error('Error updating password:', updateError);
+      throw new Error(`Failed to update password: ${updateError.message}`);
+    }
+
+    console.log('Password updated successfully for user:', targetUser.id);
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: `Password updated successfully for ${userEmail}`,
+      userId: targetUser.id
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('=== PASSWORD RESET ERROR ===');
+    console.error('Error message:', error.message);
+
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
-})
+});
