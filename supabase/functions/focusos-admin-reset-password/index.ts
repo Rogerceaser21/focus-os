@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (configError || !config) {
+      console.error('Config error:', configError)
       return new Response(
         JSON.stringify({ error: 'Could not verify admin credentials' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -50,44 +51,26 @@ Deno.serve(async (req) => {
 
     const emailLower = user_email.trim().toLowerCase()
 
-    // Try to create the user first
-    const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
-      email: emailLower,
-      password: new_password,
-      email_confirm: true, // auto-confirm so they can log in immediately
-    })
+    // Step 1: Check if user already exists by querying auth.users directly via REST API
+    // We use the admin API's listUsers with a workaround
+    // Actually, let's query focusos_users first, then fall back to creating
+    const { data: existingUser, error: lookupError } = await adminClient
+      .from('focusos_users')
+      .select('user_id')
+      .ilike('email', emailLower)
+      .limit(1)
+      .maybeSingle()
 
-    if (createData?.user) {
-      // User was created successfully
-      return new Response(
-        JSON.stringify({ success: true, message: `User created and password set for ${emailLower}` }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // If user already exists, find them and update password
-    if (createError && createError.message?.includes('already been registered')) {
-      // Look up user_id from focusos_users table
-      const { data: focusUser, error: focusError } = await adminClient
-        .from('focusos_users')
-        .select('user_id')
-        .ilike('email', emailLower)
-        .limit(1)
-        .single()
-
-      if (focusError || !focusUser) {
-        return new Response(
-          JSON.stringify({ error: `User exists in auth but not in focusos_users: ${emailLower}. Try signing up via the app first.` }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
+    if (existingUser?.user_id) {
+      // User exists - update password directly by ID (bypasses broken email lookup)
+      console.log(`Found user in focusos_users: ${existingUser.user_id}, updating password`)
       const { error: updateError } = await adminClient.auth.admin.updateUserById(
-        focusUser.user_id,
+        existingUser.user_id,
         { password: new_password }
       )
 
       if (updateError) {
+        console.error('Update error:', updateError)
         return new Response(
           JSON.stringify({ error: `Failed to update password: ${updateError.message}` }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -100,13 +83,69 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Some other creation error
+    // User not in focusos_users - try to create them fresh
+    console.log(`User not found in focusos_users, attempting to create: ${emailLower}`)
+    const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
+      email: emailLower,
+      password: new_password,
+      email_confirm: true,
+    })
+
+    if (createData?.user) {
+      return new Response(
+        JSON.stringify({ success: true, message: `User created and password set for ${emailLower}` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Creation failed - maybe user exists in auth but not in focusos_users
+    // Try to get their ID via the admin getUserByEmail equivalent using listUsers
+    console.error('Create failed:', createError?.message)
+    
+    // Last resort: use the Supabase Management API or direct SQL
+    // Since we can't query auth.users via the client, let's use a different approach
+    // We'll use the REST API directly to find the user
+    const listResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1000`, {
+      headers: {
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'apikey': supabaseServiceKey,
+      }
+    })
+
+    if (listResponse.ok) {
+      const listData = await listResponse.json()
+      const users = listData.users || []
+      const foundUser = users.find((u: any) => u.email?.toLowerCase() === emailLower)
+      
+      if (foundUser) {
+        console.log(`Found user via admin API: ${foundUser.id}, updating password`)
+        const { error: updateError } = await adminClient.auth.admin.updateUserById(
+          foundUser.id,
+          { password: new_password }
+        )
+
+        if (updateError) {
+          console.error('Update error:', updateError)
+          return new Response(
+            JSON.stringify({ error: `Failed to update password: ${updateError.message}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, message: `Password updated for ${emailLower}` }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     return new Response(
-      JSON.stringify({ error: `Failed: ${createError?.message || 'Unknown error'}` }),
+      JSON.stringify({ error: `Could not find or create user: ${emailLower}. Error: ${createError?.message || 'Unknown'}` }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (err) {
+    console.error('Unexpected error:', err)
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
