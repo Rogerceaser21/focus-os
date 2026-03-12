@@ -2077,7 +2077,7 @@ https://www.skyscanner.com`,
         itemTitle={taskToShare?.title}
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
-        onShared={() => fetchTasks()}
+        onShared={() => { fetchTasks(); fetchSenderSharedItems(); }}
       />
       <ShareItemDialog
         itemType="project"
