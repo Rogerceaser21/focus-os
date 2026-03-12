@@ -432,16 +432,23 @@ export const ProjectSidebar = ({
             </div>
 
             {/* Shared Items Section */}
-            {sharedItems.length > 0 && (
+            {(() => {
+              // Filter: hide sender's accepted+acknowledged items
+              const visibleItems = sharedItems.filter((item) => {
+                const isSender = item.sender_user_id === userId;
+                if (isSender && item.status === 'accepted' && item.sender_acknowledged) return false;
+                return true;
+              });
+              return visibleItems.length > 0 ? (
               <div className="mt-3 px-2">
                 <div className="px-2 mb-2">
                   <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                     <Share2 className="h-3.5 w-3.5" />
-                    Shared Items ({sharedItems.length})
+                    Shared Items ({visibleItems.length})
                   </h3>
                 </div>
                 <div className="space-y-1.5">
-                  {sharedItems.map((item) => {
+                  {visibleItems.map((item) => {
                     const isPending = item.status === 'pending';
                     const isAccepted = item.status === 'accepted';
                     const isSender = item.sender_user_id === userId;

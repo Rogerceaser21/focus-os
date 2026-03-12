@@ -53,6 +53,7 @@ serve(async (req) => {
     const email = completedByEmail || user.email || "unknown";
 
     // Case 1: This task is the sender's original — update recipient's cloned task
+    // Only set completed_by_email, do NOT change status — let the other user "Move to Done" manually
     const { data: asOriginal } = await supabaseAdmin
       .from("focusos_shared_items")
       .select("recipient_task_id")
@@ -66,7 +67,6 @@ serve(async (req) => {
         await supabaseAdmin
           .from("focusos_tasks")
           .update({
-            status: "completed",
             completed_by_email: email,
           })
           .eq("id", si.recipient_task_id);
@@ -86,7 +86,6 @@ serve(async (req) => {
         await supabaseAdmin
           .from("focusos_tasks")
           .update({
-            status: "completed",
             completed_by_email: email,
           })
           .eq("id", si.item_id);
