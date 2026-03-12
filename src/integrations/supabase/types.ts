@@ -470,7 +470,9 @@ export type Database = {
           item_type: string
           project_name: string | null
           recipient_email: string
+          recipient_task_id: string | null
           recipient_user_id: string | null
+          sender_acknowledged: boolean | null
           sender_email: string
           sender_name: string | null
           sender_user_id: string
@@ -485,7 +487,9 @@ export type Database = {
           item_type: string
           project_name?: string | null
           recipient_email: string
+          recipient_task_id?: string | null
           recipient_user_id?: string | null
+          sender_acknowledged?: boolean | null
           sender_email: string
           sender_name?: string | null
           sender_user_id: string
@@ -500,7 +504,9 @@ export type Database = {
           item_type?: string
           project_name?: string | null
           recipient_email?: string
+          recipient_task_id?: string | null
           recipient_user_id?: string | null
+          sender_acknowledged?: boolean | null
           sender_email?: string
           sender_name?: string | null
           sender_user_id?: string
