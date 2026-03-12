@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ImageViewer } from '@/components/ImageViewer';
-import { AssignTaskDialog } from '@/components/AssignTaskDialog';
+import { ShareItemDialog } from '@/components/ShareItemDialog';
 
 interface EditTaskDialogProps {
   task: Task;
