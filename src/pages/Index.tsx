@@ -929,8 +929,8 @@ https://www.skyscanner.com`,
   };
 
   const handleAssignTask = (task: Task) => {
-    setTaskToAssign(task);
-    setAssignDialogOpen(true);
+    setTaskToShare(task);
+    setShareDialogOpen(true);
   };
 
   const handleSignOut = async () => {
