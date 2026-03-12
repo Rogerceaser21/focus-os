@@ -281,6 +281,8 @@ export const DraggableTaskList = ({
                       onUpdate={onUpdate}
                       onEditTask={onEditTask}
                       onAssignTask={onAssignTask}
+                      onRequestChanges={onRequestChanges}
+                      onDismissChangeRequest={onDismissChangeRequest}
                       globalViewMode={globalViewMode}
                       isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                       onTaskClick={() => onTaskClick(task.id)}
