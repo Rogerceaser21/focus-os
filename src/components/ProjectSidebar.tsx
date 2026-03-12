@@ -609,18 +609,16 @@ export const ProjectSidebar = ({
                               <CheckCircle2 className="h-3 w-3" />
                               {acceptingId === item.id ? '...' : 'Accept'}
                             </Button>
-                            {!isChangeRequest && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
-                                onClick={() => handleDeclineSharedItem(item.id)}
-                                disabled={decliningId === item.id}
-                              >
-                                <XCircle className="h-3 w-3" />
-                                {decliningId === item.id ? '...' : 'Decline'}
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeclineSharedItem(item.id)}
+                              disabled={decliningId === item.id}
+                            >
+                              <XCircle className="h-3 w-3" />
+                              {decliningId === item.id ? '...' : 'Reject'}
+                            </Button>
                           </div>
                         )}
                         {isPending && isSender && (
