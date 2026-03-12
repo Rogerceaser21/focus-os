@@ -443,6 +443,8 @@ export const ProjectSidebar = ({
                 <div className="space-y-1.5">
                   {sharedItems.map((item) => {
                     const isPending = item.status === 'pending';
+                    const isAccepted = item.status === 'accepted';
+                    const isSender = item.sender_user_id === userId;
                     const typeIcon = item.item_type === 'task' 
                       ? <ClipboardList className="h-3.5 w-3.5 text-primary" />
                       : item.item_type === 'project' 
@@ -462,14 +464,17 @@ export const ProjectSidebar = ({
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground truncate">
-                              From: {item.sender_name || item.sender_email}
+                              {isSender 
+                                ? `To: ${item.recipient_email}` 
+                                : `From: ${item.sender_name || item.sender_email}`
+                              }
                             </p>
                           </div>
                           <Badge variant="outline" className="text-[10px] shrink-0">
                             {item.item_type}
                           </Badge>
                         </div>
-                        {isPending && (
+                        {isPending && !isSender && (
                           <div className="flex gap-1.5">
                             <Button
                               size="sm"
@@ -493,10 +498,28 @@ export const ProjectSidebar = ({
                             </Button>
                           </div>
                         )}
-                        {!isPending && (
-                          <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-400 border-green-500/20">
-                            Accepted
+                        {isPending && isSender && (
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                            Pending acceptance
                           </Badge>
+                        )}
+                        {isAccepted && (
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-400 border-green-500/20">
+                              Accepted
+                            </Badge>
+                            {isSender && !item.sender_acknowledged && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-[10px] gap-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                                onClick={() => handleAcknowledgeSharedItem(item.id)}
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                                Dismiss
+                              </Button>
+                            )}
+                          </div>
                         )}
                       </div>
                     );
