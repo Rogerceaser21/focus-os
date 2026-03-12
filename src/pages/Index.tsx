@@ -1780,19 +1780,19 @@ https://www.skyscanner.com`,
                 </div>}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
             </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
               <GanttChart 
