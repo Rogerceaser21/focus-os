@@ -45,7 +45,7 @@ import { TaskTour } from '@/components/TaskTour';
 import { ProjectTour } from '@/components/ProjectTour';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { DraggableTaskList } from '@/components/DraggableTaskList';
-import { AssignTaskDialog } from '@/components/AssignTaskDialog';
+import { ShareItemDialog } from '@/components/ShareItemDialog';
 import { addDays } from 'date-fns';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
