@@ -742,6 +742,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
             </div>
           )}
 
+          {/* Always-visible shared with badge (desktop) */}
+          {!isExpanded && task.sharedWithName && !task.completedByEmail && (
+            <div className="flex items-center gap-2 ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
+              <Badge variant="outline" className="bg-cyan-500/15 text-cyan-400 border-cyan-500/30">
+                📤 Shared with {task.sharedWithName}
+              </Badge>
+            </div>
+          )}
+
           {/* Always-visible completed by badge (desktop) */}
           {!isExpanded && task.completedByEmail && task.status !== 'completed' && (
             <div className="flex items-center gap-2 ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
