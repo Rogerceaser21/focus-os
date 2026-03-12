@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import AnimatedList from './AnimatedList';
 import { useIsMobile } from '@/hooks/use-mobile';
