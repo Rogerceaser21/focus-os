@@ -37,7 +37,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, projects = [] }: TaskCardProps) => {
+export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, projects = [] }: TaskCardProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { preferences } = useUserPreferences();
   useTimerAlert({
