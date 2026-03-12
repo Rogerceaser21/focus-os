@@ -146,14 +146,8 @@ export const ProjectSidebar = ({
         (payload: any) => {
           // Re-fetch projects to update shared project visibility
           fetchProjects();
-          
-          // If a task just got a change_request_message, show sidebar notification
-          if (payload.eventType === 'UPDATE' && payload.new?.change_request_message && !payload.old?.change_request_message) {
-            toast.warning(`⚠️ Changes requested on "${payload.new.title}"`, {
-              description: payload.new.change_request_message,
-              duration: 10000,
-            });
-          }
+          // Also re-fetch shared items in case a change_request was created
+          fetchSharedItems();
         }
       )
       .subscribe();
