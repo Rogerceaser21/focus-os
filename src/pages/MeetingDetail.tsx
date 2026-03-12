@@ -1200,6 +1200,15 @@ const MeetingDetail = () => {
           onOpenChange={setShowSendSummaryDialog}
         />
       )}
+      {meeting && (
+        <ShareItemDialog
+          itemType="meeting"
+          itemId={meeting.id}
+          itemTitle={meeting.title}
+          open={shareMeetingDialogOpen}
+          onOpenChange={setShareMeetingDialogOpen}
+        />
+      )}
     </div>
   );
 };
