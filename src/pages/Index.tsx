@@ -523,6 +523,24 @@ const Index = () => {
     setIsReorderMode(false);
   }, [selectedProjectId, selectedSpecialList]);
 
+  // Fallback auto-eject: shared project with no visible active tasks should return to Today's To-Do
+  useEffect(() => {
+    if (!selectedProjectId || !initialLoadComplete || !fullDataLoaded) return;
+
+    const currentProject = projects.find(p => p.id === selectedProjectId);
+    if (!currentProject?.isShared) return;
+
+    const hasVisibleActiveTasks = allTasks.some(
+      t => t.projectId === selectedProjectId && t.status !== 'completed' && !t.changeRequestMessage
+    );
+
+    if (!hasVisibleActiveTasks) {
+      setSelectedSpecialList('today');
+      setSelectedProjectId(null);
+      setProjectRefreshTrigger(prev => prev + 1);
+    }
+  }, [selectedProjectId, projects, allTasks, initialLoadComplete, fullDataLoaded]);
+
   // Auto-show onboarding tour for new users
   useEffect(() => {
     if (preferences && !preferences.has_completed_onboarding && initialLoadComplete) {
