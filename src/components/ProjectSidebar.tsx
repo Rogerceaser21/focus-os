@@ -77,6 +77,7 @@ export const ProjectSidebar = ({
   useEffect(() => {
     fetchProjects();
     fetchMeetings();
+    fetchSharedItems();
   }, [projectRefreshTrigger]);
 
   const fetchProjects = async () => {
