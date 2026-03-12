@@ -77,7 +77,35 @@ serve(async (req) => {
     const senderId = sharedItem.sender_user_id;
     const itemType = sharedItem.item_type;
     const itemId = sharedItem.item_id;
-    let recipientTaskId: string | null = null;
+    let recipientTaskId: string | null = sharedItem.recipient_task_id || null;
+
+    // Handle change_request type: just clear the change_request_message on the existing task
+    if (itemType === "change_request") {
+      if (recipientTaskId) {
+        await supabaseAdmin
+          .from("focusos_tasks")
+          .update({
+            change_request_message: null,
+            status: "todo",
+          })
+          .eq("id", recipientTaskId);
+      }
+
+      // Mark this change_request shared item as accepted
+      await supabaseAdmin
+        .from("focusos_shared_items")
+        .update({
+          status: "accepted",
+          recipient_user_id: recipientId,
+          sender_acknowledged: true, // Auto-acknowledge change request acceptances
+        })
+        .eq("id", sharedItemId);
+
+      return new Response(JSON.stringify({ success: true, recipientTaskId }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (itemType === "task") {
       // Fetch original task

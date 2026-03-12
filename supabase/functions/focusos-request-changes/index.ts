@@ -62,7 +62,7 @@ serve(async (req) => {
     // Case 1: This task is the sender's original — find recipient's cloned task
     const { data: asOriginal } = await supabaseAdmin
       .from("focusos_shared_items")
-      .select("recipient_task_id")
+      .select("*")
       .eq("item_id", taskId)
       .eq("item_type", "task")
       .eq("status", "accepted")
@@ -70,6 +70,7 @@ serve(async (req) => {
 
     if (asOriginal && asOriginal.length > 0) {
       for (const si of asOriginal) {
+        // Update recipient's task with change request
         await supabaseAdmin
           .from("focusos_tasks")
           .update({
@@ -79,13 +80,66 @@ serve(async (req) => {
             change_request_message: message,
           })
           .eq("id", si.recipient_task_id);
+
+        // Get sender info
+        const { data: senderUser } = await supabaseAdmin
+          .from("focusos_users")
+          .select("email")
+          .eq("user_id", user.id)
+          .single();
+
+        const { data: senderProfile } = await supabaseAdmin
+          .from("focusos_profiles")
+          .select("first_name, last_name")
+          .eq("user_id", user.id)
+          .single();
+
+        const senderEmail = senderUser?.email || user.email || "";
+        const senderName = senderProfile
+          ? `${senderProfile.first_name || ""} ${senderProfile.last_name || ""}`.trim()
+          : "";
+
+        // Get the recipient's task title for the notification
+        const { data: recipientTask } = await supabaseAdmin
+          .from("focusos_tasks")
+          .select("title, project_id")
+          .eq("id", si.recipient_task_id)
+          .single();
+
+        // Get project name if available
+        let projectName: string | null = si.project_name || null;
+        if (!projectName && recipientTask?.project_id) {
+          const { data: proj } = await supabaseAdmin
+            .from("focusos_projects")
+            .select("name")
+            .eq("id", recipientTask.project_id)
+            .single();
+          if (proj) projectName = proj.name;
+        }
+
+        // Create a new shared_items record as a sidebar notification for the recipient
+        await supabaseAdmin
+          .from("focusos_shared_items")
+          .insert({
+            item_id: taskId,
+            item_title: recipientTask?.title || "Task",
+            item_type: "change_request",
+            sender_user_id: user.id,
+            sender_email: senderEmail,
+            sender_name: message, // Store the change request message in sender_name
+            recipient_email: si.recipient_email,
+            recipient_user_id: si.recipient_user_id,
+            recipient_task_id: si.recipient_task_id,
+            project_name: projectName,
+            status: "pending",
+          });
       }
     }
 
     // Case 2: This task is the recipient's clone — find sender's original task
     const { data: asClone } = await supabaseAdmin
       .from("focusos_shared_items")
-      .select("item_id")
+      .select("*")
       .eq("recipient_task_id", taskId)
       .eq("item_type", "task")
       .eq("status", "accepted");
