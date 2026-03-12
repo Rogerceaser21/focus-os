@@ -6,6 +6,15 @@ Allow users to share individual tasks, whole projects (with all tasks), and meet
 
 ---
 
+## Decisions (Confirmed)
+
+1. **One-time clone (snapshot):** Sharing creates a static copy. Future changes by the sender are NOT reflected for the recipient. Live sync may be added in v2.
+2. **Sender notifications:** The sender WILL be notified when items are accepted or declined.
+3. **Merge flows:** The existing `focusos-send-task-email` edge function and `AssignTaskDialog` will be retired and replaced by the new unified sharing system.
+4. **No push/browser notifications:** Email notifications + the in-app "Shared Items" sidebar section are sufficient for now.
+
+---
+
 ## Database
 
 ### New Table: `focusos_shared_items`
@@ -41,6 +50,8 @@ Allow users to share individual tasks, whole projects (with all tasks), and meet
 - Project name (if the item is a task within a project)
 - A link to accept/view in Focus OS (for account holders) or a summary (for non-account holders)
 
+**Sender gets notified** when the recipient accepts or declines a shared item (also via Resend email).
+
 ---
 
 ## Edge Function: `focusos-share-item`
@@ -72,17 +83,29 @@ Allow users to share individual tasks, whole projects (with all tasks), and meet
    - **Task:** Insert a copy of the task into `focusos_tasks` with the recipient's `user_id`. Reset timer, status → `'todo'`. Preserve the `sender_email`/`sender_name` so the recipient knows who assigned it.
    - **Project:** Insert a copy of the project into `focusos_projects`, then clone all tasks belonging to that project.
    - **Meeting:** Insert a copy of the meeting into `focusos_meetings` with the recipient's `user_id`. Optionally clone action items as tasks.
+5. **Send notification email to the sender** informing them the item was accepted.
+
+## Edge Function: `focusos-decline-shared-item`
+
+**Input:** `{ sharedItemId }`
+
+**Logic:**
+
+1. Authenticate the recipient (JWT).
+2. Update status to `'declined'`.
+3. **Send notification email to the sender** informing them the item was declined.
 
 ---
 
 ## UI Changes
 
-### 1. Share Dialog (upgrade existing `AssignTaskDialog`)
+### 1. Share Dialog (replaces `AssignTaskDialog`)
 
-- Rename/extend to support tasks, projects, and meetings.
+- New universal `ShareItemDialog` replaces the old `AssignTaskDialog` entirely.
 - Input: recipient email.
-- Dropdown or context: select what to share (task, project, meeting).
+- Works for tasks, projects, and meetings.
 - Calls `focusos-share-item` edge function.
+- Old `focusos-send-task-email` edge function will be retired.
 
 ### 2. "Shared Items" Section in Sidebar
 
@@ -112,17 +135,20 @@ Allow users to share individual tasks, whole projects (with all tasks), and meet
 
 1. **Database migration** — Create `focusos_shared_items` table with RLS policies.
 2. **Edge function: `focusos-share-item`** — Share logic + always send Resend email.
-3. **Edge function: `focusos-accept-shared-item`** — Accept + clone logic.
-4. **UI: Share Dialog** — Upgrade `AssignTaskDialog` or create new universal share dialog.
-5. **UI: Shared Items in Sidebar** — Add "Shared Items" section above "My Projects" with pending/accepted items.
-6. **UI: Sender attribution** — Show sender info on shared task cards.
-7. **UI: Share buttons** — Add share entry points on projects & meetings.
+3. **Edge function: `focusos-accept-shared-item`** — Accept + clone logic + notify sender.
+4. **Edge function: `focusos-decline-shared-item`** — Decline + notify sender.
+5. **UI: Share Dialog** — Create new `ShareItemDialog`, retire `AssignTaskDialog` and `focusos-send-task-email`.
+6. **UI: Shared Items in Sidebar** — Add "Shared Items" section above "My Projects" with pending/accepted items.
+7. **UI: Sender attribution** — Show sender info on shared task cards.
+8. **UI: Share buttons** — Add share entry points on projects & meetings.
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-- Should sharing a project also share future tasks added to it (live sync), or is it a one-time snapshot clone?
-- Should the original sender see when items are accepted/declined?
-- Should we keep the existing "email-only" assign flow (`focusos-send-task-email`) as a separate action, or merge it into this system?
-- Do we want push/browser notifications for new shares, or just the in-app sidebar section?
+| Question | Decision |
+|----------|----------|
+| Live sync vs one-time clone? | **One-time clone (snapshot).** Simpler, no real-time complexity. Live sync can be v2. |
+| Sender notifications on accept/decline? | **Yes.** Sender receives email when recipient accepts or declines. |
+| Merge with existing email-only assign flow? | **Yes, merge.** New sharing system replaces `AssignTaskDialog` and `focusos-send-task-email`. |
+| Push/browser notifications? | **No.** Email + in-app sidebar "Shared Items" section is sufficient for now. |
