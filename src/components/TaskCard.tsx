@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Play, Pause, Clock, Calendar, Share2, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, Clock, Calendar, Share2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
