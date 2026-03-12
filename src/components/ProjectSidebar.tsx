@@ -557,14 +557,23 @@ export const ProjectSidebar = ({
                     const isPending = item.status === 'pending';
                     const isAccepted = item.status === 'accepted';
                     const isSender = item.sender_user_id === userId;
-                    const typeIcon = item.item_type === 'task' 
+                    const isChangeRequest = item.item_type === 'change_request';
+                    const typeIcon = (item.item_type === 'task' || isChangeRequest)
                       ? <ClipboardList className="h-3.5 w-3.5 text-primary" />
                       : item.item_type === 'project' 
                       ? <Folder className="h-3.5 w-3.5 text-primary" />
                       : <Mic className="h-3.5 w-3.5 text-teal-400" />;
                     
+                    // For change_request items, sender_name holds the change message
+                    const changeMessage = isChangeRequest ? item.sender_name : null;
+                    
                     return (
-                      <div key={item.id} className="rounded-lg border border-border/50 bg-card/50 p-2.5 space-y-1.5">
+                      <div key={item.id} className={`rounded-lg border p-2.5 space-y-1.5 ${isChangeRequest ? 'border-orange-500/40 bg-orange-500/5' : 'border-border/50 bg-card/50'}`}>
+                        {isChangeRequest && (
+                          <div className="flex items-center gap-1.5 text-orange-400">
+                            <span className="text-xs font-semibold">⚠️ Changes Requested</span>
+                          </div>
+                        )}
                         <div className="flex items-start gap-2">
                           {typeIcon}
                           <div className="flex-1 min-w-0">
@@ -576,16 +585,22 @@ export const ProjectSidebar = ({
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground truncate">
-                              {isSender 
-                                ? `To: ${item.recipient_email}` 
-                                : `From: ${item.sender_name || item.sender_email}`
+                              {isChangeRequest
+                                ? `From: ${item.sender_email}`
+                                : isSender 
+                                  ? `To: ${item.recipient_email}` 
+                                  : `From: ${item.sender_name || item.sender_email}`
                               }
                             </p>
                           </div>
                           <Badge variant="outline" className="text-[10px] shrink-0">
-                            {item.item_type}
+                            {isChangeRequest ? 'task' : item.item_type}
                           </Badge>
                         </div>
+                        {/* Show change request message */}
+                        {isChangeRequest && changeMessage && (
+                          <p className="text-xs text-orange-300/80 italic px-1">"{changeMessage}"</p>
+                        )}
                         {isPending && !isSender && (
                           <div className="flex gap-1.5">
                             <Button
@@ -598,16 +613,18 @@ export const ProjectSidebar = ({
                               <CheckCircle2 className="h-3 w-3" />
                               {acceptingId === item.id ? '...' : 'Accept'}
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDeclineSharedItem(item.id)}
-                              disabled={decliningId === item.id}
-                            >
-                              <XCircle className="h-3 w-3" />
-                              {decliningId === item.id ? '...' : 'Decline'}
-                            </Button>
+                            {!isChangeRequest && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDeclineSharedItem(item.id)}
+                                disabled={decliningId === item.id}
+                              >
+                                <XCircle className="h-3 w-3" />
+                                {decliningId === item.id ? '...' : 'Decline'}
+                              </Button>
+                            )}
                           </div>
                         )}
                         {isPending && isSender && (
