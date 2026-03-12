@@ -1333,6 +1333,16 @@ https://www.skyscanner.com`,
                       <span className="hidden lg:inline">Meetings</span>
                     </Button>
 
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                      onClick={() => setShareProjectDialogOpen(true)}
+                    >
+                      <Share2 className="h-4 w-4" />
+                      <span className="hidden lg:inline">Share</span>
+                    </Button>
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                     <Button 
