@@ -1713,98 +1713,110 @@ https://www.skyscanner.com`,
                 </TabsTrigger>
               </TabsList>
 
-              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (() => {
+                const currentProject2 = projects.find(p => p.id === selectedProjectId);
+                const isSharedProject2 = currentProject2?.isShared ?? false;
+                const assignedByEmail2 = isSharedProject2 ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 px-3 py-2">
-                    <div className="flex items-center gap-2 flex-1">
-                      <span style={{
-                        color: projects.find(p => p.id === selectedProjectId)?.color
-                      }}>📁</span>
-                      
-                      {isEditingProjectName ? (
-                        <Input
-                          autoFocus
-                          value={editedProjectName}
-                          onChange={(e) => setEditedProjectName(e.target.value)}
-                          onBlur={handleSaveProjectName}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveProjectName();
-                            if (e.key === 'Escape') setIsEditingProjectName(false);
-                          }}
-                          className="font-semibold text-base h-auto py-1 px-2"
-                          style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
-                        />
-                      ) : (
-                        <span 
-                          className="font-semibold text-base cursor-pointer hover:opacity-70 transition-opacity"
-                          style={{ color: projects.find(p => p.id === selectedProjectId)?.color }}
-                          onClick={handleStartEditingProject}
-                        >
-                          {projects.find(p => p.id === selectedProjectId)?.name}
-                        </span>
+                    <div className="flex flex-col gap-0.5 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span style={{ color: currentProject2?.color }}>📁</span>
+                        
+                        {isEditingProjectName && !isSharedProject2 ? (
+                          <Input
+                            autoFocus
+                            value={editedProjectName}
+                            onChange={(e) => setEditedProjectName(e.target.value)}
+                            onBlur={handleSaveProjectName}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveProjectName();
+                              if (e.key === 'Escape') setIsEditingProjectName(false);
+                            }}
+                            className="font-semibold text-base h-auto py-1 px-2"
+                            style={{ color: currentProject2?.color }}
+                          />
+                        ) : (
+                          <span 
+                            className={`font-semibold text-base ${!isSharedProject2 ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
+                            style={{ color: currentProject2?.color }}
+                            onClick={!isSharedProject2 ? handleStartEditingProject : undefined}
+                          >
+                            {currentProject2?.name}
+                          </span>
+                        )}
+                      </div>
+                      {isSharedProject2 && assignedByEmail2 && (
+                        <span className="text-xs text-muted-foreground ml-7">Assigned by {assignedByEmail2}</span>
                       )}
                     </div>
                     
-                    <Button 
-                      variant={isReorderMode ? 'secondary' : 'ghost'}
-                      size="sm"
-                      onClick={() => setIsReorderMode(!isReorderMode)}
-                      className="gap-1"
-                    >
-                      <ArrowUpDown className="h-4 w-4" />
-                      <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                      <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1"
-                      onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}
-                    >
-                      <Mic className="h-4 w-4" />
-                      <span className="hidden lg:inline">Meetings</span>
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
-                      onClick={() => setShareProjectDialogOpen(true)}
-                    >
-                      <Share2 className="h-4 w-4" />
-                      <span className="hidden lg:inline">Share</span>
-                    </Button>
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                    {!isSharedProject2 && (
+                      <>
                         <Button 
-                          variant="ghost" 
+                          variant={isReorderMode ? 'secondary' : 'ghost'}
                           size="sm"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => setIsReorderMode(!isReorderMode)}
+                          className="gap-1"
                         >
-                          Delete
+                          <ArrowUpDown className="h-4 w-4" />
+                          <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                          <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Project?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            By selecting Yes, you understand that the project and all the tasks within the Project will be deleted permanently. This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={handleDeleteProject}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Yes, Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}
+                        >
+                          <Mic className="h-4 w-4" />
+                          <span className="hidden lg:inline">Meetings</span>
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                          onClick={() => setShareProjectDialogOpen(true)}
+                        >
+                          <Share2 className="h-4 w-4" />
+                          <span className="hidden lg:inline">Share</span>
+                        </Button>
+
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                By selecting Yes, you understand that the project and all the tasks within the Project will be deleted permanently. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={handleDeleteProject}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Yes, Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    )}
                   </div>
-                </div>}
+                </div>;
+              })()}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
                 {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
