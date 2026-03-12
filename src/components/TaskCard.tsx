@@ -275,15 +275,17 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               Pause
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onAssignTask?.(task)}
-            className="gap-1 ml-auto text-muted-foreground hover:text-primary"
-            title="Share Task"
-          >
-            <Share2 className="h-3 w-3" />
-          </Button>
+          {!projects?.find(p => p.id === task.projectId)?.isShared && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onAssignTask?.(task)}
+              className="gap-1 ml-auto text-muted-foreground hover:text-primary"
+              title="Share Task"
+            >
+              <Share2 className="h-3 w-3" />
+            </Button>
+          )}
           {task.assignedToEmail && (
             <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={`Shared by ${task.assignedToEmail}`}>
               Shared by {task.assignedToEmail}
