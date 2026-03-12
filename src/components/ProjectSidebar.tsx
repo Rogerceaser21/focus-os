@@ -80,7 +80,7 @@ export const ProjectSidebar = ({
     fetchSharedItems();
   }, [projectRefreshTrigger]);
 
-  // Supabase Realtime: live shared items for current user
+  // Supabase Realtime: live shared items for current user (as recipient)
   useEffect(() => {
     if (!userId) return;
 
@@ -99,7 +99,32 @@ export const ProjectSidebar = ({
           toast.info(`📬 New item shared with you`, {
             description: `"${newItem.item_title}" from ${newItem.sender_name || newItem.sender_email}`,
           });
-          // Refresh shared items list
+          fetchSharedItems();
+        }
+      )
+      // Listen for updates too (when status changes to 'accepted' — notify sender)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'focusos_shared_items',
+          filter: `sender_user_id=eq.${userId}`,
+        },
+        (payload: any) => {
+          const updated = payload.new;
+          const old = payload.old;
+          // Notify sender when their shared item is accepted
+          if (updated.status === 'accepted' && old?.status === 'pending') {
+            toast.success(`✅ "${updated.item_title}" was accepted`, {
+              description: `${updated.recipient_email} accepted your shared ${updated.item_type}`,
+              duration: Infinity,
+              action: {
+                label: '✓ Dismiss',
+                onClick: () => handleAcknowledgeSharedItem(updated.id),
+              },
+            });
+          }
           fetchSharedItems();
         }
       )
@@ -185,6 +210,17 @@ export const ProjectSidebar = ({
       toast.error('Failed to decline shared item');
     } finally {
       setDecliningId(null);
+    }
+  };
+  const handleAcknowledgeSharedItem = async (sharedItemId: string) => {
+    try {
+      await (supabase as any)
+        .from('focusos_shared_items')
+        .update({ sender_acknowledged: true })
+        .eq('id', sharedItemId);
+      fetchSharedItems();
+    } catch (err) {
+      console.error('Acknowledge error:', err);
     }
   };
 
@@ -407,6 +443,8 @@ export const ProjectSidebar = ({
                 <div className="space-y-1.5">
                   {sharedItems.map((item) => {
                     const isPending = item.status === 'pending';
+                    const isAccepted = item.status === 'accepted';
+                    const isSender = item.sender_user_id === userId;
                     const typeIcon = item.item_type === 'task' 
                       ? <ClipboardList className="h-3.5 w-3.5 text-primary" />
                       : item.item_type === 'project' 
@@ -426,14 +464,17 @@ export const ProjectSidebar = ({
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground truncate">
-                              From: {item.sender_name || item.sender_email}
+                              {isSender 
+                                ? `To: ${item.recipient_email}` 
+                                : `From: ${item.sender_name || item.sender_email}`
+                              }
                             </p>
                           </div>
                           <Badge variant="outline" className="text-[10px] shrink-0">
                             {item.item_type}
                           </Badge>
                         </div>
-                        {isPending && (
+                        {isPending && !isSender && (
                           <div className="flex gap-1.5">
                             <Button
                               size="sm"
@@ -457,10 +498,28 @@ export const ProjectSidebar = ({
                             </Button>
                           </div>
                         )}
-                        {!isPending && (
-                          <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-400 border-green-500/20">
-                            Accepted
+                        {isPending && isSender && (
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                            Pending acceptance
                           </Badge>
+                        )}
+                        {isAccepted && (
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-400 border-green-500/20">
+                              Accepted
+                            </Badge>
+                            {isSender && !item.sender_acknowledged && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-[10px] gap-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                                onClick={() => handleAcknowledgeSharedItem(item.id)}
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                                Dismiss
+                              </Button>
+                            )}
+                          </div>
                         )}
                       </div>
                     );

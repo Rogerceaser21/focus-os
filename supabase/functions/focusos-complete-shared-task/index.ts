@@ -18,7 +18,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find task by share_token — fetch assigned_to_email and user_id too
+    // Find task by share_token
     const { data: task, error: fetchError } = await supabase
       .from("focusos_tasks")
       .select("id, title, status, assigned_to_email, user_id")
@@ -32,45 +32,73 @@ serve(async (req) => {
       });
     }
 
-    // If already marked as completed by assignee, just redirect
-    if (task.completed_by_email) {
-      return new Response(null, {
-        status: 302,
-        headers: { "Location": "https://focusos.thefeedbackapp.net" },
+    if (task.status === "completed") {
+      return new Response(buildPage("Already Completed", "This task has already been marked as completed.", false, true), {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
-    // Mark as completed by assignee — but do NOT change status
-    const completedByEmail = task.assigned_to_email || "unknown";
+    const completedByEmail = task.assigned_to_email || "external user";
+
+    // Mark THIS task (sender's original) as completed with completed_by_email
     const { error: updateError } = await supabase
       .from("focusos_tasks")
-      .update({ completed_by_email: completedByEmail })
+      .update({
+        completed_by_email: completedByEmail,
+        status: "completed",
+      })
       .eq("id", task.id);
 
     if (updateError) {
       throw updateError;
     }
 
-    // Send push notification to task owner
-    try {
-      await supabase.functions.invoke("send-push-notification", {
-        body: {
-          user_id: task.user_id,
-          payload: JSON.stringify({
-            title: "✅ Task Completed",
-            body: `"${task.title}" was completed by ${completedByEmail}`,
-            url: "https://focusos.thefeedbackapp.net",
-          }),
-        },
-      });
-    } catch (notifError) {
-      console.error("Failed to send push notification:", notifError);
-      // Don't fail the whole request if notification fails
+    // Now sync: find the shared_items row that links this task, and update the recipient's cloned task too
+    const { data: sharedItems } = await supabase
+      .from("focusos_shared_items")
+      .select("recipient_task_id, item_id")
+      .eq("item_id", task.id)
+      .eq("item_type", "task")
+      .eq("status", "accepted");
+
+    if (sharedItems && sharedItems.length > 0) {
+      for (const si of sharedItems) {
+        if (si.recipient_task_id) {
+          await supabase
+            .from("focusos_tasks")
+            .update({
+              status: "completed",
+              completed_by_email: completedByEmail,
+            })
+            .eq("id", si.recipient_task_id);
+        }
+      }
     }
 
-    return new Response(null, {
-      status: 302,
-      headers: { "Location": "https://focusos.thefeedbackapp.net" },
+    // Also check if THIS task is a recipient's task — sync back to sender's original
+    const { data: reverseSharedItems } = await supabase
+      .from("focusos_shared_items")
+      .select("item_id")
+      .eq("recipient_task_id", task.id)
+      .eq("item_type", "task")
+      .eq("status", "accepted");
+
+    if (reverseSharedItems && reverseSharedItems.length > 0) {
+      for (const si of reverseSharedItems) {
+        await supabase
+          .from("focusos_tasks")
+          .update({
+            completed_by_email: completedByEmail,
+            status: "completed",
+          })
+          .eq("id", si.item_id);
+      }
+    }
+
+    return new Response(buildPage("Task Completed!", `"${task.title}" has been marked as completed by ${completedByEmail}.`, true, true), {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   } catch (error: any) {
     console.error("Error completing task:", error);
@@ -174,7 +202,7 @@ function buildPage(title: string, message: string, isSuccess: boolean = false, r
       background: linear-gradient(135deg, #4FD1C5, #3B82F6);
     }
   </style>
-  ${redirect ? `<script>setTimeout(function(){ window.location.href = "https://focusos.thefeedbackapp.net"; }, 3000);</script>` : ""}
+  ${redirect ? `<script>setTimeout(function(){ window.location.href = "https://focusos2.lovable.app"; }, 3000);</script>` : ""}
 </head>
 <body>
   <div class="bg-glow glow-1"></div>

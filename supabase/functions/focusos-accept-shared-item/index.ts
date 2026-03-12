@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@4.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.78.0";
 
 const corsHeaders = {
@@ -14,7 +13,6 @@ serve(async (req) => {
   }
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -53,7 +51,7 @@ serve(async (req) => {
       });
     }
 
-    // Fetch the shared item — use admin client since recipient_user_id might not be set yet
+    // Fetch the shared item
     const { data: sharedItem, error: fetchError } = await supabaseAdmin
       .from("focusos_shared_items")
       .select("*")
@@ -67,7 +65,7 @@ serve(async (req) => {
       });
     }
 
-    // Verify the current user is the recipient (by email or user_id)
+    // Verify the current user is the recipient
     const recipientEmail = user.email?.toLowerCase();
     if (sharedItem.recipient_user_id !== recipientId && sharedItem.recipient_email !== recipientEmail) {
       return new Response(JSON.stringify({ error: "Not authorized to accept this item" }), {
@@ -76,24 +74,13 @@ serve(async (req) => {
       });
     }
 
-    // Update status to accepted & set recipient_user_id if not set
-    const { error: updateError } = await supabaseAdmin
-      .from("focusos_shared_items")
-      .update({ status: "accepted", recipient_user_id: recipientId })
-      .eq("id", sharedItemId);
-
-    if (updateError) {
-      console.error("Update error:", updateError);
-      throw new Error("Failed to accept shared item");
-    }
-
-    // Clone the item into the recipient's data
     const senderId = sharedItem.sender_user_id;
     const itemType = sharedItem.item_type;
     const itemId = sharedItem.item_id;
+    let recipientTaskId: string | null = null;
 
     if (itemType === "task") {
-      // Fetch original task using admin client
+      // Fetch original task
       const { data: task } = await supabaseAdmin
         .from("focusos_tasks")
         .select("*")
@@ -101,7 +88,8 @@ serve(async (req) => {
         .single();
 
       if (task) {
-        await supabaseAdmin
+        // Clone task for recipient — store the new task ID
+        const { data: newTask } = await supabaseAdmin
           .from("focusos_tasks")
           .insert({
             user_id: recipientId,
@@ -112,16 +100,21 @@ serve(async (req) => {
             due_date: task.due_date,
             start_date: task.start_date,
             end_date: task.end_date,
-            project_id: null, // Don't link to sender's project
+            project_id: null,
             images: task.images,
             timer_total_seconds: 0,
             timer_is_running: false,
             timer_start_time: null,
             assigned_to_email: sharedItem.sender_email,
-          });
+          })
+          .select("id")
+          .single();
+
+        if (newTask) {
+          recipientTaskId = newTask.id;
+        }
       }
     } else if (itemType === "project") {
-      // Clone project
       const { data: project } = await supabaseAdmin
         .from("focusos_projects")
         .select("*")
@@ -140,7 +133,6 @@ serve(async (req) => {
           .single();
 
         if (newProject) {
-          // Clone all tasks in the project
           const { data: tasks } = await supabaseAdmin
             .from("focusos_tasks")
             .select("*")
@@ -190,21 +182,24 @@ serve(async (req) => {
       }
     }
 
-    // Notify sender via email
-    if (RESEND_API_KEY) {
-      try {
-        const resend = new Resend(RESEND_API_KEY);
-        const recipientName = user.email;
-        await resend.emails.send({
-          from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
-          to: [sharedItem.sender_email],
-          subject: `Your shared ${itemType} was accepted`,
-          html: `<p>${recipientName} has accepted the ${itemType} "<strong>${sharedItem.item_title}</strong>" that you shared.</p>`,
-        });
-      } catch (emailErr) {
-        console.error("Failed to send acceptance notification:", emailErr);
-      }
+    // Update status to accepted, set recipient_user_id and recipient_task_id
+    // Do NOT set sender_acknowledged — sender needs to dismiss the notification
+    const { error: updateError } = await supabaseAdmin
+      .from("focusos_shared_items")
+      .update({
+        status: "accepted",
+        recipient_user_id: recipientId,
+        recipient_task_id: recipientTaskId,
+        sender_acknowledged: false,
+      })
+      .eq("id", sharedItemId);
+
+    if (updateError) {
+      console.error("Update error:", updateError);
+      throw new Error("Failed to accept shared item");
     }
+
+    // NO email notification for accept — sender gets live in-app notification instead
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
