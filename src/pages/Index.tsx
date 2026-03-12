@@ -150,6 +150,10 @@ const Index = () => {
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareProjectDialogOpen, setShareProjectDialogOpen] = useState(false);
+  const [changesNeededTask, setChangesNeededTask] = useState<Task | null>(null);
+  const [changesNeededMessage, setChangesNeededMessage] = useState('');
+  const [changesNeededDialogOpen, setChangesNeededDialogOpen] = useState(false);
+  const [changesNeededLoading, setChangesNeededLoading] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
