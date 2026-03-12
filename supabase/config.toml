@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.focusos-decline-shared-item]
 verify_jwt = false
+
+[functions.focusos-sync-task-completion]
+verify_jwt = false
+
+[functions.focusos-complete-shared-task]
+verify_jwt = false
