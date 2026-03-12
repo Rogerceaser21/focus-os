@@ -229,6 +229,7 @@ const Index = () => {
     sortOrder: dbTask.sort_order ?? 0,
     completedByEmail: dbTask.completed_by_email ?? undefined,
     assignedToEmail: dbTask.assigned_to_email ?? undefined,
+    changeRequestMessage: dbTask.change_request_message ?? undefined,
   }), []);
 
   // Fetch projects (lightweight - just names for sidebar)
