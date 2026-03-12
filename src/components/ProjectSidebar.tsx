@@ -114,16 +114,9 @@ export const ProjectSidebar = ({
         (payload: any) => {
           const updated = payload.new;
           const old = payload.old;
-          // Notify sender when their shared item is accepted
+          // Notify sender when their shared item is accepted — queued via fetchSharedItems
           if (updated.status === 'accepted' && old?.status === 'pending') {
-            toast.success(`✅ "${updated.item_title}" was accepted`, {
-              description: `${updated.recipient_email} accepted your shared ${updated.item_type}`,
-              duration: Infinity,
-              action: {
-                label: '✓ Dismiss',
-                onClick: () => handleAcknowledgeSharedItem(updated.id),
-              },
-            });
+            // Don't show toast here — we'll show queued notifications from state
           }
           fetchSharedItems();
         }
