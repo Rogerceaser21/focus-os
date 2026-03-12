@@ -378,12 +378,13 @@ const Index = () => {
     loadRemainingData();
   }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks]);
 
-  // Show toast notifications for tasks with change requests
+  // Show toast notifications for tasks with change requests (on initial load only)
   useEffect(() => {
     if (!fullDataLoaded) return;
     const tasksWithChanges = allTasks.filter(t => t.changeRequestMessage);
     tasksWithChanges.forEach(t => {
       toast.warning(`Changes requested on "${t.title}"`, {
+        id: `change-req-${t.id}`,
         description: t.changeRequestMessage,
         duration: 8000,
       });
