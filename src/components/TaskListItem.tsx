@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Play, Pause, Calendar, Clock, Image, Mail, CheckCircle2, Pencil } from 'lucide-react';
+import { Play, Pause, Calendar, Clock, Image, Share2, CheckCircle2, Pencil } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -435,10 +435,10 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
               <button
                 data-description-safe-zone="true"
                 onClick={(e) => { e.stopPropagation(); onAssignTask?.(task); }}
-                className="p-1 rounded transition-colors text-muted-foreground border border-border bg-muted/20 hover:text-primary hover:border-primary"
-                title="Assign & Email"
+                className="p-1 rounded transition-colors text-teal-400 border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 hover:border-teal-400"
+                title="Share Task"
               >
-                <Mail className="w-3 h-3" />
+                <Share2 className="w-3 h-3" />
               </button>
 
               {task.completedByEmail && task.status !== 'completed' && (
@@ -646,10 +646,10 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
               <button
                 data-description-safe-zone="true"
                 onClick={() => onAssignTask?.(task)}
-                className="p-1.5 rounded transition-colors text-muted-foreground border border-border bg-muted/20 hover:text-primary hover:border-primary"
-                title="Assign & Email"
+                className="p-1.5 rounded transition-colors text-teal-400 border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 hover:border-teal-400"
+                title="Share Task"
               >
-                <Mail className="w-4 h-4" />
+                <Share2 className="w-4 h-4" />
               </button>
 
               {task.completedByEmail && task.status !== 'completed' && (

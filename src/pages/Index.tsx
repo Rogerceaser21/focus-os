@@ -16,7 +16,7 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -149,6 +149,7 @@ const Index = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareProjectDialogOpen, setShareProjectDialogOpen] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
@@ -385,7 +386,6 @@ const Index = () => {
       }
     }
   }, [selectedProjectId, selectedSpecialList, initialLoadComplete, user, fullDataLoaded, filterTasksFromCache, fetchInitialTasks]);
-
 
   // Realtime subscription for tasks - keeps all sessions in sync
   useEffect(() => {
@@ -1333,6 +1333,16 @@ https://www.skyscanner.com`,
                       <span className="hidden lg:inline">Meetings</span>
                     </Button>
 
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                      onClick={() => setShareProjectDialogOpen(true)}
+                    >
+                      <Share2 className="h-4 w-4" />
+                      <span className="hidden lg:inline">Share</span>
+                    </Button>
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                     <Button 
@@ -1389,6 +1399,15 @@ https://www.skyscanner.com`,
                         <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
                       </Button>
 
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                        onClick={() => setShareProjectDialogOpen(true)}
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+
                       {/* Status Dropdown for Mobile/Tablet */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1442,6 +1461,15 @@ https://www.skyscanner.com`,
                         <ArrowUpDown className="h-4 w-4" />
                         <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
                         <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                        onClick={() => setShareProjectDialogOpen(true)}
+                      >
+                        <Share2 className="h-4 w-4" />
                       </Button>
 
                       {/* Status Dropdown for Mobile/Tablet */}
@@ -1601,6 +1629,16 @@ https://www.skyscanner.com`,
                     >
                       <Mic className="h-4 w-4" />
                       <span className="hidden lg:inline">Meetings</span>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                      onClick={() => setShareProjectDialogOpen(true)}
+                    >
+                      <Share2 className="h-4 w-4" />
+                      <span className="hidden lg:inline">Share</span>
                     </Button>
 
                     <AlertDialog>
@@ -1816,6 +1854,13 @@ https://www.skyscanner.com`,
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
         onShared={() => fetchTasks()}
+      />
+      <ShareItemDialog
+        itemType="project"
+        itemId={selectedProjectId}
+        itemTitle={projects.find(p => p.id === selectedProjectId)?.name}
+        open={shareProjectDialogOpen}
+        onOpenChange={setShareProjectDialogOpen}
       />
     </SidebarProvider>
   </PullToRefresh>;
