@@ -169,6 +169,7 @@ serve(async (req) => {
             user_id: recipientId,
             name: project.name,
             color: project.color,
+            is_shared: true,
           })
           .select("id")
           .single();

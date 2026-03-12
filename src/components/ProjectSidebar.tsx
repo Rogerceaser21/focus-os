@@ -55,6 +55,7 @@ export const ProjectSidebar = ({
   userId
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [sharedProjects, setSharedProjects] = useState<Project[]>([]);
   const [meetings, setMeetings] = useState<{ id: string; title: string }[]>([]);
   const [sharedItems, setSharedItems] = useState<any[]>([]);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
