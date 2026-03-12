@@ -386,19 +386,6 @@ const Index = () => {
     }
   }, [selectedProjectId, selectedSpecialList, initialLoadComplete, user, fullDataLoaded, filterTasksFromCache, fetchInitialTasks]);
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
-                      onClick={() => {
-                        setShareProjectId(selectedProjectId);
-                        setShareProjectDialogOpen(true);
-                      }}
-                    >
-                      <Share2 className="h-4 w-4" />
-                      <span className="hidden lg:inline">Share</span>
-                    </Button>
-
   // Realtime subscription for tasks - keeps all sessions in sync
   useEffect(() => {
     if (!user) return;
