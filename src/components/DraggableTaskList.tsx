@@ -125,6 +125,8 @@ export const DraggableTaskList = ({
   onBatchUpdate,
   onEditTask,
   onAssignTask,
+  onRequestChanges,
+  onDismissChangeRequest,
   globalViewMode,
   expandedTaskIds,
   onTaskClick,
