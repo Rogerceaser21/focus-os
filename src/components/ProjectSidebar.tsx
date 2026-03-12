@@ -128,6 +128,27 @@ export const ProjectSidebar = ({
     };
   }, [userId]);
 
+  // Queued notification: show one unacknowledged accepted item at a time for the sender
+  useEffect(() => {
+    if (!userId) return;
+    const unacknowledged = sharedItems.filter(
+      (item) => item.sender_user_id === userId && item.status === 'accepted' && !item.sender_acknowledged
+    );
+    if (unacknowledged.length > 0) {
+      const first = unacknowledged[0];
+      // Use a stable toast ID so we don't stack duplicates
+      toast.success(`✅ "${first.item_title}" was accepted`, {
+        id: `accept-notify-${first.id}`,
+        description: `${first.recipient_email} accepted your shared ${first.item_type}`,
+        duration: Infinity,
+        action: {
+          label: '✓ Dismiss',
+          onClick: () => handleAcknowledgeSharedItem(first.id),
+        },
+      });
+    }
+  }, [sharedItems, userId]);
+
   const fetchProjects = async () => {
     const { data, error } = await (supabase as any)
       .from('focusos_projects')
