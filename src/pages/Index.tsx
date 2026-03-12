@@ -149,6 +149,7 @@ const Index = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareProjectDialogOpen, setShareProjectDialogOpen] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
