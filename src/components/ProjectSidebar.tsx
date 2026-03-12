@@ -533,7 +533,8 @@ export const ProjectSidebar = ({
                   })}
                 </div>
               </div>
-            )}
+              ) : null;
+            })()}
 
             {/* Projects with AnimatedList */}
             {projects.length > 0 && (
