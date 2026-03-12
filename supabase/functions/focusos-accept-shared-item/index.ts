@@ -88,7 +88,47 @@ serve(async (req) => {
         .single();
 
       if (task) {
-        // Clone task for recipient — store the new task ID
+        // Resolve or create a project for the recipient based on the shared item's project_name
+        let recipientProjectId: string | null = null;
+        const projectName = sharedItem.project_name;
+
+        if (projectName) {
+          // Check if recipient already has a project with this name
+          const { data: existingProject } = await supabaseAdmin
+            .from("focusos_projects")
+            .select("id")
+            .eq("user_id", recipientId)
+            .eq("name", projectName)
+            .single();
+
+          if (existingProject) {
+            recipientProjectId = existingProject.id;
+          } else {
+            // Look up original project color
+            let projectColor = "#3b82f6";
+            if (task.project_id) {
+              const { data: origProject } = await supabaseAdmin
+                .from("focusos_projects")
+                .select("color")
+                .eq("id", task.project_id)
+                .single();
+              if (origProject) projectColor = origProject.color;
+            }
+            // Create a new project for the recipient
+            const { data: newProject } = await supabaseAdmin
+              .from("focusos_projects")
+              .insert({
+                user_id: recipientId,
+                name: projectName,
+                color: projectColor,
+              })
+              .select("id")
+              .single();
+            if (newProject) recipientProjectId = newProject.id;
+          }
+        }
+
+        // Clone task for recipient
         const { data: newTask } = await supabaseAdmin
           .from("focusos_tasks")
           .insert({
@@ -100,7 +140,7 @@ serve(async (req) => {
             due_date: task.due_date,
             start_date: task.start_date,
             end_date: task.end_date,
-            project_id: null,
+            project_id: recipientProjectId,
             images: task.images,
             timer_total_seconds: 0,
             timer_is_running: false,
