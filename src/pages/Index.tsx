@@ -1158,6 +1158,9 @@ https://www.skyscanner.com`,
 
     // No search — filter by selected project or special list
     return tasks.filter(task => {
+      // Hide tasks with pending change requests in shared projects (they need to be re-accepted first)
+      if (task.changeRequestMessage) return false;
+      
       if (selectedProjectId) {
         return task.projectId === selectedProjectId;
       } else if (selectedSpecialList === 'unassigned') {

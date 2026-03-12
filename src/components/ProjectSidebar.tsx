@@ -261,10 +261,11 @@ export const ProjectSidebar = ({
       });
       if (error) throw error;
       
-      // Find the shared item to get its project_name
+      // Find the shared item to get its project_name and type
       const acceptedItem = sharedItems.find(i => i.id === sharedItemId);
+      const isChangeRequest = acceptedItem?.item_type === 'change_request';
       
-      toast.success('Item accepted and added to your data!', { duration: 1500 });
+      toast.success(isChangeRequest ? 'Changes accepted — task is back in your project!' : 'Item accepted and added to your data!', { duration: 1500 });
       
       // Refresh data
       await fetchProjects();
