@@ -1855,6 +1855,13 @@ https://www.skyscanner.com`,
         onOpenChange={setShareDialogOpen}
         onShared={() => fetchTasks()}
       />
+      <ShareItemDialog
+        itemType="project"
+        itemId={selectedProjectId}
+        itemTitle={projects.find(p => p.id === selectedProjectId)?.name}
+        open={shareProjectDialogOpen}
+        onOpenChange={setShareProjectDialogOpen}
+      />
     </SidebarProvider>
   </PullToRefresh>;
 };
