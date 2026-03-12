@@ -457,6 +457,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     <CheckCircle2 className="w-3 h-3 mr-1" />
                     Move to Done
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-6 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                    onClick={(e) => { e.stopPropagation(); onRequestChanges?.(task); }}
+                  >
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Changes Needed
+                  </Button>
                 </>
               )}
             </div>
