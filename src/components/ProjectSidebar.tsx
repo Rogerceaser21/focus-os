@@ -198,10 +198,35 @@ export const ProjectSidebar = ({
         body: { sharedItemId },
       });
       if (error) throw error;
-      toast.success('Item accepted and added to your data!');
-      fetchSharedItems();
-      fetchProjects();
-      fetchMeetings();
+      
+      // Find the shared item to get its project_name
+      const acceptedItem = sharedItems.find(i => i.id === sharedItemId);
+      
+      toast.success('Item accepted and added to your data!', { duration: 1500 });
+      
+      // Refresh data
+      await fetchProjects();
+      await fetchSharedItems();
+      await fetchMeetings();
+      
+      // After a brief delay, navigate to the project
+      if (acceptedItem?.project_name) {
+        setTimeout(async () => {
+          // Find the project matching the name
+          const { data: matchedProject } = await (supabase as any)
+            .from('focusos_projects')
+            .select('id')
+            .eq('name', acceptedItem.project_name)
+            .limit(1)
+            .single();
+          
+          if (matchedProject) {
+            onSelectProject(matchedProject.id);
+            onSelectSpecialList(null);
+            if (isActuallyMobile) setOpenMobile(false);
+          }
+        }, 1200);
+      }
     } catch (err) {
       console.error('Accept error:', err);
       toast.error('Failed to accept shared item');
