@@ -1138,12 +1138,14 @@ const MeetingDetail = () => {
           />
         )}
 
-        {/* Assign Task Dialog */}
-        <AssignTaskDialog
-          task={taskToAssign}
-          open={assignDialogOpen}
-          onOpenChange={setAssignDialogOpen}
-          onAssigned={handleTaskAssigned}
+        {/* Share Task Dialog */}
+        <ShareItemDialog
+          itemType="task"
+          itemId={taskToShare?.id || null}
+          itemTitle={taskToShare?.title}
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          onShared={() => fetchSavedTasks()}
         />
 
         {/* Delete Confirmation Dialog */}
