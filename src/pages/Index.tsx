@@ -1263,7 +1263,10 @@ https://www.skyscanner.com`,
     });
   };
 
-  const sortedTasks = sortTasksByPriority(filteredTasks);
+  const sortedTasks = sortTasksByPriority(filteredTasks).map(t => ({
+    ...t,
+    sharedWithName: senderSharedMap[t.id] || undefined,
+  }));
   
   // Show loading screen while auth, preferences, or initial tasks are loading
   if (authLoading || prefsLoading || (user && !preferences) || (user && !initialLoadComplete)) {
