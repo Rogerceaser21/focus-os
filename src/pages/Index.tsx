@@ -1399,6 +1399,15 @@ https://www.skyscanner.com`,
                         <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
                       </Button>
 
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                        onClick={() => setShareProjectDialogOpen(true)}
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+
                       {/* Status Dropdown for Mobile/Tablet */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
