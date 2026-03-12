@@ -80,6 +80,36 @@ export const ProjectSidebar = ({
     fetchSharedItems();
   }, [projectRefreshTrigger]);
 
+  // Supabase Realtime: live shared items for current user
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('shared-items-realtime')
+      .on(
+        'postgres_changes' as any,
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'focusos_shared_items',
+          filter: `recipient_user_id=eq.${userId}`,
+        },
+        (payload: any) => {
+          const newItem = payload.new;
+          toast.info(`📬 New item shared with you`, {
+            description: `"${newItem.item_title}" from ${newItem.sender_name || newItem.sender_email}`,
+          });
+          // Refresh shared items list
+          fetchSharedItems();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
   const fetchProjects = async () => {
     const { data, error } = await (supabase as any)
       .from('focusos_projects')
