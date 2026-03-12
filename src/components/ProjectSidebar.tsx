@@ -204,13 +204,14 @@ export const ProjectSidebar = ({
       const sharedIds = shared.map((p: any) => p.id);
       const { data: sharedTasks } = await (supabase as any)
         .from('focusos_tasks')
-        .select('id, project_id, status')
+        .select('id, project_id, status, change_request_message')
         .in('project_id', sharedIds);
 
       const activeShared = shared.filter((p: any) => {
         const projectTasks = (sharedTasks || []).filter((t: any) => t.project_id === p.id);
-        // Show if no tasks yet, or if any task is not completed
-        return projectTasks.length === 0 || projectTasks.some((t: any) => t.status !== 'completed');
+        // Show if no tasks yet, or if any task is actively visible (not completed AND no pending change request)
+        const visibleActiveTasks = projectTasks.filter((t: any) => t.status !== 'completed' && !t.change_request_message);
+        return projectTasks.length === 0 || visibleActiveTasks.length > 0;
       });
 
       setSharedProjects(activeShared.map((p: any) => ({
@@ -608,18 +609,16 @@ export const ProjectSidebar = ({
                               <CheckCircle2 className="h-3 w-3" />
                               {acceptingId === item.id ? '...' : 'Accept'}
                             </Button>
-                            {!isChangeRequest && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
-                                onClick={() => handleDeclineSharedItem(item.id)}
-                                disabled={decliningId === item.id}
-                              >
-                                <XCircle className="h-3 w-3" />
-                                {decliningId === item.id ? '...' : 'Decline'}
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeclineSharedItem(item.id)}
+                              disabled={decliningId === item.id}
+                            >
+                              <XCircle className="h-3 w-3" />
+                              {decliningId === item.id ? '...' : 'Reject'}
+                            </Button>
                           </div>
                         )}
                         {isPending && isSender && (
