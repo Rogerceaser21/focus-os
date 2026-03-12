@@ -1808,11 +1808,13 @@ https://www.skyscanner.com`,
 
       <ProjectTour isOpen={showProjectsTour} onComplete={handleProjectsTourComplete} onStepChange={handleProjectsTourStepChange} />
 
-      <AssignTaskDialog
-        task={taskToAssign}
-        open={assignDialogOpen}
-        onOpenChange={setAssignDialogOpen}
-        onAssigned={() => fetchTasks()}
+      <ShareItemDialog
+        itemType="task"
+        itemId={taskToShare?.id || null}
+        itemTitle={taskToShare?.title}
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        onShared={() => fetchTasks()}
       />
     </SidebarProvider>
   </PullToRefresh>;
