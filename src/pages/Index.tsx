@@ -414,16 +414,16 @@ const Index = () => {
     loadInitialData();
   }, [user, preferences, initialLoadComplete, fetchInitialTasks, fetchProjects]);
 
-  // Phase 2: Background load - all remaining tasks
+  // Phase 2: Background load - all remaining tasks + sender shared items
   useEffect(() => {
     const loadRemainingData = async () => {
       if (initialLoadComplete && user && !fullDataLoaded) {
-        await fetchAllTasks();
+        await Promise.all([fetchAllTasks(), fetchSenderSharedItems()]);
         setFullDataLoaded(true);
       }
     };
     loadRemainingData();
-  }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks]);
+  }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks, fetchSenderSharedItems]);
 
   // Change request notifications are now handled via sidebar shared items, not toasts
 
