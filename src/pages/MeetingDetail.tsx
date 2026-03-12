@@ -498,8 +498,8 @@ const MeetingDetail = () => {
   };
 
   const handleAssignTask = (task: Task) => {
-    setTaskToAssign(task);
-    setAssignDialogOpen(true);
+    setTaskToShare(task);
+    setShareDialogOpen(true);
   };
 
   const handleTaskAssigned = (taskId: string, email: string) => {
