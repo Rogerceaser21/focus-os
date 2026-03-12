@@ -40,7 +40,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { preferences } = useUserPreferences();
   useTimerAlert({
