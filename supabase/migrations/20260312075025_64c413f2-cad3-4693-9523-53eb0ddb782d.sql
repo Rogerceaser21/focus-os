@@ -1,0 +1,1 @@
+ALTER TABLE public.focusos_tasks ADD COLUMN change_request_message text DEFAULT NULL;

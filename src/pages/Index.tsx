@@ -16,6 +16,8 @@ import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
@@ -150,6 +152,10 @@ const Index = () => {
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareProjectDialogOpen, setShareProjectDialogOpen] = useState(false);
+  const [changesNeededTask, setChangesNeededTask] = useState<Task | null>(null);
+  const [changesNeededMessage, setChangesNeededMessage] = useState('');
+  const [changesNeededDialogOpen, setChangesNeededDialogOpen] = useState(false);
+  const [changesNeededLoading, setChangesNeededLoading] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
@@ -229,6 +235,7 @@ const Index = () => {
     sortOrder: dbTask.sort_order ?? 0,
     completedByEmail: dbTask.completed_by_email ?? undefined,
     assignedToEmail: dbTask.assigned_to_email ?? undefined,
+    changeRequestMessage: dbTask.change_request_message ?? undefined,
   }), []);
 
   // Fetch projects (lightweight - just names for sidebar)
@@ -369,6 +376,18 @@ const Index = () => {
     };
     loadRemainingData();
   }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks]);
+
+  // Show toast notifications for tasks with change requests
+  useEffect(() => {
+    if (!fullDataLoaded) return;
+    const tasksWithChanges = allTasks.filter(t => t.changeRequestMessage);
+    tasksWithChanges.forEach(t => {
+      toast.warning(`Changes requested on "${t.title}"`, {
+        description: t.changeRequestMessage,
+        duration: 8000,
+      });
+    });
+  }, [fullDataLoaded]); // Only run once when data first loads
 
   // Re-fetch when view changes (use allTasks if available, otherwise fetch)
   useEffect(() => {
@@ -979,6 +998,55 @@ https://www.skyscanner.com`,
     setShareDialogOpen(true);
   };
 
+  const handleRequestChanges = (task: Task) => {
+    setChangesNeededTask(task);
+    setChangesNeededMessage('');
+    setChangesNeededDialogOpen(true);
+  };
+
+  const handleSubmitChangesNeeded = async () => {
+    if (!changesNeededTask || !changesNeededMessage.trim()) return;
+    setChangesNeededLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('focusos-request-changes', {
+        body: {
+          taskId: changesNeededTask.id,
+          message: changesNeededMessage.trim(),
+        },
+      });
+      if (error) throw error;
+
+      // Optimistic: clear completedByEmail on sender's task
+      const cleared = { ...changesNeededTask, completedByEmail: undefined, changeRequestMessage: undefined };
+      setTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
+      setAllTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
+
+      toast.success('Changes requested — the recipient has been notified.');
+      setChangesNeededDialogOpen(false);
+      setChangesNeededTask(null);
+      setChangesNeededMessage('');
+    } catch (err: any) {
+      console.error('Request changes error:', err);
+      toast.error('Failed to request changes');
+    } finally {
+      setChangesNeededLoading(false);
+    }
+  };
+
+  const handleDismissChangeRequest = async (task: Task) => {
+    // Clear the change_request_message on the recipient's task
+    const { error } = await (supabase as any).from('focusos_tasks').update({
+      change_request_message: null,
+    }).eq('id', task.id);
+    if (error) {
+      toast.error('Failed to dismiss');
+      return;
+    }
+    const updated = { ...task, changeRequestMessage: undefined };
+    setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+    setAllTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
@@ -1556,6 +1624,8 @@ https://www.skyscanner.com`,
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   onAssignTask={handleAssignTask}
+                  onRequestChanges={handleRequestChanges}
+                  onDismissChangeRequest={handleDismissChangeRequest}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -1571,6 +1641,8 @@ https://www.skyscanner.com`,
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   onAssignTask={handleAssignTask}
+                  onRequestChanges={handleRequestChanges}
+                  onDismissChangeRequest={handleDismissChangeRequest}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -1586,6 +1658,8 @@ https://www.skyscanner.com`,
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   onAssignTask={handleAssignTask}
+                  onRequestChanges={handleRequestChanges}
+                  onDismissChangeRequest={handleDismissChangeRequest}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -1601,6 +1675,8 @@ https://www.skyscanner.com`,
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   onAssignTask={handleAssignTask}
+                  onRequestChanges={handleRequestChanges}
+                  onDismissChangeRequest={handleDismissChangeRequest}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -1718,19 +1794,19 @@ https://www.skyscanner.com`,
                 </div>}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
             </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
               <GanttChart 
@@ -1907,6 +1983,42 @@ https://www.skyscanner.com`,
         open={shareProjectDialogOpen}
         onOpenChange={setShareProjectDialogOpen}
       />
+
+      {/* Changes Needed Dialog */}
+      <Dialog open={changesNeededDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setChangesNeededDialogOpen(false);
+          setChangesNeededTask(null);
+          setChangesNeededMessage('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Changes</DialogTitle>
+            <DialogDescription>
+              Describe what changes are needed for "{changesNeededTask?.title}". The recipient will be notified and the task will be reassigned to them.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Describe the changes needed..."
+            value={changesNeededMessage}
+            onChange={(e) => setChangesNeededMessage(e.target.value)}
+            className="min-h-[100px]"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChangesNeededDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitChangesNeeded}
+              disabled={!changesNeededMessage.trim() || changesNeededLoading}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {changesNeededLoading ? 'Sending...' : 'Send Changes Request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   </PullToRefresh>;
 };

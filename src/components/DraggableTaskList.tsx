@@ -28,6 +28,8 @@ interface DraggableTaskListProps {
   onBatchUpdate?: (tasks: Task[]) => void;
   onEditTask?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
+  onRequestChanges?: (task: Task) => void;
+  onDismissChangeRequest?: (task: Task) => void;
   globalViewMode: 'full' | 'compact';
   expandedTaskIds: Set<string>;
   onTaskClick: (taskId: string) => void;
@@ -49,6 +51,8 @@ interface SortableTaskItemProps {
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
+  onRequestChanges?: (task: Task) => void;
+  onDismissChangeRequest?: (task: Task) => void;
   globalViewMode: 'full' | 'compact';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
@@ -61,6 +65,8 @@ const SortableTaskItem = ({
   onUpdate,
   onEditTask,
   onAssignTask,
+  onRequestChanges,
+  onDismissChangeRequest,
   globalViewMode,
   isIndividuallyExpanded,
   onTaskClick,
@@ -101,6 +107,8 @@ const SortableTaskItem = ({
           onUpdate={onUpdate}
           onEditTask={onEditTask}
           onAssignTask={onAssignTask}
+          onRequestChanges={onRequestChanges}
+          onDismissChangeRequest={onDismissChangeRequest}
           globalViewMode={globalViewMode}
           isIndividuallyExpanded={isIndividuallyExpanded}
           onTaskClick={onTaskClick}
@@ -117,6 +125,8 @@ export const DraggableTaskList = ({
   onBatchUpdate,
   onEditTask,
   onAssignTask,
+  onRequestChanges,
+  onDismissChangeRequest,
   globalViewMode,
   expandedTaskIds,
   onTaskClick,
@@ -271,6 +281,8 @@ export const DraggableTaskList = ({
                       onUpdate={onUpdate}
                       onEditTask={onEditTask}
                       onAssignTask={onAssignTask}
+                      onRequestChanges={onRequestChanges}
+                      onDismissChangeRequest={onDismissChangeRequest}
                       globalViewMode={globalViewMode}
                       isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                       onTaskClick={() => onTaskClick(task.id)}

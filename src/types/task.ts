@@ -22,6 +22,7 @@ export interface Task {
   sortOrder?: number;
   completedByEmail?: string;
   assignedToEmail?: string;
+  changeRequestMessage?: string;
 }
 
 export interface Project {

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Play, Pause, Clock, Calendar, Share2, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, Clock, Calendar, Share2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -19,6 +19,8 @@ interface TaskCardProps {
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
+  onRequestChanges?: (task: Task) => void;
+  onDismissChangeRequest?: (task: Task) => void;
   projects?: Project[];
 }
 
@@ -35,7 +37,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, projects = [] }: TaskCardProps) => {
+export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, projects = [] }: TaskCardProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { preferences } = useUserPreferences();
   useTimerAlert({
@@ -301,7 +303,33 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, projects = 
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 Move to Done
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-6 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                onClick={() => onRequestChanges?.(task)}
+              >
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Changes Needed
+              </Button>
             </>
+          )}
+
+          {/* Change request banner */}
+          {task.changeRequestMessage && (
+            <div className="flex items-start gap-2 w-full p-2 rounded-md bg-orange-500/10 border border-orange-500/30">
+              <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-orange-400">Changes Requested</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{task.changeRequestMessage}</p>
+              </div>
+              <button
+                className="text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => onDismissChangeRequest?.(task)}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
           )}
         </div>
       </div>

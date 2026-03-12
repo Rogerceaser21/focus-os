@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Play, Pause, Calendar, Clock, Image, Share2, CheckCircle2, Pencil } from 'lucide-react';
+import { Play, Pause, Calendar, Clock, Image, Share2, CheckCircle2, Pencil, AlertTriangle, X } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -19,6 +19,8 @@ interface TaskListItemProps {
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
+  onRequestChanges?: (task: Task) => void;
+  onDismissChangeRequest?: (task: Task) => void;
   globalViewMode: 'full' | 'compact';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
@@ -38,7 +40,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { preferences } = useUserPreferences();
   useTimerAlert({
@@ -455,6 +457,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
                     <CheckCircle2 className="w-3 h-3 mr-1" />
                     Move to Done
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-6 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                    onClick={(e) => { e.stopPropagation(); onRequestChanges?.(task); }}
+                  >
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Changes Needed
+                  </Button>
                 </>
               )}
             </div>
@@ -475,6 +486,32 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
                 <CheckCircle2 className="w-3 h-3 mr-1" />
                 Move to Done
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-6 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                onClick={(e) => { e.stopPropagation(); onRequestChanges?.(task); }}
+              >
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                Changes Needed
+              </Button>
+            </div>
+          )}
+
+          {/* Change request banner (mobile) */}
+          {task.changeRequestMessage && (
+            <div className="flex items-start gap-2 ml-6 mt-1 p-2 rounded-md bg-orange-500/10 border border-orange-500/30" onClick={(e) => e.stopPropagation()}>
+              <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-orange-400">Changes Requested</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{task.changeRequestMessage}</p>
+              </div>
+              <button
+                className="text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => onDismissChangeRequest?.(task)}
+              >
+                <X className="w-3 h-3" />
+              </button>
             </div>
           )}
         </div>
@@ -666,6 +703,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
                     <CheckCircle2 className="w-3 h-3 mr-1" />
                     Move to Done
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                    onClick={(e) => { e.stopPropagation(); onRequestChanges?.(task); }}
+                  >
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Changes Needed
+                  </Button>
                 </>
               )}
             </div>
@@ -686,6 +732,32 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
                 <CheckCircle2 className="w-3 h-3 mr-1" />
                 Move to Done
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                onClick={(e) => { e.stopPropagation(); onRequestChanges?.(task); }}
+              >
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                Changes Needed
+              </Button>
+            </div>
+          )}
+
+          {/* Change request banner (desktop) */}
+          {task.changeRequestMessage && (
+            <div className="flex items-start gap-2 ml-6 mt-1 p-2 rounded-md bg-orange-500/10 border border-orange-500/30" onClick={(e) => e.stopPropagation()}>
+              <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-orange-400">Changes Requested</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{task.changeRequestMessage}</p>
+              </div>
+              <button
+                className="text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => onDismissChangeRequest?.(task)}
+              >
+                <X className="w-3 h-3" />
+              </button>
             </div>
           )}
         </div>

@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.focusos-complete-shared-task]
 verify_jwt = false
+
+[functions.focusos-request-changes]
+verify_jwt = false
