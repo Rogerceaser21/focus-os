@@ -121,6 +121,7 @@ serve(async (req) => {
                 user_id: recipientId,
                 name: projectName,
                 color: projectColor,
+                is_shared: true,
               })
               .select("id")
               .single();
@@ -168,6 +169,7 @@ serve(async (req) => {
             user_id: recipientId,
             name: project.name,
             color: project.color,
+            is_shared: true,
           })
           .select("id")
           .single();

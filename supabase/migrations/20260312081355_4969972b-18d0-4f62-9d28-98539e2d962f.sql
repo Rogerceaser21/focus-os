@@ -1,0 +1,1 @@
+ALTER TABLE public.focusos_projects ADD COLUMN is_shared boolean NOT NULL DEFAULT false;
