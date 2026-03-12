@@ -984,6 +984,55 @@ https://www.skyscanner.com`,
     setShareDialogOpen(true);
   };
 
+  const handleRequestChanges = (task: Task) => {
+    setChangesNeededTask(task);
+    setChangesNeededMessage('');
+    setChangesNeededDialogOpen(true);
+  };
+
+  const handleSubmitChangesNeeded = async () => {
+    if (!changesNeededTask || !changesNeededMessage.trim()) return;
+    setChangesNeededLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('focusos-request-changes', {
+        body: {
+          taskId: changesNeededTask.id,
+          message: changesNeededMessage.trim(),
+        },
+      });
+      if (error) throw error;
+
+      // Optimistic: clear completedByEmail on sender's task
+      const cleared = { ...changesNeededTask, completedByEmail: undefined, changeRequestMessage: undefined };
+      setTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
+      setAllTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
+
+      toast.success('Changes requested — the recipient has been notified.');
+      setChangesNeededDialogOpen(false);
+      setChangesNeededTask(null);
+      setChangesNeededMessage('');
+    } catch (err: any) {
+      console.error('Request changes error:', err);
+      toast.error('Failed to request changes');
+    } finally {
+      setChangesNeededLoading(false);
+    }
+  };
+
+  const handleDismissChangeRequest = async (task: Task) => {
+    // Clear the change_request_message on the recipient's task
+    const { error } = await (supabase as any).from('focusos_tasks').update({
+      change_request_message: null,
+    }).eq('id', task.id);
+    if (error) {
+      toast.error('Failed to dismiss');
+      return;
+    }
+    const updated = { ...task, changeRequestMessage: undefined };
+    setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+    setAllTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
