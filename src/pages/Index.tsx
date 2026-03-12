@@ -378,18 +378,7 @@ const Index = () => {
     loadRemainingData();
   }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks]);
 
-  // Show toast notifications for tasks with change requests (on initial load only)
-  useEffect(() => {
-    if (!fullDataLoaded) return;
-    const tasksWithChanges = allTasks.filter(t => t.changeRequestMessage);
-    tasksWithChanges.forEach(t => {
-      toast.warning(`Changes requested on "${t.title}"`, {
-        id: `change-req-${t.id}`,
-        description: t.changeRequestMessage,
-        duration: 8000,
-      });
-    });
-  }, [fullDataLoaded]); // Only run once when data first loads
+  // Change request notifications are now handled via sidebar shared items, not toasts
 
   // Re-fetch when view changes (use allTasks if available, otherwise fetch)
   useEffect(() => {
@@ -1158,6 +1147,9 @@ https://www.skyscanner.com`,
 
     // No search — filter by selected project or special list
     return tasks.filter(task => {
+      // Hide tasks with pending change requests in shared projects (they need to be re-accepted first)
+      if (task.changeRequestMessage) return false;
+      
       if (selectedProjectId) {
         return task.projectId === selectedProjectId;
       } else if (selectedSpecialList === 'unassigned') {
