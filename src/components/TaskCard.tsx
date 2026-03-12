@@ -19,6 +19,8 @@ interface TaskCardProps {
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
+  onRequestChanges?: (task: Task) => void;
+  onDismissChangeRequest?: (task: Task) => void;
   projects?: Project[];
 }
 
