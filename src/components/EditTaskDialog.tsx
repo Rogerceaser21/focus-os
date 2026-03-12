@@ -37,7 +37,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
   const [maxHeight, setMaxHeight] = useState('300px');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const MAX_IMAGES = 8;
