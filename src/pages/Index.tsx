@@ -971,7 +971,7 @@ https://www.skyscanner.com`,
         const currentProject = projects.find(p => p.id === selectedProjectId);
         if (currentProject?.isShared) {
           const remainingActive = allTasks.filter(
-            t => t.projectId === selectedProjectId && t.id !== updatedTask.id && t.status !== 'completed'
+            t => t.projectId === selectedProjectId && t.id !== updatedTask.id && t.status !== 'completed' && !t.changeRequestMessage
           );
           if (remainingActive.length === 0) {
             setSelectedSpecialList('today');
