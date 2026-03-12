@@ -1971,6 +1971,42 @@ https://www.skyscanner.com`,
         open={shareProjectDialogOpen}
         onOpenChange={setShareProjectDialogOpen}
       />
+
+      {/* Changes Needed Dialog */}
+      <Dialog open={changesNeededDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setChangesNeededDialogOpen(false);
+          setChangesNeededTask(null);
+          setChangesNeededMessage('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Changes</DialogTitle>
+            <DialogDescription>
+              Describe what changes are needed for "{changesNeededTask?.title}". The recipient will be notified and the task will be reassigned to them.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Describe the changes needed..."
+            value={changesNeededMessage}
+            onChange={(e) => setChangesNeededMessage(e.target.value)}
+            className="min-h-[100px]"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChangesNeededDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitChangesNeeded}
+              disabled={!changesNeededMessage.trim() || changesNeededLoading}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {changesNeededLoading ? 'Sending...' : 'Send Changes Request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   </PullToRefresh>;
 };
