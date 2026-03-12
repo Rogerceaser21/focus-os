@@ -252,6 +252,8 @@ serve(async (req) => {
         itemTitle,
         projectName,
         appUrl,
+        shareToken,
+        supabaseUrl: Deno.env.get("SUPABASE_URL"),
       }),
     });
 
