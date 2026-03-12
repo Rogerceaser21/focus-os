@@ -169,6 +169,7 @@ serve(async (req) => {
         });
       }
       itemTitle = task.title;
+      shareToken = task.share_token;
       // Resolve project name if task belongs to a project
       if (task.project_id) {
         const { data: proj } = await supabaseUser
