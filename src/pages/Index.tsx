@@ -160,6 +160,7 @@ const Index = () => {
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [senderSharedMap, setSenderSharedMap] = useState<Record<string, string>>({});
   const [showProjectsTour, setShowProjectsTour] = useState(false);
   const [projectsTourCurrentStep, setProjectsTourCurrentStep] = useState(0);
   const [projectsTourProjects, setProjectsTourProjects] = useState<{id: string, name: string}[]>([]);
