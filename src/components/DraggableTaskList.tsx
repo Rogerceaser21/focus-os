@@ -65,6 +65,8 @@ const SortableTaskItem = ({
   onUpdate,
   onEditTask,
   onAssignTask,
+  onRequestChanges,
+  onDismissChangeRequest,
   globalViewMode,
   isIndividuallyExpanded,
   onTaskClick,
