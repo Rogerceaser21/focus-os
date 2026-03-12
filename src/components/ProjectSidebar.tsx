@@ -80,7 +80,7 @@ export const ProjectSidebar = ({
     fetchSharedItems();
   }, [projectRefreshTrigger]);
 
-  // Supabase Realtime: live shared items for current user
+  // Supabase Realtime: live shared items for current user (as recipient)
   useEffect(() => {
     if (!userId) return;
 
@@ -99,7 +99,32 @@ export const ProjectSidebar = ({
           toast.info(`📬 New item shared with you`, {
             description: `"${newItem.item_title}" from ${newItem.sender_name || newItem.sender_email}`,
           });
-          // Refresh shared items list
+          fetchSharedItems();
+        }
+      )
+      // Listen for updates too (when status changes to 'accepted' — notify sender)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'focusos_shared_items',
+          filter: `sender_user_id=eq.${userId}`,
+        },
+        (payload: any) => {
+          const updated = payload.new;
+          const old = payload.old;
+          // Notify sender when their shared item is accepted
+          if (updated.status === 'accepted' && old?.status === 'pending') {
+            toast.success(`✅ "${updated.item_title}" was accepted`, {
+              description: `${updated.recipient_email} accepted your shared ${updated.item_type}`,
+              duration: Infinity,
+              action: {
+                label: '✓ Dismiss',
+                onClick: () => handleAcknowledgeSharedItem(updated.id),
+              },
+            });
+          }
           fetchSharedItems();
         }
       )
