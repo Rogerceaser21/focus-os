@@ -22,10 +22,21 @@ function buildShareEmailHtml(p: {
   itemTitle: string;
   projectName?: string;
   appUrl: string;
+  shareToken?: string;
+  supabaseUrl?: string;
 }) {
   const typeLabel = p.itemType.charAt(0).toUpperCase() + p.itemType.slice(1);
   const projectLine = p.projectName
     ? `<p style="margin:4px 0 0;font-size:13px;color:#9ca3af;">Project: ${escapeHtml(p.projectName)}</p>`
+    : "";
+
+  const markCompletedButton = (p.itemType === "task" && p.shareToken && p.supabaseUrl)
+    ? `<tr><td align="center" style="padding:12px 0 0;">
+        <a href="${p.supabaseUrl}/functions/v1/focusos-complete-shared-task?token=${p.shareToken}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;border-radius:8px;text-decoration:none;">
+          ✅ Mark Completed
+        </a>
+        <p style="margin:8px 0 0;font-size:11px;color:#6b7280;">No login required</p>
+      </td></tr>`
     : "";
 
   return `
@@ -50,11 +61,14 @@ function buildShareEmailHtml(p: {
     </table>
   </td></tr>
   <tr><td style="padding:24px 0;">
-    <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
+    <table cellpadding="0" cellspacing="0" width="100%">
+    <tr><td align="center">
       <a href="${p.appUrl}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-size:14px;font-weight:600;border-radius:8px;text-decoration:none;">
         View in Focus OS
       </a>
-    </td></tr></table>
+    </td></tr>
+    ${markCompletedButton}
+    </table>
   </td></tr>
   <tr><td style="padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);">
     <p style="margin:0;font-size:11px;color:#6b7280;text-align:center;">
