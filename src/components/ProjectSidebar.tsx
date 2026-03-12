@@ -129,6 +129,40 @@ export const ProjectSidebar = ({
     };
   }, [userId]);
 
+  // Realtime: re-fetch shared projects when any of this user's tasks change (status updates)
+  useEffect(() => {
+    if (!userId) return;
+
+    const taskChannel = supabase
+      .channel('sidebar-tasks-realtime')
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'focusos_tasks',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload: any) => {
+          // Re-fetch projects to update shared project visibility
+          fetchProjects();
+          
+          // If a task just got a change_request_message, show sidebar notification
+          if (payload.eventType === 'UPDATE' && payload.new?.change_request_message && !payload.old?.change_request_message) {
+            toast.warning(`⚠️ Changes requested on "${payload.new.title}"`, {
+              description: payload.new.change_request_message,
+              duration: 10000,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(taskChannel);
+    };
+  }, [userId]);
+
   // Queued notification: show one unacknowledged accepted item at a time for the sender
   useEffect(() => {
     if (!userId) return;

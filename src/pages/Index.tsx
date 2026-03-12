@@ -378,12 +378,13 @@ const Index = () => {
     loadRemainingData();
   }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks]);
 
-  // Show toast notifications for tasks with change requests
+  // Show toast notifications for tasks with change requests (on initial load only)
   useEffect(() => {
     if (!fullDataLoaded) return;
     const tasksWithChanges = allTasks.filter(t => t.changeRequestMessage);
     tasksWithChanges.forEach(t => {
       toast.warning(`Changes requested on "${t.title}"`, {
+        id: `change-req-${t.id}`,
         description: t.changeRequestMessage,
         duration: 8000,
       });
@@ -447,6 +448,8 @@ const Index = () => {
           setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
           // Also update allTasks cache
           setAllTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+          // Trigger sidebar refresh for shared project visibility
+          setProjectRefreshTrigger(prev => prev + 1);
         }
       )
       .on(
