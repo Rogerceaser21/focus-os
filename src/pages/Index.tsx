@@ -448,6 +448,8 @@ const Index = () => {
           setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
           // Also update allTasks cache
           setAllTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+          // Trigger sidebar refresh for shared project visibility
+          setProjectRefreshTrigger(prev => prev + 1);
         }
       )
       .on(
