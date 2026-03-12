@@ -114,9 +114,10 @@ const MeetingDetail = () => {
   // Individual expand tracking for TaskListItem
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
 
-  // Assign task dialog state
+  // Share dialog state
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
+  const [shareMeetingDialogOpen, setShareMeetingDialogOpen] = useState(false);
 
   // Edit task dialog state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
