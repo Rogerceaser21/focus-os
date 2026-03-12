@@ -518,6 +518,7 @@ export type Database = {
       focusos_tasks: {
         Row: {
           assigned_to_email: string | null
+          change_request_message: string | null
           completed_at: string | null
           completed_by_email: string | null
           created_at: string
@@ -542,6 +543,7 @@ export type Database = {
         }
         Insert: {
           assigned_to_email?: string | null
+          change_request_message?: string | null
           completed_at?: string | null
           completed_by_email?: string | null
           created_at?: string
@@ -566,6 +568,7 @@ export type Database = {
         }
         Update: {
           assigned_to_email?: string | null
+          change_request_message?: string | null
           completed_at?: string | null
           completed_by_email?: string | null
           created_at?: string
