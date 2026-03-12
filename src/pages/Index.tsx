@@ -160,6 +160,7 @@ const Index = () => {
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [senderSharedMap, setSenderSharedMap] = useState<Record<string, string>>({});
   const [showProjectsTour, setShowProjectsTour] = useState(false);
   const [projectsTourCurrentStep, setProjectsTourCurrentStep] = useState(0);
   const [projectsTourProjects, setProjectsTourProjects] = useState<{id: string, name: string}[]>([]);
@@ -311,7 +312,53 @@ const Index = () => {
     }
   }, [transformDbTask]);
 
-  // Filter tasks from cached allTasks based on current view
+  // Fetch shared items where current user is sender, to show "Shared with" on task cards
+  const fetchSenderSharedItems = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data: sharedItems, error } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('item_id, recipient_email, recipient_user_id')
+        .eq('sender_user_id', user.id)
+        .eq('item_type', 'task');
+      
+      if (error || !sharedItems) return;
+
+      // Collect unique recipient_user_ids to look up names
+      const recipientUserIds = sharedItems
+        .map((si: any) => si.recipient_user_id)
+        .filter((id: string | null) => id != null);
+
+      let profilesMap: Record<string, string> = {};
+      if (recipientUserIds.length > 0) {
+        const { data: profiles } = await (supabase as any)
+          .from('focusos_profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', recipientUserIds);
+        
+        if (profiles) {
+          for (const p of profiles) {
+            const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+            if (name) profilesMap[p.user_id] = name;
+          }
+        }
+      }
+
+      // Build map: task item_id → display name
+      const map: Record<string, string> = {};
+      for (const si of sharedItems) {
+        const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
+          ? profilesMap[si.recipient_user_id]
+          : si.recipient_email;
+        map[si.item_id] = name;
+      }
+      setSenderSharedMap(map);
+    } catch (err) {
+      console.error('Error fetching sender shared items:', err);
+    }
+  }, [user]);
+
+
   const filterTasksFromCache = useCallback(() => {
     if (allTasks.length === 0) return;
     
@@ -367,16 +414,16 @@ const Index = () => {
     loadInitialData();
   }, [user, preferences, initialLoadComplete, fetchInitialTasks, fetchProjects]);
 
-  // Phase 2: Background load - all remaining tasks
+  // Phase 2: Background load - all remaining tasks + sender shared items
   useEffect(() => {
     const loadRemainingData = async () => {
       if (initialLoadComplete && user && !fullDataLoaded) {
-        await fetchAllTasks();
+        await Promise.all([fetchAllTasks(), fetchSenderSharedItems()]);
         setFullDataLoaded(true);
       }
     };
     loadRemainingData();
-  }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks]);
+  }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks, fetchSenderSharedItems]);
 
   // Change request notifications are now handled via sidebar shared items, not toasts
 
@@ -1216,7 +1263,10 @@ https://www.skyscanner.com`,
     });
   };
 
-  const sortedTasks = sortTasksByPriority(filteredTasks);
+  const sortedTasks = sortTasksByPriority(filteredTasks).map(t => ({
+    ...t,
+    sharedWithName: senderSharedMap[t.id] || undefined,
+  }));
   
   // Show loading screen while auth, preferences, or initial tasks are loading
   if (authLoading || prefsLoading || (user && !preferences) || (user && !initialLoadComplete)) {
@@ -2027,7 +2077,7 @@ https://www.skyscanner.com`,
         itemTitle={taskToShare?.title}
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
-        onShared={() => fetchTasks()}
+        onShared={() => { fetchTasks(); fetchSenderSharedItems(); }}
       />
       <ShareItemDialog
         itemType="project"

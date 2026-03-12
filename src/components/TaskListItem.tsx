@@ -445,6 +445,12 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </button>
               )}
 
+              {task.sharedWithName && !task.completedByEmail && (
+                <Badge variant="outline" className="bg-cyan-500/15 text-cyan-400 border-cyan-500/30 text-xs">
+                  📤 Shared with {task.sharedWithName}
+                </Badge>
+              )}
+
               {task.completedByEmail && task.status !== 'completed' && (
                 <>
                   <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs">
@@ -470,6 +476,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   </Button>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Always-visible shared with badge (mobile) */}
+          {!isExpanded && task.sharedWithName && !task.completedByEmail && (
+            <div className="flex items-center gap-2 flex-wrap ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
+              <Badge variant="outline" className="bg-cyan-500/15 text-cyan-400 border-cyan-500/30 text-xs">
+                📤 Shared with {task.sharedWithName}
+              </Badge>
             </div>
           )}
 
@@ -693,6 +708,12 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </button>
               )}
 
+              {task.sharedWithName && !task.completedByEmail && (
+                <Badge variant="outline" className="bg-cyan-500/15 text-cyan-400 border-cyan-500/30">
+                  📤 Shared with {task.sharedWithName}
+                </Badge>
+              )}
+
               {task.completedByEmail && task.status !== 'completed' && (
                 <>
                   <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30">
@@ -718,6 +739,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   </Button>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Always-visible shared with badge (desktop) */}
+          {!isExpanded && task.sharedWithName && !task.completedByEmail && (
+            <div className="flex items-center gap-2 ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
+              <Badge variant="outline" className="bg-cyan-500/15 text-cyan-400 border-cyan-500/30">
+                📤 Shared with {task.sharedWithName}
+              </Badge>
             </div>
           )}
 
