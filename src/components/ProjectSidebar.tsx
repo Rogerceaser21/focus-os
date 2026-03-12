@@ -160,7 +160,16 @@ export const ProjectSidebar = ({
       return;
     }
 
-    setProjects(data.map(p => ({
+    // Split into own projects and shared projects
+    const ownProjects = data.filter((p: any) => !p.is_shared);
+    const shared = data.filter((p: any) => p.is_shared);
+    setProjects(ownProjects.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      timer: { totalSeconds: 0, isRunning: false }
+    })));
+    setSharedProjects(shared.map((p: any) => ({
       id: p.id,
       name: p.name,
       color: p.color,
