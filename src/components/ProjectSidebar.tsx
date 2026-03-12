@@ -110,7 +110,55 @@ export const ProjectSidebar = ({
     }
   };
 
-  // Fuzzy search instances
+  const fetchSharedItems = async () => {
+    const { data, error } = await (supabase as any)
+      .from('focusos_shared_items')
+      .select('*')
+      .in('status', ['pending', 'accepted'])
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setSharedItems(data);
+    }
+  };
+
+  const handleAcceptSharedItem = async (sharedItemId: string) => {
+    setAcceptingId(sharedItemId);
+    try {
+      const { error } = await supabase.functions.invoke('focusos-accept-shared-item', {
+        body: { sharedItemId },
+      });
+      if (error) throw error;
+      toast.success('Item accepted and added to your data!');
+      fetchSharedItems();
+      fetchProjects();
+      fetchMeetings();
+    } catch (err) {
+      console.error('Accept error:', err);
+      toast.error('Failed to accept shared item');
+    } finally {
+      setAcceptingId(null);
+    }
+  };
+
+  const handleDeclineSharedItem = async (sharedItemId: string) => {
+    setDecliningId(sharedItemId);
+    try {
+      const { error } = await supabase.functions.invoke('focusos-decline-shared-item', {
+        body: { sharedItemId },
+      });
+      if (error) throw error;
+      toast.success('Item declined');
+      fetchSharedItems();
+    } catch (err) {
+      console.error('Decline error:', err);
+      toast.error('Failed to decline shared item');
+    } finally {
+      setDecliningId(null);
+    }
+  };
+
+
   const projectFuse = useMemo(() => new Fuse(projects, {
     keys: ['name'],
     threshold: 0.4,
