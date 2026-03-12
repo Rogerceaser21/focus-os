@@ -420,11 +420,13 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
       />
     )}
 
-    <AssignTaskDialog
-      task={task}
-      open={assignDialogOpen}
-      onOpenChange={setAssignDialogOpen}
-      onAssigned={onAssigned}
+    <ShareItemDialog
+      itemType="task"
+      itemId={task.id}
+      itemTitle={task.title}
+      open={shareDialogOpen}
+      onOpenChange={setShareDialogOpen}
+      onShared={() => onAssigned?.(task.id, '')}
     />
   </>
   );
