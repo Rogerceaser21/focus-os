@@ -482,9 +482,13 @@ export const ProjectSidebar = ({
 
             {/* Shared Items Section */}
             {(() => {
-              // Filter: hide sender's accepted+acknowledged items
+              // Filter: hide accepted items for recipients, and sender's acknowledged items
               const visibleItems = sharedItems.filter((item) => {
                 const isSender = item.sender_user_id === userId;
+                const isRecipient = item.recipient_user_id === userId;
+                // Hide accepted items from recipient's view (task is now in Shared Projects)
+                if (isRecipient && item.status === 'accepted') return false;
+                // Hide sender's accepted+acknowledged items
                 if (isSender && item.status === 'accepted' && item.sender_acknowledged) return false;
                 return true;
               });
