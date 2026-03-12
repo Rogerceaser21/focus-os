@@ -114,16 +114,9 @@ export const ProjectSidebar = ({
         (payload: any) => {
           const updated = payload.new;
           const old = payload.old;
-          // Notify sender when their shared item is accepted
+          // Notify sender when their shared item is accepted — queued via fetchSharedItems
           if (updated.status === 'accepted' && old?.status === 'pending') {
-            toast.success(`✅ "${updated.item_title}" was accepted`, {
-              description: `${updated.recipient_email} accepted your shared ${updated.item_type}`,
-              duration: Infinity,
-              action: {
-                label: '✓ Dismiss',
-                onClick: () => handleAcknowledgeSharedItem(updated.id),
-              },
-            });
+            // Don't show toast here — we'll show queued notifications from state
           }
           fetchSharedItems();
         }
@@ -134,6 +127,27 @@ export const ProjectSidebar = ({
       supabase.removeChannel(channel);
     };
   }, [userId]);
+
+  // Queued notification: show one unacknowledged accepted item at a time for the sender
+  useEffect(() => {
+    if (!userId) return;
+    const unacknowledged = sharedItems.filter(
+      (item) => item.sender_user_id === userId && item.status === 'accepted' && !item.sender_acknowledged
+    );
+    if (unacknowledged.length > 0) {
+      const first = unacknowledged[0];
+      // Use a stable toast ID so we don't stack duplicates
+      toast.success(`✅ "${first.item_title}" was accepted`, {
+        id: `accept-notify-${first.id}`,
+        description: `${first.recipient_email} accepted your shared ${first.item_type}`,
+        duration: Infinity,
+        action: {
+          label: '✓ Dismiss',
+          onClick: () => handleAcknowledgeSharedItem(first.id),
+        },
+      });
+    }
+  }, [sharedItems, userId]);
 
   const fetchProjects = async () => {
     const { data, error } = await (supabase as any)
@@ -432,16 +446,23 @@ export const ProjectSidebar = ({
             </div>
 
             {/* Shared Items Section */}
-            {sharedItems.length > 0 && (
+            {(() => {
+              // Filter: hide sender's accepted+acknowledged items
+              const visibleItems = sharedItems.filter((item) => {
+                const isSender = item.sender_user_id === userId;
+                if (isSender && item.status === 'accepted' && item.sender_acknowledged) return false;
+                return true;
+              });
+              return visibleItems.length > 0 ? (
               <div className="mt-3 px-2">
                 <div className="px-2 mb-2">
                   <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                     <Share2 className="h-3.5 w-3.5" />
-                    Shared Items ({sharedItems.length})
+                    Shared Items ({visibleItems.length})
                   </h3>
                 </div>
                 <div className="space-y-1.5">
-                  {sharedItems.map((item) => {
+                  {visibleItems.map((item) => {
                     const isPending = item.status === 'pending';
                     const isAccepted = item.status === 'accepted';
                     const isSender = item.sender_user_id === userId;
@@ -526,7 +547,8 @@ export const ProjectSidebar = ({
                   })}
                 </div>
               </div>
-            )}
+              ) : null;
+            })()}
 
             {/* Projects with AnimatedList */}
             {projects.length > 0 && (

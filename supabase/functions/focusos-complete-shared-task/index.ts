@@ -55,6 +55,7 @@ serve(async (req) => {
     }
 
     // Now sync: find the shared_items row that links this task, and update the recipient's cloned task too
+    // Only set completed_by_email, do NOT change status — let the other user "Move to Done" manually
     const { data: sharedItems } = await supabase
       .from("focusos_shared_items")
       .select("recipient_task_id, item_id")
@@ -68,7 +69,6 @@ serve(async (req) => {
           await supabase
             .from("focusos_tasks")
             .update({
-              status: "completed",
               completed_by_email: completedByEmail,
             })
             .eq("id", si.recipient_task_id);
@@ -90,7 +90,6 @@ serve(async (req) => {
           .from("focusos_tasks")
           .update({
             completed_by_email: completedByEmail,
-            status: "completed",
           })
           .eq("id", si.item_id);
       }
