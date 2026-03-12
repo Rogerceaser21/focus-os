@@ -947,6 +947,21 @@ https://www.skyscanner.com`,
       } catch (err) {
         console.error('Completion sync lookup error:', err);
       }
+
+      // Auto-redirect: if the last task in a shared project was just completed, go to Today's To-Do
+      if (selectedProjectId && updatedTask.projectId === selectedProjectId) {
+        const currentProject = projects.find(p => p.id === selectedProjectId);
+        if (currentProject?.isShared) {
+          const remainingActive = allTasks.filter(
+            t => t.projectId === selectedProjectId && t.id !== updatedTask.id && t.status !== 'completed'
+          );
+          if (remainingActive.length === 0) {
+            setSelectedSpecialList('today');
+            setSelectedProjectId(null);
+            setProjectRefreshTrigger(prev => prev + 1);
+          }
+        }
+      }
     }
   };
 
