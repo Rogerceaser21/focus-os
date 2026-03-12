@@ -212,6 +212,17 @@ export const ProjectSidebar = ({
       setDecliningId(null);
     }
   };
+  const handleAcknowledgeSharedItem = async (sharedItemId: string) => {
+    try {
+      await (supabase as any)
+        .from('focusos_shared_items')
+        .update({ sender_acknowledged: true })
+        .eq('id', sharedItemId);
+      fetchSharedItems();
+    } catch (err) {
+      console.error('Acknowledge error:', err);
+    }
+  };
 
 
   const projectFuse = useMemo(() => new Fuse(projects, {
