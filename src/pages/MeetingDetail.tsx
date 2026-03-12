@@ -934,6 +934,15 @@ const MeetingDetail = () => {
                   <Mail className="h-4 w-4" />
                   Share Summary via Email
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setShareMeetingDialogOpen(true)}
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share Meeting
+                </Button>
               </div>
             )}
 
