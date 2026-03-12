@@ -377,6 +377,18 @@ const Index = () => {
     loadRemainingData();
   }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks]);
 
+  // Show toast notifications for tasks with change requests
+  useEffect(() => {
+    if (!fullDataLoaded) return;
+    const tasksWithChanges = allTasks.filter(t => t.changeRequestMessage);
+    tasksWithChanges.forEach(t => {
+      toast.warning(`Changes requested on "${t.title}"`, {
+        description: t.changeRequestMessage,
+        duration: 8000,
+      });
+    });
+  }, [fullDataLoaded]); // Only run once when data first loads
+
   // Re-fetch when view changes (use allTasks if available, otherwise fetch)
   useEffect(() => {
     if (initialLoadComplete && user) {
