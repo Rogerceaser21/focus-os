@@ -445,6 +445,12 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </button>
               )}
 
+              {task.sharedWithName && !task.completedByEmail && (
+                <Badge variant="outline" className="bg-cyan-500/15 text-cyan-400 border-cyan-500/30 text-xs">
+                  📤 Shared with {task.sharedWithName}
+                </Badge>
+              )}
+
               {task.completedByEmail && task.status !== 'completed' && (
                 <>
                   <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs">
