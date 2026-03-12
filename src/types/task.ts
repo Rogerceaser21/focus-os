@@ -23,6 +23,7 @@ export interface Task {
   completedByEmail?: string;
   assignedToEmail?: string;
   changeRequestMessage?: string;
+  sharedWithName?: string;
 }
 
 export interface Project {
