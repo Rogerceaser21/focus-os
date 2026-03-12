@@ -646,10 +646,10 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, globalV
               <button
                 data-description-safe-zone="true"
                 onClick={() => onAssignTask?.(task)}
-                className="p-1.5 rounded transition-colors text-muted-foreground border border-border bg-muted/20 hover:text-primary hover:border-primary"
-                title="Assign & Email"
+                className="p-1.5 rounded transition-colors text-teal-400 border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 hover:border-teal-400"
+                title="Share Task"
               >
-                <Mail className="w-4 h-4" />
+                <Share2 className="w-4 h-4" />
               </button>
 
               {task.completedByEmail && task.status !== 'completed' && (
