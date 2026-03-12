@@ -3,10 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search } from 'lucide-react';
+import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { CreateProjectDialog } from './CreateProjectDialog';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { CreateProjectDialog } from './CreateProjectDialog';
 import AnimatedList from './AnimatedList';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -55,6 +56,9 @@ export const ProjectSidebar = ({
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [meetings, setMeetings] = useState<{ id: string; title: string }[]>([]);
+  const [sharedItems, setSharedItems] = useState<any[]>([]);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [decliningId, setDecliningId] = useState<string | null>(null);
   const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);
   const [sidebarSearchInput, setSidebarSearchInput] = useState('');
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState('');
@@ -73,6 +77,7 @@ export const ProjectSidebar = ({
   useEffect(() => {
     fetchProjects();
     fetchMeetings();
+    fetchSharedItems();
   }, [projectRefreshTrigger]);
 
   const fetchProjects = async () => {
@@ -105,7 +110,55 @@ export const ProjectSidebar = ({
     }
   };
 
-  // Fuzzy search instances
+  const fetchSharedItems = async () => {
+    const { data, error } = await (supabase as any)
+      .from('focusos_shared_items')
+      .select('*')
+      .in('status', ['pending', 'accepted'])
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setSharedItems(data);
+    }
+  };
+
+  const handleAcceptSharedItem = async (sharedItemId: string) => {
+    setAcceptingId(sharedItemId);
+    try {
+      const { error } = await supabase.functions.invoke('focusos-accept-shared-item', {
+        body: { sharedItemId },
+      });
+      if (error) throw error;
+      toast.success('Item accepted and added to your data!');
+      fetchSharedItems();
+      fetchProjects();
+      fetchMeetings();
+    } catch (err) {
+      console.error('Accept error:', err);
+      toast.error('Failed to accept shared item');
+    } finally {
+      setAcceptingId(null);
+    }
+  };
+
+  const handleDeclineSharedItem = async (sharedItemId: string) => {
+    setDecliningId(sharedItemId);
+    try {
+      const { error } = await supabase.functions.invoke('focusos-decline-shared-item', {
+        body: { sharedItemId },
+      });
+      if (error) throw error;
+      toast.success('Item declined');
+      fetchSharedItems();
+    } catch (err) {
+      console.error('Decline error:', err);
+      toast.error('Failed to decline shared item');
+    } finally {
+      setDecliningId(null);
+    }
+  };
+
+
   const projectFuse = useMemo(() => new Fuse(projects, {
     keys: ['name'],
     threshold: 0.4,
@@ -311,6 +364,80 @@ export const ProjectSidebar = ({
                 Unassigned
               </Button>
             </div>
+
+            {/* Shared Items Section */}
+            {sharedItems.length > 0 && (
+              <div className="mt-3 px-2">
+                <div className="px-2 mb-2">
+                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                    <Share2 className="h-3.5 w-3.5" />
+                    Shared Items ({sharedItems.length})
+                  </h3>
+                </div>
+                <div className="space-y-1.5">
+                  {sharedItems.map((item) => {
+                    const isPending = item.status === 'pending';
+                    const typeIcon = item.item_type === 'task' 
+                      ? <ClipboardList className="h-3.5 w-3.5 text-primary" />
+                      : item.item_type === 'project' 
+                      ? <Folder className="h-3.5 w-3.5 text-primary" />
+                      : <Mic className="h-3.5 w-3.5 text-teal-400" />;
+                    
+                    return (
+                      <div key={item.id} className="rounded-lg border border-border/50 bg-card/50 p-2.5 space-y-1.5">
+                        <div className="flex items-start gap-2">
+                          {typeIcon}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{item.item_title}</p>
+                            {item.project_name && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                <Folder className="h-3 w-3 inline mr-1" />
+                                {item.project_name}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground truncate">
+                              From: {item.sender_name || item.sender_email}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            {item.item_type}
+                          </Badge>
+                        </div>
+                        {isPending && (
+                          <div className="flex gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-xs gap-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                              onClick={() => handleAcceptSharedItem(item.id)}
+                              disabled={acceptingId === item.id}
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              {acceptingId === item.id ? '...' : 'Accept'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeclineSharedItem(item.id)}
+                              disabled={decliningId === item.id}
+                            >
+                              <XCircle className="h-3 w-3" />
+                              {decliningId === item.id ? '...' : 'Decline'}
+                            </Button>
+                          </div>
+                        )}
+                        {!isPending && (
+                          <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-400 border-green-500/20">
+                            Accepted
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Projects with AnimatedList */}
             {projects.length > 0 && (

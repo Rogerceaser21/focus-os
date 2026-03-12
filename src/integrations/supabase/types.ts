@@ -461,6 +461,54 @@ export type Database = {
         }
         Relationships: []
       }
+      focusos_shared_items: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          item_title: string
+          item_type: string
+          project_name: string | null
+          recipient_email: string
+          recipient_user_id: string | null
+          sender_email: string
+          sender_name: string | null
+          sender_user_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          item_title: string
+          item_type: string
+          project_name?: string | null
+          recipient_email: string
+          recipient_user_id?: string | null
+          sender_email: string
+          sender_name?: string | null
+          sender_user_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          item_title?: string
+          item_type?: string
+          project_name?: string | null
+          recipient_email?: string
+          recipient_user_id?: string | null
+          sender_email?: string
+          sender_name?: string | null
+          sender_user_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       focusos_tasks: {
         Row: {
           assigned_to_email: string | null

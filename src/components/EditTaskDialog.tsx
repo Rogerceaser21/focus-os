@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ImageViewer } from '@/components/ImageViewer';
-import { AssignTaskDialog } from '@/components/AssignTaskDialog';
+import { ShareItemDialog } from '@/components/ShareItemDialog';
 
 interface EditTaskDialogProps {
   task: Task;
@@ -37,7 +37,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
   const [maxHeight, setMaxHeight] = useState('300px');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const MAX_IMAGES = 8;
@@ -198,7 +198,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setAssignDialogOpen(true)}
+              onClick={() => setShareDialogOpen(true)}
               className="h-8 w-8 p-0 mr-6 text-muted-foreground hover:text-primary"
               title="Assign & Email"
             >
@@ -420,11 +420,13 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
       />
     )}
 
-    <AssignTaskDialog
-      task={task}
-      open={assignDialogOpen}
-      onOpenChange={setAssignDialogOpen}
-      onAssigned={onAssigned}
+    <ShareItemDialog
+      itemType="task"
+      itemId={task.id}
+      itemTitle={task.title}
+      open={shareDialogOpen}
+      onOpenChange={setShareDialogOpen}
+      onShared={() => onAssigned?.(task.id, '')}
     />
   </>
   );

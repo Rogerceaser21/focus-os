@@ -21,6 +21,7 @@ export interface Task {
   projectId?: string;
   sortOrder?: number;
   completedByEmail?: string;
+  assignedToEmail?: string;
 }
 
 export interface Project {

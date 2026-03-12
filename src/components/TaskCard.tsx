@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Play, Pause, Clock, Calendar, Mail, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, Clock, Calendar, Share2, CheckCircle2 } from 'lucide-react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -278,10 +278,15 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, projects = 
             variant="ghost"
             onClick={() => onAssignTask?.(task)}
             className="gap-1 ml-auto text-muted-foreground hover:text-primary"
-            title="Assign & Email"
+            title="Share Task"
           >
-            <Mail className="h-3 w-3" />
+            <Share2 className="h-3 w-3" />
           </Button>
+          {task.assignedToEmail && (
+            <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={`Shared by ${task.assignedToEmail}`}>
+              Shared by {task.assignedToEmail}
+            </span>
+          )}
           {task.completedByEmail && task.status !== 'completed' && (
             <>
               <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs ml-auto">

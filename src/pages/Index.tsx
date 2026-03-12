@@ -45,7 +45,7 @@ import { TaskTour } from '@/components/TaskTour';
 import { ProjectTour } from '@/components/ProjectTour';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { DraggableTaskList } from '@/components/DraggableTaskList';
-import { AssignTaskDialog } from '@/components/AssignTaskDialog';
+import { ShareItemDialog } from '@/components/ShareItemDialog';
 import { addDays } from 'date-fns';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
@@ -147,8 +147,8 @@ const Index = () => {
   const [showTaskTour, setShowTaskTour] = useState(false);
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [taskToShare, setTaskToShare] = useState<Task | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
@@ -226,7 +226,8 @@ const Index = () => {
     },
     projectId: dbTask.project_id,
     sortOrder: dbTask.sort_order ?? 0,
-    completedByEmail: dbTask.completed_by_email ?? undefined
+    completedByEmail: dbTask.completed_by_email ?? undefined,
+    assignedToEmail: dbTask.assigned_to_email ?? undefined,
   }), []);
 
   // Fetch projects (lightweight - just names for sidebar)
@@ -929,8 +930,8 @@ https://www.skyscanner.com`,
   };
 
   const handleAssignTask = (task: Task) => {
-    setTaskToAssign(task);
-    setAssignDialogOpen(true);
+    setTaskToShare(task);
+    setShareDialogOpen(true);
   };
 
   const handleSignOut = async () => {
@@ -1808,11 +1809,13 @@ https://www.skyscanner.com`,
 
       <ProjectTour isOpen={showProjectsTour} onComplete={handleProjectsTourComplete} onStepChange={handleProjectsTourStepChange} />
 
-      <AssignTaskDialog
-        task={taskToAssign}
-        open={assignDialogOpen}
-        onOpenChange={setAssignDialogOpen}
-        onAssigned={() => fetchTasks()}
+      <ShareItemDialog
+        itemType="task"
+        itemId={taskToShare?.id || null}
+        itemTitle={taskToShare?.title}
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        onShared={() => fetchTasks()}
       />
     </SidebarProvider>
   </PullToRefresh>;

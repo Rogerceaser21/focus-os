@@ -31,6 +31,7 @@ import {
   Pencil,
   Check,
   X,
+  Share2,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -49,7 +50,7 @@ import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
-import { AssignTaskDialog } from '@/components/AssignTaskDialog';
+import { ShareItemDialog } from '@/components/ShareItemDialog';
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 
@@ -114,9 +115,10 @@ const MeetingDetail = () => {
   // Individual expand tracking for TaskListItem
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
 
-  // Assign task dialog state
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
+  // Share dialog state
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [taskToShare, setTaskToShare] = useState<Task | null>(null);
+  const [shareMeetingDialogOpen, setShareMeetingDialogOpen] = useState(false);
 
   // Edit task dialog state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -498,8 +500,8 @@ const MeetingDetail = () => {
   };
 
   const handleAssignTask = (task: Task) => {
-    setTaskToAssign(task);
-    setAssignDialogOpen(true);
+    setTaskToShare(task);
+    setShareDialogOpen(true);
   };
 
   const handleTaskAssigned = (taskId: string, email: string) => {
@@ -933,6 +935,15 @@ const MeetingDetail = () => {
                   <Mail className="h-4 w-4" />
                   Share Summary via Email
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setShareMeetingDialogOpen(true)}
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share Meeting
+                </Button>
               </div>
             )}
 
@@ -1138,12 +1149,14 @@ const MeetingDetail = () => {
           />
         )}
 
-        {/* Assign Task Dialog */}
-        <AssignTaskDialog
-          task={taskToAssign}
-          open={assignDialogOpen}
-          onOpenChange={setAssignDialogOpen}
-          onAssigned={handleTaskAssigned}
+        {/* Share Task Dialog */}
+        <ShareItemDialog
+          itemType="task"
+          itemId={taskToShare?.id || null}
+          itemTitle={taskToShare?.title}
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          onShared={() => fetchSavedTasks()}
         />
 
         {/* Delete Confirmation Dialog */}
@@ -1185,6 +1198,15 @@ const MeetingDetail = () => {
           hasRecording={!!meeting.recording_gcs_path}
           open={showSendSummaryDialog}
           onOpenChange={setShowSendSummaryDialog}
+        />
+      )}
+      {meeting && (
+        <ShareItemDialog
+          itemType="meeting"
+          itemId={meeting.id}
+          itemTitle={meeting.title}
+          open={shareMeetingDialogOpen}
+          onOpenChange={setShareMeetingDialogOpen}
         />
       )}
     </div>

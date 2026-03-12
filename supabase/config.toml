@@ -2,3 +2,12 @@ project_id = "mshlbsgsyzzfxyxramjj"
 
 [functions.focusos-admin-reset-password]
 verify_jwt = false
+
+[functions.focusos-share-item]
+verify_jwt = false
+
+[functions.focusos-accept-shared-item]
+verify_jwt = false
+
+[functions.focusos-decline-shared-item]
+verify_jwt = false
