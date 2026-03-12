@@ -141,10 +141,12 @@ serve(async (req) => {
     let itemTitle = "";
     let projectName: string | undefined;
 
+    let shareToken: string | undefined;
+
     if (itemType === "task") {
       const { data: task, error } = await supabaseUser
         .from("focusos_tasks")
-        .select("title, project_id")
+        .select("title, project_id, share_token")
         .eq("id", itemId)
         .single();
       if (error || !task) {
