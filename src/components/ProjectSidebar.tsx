@@ -170,12 +170,30 @@ export const ProjectSidebar = ({
       color: p.color,
       timer: { totalSeconds: 0, isRunning: false }
     })));
-    setSharedProjects(shared.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      color: p.color,
-      timer: { totalSeconds: 0, isRunning: false }
-    })));
+
+    // For shared projects, filter out those where ALL tasks are completed
+    if (shared.length > 0) {
+      const sharedIds = shared.map((p: any) => p.id);
+      const { data: sharedTasks } = await (supabase as any)
+        .from('focusos_tasks')
+        .select('id, project_id, status')
+        .in('project_id', sharedIds);
+
+      const activeShared = shared.filter((p: any) => {
+        const projectTasks = (sharedTasks || []).filter((t: any) => t.project_id === p.id);
+        // Show if no tasks yet, or if any task is not completed
+        return projectTasks.length === 0 || projectTasks.some((t: any) => t.status !== 'completed');
+      });
+
+      setSharedProjects(activeShared.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        timer: { totalSeconds: 0, isRunning: false }
+      })));
+    } else {
+      setSharedProjects([]);
+    }
   };
 
   const fetchMeetings = async () => {
