@@ -640,9 +640,21 @@ export const ProjectSidebar = ({
                           </div>
                         )}
                         {isPending && isSender && (
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                            Pending acceptance
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                              Pending acceptance
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[10px] gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                              onClick={() => handleCancelSharedItem(item.id)}
+                              disabled={cancellingId === item.id}
+                            >
+                              <XCircle className="h-3 w-3" />
+                              {cancellingId === item.id ? '...' : 'Cancel'}
+                            </Button>
+                          </div>
                         )}
                         {isAccepted && (
                           <div className="flex items-center gap-1.5">
