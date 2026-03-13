@@ -1868,6 +1868,9 @@ https://www.skyscanner.com`,
                       {isSharedProject2 && assignedByEmail2 && (
                         <span className="text-xs text-muted-foreground ml-7">Shared by {assignerNameMap[assignedByEmail2] || assignedByEmail2}</span>
                       )}
+                      {!isSharedProject2 && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
+                        <span className="text-xs text-muted-foreground ml-7">Shared with {senderProjectSharedMap[selectedProjectId]}</span>
+                      )}
                     </div>
                     
                     {!isSharedProject2 && (
