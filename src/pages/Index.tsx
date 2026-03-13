@@ -314,15 +314,16 @@ const Index = () => {
     }
   }, [transformDbTask]);
 
-  // Fetch shared items where current user is sender, to show "Shared with" on task cards
+  // Fetch shared items where current user is sender, to show "Shared with" on task cards and project headers
   const fetchSenderSharedItems = useCallback(async () => {
     if (!user) return;
     try {
       const { data: sharedItems, error } = await (supabase as any)
         .from('focusos_shared_items')
-        .select('item_id, recipient_email, recipient_user_id')
+        .select('item_id, item_type, recipient_email, recipient_user_id, status')
         .eq('sender_user_id', user.id)
-        .eq('item_type', 'task');
+        .in('item_type', ['task', 'project'])
+        .neq('status', 'cancelled');
       
       if (error || !sharedItems) return;
 
@@ -346,15 +347,21 @@ const Index = () => {
         }
       }
 
-      // Build map: task item_id → display name
-      const map: Record<string, string> = {};
+      // Build maps: task item_id → display name, project item_id → display name
+      const taskMap: Record<string, string> = {};
+      const projectMap: Record<string, string> = {};
       for (const si of sharedItems) {
         const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
           ? profilesMap[si.recipient_user_id]
           : si.recipient_email;
-        map[si.item_id] = name;
+        if (si.item_type === 'task') {
+          taskMap[si.item_id] = name;
+        } else if (si.item_type === 'project') {
+          projectMap[si.item_id] = name;
+        }
       }
-      setSenderSharedMap(map);
+      setSenderSharedMap(taskMap);
+      setSenderProjectSharedMap(projectMap);
     } catch (err) {
       console.error('Error fetching sender shared items:', err);
     }
