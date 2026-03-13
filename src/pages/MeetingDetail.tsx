@@ -156,6 +156,7 @@ const MeetingDetail = () => {
     if (user && id) {
       fetchMeeting();
       fetchProjects();
+      fetchSharingInfo();
     }
   }, [user, id]);
 
