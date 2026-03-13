@@ -324,6 +324,7 @@ const MeetingDetail = () => {
     } catch (err) {
       console.error('Failed to fetch sharing info:', err);
     }
+  };
 
   const mapDbTaskToTask = (t: any): Task & { assignedToEmail?: string } => ({
     id: t.id,
