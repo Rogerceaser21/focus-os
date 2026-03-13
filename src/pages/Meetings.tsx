@@ -127,8 +127,52 @@ const Meetings = () => {
       fetchMeetings();
       fetchProjects();
       checkOrphanedSessions();
+      fetchMeetingSharingInfo();
     }
   }, [user, projectId]);
+
+  const fetchMeetingSharingInfo = async () => {
+    if (!user) return;
+    try {
+      const { data: sharedItems } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('item_id, sender_user_id, recipient_email, sender_email, status')
+        .eq('item_type', 'meeting')
+        .in('status', ['pending', 'accepted']);
+
+      if (!sharedItems || sharedItems.length === 0) return;
+
+      // Collect all emails to resolve names
+      const emails = new Set<string>();
+      sharedItems.forEach((item: any) => {
+        const isSender = item.sender_user_id === user.id;
+        emails.add(isSender ? item.recipient_email : item.sender_email);
+      });
+
+      const { data: profiles } = await (supabase as any)
+        .from('focusos_profiles')
+        .select('user_email, first_name, last_name')
+        .in('user_email', Array.from(emails));
+
+      const profileMap: Record<string, string> = {};
+      (profiles || []).forEach((p: any) => {
+        const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.user_email;
+        if (p.user_email) profileMap[p.user_email] = name;
+      });
+
+      const map: Record<string, { name: string; isSender: boolean }> = {};
+      sharedItems.forEach((item: any) => {
+        const isSender = item.sender_user_id === user.id;
+        const email = isSender ? item.recipient_email : item.sender_email;
+        const name = profileMap[email] || email;
+        map[item.item_id] = { name, isSender };
+      });
+
+      setMeetingSharingMap(map);
+    } catch (err) {
+      console.error('Error fetching meeting sharing info:', err);
+    }
+  };
 
   // Cleanup on unmount
   useEffect(() => {
