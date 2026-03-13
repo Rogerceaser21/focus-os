@@ -160,7 +160,7 @@ serve(async (req) => {
     if (itemType === "task") {
       const { data: task, error } = await supabaseUser
         .from("focusos_tasks")
-        .select("title, project_id, share_token")
+        .select("title, project_id, share_token, meeting_id")
         .eq("id", itemId)
         .single();
       if (error || !task) {
@@ -170,8 +170,22 @@ serve(async (req) => {
       }
       itemTitle = task.title;
       shareToken = task.share_token;
-      // Resolve project name if task belongs to a project
-      if (task.project_id) {
+
+      if (task.meeting_id) {
+        // Task originated from a meeting — use truncated meeting title as project name
+        const { data: meeting } = await supabaseUser
+          .from("focusos_meetings")
+          .select("title")
+          .eq("id", task.meeting_id)
+          .single();
+        if (meeting) {
+          const maxLen = 30;
+          projectName = meeting.title.length > maxLen
+            ? meeting.title.substring(0, maxLen) + "…"
+            : meeting.title;
+        }
+      } else if (task.project_id) {
+        // Resolve project name if task belongs to a project
         const { data: proj } = await supabaseUser
           .from("focusos_projects")
           .select("name")
