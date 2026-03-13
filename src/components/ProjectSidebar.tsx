@@ -58,6 +58,7 @@ export const ProjectSidebar = ({
   const [sharedProjects, setSharedProjects] = useState<Project[]>([]);
   const [meetings, setMeetings] = useState<{ id: string; title: string }[]>([]);
   const [sharedItems, setSharedItems] = useState<any[]>([]);
+  const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [decliningId, setDecliningId] = useState<string | null>(null);
   const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);

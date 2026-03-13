@@ -85,6 +85,18 @@ serve(async (req) => {
       throw new Error("Failed to decline shared item");
     }
 
+    // Resolve decliner's display name from profile
+    let declinerName = user.email || "Someone";
+    const { data: declinerProfile } = await supabaseAdmin
+      .from("focusos_profiles")
+      .select("first_name, last_name")
+      .eq("user_id", user.id)
+      .single();
+    if (declinerProfile) {
+      const name = [declinerProfile.first_name, declinerProfile.last_name].filter(Boolean).join(" ");
+      if (name) declinerName = name;
+    }
+
     // Notify sender
     if (RESEND_API_KEY) {
       try {
@@ -93,7 +105,7 @@ serve(async (req) => {
           from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
           to: [sharedItem.sender_email],
           subject: `Your shared ${sharedItem.item_type} was declined`,
-          html: `<p>${user.email} has declined the ${sharedItem.item_type} "<strong>${sharedItem.item_title}</strong>" that you shared.</p>`,
+          html: `<p>${declinerName} has declined the ${sharedItem.item_type} "<strong>${sharedItem.item_title}</strong>" that you shared.</p>`,
         });
       } catch (emailErr) {
         console.error("Failed to send decline notification:", emailErr);
