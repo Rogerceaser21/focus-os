@@ -321,6 +321,24 @@ export const ProjectSidebar = ({
     }
   };
 
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const handleCancelSharedItem = async (sharedItemId: string) => {
+    setCancellingId(sharedItemId);
+    try {
+      await (supabase as any)
+        .from('focusos_shared_items')
+        .update({ status: 'cancelled' })
+        .eq('id', sharedItemId);
+      toast.success('Shared item cancelled');
+      fetchSharedItems();
+    } catch (err) {
+      console.error('Cancel error:', err);
+      toast.error('Failed to cancel shared item');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
 
   const projectFuse = useMemo(() => new Fuse(projects, {
     keys: ['name'],
