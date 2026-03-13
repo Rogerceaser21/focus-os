@@ -14,6 +14,7 @@ import { TimeTrackingChart } from '@/components/TimeTrackingChart';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -1517,10 +1518,16 @@ https://www.skyscanner.com`,
                         )}
                       </div>
                       {isSharedProject && assignedByEmail && (
-                        <span className="text-xs text-muted-foreground ml-7">Shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
+                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs flex items-center gap-1 ml-7 mt-1">
+                          <Share2 className="h-3 w-3" />
+                          Project shared by {assignerNameMap[assignedByEmail] || assignedByEmail}
+                        </Badge>
                       )}
                       {!isSharedProject && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
-                        <span className="text-xs text-muted-foreground ml-7">Shared with {senderProjectSharedMap[selectedProjectId]}</span>
+                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs flex items-center gap-1 ml-7 mt-1">
+                          <Share2 className="h-3 w-3" />
+                          Project shared with {senderProjectSharedMap[selectedProjectId]}
+                        </Badge>
                       )}
                     </div>
 
@@ -1866,10 +1873,16 @@ https://www.skyscanner.com`,
                         )}
                       </div>
                       {isSharedProject2 && assignedByEmail2 && (
-                        <span className="text-xs text-muted-foreground ml-7">Shared by {assignerNameMap[assignedByEmail2] || assignedByEmail2}</span>
+                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs flex items-center gap-1 ml-7 mt-1">
+                          <Share2 className="h-3 w-3" />
+                          Project shared by {assignerNameMap[assignedByEmail2] || assignedByEmail2}
+                        </Badge>
                       )}
                       {!isSharedProject2 && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
-                        <span className="text-xs text-muted-foreground ml-7">Shared with {senderProjectSharedMap[selectedProjectId]}</span>
+                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs flex items-center gap-1 ml-7 mt-1">
+                          <Share2 className="h-3 w-3" />
+                          Project shared with {senderProjectSharedMap[selectedProjectId]}
+                        </Badge>
                       )}
                     </div>
                     
