@@ -210,23 +210,36 @@ serve(async (req) => {
             .eq("user_id", senderId);
 
           if (tasks && tasks.length > 0) {
-            const clonedTasks = tasks.map((t: any) => ({
-              user_id: recipientId,
-              project_id: newProject.id,
-              title: t.title,
-              description: t.description,
-              priority: t.priority,
-              status: "todo",
-              due_date: t.due_date,
-              start_date: t.start_date,
-              end_date: t.end_date,
-              images: t.images,
-              timer_total_seconds: 0,
-              timer_is_running: false,
-              timer_start_time: null,
-              assigned_to_email: sharedItem.sender_email,
-            }));
-            await supabaseAdmin.from("focusos_tasks").insert(clonedTasks);
+            // Fetch existing recipient tasks in this project to avoid duplicates
+            const { data: existingTasks } = await supabaseAdmin
+              .from("focusos_tasks")
+              .select("title")
+              .eq("project_id", newProject.id)
+              .eq("user_id", recipientId);
+            const existingTitles = new Set((existingTasks || []).map((t: any) => t.title));
+
+            const newTasks = tasks.filter((t: any) => !existingTitles.has(t.title));
+
+            if (newTasks.length > 0) {
+              const clonedTasks = newTasks.map((t: any) => ({
+                user_id: recipientId,
+                project_id: newProject.id,
+                title: t.title,
+                description: t.description,
+                priority: t.priority,
+                status: t.status,
+                completed_at: t.completed_at,
+                due_date: t.due_date,
+                start_date: t.start_date,
+                end_date: t.end_date,
+                images: t.images,
+                timer_total_seconds: 0,
+                timer_is_running: false,
+                timer_start_time: null,
+                assigned_to_email: sharedItem.sender_email,
+              }));
+              await supabaseAdmin.from("focusos_tasks").insert(clonedTasks);
+            }
           }
         }
       }
