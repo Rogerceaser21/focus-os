@@ -1036,7 +1036,7 @@ const Meetings = () => {
                             className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit mt-1"
                           >
                             <Share2 className="h-3 w-3 shrink-0" />
-                            <span>Meeting shared {meetingSharingMap[meeting.id].isSender ? 'with' : 'by'} {meetingSharingMap[meeting.id].name}</span>
+                            <span>Meeting shared by {meetingSharingMap[meeting.id].name}</span>
                           </Badge>
                         )}
                       </div>
