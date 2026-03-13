@@ -1,0 +1,1 @@
+ALTER TABLE public.focusos_profiles ADD COLUMN user_email text;
