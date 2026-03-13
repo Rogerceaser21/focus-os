@@ -1509,7 +1509,7 @@ https://www.skyscanner.com`,
                         )}
                       </div>
                       {isSharedProject && assignedByEmail && (
-                        <span className="text-xs text-muted-foreground ml-7">Assigned by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
+                        <span className="text-xs text-muted-foreground ml-7">Shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
                       )}
                     </div>
 
@@ -1855,7 +1855,7 @@ https://www.skyscanner.com`,
                         )}
                       </div>
                       {isSharedProject2 && assignedByEmail2 && (
-                        <span className="text-xs text-muted-foreground ml-7">Assigned by {assignerNameMap[assignedByEmail2] || assignedByEmail2}</span>
+                        <span className="text-xs text-muted-foreground ml-7">Shared by {assignerNameMap[assignedByEmail2] || assignedByEmail2}</span>
                       )}
                     </div>
                     
