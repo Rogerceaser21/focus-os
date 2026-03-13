@@ -120,6 +120,11 @@ const MeetingDetail = () => {
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
   const [shareMeetingDialogOpen, setShareMeetingDialogOpen] = useState(false);
 
+  // Sharing badge state
+  const [meetingSharedWith, setMeetingSharedWith] = useState<string | null>(null); // sender sees this
+  const [meetingSharedBy, setMeetingSharedBy] = useState<string | null>(null); // receiver sees this
+  const [taskSharedWithMap, setTaskSharedWithMap] = useState<Record<string, string>>({}); // taskId -> name
+
   // Edit task dialog state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
@@ -151,6 +156,7 @@ const MeetingDetail = () => {
     if (user && id) {
       fetchMeeting();
       fetchProjects();
+      fetchSharingInfo();
     }
   }, [user, id]);
 
@@ -242,6 +248,81 @@ const MeetingDetail = () => {
 
     if (tasks) {
       setSavedTasks(tasks.map(mapDbTaskToTask));
+    }
+  };
+
+  const resolveName = (profile: { first_name?: string | null; last_name?: string | null; user_email?: string | null } | null, fallbackEmail: string) => {
+    if (!profile) return fallbackEmail;
+    const parts = [profile.first_name, profile.last_name].filter(Boolean);
+    return parts.length > 0 ? parts.join(' ') : fallbackEmail;
+  };
+
+  const fetchSharingInfo = async () => {
+    if (!user || !id) return;
+    try {
+      // Fetch meeting sharing records
+      const { data: meetingShares } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('*')
+        .eq('item_type', 'meeting')
+        .eq('item_id', id);
+
+      if (meetingShares && meetingShares.length > 0) {
+        const share = meetingShares[0];
+        if (share.sender_user_id === user.id) {
+          // Sender view - resolve recipient name
+          if (share.recipient_user_id) {
+            const { data: profile } = await (supabase as any)
+              .from('focusos_profiles')
+              .select('first_name, last_name, user_email')
+              .eq('user_id', share.recipient_user_id)
+              .single();
+            setMeetingSharedWith(resolveName(profile, share.recipient_email));
+          } else {
+            setMeetingSharedWith(share.recipient_email);
+          }
+        } else if (share.recipient_user_id === user.id) {
+          // Receiver view - resolve sender name
+          const { data: profile } = await (supabase as any)
+            .from('focusos_profiles')
+            .select('first_name, last_name, user_email')
+            .eq('user_id', share.sender_user_id)
+            .single();
+          setMeetingSharedBy(resolveName(profile, share.sender_email));
+        }
+      }
+
+      // Fetch task sharing records for tasks in this meeting
+      const { data: taskShares } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('*')
+        .eq('item_type', 'task')
+        .eq('sender_user_id', user.id);
+
+      if (taskShares && taskShares.length > 0) {
+        // Collect unique recipient user IDs
+        const recipientIds = [...new Set(taskShares.filter((s: any) => s.recipient_user_id).map((s: any) => s.recipient_user_id))] as string[];
+        const profileMap: Record<string, any> = {};
+        if (recipientIds.length > 0) {
+          const { data: profiles } = await (supabase as any)
+            .from('focusos_profiles')
+            .select('user_id, first_name, last_name, user_email')
+            .in('user_id', recipientIds);
+          if (profiles) {
+            profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
+          }
+        }
+        const map: Record<string, string> = {};
+        taskShares.forEach((s: any) => {
+          const name = s.recipient_user_id && profileMap[s.recipient_user_id]
+            ? resolveName(profileMap[s.recipient_user_id], s.recipient_email)
+            : s.recipient_email;
+          map[s.item_id] = name;
+        });
+        setTaskSharedWithMap(map);
+      }
+    } catch (err) {
+      console.error('Failed to fetch sharing info:', err);
     }
   };
 
@@ -695,6 +776,12 @@ const MeetingDetail = () => {
                 </span>
               )}
             </div>
+            {meetingSharedBy && (
+              <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit mt-1">
+                <Share2 className="h-3 w-3 shrink-0" />
+                <span className="break-words">Meeting shared by {meetingSharedBy}</span>
+              </Badge>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -925,25 +1012,33 @@ const MeetingDetail = () => {
 
             {/* Share Summary via Email */}
             {(summary.overview || summary.outline.length > 0) && (
-              <div className="flex justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setShowSendSummaryDialog(true)}
-                >
-                  <Mail className="h-4 w-4" />
-                  Share Summary via Email
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setShareMeetingDialogOpen(true)}
-                >
-                  <Share2 className="h-4 w-4" />
-                  Share Meeting
-                </Button>
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setShowSendSummaryDialog(true)}
+                  >
+                    <Mail className="h-4 w-4" />
+                    Share Summary via Email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setShareMeetingDialogOpen(true)}
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Share Meeting
+                  </Button>
+                </div>
+                {meetingSharedWith && (
+                  <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit">
+                    <Share2 className="h-3 w-3 shrink-0" />
+                    <span className="break-words">Meeting shared with {meetingSharedWith}</span>
+                  </Badge>
+                )}
               </div>
             )}
 
@@ -997,23 +1092,14 @@ const MeetingDetail = () => {
                                   onTaskClick={() => toggleExpand(task.id)}
                                   projects={allProjects}
                                 />
-                                <div className="flex items-center gap-2 mt-1 ml-8">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
-                                    onClick={() => handleAssignTask(task)}
-                                  >
-                                    <Mail className="h-3 w-3" />
-                                    Assign
-                                  </Button>
-                                  {(task as any).assignedToEmail && (
-                                    <Badge variant="secondary" className="text-xs py-0">
-                                      <Mail className="h-2.5 w-2.5 mr-1" />
-                                      {(task as any).assignedToEmail}
+                                {taskSharedWithMap[task.id] && (
+                                  <div className="mt-1 ml-8">
+                                    <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit">
+                                      <Share2 className="h-3 w-3 shrink-0" />
+                                      <span className="break-words">Shared with {taskSharedWithMap[task.id]}</span>
                                     </Badge>
-                                  )}
-                                </div>
+                                  </div>
+                                )}
                               </div>
                             ))}
                         </div>
@@ -1156,7 +1242,7 @@ const MeetingDetail = () => {
           itemTitle={taskToShare?.title}
           open={shareDialogOpen}
           onOpenChange={setShareDialogOpen}
-          onShared={() => fetchSavedTasks()}
+          onShared={() => { fetchSavedTasks(); fetchSharingInfo(); }}
         />
 
         {/* Delete Confirmation Dialog */}
@@ -1206,7 +1292,10 @@ const MeetingDetail = () => {
           itemId={meeting.id}
           itemTitle={meeting.title}
           open={shareMeetingDialogOpen}
-          onOpenChange={setShareMeetingDialogOpen}
+          onOpenChange={(open) => {
+            setShareMeetingDialogOpen(open);
+            if (!open) fetchSharingInfo();
+          }}
         />
       )}
     </div>
