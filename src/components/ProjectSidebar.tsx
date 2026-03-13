@@ -98,8 +98,9 @@ export const ProjectSidebar = ({
         },
         (payload: any) => {
           const newItem = payload.new;
+          const senderDisplay = newItem.sender_name || newItem.sender_email;
           toast.info(`📬 New item shared with you`, {
-            description: `"${newItem.item_title}" from ${newItem.sender_name || newItem.sender_email}`,
+            description: `"${newItem.item_title}" from ${senderDisplay}`,
           });
           fetchSharedItems();
         }
