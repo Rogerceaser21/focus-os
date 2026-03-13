@@ -108,8 +108,8 @@ const Meetings = () => {
   const failedSessionRef = useRef<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Meeting sharing info: meetingId -> { name, isSender }
-  const [meetingSharingMap, setMeetingSharingMap] = useState<Record<string, { name: string; isSender: boolean }>>({});
+  // Meeting sharing info: receiverMeetingId -> { sender name }
+  const [meetingSharingMap, setMeetingSharingMap] = useState<Record<string, { name: string }>>({});
 
   // Keep refs in sync with state
   useEffect(() => { meetingNameRef.current = meetingName; }, [meetingName]);
@@ -134,13 +134,13 @@ const Meetings = () => {
   const fetchMeetingSharingInfo = async () => {
     if (!user) return;
     try {
-      // Only fetch items where the current user is the RECIPIENT
+      // Only receiver-side accepted meeting shares should appear on this page
       const { data: sharedItems } = await (supabase as any)
         .from('focusos_shared_items')
-        .select('item_id, sender_email, status')
+        .select('recipient_task_id, sender_email, item_title, created_at, updated_at')
         .eq('item_type', 'meeting')
         .eq('recipient_user_id', user.id)
-        .in('status', ['pending', 'accepted']);
+        .eq('status', 'accepted');
 
       if (!sharedItems || sharedItems.length === 0) {
         setMeetingSharingMap({});
@@ -148,8 +148,7 @@ const Meetings = () => {
       }
 
       // Resolve sender names
-      const senderEmails = [...new Set(sharedItems.map((item: any) => item.sender_email))];
-
+      const senderEmails = [...new Set(sharedItems.map((item: any) => item.sender_email).filter(Boolean))];
       const { data: profiles } = await (supabase as any)
         .from('focusos_profiles')
         .select('user_email, first_name, last_name')
@@ -161,10 +160,58 @@ const Meetings = () => {
         if (p.user_email) profileMap[p.user_email] = name;
       });
 
-      const map: Record<string, { name: string; isSender: boolean }> = {};
+      // Get receiver meetings for fallback matching (legacy rows without recipient_task_id)
+      const { data: receiverMeetings } = await (supabase as any)
+        .from('focusos_meetings')
+        .select('id, title, created_at')
+        .eq('user_id', user.id);
+
+      const map: Record<string, { name: string }> = {};
+      const usedMeetingIds = new Set<string>();
+
+      // Primary mapping: direct by cloned meeting id saved in recipient_task_id
       sharedItems.forEach((item: any) => {
-        const name = profileMap[item.sender_email] || item.sender_email;
-        map[item.item_id] = { name, isSender: false };
+        if (!item.recipient_task_id) return;
+        const senderName = profileMap[item.sender_email] || item.sender_email;
+        map[item.recipient_task_id] = { name: senderName };
+        usedMeetingIds.add(item.recipient_task_id);
+      });
+
+      // Fallback mapping: legacy accepted shares where recipient_task_id is null
+      const legacyShares = sharedItems.filter((item: any) => !item.recipient_task_id && item.item_title);
+      const meetingCandidatesByTitle: Record<string, Array<{ id: string; created_at: string }>> = {};
+
+      (receiverMeetings || []).forEach((meeting: any) => {
+        if (!meeting.title) return;
+        if (!meetingCandidatesByTitle[meeting.title]) meetingCandidatesByTitle[meeting.title] = [];
+        meetingCandidatesByTitle[meeting.title].push({ id: meeting.id, created_at: meeting.created_at });
+      });
+
+      Object.values(meetingCandidatesByTitle).forEach((list) => {
+        list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      });
+
+      legacyShares.forEach((item: any) => {
+        const candidates = (meetingCandidatesByTitle[item.item_title] || []).filter((m) => !usedMeetingIds.has(m.id));
+        if (candidates.length === 0) return;
+
+        const referenceTime = new Date(item.updated_at || item.created_at).getTime();
+        let bestMatch: { id: string; diff: number } | null = null;
+
+        candidates.forEach((candidate) => {
+          const diff = Math.abs(new Date(candidate.created_at).getTime() - referenceTime);
+          if (!bestMatch || diff < bestMatch.diff) {
+            bestMatch = { id: candidate.id, diff };
+          }
+        });
+
+        // Safety window to avoid incorrect title-only matches
+        const MAX_MATCH_WINDOW_MS = 10 * 60 * 1000;
+        if (bestMatch && bestMatch.diff <= MAX_MATCH_WINDOW_MS) {
+          const senderName = profileMap[item.sender_email] || item.sender_email;
+          map[bestMatch.id] = { name: senderName };
+          usedMeetingIds.add(bestMatch.id);
+        }
       });
 
       setMeetingSharingMap(map);
@@ -989,7 +1036,7 @@ const Meetings = () => {
                             className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit mt-1"
                           >
                             <Share2 className="h-3 w-3 shrink-0" />
-                            <span>Meeting shared {meetingSharingMap[meeting.id].isSender ? 'with' : 'by'} {meetingSharingMap[meeting.id].name}</span>
+                            <span>Meeting shared by {meetingSharingMap[meeting.id].name}</span>
                           </Badge>
                         )}
                       </div>
