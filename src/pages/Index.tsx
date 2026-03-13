@@ -1509,7 +1509,7 @@ https://www.skyscanner.com`,
                         )}
                       </div>
                       {isSharedProject && assignedByEmail && (
-                        <span className="text-xs text-muted-foreground ml-7">Assigned by {assignedByEmail}</span>
+                        <span className="text-xs text-muted-foreground ml-7">Assigned by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
                       )}
                     </div>
 
