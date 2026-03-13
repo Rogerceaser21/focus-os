@@ -1292,7 +1292,10 @@ const MeetingDetail = () => {
           itemId={meeting.id}
           itemTitle={meeting.title}
           open={shareMeetingDialogOpen}
-          onOpenChange={setShareMeetingDialogOpen}
+          onOpenChange={(open) => {
+            setShareMeetingDialogOpen(open);
+            if (!open) fetchSharingInfo();
+          }}
         />
       )}
     </div>
