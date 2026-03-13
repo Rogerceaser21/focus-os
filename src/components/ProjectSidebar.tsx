@@ -58,6 +58,7 @@ export const ProjectSidebar = ({
   const [sharedProjects, setSharedProjects] = useState<Project[]>([]);
   const [meetings, setMeetings] = useState<{ id: string; title: string }[]>([]);
   const [sharedItems, setSharedItems] = useState<any[]>([]);
+  const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [decliningId, setDecliningId] = useState<string | null>(null);
   const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);
@@ -97,8 +98,9 @@ export const ProjectSidebar = ({
         },
         (payload: any) => {
           const newItem = payload.new;
+          const senderDisplay = newItem.sender_name || newItem.sender_email;
           toast.info(`📬 New item shared with you`, {
-            description: `"${newItem.item_title}" from ${newItem.sender_name || newItem.sender_email}`,
+            description: `"${newItem.item_title}" from ${senderDisplay}`,
           });
           fetchSharedItems();
         }
@@ -157,6 +159,39 @@ export const ProjectSidebar = ({
     };
   }, [userId]);
 
+  // Helper: resolve a user's display name from profilesMap, falling back to email
+  const resolveDisplayName = (userId: string | null, email: string) => {
+    if (userId && profilesMap[userId]) return profilesMap[userId];
+    return email;
+  };
+
+  // Fetch profiles for all unique user_ids in sharedItems
+  useEffect(() => {
+    if (sharedItems.length === 0) return;
+    const userIds = new Set<string>();
+    for (const item of sharedItems) {
+      if (item.sender_user_id) userIds.add(item.sender_user_id);
+      if (item.recipient_user_id) userIds.add(item.recipient_user_id);
+    }
+    if (userIds.size === 0) return;
+
+    (async () => {
+      const { data: profiles } = await (supabase as any)
+        .from('focusos_profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', Array.from(userIds));
+      
+      if (profiles) {
+        const map: Record<string, string> = {};
+        for (const p of profiles) {
+          const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+          if (name) map[p.user_id] = name;
+        }
+        setProfilesMap(map);
+      }
+    })();
+  }, [sharedItems]);
+
   // Queued notification: show one unacknowledged accepted item at a time for the sender
   useEffect(() => {
     if (!userId) return;
@@ -165,10 +200,11 @@ export const ProjectSidebar = ({
     );
     if (unacknowledged.length > 0) {
       const first = unacknowledged[0];
+      const recipientName = resolveDisplayName(first.recipient_user_id, first.recipient_email);
       // Use a stable toast ID so we don't stack duplicates
       toast.success(`✅ "${first.item_title}" was accepted`, {
         id: `accept-notify-${first.id}`,
-        description: `${first.recipient_email} accepted your shared ${first.item_type}`,
+        description: `${recipientName} accepted your shared ${first.item_type}`,
         duration: Infinity,
         action: {
           label: '✓ Dismiss',
@@ -604,10 +640,10 @@ export const ProjectSidebar = ({
                             )}
                             <p className="text-xs text-muted-foreground truncate">
                               {isChangeRequest
-                                ? `From: ${item.sender_email}`
+                                ? `From: ${resolveDisplayName(item.sender_user_id, item.sender_email)}`
                                 : isSender 
-                                  ? `To: ${item.recipient_email}` 
-                                  : `From: ${item.sender_name || item.sender_email}`
+                                  ? `To: ${resolveDisplayName(item.recipient_user_id, item.recipient_email)}` 
+                                  : `From: ${resolveDisplayName(item.sender_user_id, item.sender_email)}`
                               }
                             </p>
                           </div>
