@@ -14,6 +14,7 @@ import { TimeTrackingChart } from '@/components/TimeTrackingChart';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
