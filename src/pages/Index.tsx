@@ -161,6 +161,7 @@ const Index = () => {
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [senderSharedMap, setSenderSharedMap] = useState<Record<string, string>>({});
+  const [assignerNameMap, setAssignerNameMap] = useState<Record<string, string>>({});
   const [showProjectsTour, setShowProjectsTour] = useState(false);
   const [projectsTourCurrentStep, setProjectsTourCurrentStep] = useState(0);
   const [projectsTourProjects, setProjectsTourProjects] = useState<{id: string, name: string}[]>([]);
@@ -424,6 +425,35 @@ const Index = () => {
     };
     loadRemainingData();
   }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks, fetchSenderSharedItems]);
+
+  // Resolve assigner emails to names for shared project headers
+  useEffect(() => {
+    if (!allTasks.length || !projects.length) return;
+    const sharedProjectIds = new Set(projects.filter(p => p.isShared).map(p => p.id));
+    const assignerEmails = new Set<string>();
+    for (const t of allTasks) {
+      if (t.projectId && sharedProjectIds.has(t.projectId) && t.assignedToEmail) {
+        assignerEmails.add(t.assignedToEmail);
+      }
+    }
+    // Remove emails we already resolved
+    const newEmails = [...assignerEmails].filter(e => !assignerNameMap[e]);
+    if (newEmails.length === 0) return;
+    (async () => {
+      const { data: profiles } = await (supabase as any)
+        .from('focusos_profiles')
+        .select('user_email, first_name, last_name')
+        .in('user_email', newEmails);
+      if (profiles && profiles.length > 0) {
+        const map: Record<string, string> = { ...assignerNameMap };
+        for (const p of profiles) {
+          const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+          if (name && p.user_email) map[p.user_email] = name;
+        }
+        setAssignerNameMap(map);
+      }
+    })();
+  }, [allTasks, projects]);
 
   // Change request notifications are now handled via sidebar shared items, not toasts
 
@@ -1479,7 +1509,7 @@ https://www.skyscanner.com`,
                         )}
                       </div>
                       {isSharedProject && assignedByEmail && (
-                        <span className="text-xs text-muted-foreground ml-7">Assigned by {assignedByEmail}</span>
+                        <span className="text-xs text-muted-foreground ml-7">Assigned by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
                       )}
                     </div>
 
@@ -1825,7 +1855,7 @@ https://www.skyscanner.com`,
                         )}
                       </div>
                       {isSharedProject2 && assignedByEmail2 && (
-                        <span className="text-xs text-muted-foreground ml-7">Assigned by {assignedByEmail2}</span>
+                        <span className="text-xs text-muted-foreground ml-7">Assigned by {assignerNameMap[assignedByEmail2] || assignedByEmail2}</span>
                       )}
                     </div>
                     
