@@ -1873,15 +1873,15 @@ https://www.skyscanner.com`,
                         )}
                       </div>
                       {isSharedProject2 && assignedByEmail2 && (
-                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs flex items-center gap-1 ml-7 mt-1">
-                          <Share2 className="h-3 w-3" />
-                          Project shared by {assignerNameMap[assignedByEmail2] || assignedByEmail2}
+                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs flex items-center gap-1 ml-7 mt-1 flex-wrap max-w-full">
+                          <Share2 className="h-3 w-3 shrink-0" />
+                          <span className="break-words">Project shared by {assignerNameMap[assignedByEmail2] || assignedByEmail2}</span>
                         </Badge>
                       )}
                       {!isSharedProject2 && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
-                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs flex items-center gap-1 ml-7 mt-1">
-                          <Share2 className="h-3 w-3" />
-                          Project shared with {senderProjectSharedMap[selectedProjectId]}
+                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs flex items-center gap-1 ml-7 mt-1 flex-wrap max-w-full">
+                          <Share2 className="h-3 w-3 shrink-0" />
+                          <span className="break-words">Project shared with {senderProjectSharedMap[selectedProjectId]}</span>
                         </Badge>
                       )}
                     </div>
