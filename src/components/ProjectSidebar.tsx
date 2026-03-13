@@ -556,18 +556,22 @@ export const ProjectSidebar = ({
                 if (isRecipient && item.status === 'accepted') return false;
                 // Hide sender's accepted+acknowledged items
                 if (isSender && item.status === 'accepted' && item.sender_acknowledged) return false;
+                // Hide sender's pending items that have been dismissed (acknowledged)
+                if (isSender && item.status === 'pending' && item.sender_acknowledged) return false;
                 return true;
               });
-              return visibleItems.length > 0 ? (
+              // Show only the first (oldest) notification at a time
+              const queuedItem = visibleItems.length > 0 ? [visibleItems[visibleItems.length - 1]] : [];
+              return queuedItem.length > 0 ? (
               <div className="mt-3 px-2">
                 <div className="px-2 mb-2">
                   <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                     <Share2 className="h-3.5 w-3.5" />
-                    Shared Items ({visibleItems.length})
+                    Shared Items {visibleItems.length > 1 ? `(${visibleItems.length})` : ''}
                   </h3>
                 </div>
                 <div className="space-y-1.5">
-                  {visibleItems.map((item) => {
+                  {queuedItem.map((item) => {
                     const isPending = item.status === 'pending';
                     const isAccepted = item.status === 'accepted';
                     const isSender = item.sender_user_id === userId;
