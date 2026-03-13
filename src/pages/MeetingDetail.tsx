@@ -251,6 +251,80 @@ const MeetingDetail = () => {
     }
   };
 
+  const resolveName = (profile: { first_name?: string | null; last_name?: string | null; user_email?: string | null } | null, fallbackEmail: string) => {
+    if (!profile) return fallbackEmail;
+    const parts = [profile.first_name, profile.last_name].filter(Boolean);
+    return parts.length > 0 ? parts.join(' ') : fallbackEmail;
+  };
+
+  const fetchSharingInfo = async () => {
+    if (!user || !id) return;
+    try {
+      // Fetch meeting sharing records
+      const { data: meetingShares } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('*')
+        .eq('item_type', 'meeting')
+        .eq('item_id', id);
+
+      if (meetingShares && meetingShares.length > 0) {
+        const share = meetingShares[0];
+        if (share.sender_user_id === user.id) {
+          // Sender view - resolve recipient name
+          if (share.recipient_user_id) {
+            const { data: profile } = await (supabase as any)
+              .from('focusos_profiles')
+              .select('first_name, last_name, user_email')
+              .eq('user_id', share.recipient_user_id)
+              .single();
+            setMeetingSharedWith(resolveName(profile, share.recipient_email));
+          } else {
+            setMeetingSharedWith(share.recipient_email);
+          }
+        } else if (share.recipient_user_id === user.id) {
+          // Receiver view - resolve sender name
+          const { data: profile } = await (supabase as any)
+            .from('focusos_profiles')
+            .select('first_name, last_name, user_email')
+            .eq('user_id', share.sender_user_id)
+            .single();
+          setMeetingSharedBy(resolveName(profile, share.sender_email));
+        }
+      }
+
+      // Fetch task sharing records for tasks in this meeting
+      const { data: taskShares } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('*')
+        .eq('item_type', 'task')
+        .eq('sender_user_id', user.id);
+
+      if (taskShares && taskShares.length > 0) {
+        // Collect unique recipient user IDs
+        const recipientIds = [...new Set(taskShares.filter((s: any) => s.recipient_user_id).map((s: any) => s.recipient_user_id))] as string[];
+        const profileMap: Record<string, any> = {};
+        if (recipientIds.length > 0) {
+          const { data: profiles } = await (supabase as any)
+            .from('focusos_profiles')
+            .select('user_id, first_name, last_name, user_email')
+            .in('user_id', recipientIds);
+          if (profiles) {
+            profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
+          }
+        }
+        const map: Record<string, string> = {};
+        taskShares.forEach((s: any) => {
+          const name = s.recipient_user_id && profileMap[s.recipient_user_id]
+            ? resolveName(profileMap[s.recipient_user_id], s.recipient_email)
+            : s.recipient_email;
+          map[s.item_id] = name;
+        });
+        setTaskSharedWithMap(map);
+      }
+    } catch (err) {
+      console.error('Failed to fetch sharing info:', err);
+    }
+
   const mapDbTaskToTask = (t: any): Task & { assignedToEmail?: string } => ({
     id: t.id,
     title: t.title,
