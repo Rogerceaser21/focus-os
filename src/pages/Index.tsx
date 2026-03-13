@@ -161,6 +161,7 @@ const Index = () => {
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [senderSharedMap, setSenderSharedMap] = useState<Record<string, string>>({});
+  const [senderProjectSharedMap, setSenderProjectSharedMap] = useState<Record<string, string>>({});
   const [assignerNameMap, setAssignerNameMap] = useState<Record<string, string>>({});
   const [showProjectsTour, setShowProjectsTour] = useState(false);
   const [projectsTourCurrentStep, setProjectsTourCurrentStep] = useState(0);
