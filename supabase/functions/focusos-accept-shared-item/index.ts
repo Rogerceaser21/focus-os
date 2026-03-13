@@ -251,7 +251,7 @@ serve(async (req) => {
         .single();
 
       if (meeting) {
-        await supabaseAdmin
+        const { data: clonedMeeting, error: cloneError } = await supabaseAdmin
           .from("focusos_meetings")
           .insert({
             user_id: recipientId,
@@ -261,7 +261,16 @@ serve(async (req) => {
             participants: meeting.participants,
             duration_seconds: meeting.duration_seconds,
             processing_status: "done",
-          });
+          })
+          .select("id")
+          .single();
+
+        if (cloneError) {
+          console.error("Meeting clone error:", cloneError);
+          throw new Error("Failed to clone shared meeting");
+        }
+
+        recipientTaskId = clonedMeeting?.id ?? recipientTaskId;
       }
     }
 
