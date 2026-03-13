@@ -1519,6 +1519,9 @@ https://www.skyscanner.com`,
                       {isSharedProject && assignedByEmail && (
                         <span className="text-xs text-muted-foreground ml-7">Shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
                       )}
+                      {!isSharedProject && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
+                        <span className="text-xs text-muted-foreground ml-7">Shared with {senderProjectSharedMap[selectedProjectId]}</span>
+                      )}
                     </div>
 
                     {/* Status Dropdown for Mobile/Tablet */}
