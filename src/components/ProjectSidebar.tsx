@@ -640,10 +640,10 @@ export const ProjectSidebar = ({
                             )}
                             <p className="text-xs text-muted-foreground truncate">
                               {isChangeRequest
-                                ? `From: ${item.sender_email}`
+                                ? `From: ${resolveDisplayName(item.sender_user_id, item.sender_email)}`
                                 : isSender 
-                                  ? `To: ${item.recipient_email}` 
-                                  : `From: ${item.sender_name || item.sender_email}`
+                                  ? `To: ${resolveDisplayName(item.recipient_user_id, item.recipient_email)}` 
+                                  : `From: ${resolveDisplayName(item.sender_user_id, item.sender_email)}`
                               }
                             </p>
                           </div>
