@@ -287,7 +287,7 @@ export const ProjectSidebar = ({
   const handleAcceptSharedItem = async (sharedItemId: string) => {
     setAcceptingId(sharedItemId);
     try {
-      const { error } = await supabase.functions.invoke('focusos-accept-shared-item', {
+      const { data, error } = await supabase.functions.invoke('focusos-accept-shared-item', {
         body: { sharedItemId },
       });
       if (error) throw error;
@@ -303,10 +303,15 @@ export const ProjectSidebar = ({
       await fetchSharedItems();
       await fetchMeetings();
       
-      // After a brief delay, navigate to the project
-      if (acceptedItem?.project_name) {
+      // Navigate to the accepted item
+      if (acceptedItem?.item_type === 'meeting' && data?.recipientTaskId) {
+        // Navigate to the cloned meeting
+        setTimeout(() => {
+          navigate(`/meetings/${data.recipientTaskId}`);
+          if (isActuallyMobile) setOpenMobile(false);
+        }, 800);
+      } else if (acceptedItem?.project_name) {
         setTimeout(async () => {
-          // Find the project matching the name
           const { data: matchedProject } = await (supabase as any)
             .from('focusos_projects')
             .select('id')

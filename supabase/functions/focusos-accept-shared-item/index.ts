@@ -293,7 +293,7 @@ serve(async (req) => {
 
     // NO email notification for accept — sender gets live in-app notification instead
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, recipientTaskId }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
