@@ -651,6 +651,15 @@ export const ProjectSidebar = ({
                             <Button
                               size="sm"
                               variant="outline"
+                              className="h-6 px-2 text-[10px] gap-1 border-muted-foreground/30 text-muted-foreground hover:bg-muted/50"
+                              onClick={() => handleAcknowledgeSharedItem(item.id)}
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              Dismiss
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
                               className="h-6 px-2 text-[10px] gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
                               onClick={() => handleCancelSharedItem(item.id)}
                               disabled={cancellingId === item.id}
