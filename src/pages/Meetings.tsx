@@ -108,6 +108,9 @@ const Meetings = () => {
   const failedSessionRef = useRef<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Meeting sharing info: meetingId -> { name, isSender }
+  const [meetingSharingMap, setMeetingSharingMap] = useState<Record<string, { name: string; isSender: boolean }>>({});
+
   // Keep refs in sync with state
   useEffect(() => { meetingNameRef.current = meetingName; }, [meetingName]);
   useEffect(() => { participantsRef.current = participants; }, [participants]);
