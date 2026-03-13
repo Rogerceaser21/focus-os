@@ -1242,7 +1242,7 @@ const MeetingDetail = () => {
           itemTitle={taskToShare?.title}
           open={shareDialogOpen}
           onOpenChange={setShareDialogOpen}
-          onShared={() => fetchSavedTasks()}
+          onShared={() => { fetchSavedTasks(); fetchSharingInfo(); }}
         />
 
         {/* Delete Confirmation Dialog */}
