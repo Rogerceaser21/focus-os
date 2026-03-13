@@ -994,6 +994,7 @@ const Meetings = () => {
                           </Badge>
                         )}
                       </div>
+                      <div className="flex items-center gap-1 shrink-0 mt-1">
                         {(hasError || isProcessing) && (
                           <Button
                             variant="ghost"
