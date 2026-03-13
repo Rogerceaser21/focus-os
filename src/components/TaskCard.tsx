@@ -292,8 +292,9 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
             </span>
           )}
           {task.sharedWithName && !task.completedByEmail && (
-            <Badge variant="outline" className="bg-cyan-500/15 text-cyan-400 border-cyan-500/30 text-xs ml-auto">
-              📤 Shared with {task.sharedWithName}
+            <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs ml-auto flex items-center gap-1">
+              <Share2 className="h-3 w-3" />
+              Shared with {task.sharedWithName}
             </Badge>
           )}
           {task.completedByEmail && task.status !== 'completed' && (
