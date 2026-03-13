@@ -195,7 +195,7 @@ const Meetings = () => {
         const candidates = (meetingCandidatesByTitle[item.item_title] || []).filter((m) => !usedMeetingIds.has(m.id));
         if (candidates.length === 0) return;
 
-        const referenceTime = new Date(item.updated_at || item.created_at).getTime();
+        const referenceTime = new Date(item.created_at).getTime();
         let bestMatch: { id: string; diff: number } | null = null;
 
         candidates.forEach((candidate) => {
