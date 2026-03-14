@@ -88,6 +88,12 @@ serve(async (req) => {
           })
           .eq("id", si.recipient_task_id);
 
+        // Revert shared_item status back to accepted
+        await supabaseAdmin
+          .from("focusos_shared_items")
+          .update({ status: "accepted" })
+          .eq("id", si.id);
+
         // Get sender info
         const { data: senderUser } = await supabaseAdmin
           .from("focusos_users")
