@@ -1140,10 +1140,25 @@ https://www.skyscanner.com`,
       });
       if (error) throw error;
 
-      // Optimistic: clear completedByEmail on sender's task
+      // Optimistic: clear completedByEmail on sender's task and revert shared recipient status
+      const recipientEmail = changesNeededTask.completedByEmail;
       const cleared = { ...changesNeededTask, completedByEmail: undefined, changeRequestMessage: undefined };
       setTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
       setAllTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
+      
+      // Optimistic: revert the specific recipient's status in senderSharedMap
+      if (recipientEmail) {
+        setSenderSharedMap(prev => {
+          const recipients = prev[changesNeededTask.id];
+          if (!recipients) return prev;
+          return {
+            ...prev,
+            [changesNeededTask.id]: recipients.map(r =>
+              r.email === recipientEmail ? { ...r, status: 'accepted' } : r
+            ),
+          };
+        });
+      }
 
       toast.success('Changes requested — the recipient has been notified.');
       setChangesNeededDialogOpen(false);
