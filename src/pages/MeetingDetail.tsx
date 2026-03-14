@@ -122,9 +122,9 @@ const MeetingDetail = () => {
   const [shareMeetingDialogOpen, setShareMeetingDialogOpen] = useState(false);
 
   // Sharing badge state
-  const [meetingSharedWith, setMeetingSharedWith] = useState<string | null>(null); // sender sees this
+  const [meetingSharedWith, setMeetingSharedWith] = useState<SharedRecipient[]>([]); // sender sees this
   const [meetingSharedBy, setMeetingSharedBy] = useState<string | null>(null); // receiver sees this
-  const [taskSharedWithMap, setTaskSharedWithMap] = useState<Record<string, string>>({}); // taskId -> name
+  const [taskSharedWithMap, setTaskSharedWithMap] = useState<Record<string, SharedRecipient[]>>({}); // taskId -> recipients
 
   // Edit task dialog state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
