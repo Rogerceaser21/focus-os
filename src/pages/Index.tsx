@@ -1307,7 +1307,8 @@ https://www.skyscanner.com`,
 
   const sortedTasks = sortTasksByPriority(filteredTasks).map(t => ({
     ...t,
-    sharedWithName: senderSharedMap[t.id] || undefined,
+    sharedWithName: senderSharedMap[t.id]?.[0]?.name || undefined,
+    sharedRecipients: senderSharedMap[t.id] || undefined,
   }));
   
   // Show loading screen while auth, preferences, or initial tasks are loading
