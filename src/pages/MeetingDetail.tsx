@@ -51,6 +51,7 @@ import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
+import { ShareStatusPopover, SharedRecipient } from '@/components/ShareStatusPopover';
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 
@@ -121,9 +122,9 @@ const MeetingDetail = () => {
   const [shareMeetingDialogOpen, setShareMeetingDialogOpen] = useState(false);
 
   // Sharing badge state
-  const [meetingSharedWith, setMeetingSharedWith] = useState<string | null>(null); // sender sees this
+  const [meetingSharedWith, setMeetingSharedWith] = useState<SharedRecipient[]>([]); // sender sees this
   const [meetingSharedBy, setMeetingSharedBy] = useState<string | null>(null); // receiver sees this
-  const [taskSharedWithMap, setTaskSharedWithMap] = useState<Record<string, string>>({}); // taskId -> name
+  const [taskSharedWithMap, setTaskSharedWithMap] = useState<Record<string, SharedRecipient[]>>({}); // taskId -> recipients
 
   // Edit task dialog state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -268,27 +269,40 @@ const MeetingDetail = () => {
         .eq('item_id', id);
 
       if (meetingShares && meetingShares.length > 0) {
-        const share = meetingShares[0];
-        if (share.sender_user_id === user.id) {
-          // Sender view - resolve recipient name
-          if (share.recipient_user_id) {
-            const { data: profile } = await (supabase as any)
+        // Separate sender shares from receiver shares
+        const senderShares = meetingShares.filter((s: any) => s.sender_user_id === user.id);
+        const receiverShare = meetingShares.find((s: any) => s.recipient_user_id === user.id);
+
+        if (senderShares.length > 0) {
+          // Sender view - resolve all recipient names
+          const recipientIds = [...new Set(senderShares.filter((s: any) => s.recipient_user_id).map((s: any) => s.recipient_user_id))] as string[];
+          const profileMap: Record<string, any> = {};
+          if (recipientIds.length > 0) {
+            const { data: profiles } = await (supabase as any)
               .from('focusos_profiles')
-              .select('first_name, last_name, user_email')
-              .eq('user_id', share.recipient_user_id)
-              .single();
-            setMeetingSharedWith(resolveName(profile, share.recipient_email));
-          } else {
-            setMeetingSharedWith(share.recipient_email);
+              .select('user_id, first_name, last_name, user_email')
+              .in('user_id', recipientIds);
+            if (profiles) {
+              profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
+            }
           }
-        } else if (share.recipient_user_id === user.id) {
-          // Receiver view - resolve sender name
+          const recipients: SharedRecipient[] = senderShares.map((s: any) => ({
+            email: s.recipient_email,
+            name: s.recipient_user_id && profileMap[s.recipient_user_id]
+              ? resolveName(profileMap[s.recipient_user_id], s.recipient_email)
+              : s.recipient_email,
+            status: s.status,
+          }));
+          setMeetingSharedWith(recipients);
+        }
+
+        if (receiverShare) {
           const { data: profile } = await (supabase as any)
             .from('focusos_profiles')
             .select('first_name, last_name, user_email')
-            .eq('user_id', share.sender_user_id)
+            .eq('user_id', receiverShare.sender_user_id)
             .single();
-          setMeetingSharedBy(resolveName(profile, share.sender_email));
+          setMeetingSharedBy(resolveName(profile, receiverShare.sender_email));
         }
       }
 
@@ -312,12 +326,13 @@ const MeetingDetail = () => {
             profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
           }
         }
-        const map: Record<string, string> = {};
+        const map: Record<string, SharedRecipient[]> = {};
         taskShares.forEach((s: any) => {
           const name = s.recipient_user_id && profileMap[s.recipient_user_id]
             ? resolveName(profileMap[s.recipient_user_id], s.recipient_email)
             : s.recipient_email;
-          map[s.item_id] = name;
+          if (!map[s.item_id]) map[s.item_id] = [];
+          map[s.item_id].push({ email: s.recipient_email, name, status: s.status });
         });
         setTaskSharedWithMap(map);
       }
@@ -1033,11 +1048,8 @@ const MeetingDetail = () => {
                     Share Meeting
                   </Button>
                 </div>
-                {meetingSharedWith && (
-                  <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit">
-                    <Share2 className="h-3 w-3 shrink-0" />
-                    <span className="break-words">Meeting shared with {meetingSharedWith}</span>
-                  </Badge>
+                {meetingSharedWith.length > 0 && (
+                  <ShareStatusPopover recipients={meetingSharedWith} itemType="Meeting" />
                 )}
               </div>
             )}
@@ -1092,12 +1104,9 @@ const MeetingDetail = () => {
                                   onTaskClick={() => toggleExpand(task.id)}
                                   projects={allProjects}
                                 />
-                                {taskSharedWithMap[task.id] && (
+                                {taskSharedWithMap[task.id] && taskSharedWithMap[task.id].length > 0 && (
                                   <div className="mt-1 ml-8">
-                                    <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit">
-                                      <Share2 className="h-3 w-3 shrink-0" />
-                                      <span className="break-words">Shared with {taskSharedWithMap[task.id]}</span>
-                                    </Badge>
+                                    <ShareStatusPopover recipients={taskSharedWithMap[task.id]} itemType="Task" />
                                   </div>
                                 )}
                               </div>

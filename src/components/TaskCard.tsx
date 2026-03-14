@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Play, Pause, Clock, Calendar, Share2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import { ShareStatusPopover } from '@/components/ShareStatusPopover';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -291,11 +292,10 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               Shared by {task.assignedToEmail}
             </span>
           )}
-          {task.sharedWithName && !task.completedByEmail && (
-            <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs ml-auto flex items-center gap-1">
-              <Share2 className="h-3 w-3" />
-              Shared with {task.sharedWithName}
-            </Badge>
+          {task.sharedRecipients && task.sharedRecipients.length > 0 && !task.completedByEmail && (
+            <div className="ml-auto">
+              <ShareStatusPopover recipients={task.sharedRecipients} itemType="Task" />
+            </div>
           )}
           {task.completedByEmail && task.status !== 'completed' && (
             <>

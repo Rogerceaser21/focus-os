@@ -49,6 +49,7 @@ import { ProjectTour } from '@/components/ProjectTour';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { DraggableTaskList } from '@/components/DraggableTaskList';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
+import { ShareStatusPopover } from '@/components/ShareStatusPopover';
 import { addDays } from 'date-fns';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
@@ -161,8 +162,8 @@ const Index = () => {
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
-  const [senderSharedMap, setSenderSharedMap] = useState<Record<string, string>>({});
-  const [senderProjectSharedMap, setSenderProjectSharedMap] = useState<Record<string, string>>({});
+  const [senderSharedMap, setSenderSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string }>>>({});
+  const [senderProjectSharedMap, setSenderProjectSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string }>>>({});
   const [assignerNameMap, setAssignerNameMap] = useState<Record<string, string>>({});
   const [showProjectsTour, setShowProjectsTour] = useState(false);
   const [projectsTourCurrentStep, setProjectsTourCurrentStep] = useState(0);
@@ -348,17 +349,20 @@ const Index = () => {
         }
       }
 
-      // Build maps: task item_id → display name, project item_id → display name
-      const taskMap: Record<string, string> = {};
-      const projectMap: Record<string, string> = {};
+      // Build maps: task item_id → array of recipients, project item_id → array of recipients
+      const taskMap: Record<string, Array<{ email: string; name: string; status: string }>> = {};
+      const projectMap: Record<string, Array<{ email: string; name: string; status: string }>> = {};
       for (const si of sharedItems) {
         const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
           ? profilesMap[si.recipient_user_id]
           : si.recipient_email;
+        const entry = { email: si.recipient_email, name, status: si.status };
         if (si.item_type === 'task') {
-          taskMap[si.item_id] = name;
+          if (!taskMap[si.item_id]) taskMap[si.item_id] = [];
+          taskMap[si.item_id].push(entry);
         } else if (si.item_type === 'project') {
-          projectMap[si.item_id] = name;
+          if (!projectMap[si.item_id]) projectMap[si.item_id] = [];
+          projectMap[si.item_id].push(entry);
         }
       }
       setSenderSharedMap(taskMap);
@@ -1304,7 +1308,8 @@ https://www.skyscanner.com`,
 
   const sortedTasks = sortTasksByPriority(filteredTasks).map(t => ({
     ...t,
-    sharedWithName: senderSharedMap[t.id] || undefined,
+    sharedWithName: senderSharedMap[t.id]?.[0]?.name || undefined,
+    sharedRecipients: senderSharedMap[t.id] || undefined,
   }));
   
   // Show loading screen while auth, preferences, or initial tasks are loading
@@ -1524,10 +1529,9 @@ https://www.skyscanner.com`,
                         </Badge>
                       )}
                       {!isSharedProject && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
-                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 ml-7 mt-1 w-fit">
-                          <Share2 className="h-3 w-3 shrink-0" />
-                          <span className="break-words">Project shared with {senderProjectSharedMap[selectedProjectId]}</span>
-                        </Badge>
+                        <div className="ml-7 mt-1">
+                          <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
+                        </div>
                       )}
                     </div>
 
@@ -1879,10 +1883,9 @@ https://www.skyscanner.com`,
                         </Badge>
                       )}
                       {!isSharedProject2 && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
-                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 ml-7 mt-1 w-fit">
-                          <Share2 className="h-3 w-3 shrink-0" />
-                          <span className="break-words">Project shared with {senderProjectSharedMap[selectedProjectId]}</span>
-                        </Badge>
+                        <div className="ml-7 mt-1">
+                          <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
+                        </div>
                       )}
                     </div>
                     
