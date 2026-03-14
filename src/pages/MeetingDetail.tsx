@@ -1104,12 +1104,9 @@ const MeetingDetail = () => {
                                   onTaskClick={() => toggleExpand(task.id)}
                                   projects={allProjects}
                                 />
-                                {taskSharedWithMap[task.id] && (
+                                {taskSharedWithMap[task.id] && taskSharedWithMap[task.id].length > 0 && (
                                   <div className="mt-1 ml-8">
-                                    <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit">
-                                      <Share2 className="h-3 w-3 shrink-0" />
-                                      <span className="break-words">Shared with {taskSharedWithMap[task.id]}</span>
-                                    </Badge>
+                                    <ShareStatusPopover recipients={taskSharedWithMap[task.id]} itemType="Task" />
                                   </div>
                                 )}
                               </div>
