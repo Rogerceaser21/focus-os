@@ -738,12 +738,9 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
           )}
 
           {/* Always-visible shared with badge (desktop) */}
-          {!isExpanded && task.sharedWithName && !task.completedByEmail && (
+          {!isExpanded && task.sharedRecipients && task.sharedRecipients.length > 0 && !task.completedByEmail && (
             <div className="flex items-center gap-2 ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
-              <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 flex items-center gap-1">
-                <Share2 className="h-3 w-3" />
-                Shared with {task.sharedWithName}
-              </Badge>
+              <ShareStatusPopover recipients={task.sharedRecipients} itemType="Task" />
             </div>
           )}
 
