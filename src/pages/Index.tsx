@@ -348,17 +348,20 @@ const Index = () => {
         }
       }
 
-      // Build maps: task item_id → display name, project item_id → display name
-      const taskMap: Record<string, string> = {};
-      const projectMap: Record<string, string> = {};
+      // Build maps: task item_id → array of recipients, project item_id → array of recipients
+      const taskMap: Record<string, Array<{ email: string; name: string; status: string }>> = {};
+      const projectMap: Record<string, Array<{ email: string; name: string; status: string }>> = {};
       for (const si of sharedItems) {
         const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
           ? profilesMap[si.recipient_user_id]
           : si.recipient_email;
+        const entry = { email: si.recipient_email, name, status: si.status };
         if (si.item_type === 'task') {
-          taskMap[si.item_id] = name;
+          if (!taskMap[si.item_id]) taskMap[si.item_id] = [];
+          taskMap[si.item_id].push(entry);
         } else if (si.item_type === 'project') {
-          projectMap[si.item_id] = name;
+          if (!projectMap[si.item_id]) projectMap[si.item_id] = [];
+          projectMap[si.item_id].push(entry);
         }
       }
       setSenderSharedMap(taskMap);
