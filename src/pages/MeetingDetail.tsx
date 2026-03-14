@@ -326,12 +326,13 @@ const MeetingDetail = () => {
             profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
           }
         }
-        const map: Record<string, string> = {};
+        const map: Record<string, SharedRecipient[]> = {};
         taskShares.forEach((s: any) => {
           const name = s.recipient_user_id && profileMap[s.recipient_user_id]
             ? resolveName(profileMap[s.recipient_user_id], s.recipient_email)
             : s.recipient_email;
-          map[s.item_id] = name;
+          if (!map[s.item_id]) map[s.item_id] = [];
+          map[s.item_id].push({ email: s.recipient_email, name, status: s.status });
         });
         setTaskSharedWithMap(map);
       }
