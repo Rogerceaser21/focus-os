@@ -561,10 +561,28 @@ const Index = () => {
         }
       });
 
+    // Realtime subscription for shared items status updates (sender sees recipient accept/decline/complete)
+    const sharedItemsChannel = supabase
+      .channel(`shared-items-sender-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'focusos_shared_items',
+          filter: `sender_user_id=eq.${user.id}`
+        },
+        () => {
+          fetchSenderSharedItems();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(sharedItemsChannel);
     };
-  }, [user, transformDbTask]);
+  }, [user, transformDbTask, fetchSenderSharedItems]);
 
   // Apply user preferences on load
   useEffect(() => {
