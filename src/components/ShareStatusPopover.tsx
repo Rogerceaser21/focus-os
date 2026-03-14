@@ -24,13 +24,17 @@ const statusConfig: Record<string, { icon: React.ReactNode; label: string; class
 export const ShareStatusPopover = ({ recipients, itemType, children }: ShareStatusPopoverProps) => {
   if (recipients.length === 0) return null;
 
+  const badgeText = recipients.length === 1
+    ? `Shared with ${recipients[0].name || recipients[0].email}`
+    : `Shared ${itemType} (${recipients.length})`;
+
   const trigger = children || (
     <Badge
       variant="outline"
       className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 cursor-pointer hover:bg-purple-600/25 transition-colors"
     >
       <Share2 className="h-3 w-3 shrink-0" />
-      <span className="break-words">Shared {itemType}</span>
+      <span className="break-words">{badgeText}</span>
     </Badge>
   );
 
