@@ -446,11 +446,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </button>
               )}
 
-              {task.sharedRecipients && task.sharedRecipients.length > 0 && !task.completedByEmail && (
-                <ShareStatusPopover recipients={task.sharedRecipients} itemType="Task" />
-              )}
-
-              {task.completedByEmail && task.status !== 'completed' && (
+              {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
+                <ShareStatusPopover
+                  recipients={task.sharedRecipients}
+                  itemType="Task"
+                  onRequestChanges={(email) => onRequestChanges?.({ ...task, completedByEmail: email })}
+                  allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
+                  onMoveAllToDone={() => { onUpdate({ ...task, status: 'completed' }); }}
+                />
+              ) : task.completedByEmail && task.status !== 'completed' ? (
                 <>
                   <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs">
                     ✅ Completed by {task.completedByEmail}
@@ -474,7 +478,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     Changes Needed
                   </Button>
                 </>
-              )}
+              ) : null}
             </div>
           )}
 

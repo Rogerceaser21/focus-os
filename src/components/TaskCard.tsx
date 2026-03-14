@@ -292,12 +292,17 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               Shared by {task.assignedToEmail}
             </span>
           )}
-          {task.sharedRecipients && task.sharedRecipients.length > 0 && !task.completedByEmail && (
+          {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
             <div className="ml-auto">
-              <ShareStatusPopover recipients={task.sharedRecipients} itemType="Task" />
+              <ShareStatusPopover
+                recipients={task.sharedRecipients}
+                itemType="Task"
+                onRequestChanges={(email) => onRequestChanges?.({ ...task, completedByEmail: email })}
+                allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
+                onMoveAllToDone={() => onUpdate({ ...task, status: 'completed' })}
+              />
             </div>
-          )}
-          {task.completedByEmail && task.status !== 'completed' && (
+          ) : task.completedByEmail && task.status !== 'completed' ? (
             <>
               <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs ml-auto">
                 ✅ Completed by {task.completedByEmail}
@@ -321,7 +326,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
                 Changes Needed
               </Button>
             </>
-          )}
+          ) : null}
 
           {/* Change request banner */}
           {task.changeRequestMessage && (
