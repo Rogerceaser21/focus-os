@@ -41,7 +41,9 @@ export const ShareStatusPopover = ({ recipients, itemType, children }: ShareStat
   return (
     <Popover>
       <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-        {trigger}
+        <button className="inline-flex" type="button">
+          {trigger}
+        </button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
