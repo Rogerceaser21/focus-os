@@ -123,7 +123,8 @@ export const ShareItemDialog = ({ itemType, itemId, itemTitle, open, onOpenChang
     setRecipients(prev => [...prev, contact]);
     setSearchInput('');
     setShowDropdown(false);
-    inputRef.current?.focus();
+    // Delay focus so onFocus doesn't immediately reopen dropdown
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const addManualEmail = () => {
@@ -233,7 +234,7 @@ export const ShareItemDialog = ({ itemType, itemId, itemTitle, open, onOpenChang
                 setSearchInput(e.target.value);
                 setShowDropdown(true);
               }}
-              onFocus={() => setShowDropdown(true)}
+              onFocus={() => { if (searchInput.trim()) setShowDropdown(true); }}
               onKeyDown={handleKeyDown}
               className="pl-9"
               autoComplete="off"
