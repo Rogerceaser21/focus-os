@@ -51,6 +51,7 @@ import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
+import { ShareStatusPopover, SharedRecipient } from '@/components/ShareStatusPopover';
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 
