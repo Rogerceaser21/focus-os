@@ -41,7 +41,7 @@ serve(async (req) => {
       });
     }
 
-    const { taskId, message } = await req.json();
+    const { taskId, message, recipientEmail } = await req.json();
 
     if (!taskId || !message) {
       return new Response(JSON.stringify({ error: "taskId and message required" }), {
@@ -60,13 +60,20 @@ serve(async (req) => {
       .eq("id", taskId);
 
     // Case 1: This task is the sender's original — find recipient's cloned task
-    const { data: asOriginal } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("focusos_shared_items")
       .select("*")
       .eq("item_id", taskId)
       .eq("item_type", "task")
-      .eq("status", "accepted")
+      .in("status", ["accepted", "completed"])
       .not("recipient_task_id", "is", null);
+    
+    // If recipientEmail is provided, target only that specific recipient
+    if (recipientEmail) {
+      query = query.eq("recipient_email", recipientEmail);
+    }
+
+    const { data: asOriginal } = await query;
 
     if (asOriginal && asOriginal.length > 0) {
       for (const si of asOriginal) {
@@ -80,6 +87,12 @@ serve(async (req) => {
             change_request_message: message,
           })
           .eq("id", si.recipient_task_id);
+
+        // Revert shared_item status back to accepted
+        await supabaseAdmin
+          .from("focusos_shared_items")
+          .update({ status: "accepted" })
+          .eq("id", si.id);
 
         // Get sender info
         const { data: senderUser } = await supabaseAdmin

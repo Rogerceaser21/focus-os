@@ -74,9 +74,10 @@ serve(async (req) => {
     }
 
     // Case 2: This task is the recipient's clone — update sender's original task
+    // Also mark the shared_item status as 'completed' so the sender sees it in the status panel
     const { data: asClone } = await supabaseAdmin
       .from("focusos_shared_items")
-      .select("item_id")
+      .select("id, item_id")
       .eq("recipient_task_id", taskId)
       .eq("item_type", "task")
       .eq("status", "accepted");
@@ -89,6 +90,12 @@ serve(async (req) => {
             completed_by_email: email,
           })
           .eq("id", si.item_id);
+
+        // Update shared_item status to 'completed'
+        await supabaseAdmin
+          .from("focusos_shared_items")
+          .update({ status: "completed" })
+          .eq("id", si.id);
       }
     }
 

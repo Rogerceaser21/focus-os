@@ -322,7 +322,7 @@ const Index = () => {
     try {
       const { data: sharedItems, error } = await (supabase as any)
         .from('focusos_shared_items')
-        .select('item_id, item_type, recipient_email, recipient_user_id, status')
+        .select('item_id, item_type, recipient_email, recipient_user_id, recipient_task_id, status')
         .eq('sender_user_id', user.id)
         .in('item_type', ['task', 'project'])
         .neq('status', 'cancelled');
@@ -348,6 +348,13 @@ const Index = () => {
           }
         }
       }
+
+      // Check if any accepted recipient tasks have been completed
+      // We need to look at the sender's own tasks for completed_by_email as a signal,
+      // but better: check if the recipient_task status is 'completed' via the shared_items + tasks join
+      // Since we can't read other users' tasks due to RLS, we use the completed_by_email on sender's task
+      // and the focusos_shared_items status field. For now, if the sender's task has completed_by_email set
+      // and the shared_item status is 'accepted', we mark it as 'completed' in the UI.
 
       // Build maps: task item_id → array of recipients, project item_id → array of recipients
       const taskMap: Record<string, Array<{ email: string; name: string; status: string }>> = {};
@@ -1128,14 +1135,30 @@ https://www.skyscanner.com`,
         body: {
           taskId: changesNeededTask.id,
           message: changesNeededMessage.trim(),
+          recipientEmail: changesNeededTask.completedByEmail || undefined,
         },
       });
       if (error) throw error;
 
-      // Optimistic: clear completedByEmail on sender's task
+      // Optimistic: clear completedByEmail on sender's task and revert shared recipient status
+      const recipientEmail = changesNeededTask.completedByEmail;
       const cleared = { ...changesNeededTask, completedByEmail: undefined, changeRequestMessage: undefined };
       setTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
       setAllTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
+      
+      // Optimistic: revert the specific recipient's status in senderSharedMap
+      if (recipientEmail) {
+        setSenderSharedMap(prev => {
+          const recipients = prev[changesNeededTask.id];
+          if (!recipients) return prev;
+          return {
+            ...prev,
+            [changesNeededTask.id]: recipients.map(r =>
+              r.email === recipientEmail ? { ...r, status: 'accepted' } : r
+            ),
+          };
+        });
+      }
 
       toast.success('Changes requested — the recipient has been notified.');
       setChangesNeededDialogOpen(false);

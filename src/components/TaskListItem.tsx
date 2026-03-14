@@ -294,7 +294,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
             ) : (
               <h3
                 ref={titleContainerRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || task.completedByEmail ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
@@ -446,11 +446,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </button>
               )}
 
-              {task.sharedRecipients && task.sharedRecipients.length > 0 && !task.completedByEmail && (
-                <ShareStatusPopover recipients={task.sharedRecipients} itemType="Task" />
-              )}
-
-              {task.completedByEmail && task.status !== 'completed' && (
+              {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
+                <ShareStatusPopover
+                  recipients={task.sharedRecipients}
+                  itemType="Task"
+                  onRequestChanges={(email) => onRequestChanges?.({ ...task, completedByEmail: email })}
+                  allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
+                  onMoveAllToDone={() => { onUpdate({ ...task, status: 'completed' }); }}
+                />
+              ) : task.completedByEmail && task.status !== 'completed' ? (
                 <>
                   <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs">
                     ✅ Completed by {task.completedByEmail}
@@ -474,19 +478,25 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     Changes Needed
                   </Button>
                 </>
-              )}
+              ) : null}
             </div>
           )}
 
-          {/* Always-visible shared with badge (mobile) */}
-          {!isExpanded && task.sharedRecipients && task.sharedRecipients.length > 0 && !task.completedByEmail && (
+          {/* Always-visible shared badge (mobile) - for both shared recipients AND single completedByEmail */}
+          {!isExpanded && task.sharedRecipients && task.sharedRecipients.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
-              <ShareStatusPopover recipients={task.sharedRecipients} itemType="Task" />
+              <ShareStatusPopover
+                recipients={task.sharedRecipients}
+                itemType="Task"
+                onRequestChanges={(email) => onRequestChanges?.({ ...task, completedByEmail: email })}
+                allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
+                onMoveAllToDone={() => { onUpdate({ ...task, status: 'completed' }); }}
+              />
             </div>
           )}
 
-          {/* Always-visible completed by badge (mobile) */}
-          {!isExpanded && task.completedByEmail && task.status !== 'completed' && (
+          {/* Always-visible completed by badge (mobile) - only for single-recipient tasks without sharedRecipients */}
+          {!isExpanded && task.completedByEmail && task.status !== 'completed' && (!task.sharedRecipients || task.sharedRecipients.length === 0) && (
             <div className="flex items-center gap-2 flex-wrap ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
               <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs">
                 ✅ Completed by {task.completedByEmail}
@@ -555,7 +565,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
             ) : (
               <h3
                 ref={titleContainerRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || task.completedByEmail ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
@@ -705,11 +715,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </button>
               )}
 
-              {task.sharedRecipients && task.sharedRecipients.length > 0 && !task.completedByEmail && (
-                <ShareStatusPopover recipients={task.sharedRecipients} itemType="Task" />
-              )}
-
-              {task.completedByEmail && task.status !== 'completed' && (
+              {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
+                <ShareStatusPopover
+                  recipients={task.sharedRecipients}
+                  itemType="Task"
+                  onRequestChanges={(email) => onRequestChanges?.({ ...task, completedByEmail: email })}
+                  allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
+                  onMoveAllToDone={() => { onUpdate({ ...task, status: 'completed' }); }}
+                />
+              ) : task.completedByEmail && task.status !== 'completed' ? (
                 <>
                   <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30">
                     ✅ Completed by {task.completedByEmail}
@@ -733,19 +747,25 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     Changes Needed
                   </Button>
                 </>
-              )}
+              ) : null}
             </div>
           )}
 
-          {/* Always-visible shared with badge (desktop) */}
-          {!isExpanded && task.sharedRecipients && task.sharedRecipients.length > 0 && !task.completedByEmail && (
+          {/* Always-visible shared badge (desktop) */}
+          {!isExpanded && task.sharedRecipients && task.sharedRecipients.length > 0 && (
             <div className="flex items-center gap-2 ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
-              <ShareStatusPopover recipients={task.sharedRecipients} itemType="Task" />
+              <ShareStatusPopover
+                recipients={task.sharedRecipients}
+                itemType="Task"
+                onRequestChanges={(email) => onRequestChanges?.({ ...task, completedByEmail: email })}
+                allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
+                onMoveAllToDone={() => { onUpdate({ ...task, status: 'completed' }); }}
+              />
             </div>
           )}
 
-          {/* Always-visible completed by badge (desktop) */}
-          {!isExpanded && task.completedByEmail && task.status !== 'completed' && (
+          {/* Always-visible completed by badge (desktop) - only for single-recipient tasks */}
+          {!isExpanded && task.completedByEmail && task.status !== 'completed' && (!task.sharedRecipients || task.sharedRecipients.length === 0) && (
             <div className="flex items-center gap-2 ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
               <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30">
                 ✅ Completed by {task.completedByEmail}
