@@ -1135,6 +1135,7 @@ https://www.skyscanner.com`,
         body: {
           taskId: changesNeededTask.id,
           message: changesNeededMessage.trim(),
+          recipientEmail: changesNeededTask.completedByEmail || undefined,
         },
       });
       if (error) throw error;
