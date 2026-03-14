@@ -705,11 +705,8 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </button>
               )}
 
-              {task.sharedWithName && !task.completedByEmail && (
-                <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 flex items-center gap-1">
-                  <Share2 className="h-3 w-3" />
-                  Shared with {task.sharedWithName}
-                </Badge>
+              {task.sharedRecipients && task.sharedRecipients.length > 0 && !task.completedByEmail && (
+                <ShareStatusPopover recipients={task.sharedRecipients} itemType="Task" />
               )}
 
               {task.completedByEmail && task.status !== 'completed' && (
