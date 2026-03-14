@@ -234,7 +234,7 @@ export const ShareItemDialog = ({ itemType, itemId, itemTitle, open, onOpenChang
                 setSearchInput(e.target.value);
                 setShowDropdown(true);
               }}
-              onFocus={() => setShowDropdown(true)}
+              onFocus={() => { if (searchInput.trim()) setShowDropdown(true); }}
               onKeyDown={handleKeyDown}
               className="pl-9"
               autoComplete="off"
