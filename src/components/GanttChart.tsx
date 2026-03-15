@@ -20,8 +20,10 @@ interface GanttChartProps {
 }
 
 export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask, onOpenAddTask }: GanttChartProps) => {
+  const isMobile = useIsMobile();
+  const [existingSheetOpen, setExistingSheetOpen] = useState(false);
 
-  const tasksWithoutDates = allTasks.filter(t => !t.startDate || !t.endDate);
+  const tasksWithoutDates = allTasks.filter(t => (!t.startDate || !t.endDate) && t.status !== 'completed');
   const tasksWithDates = tasks
     .filter(t => t.startDate && t.endDate)
     .sort((a, b) => a.startDate!.getTime() - b.startDate!.getTime());
