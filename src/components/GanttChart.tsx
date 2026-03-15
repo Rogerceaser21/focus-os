@@ -138,7 +138,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                       className={`flex-1 text-center text-xs py-2 border-r ${isToday ? 'bg-primary/10' : ''}`}
                     >
                       <div className="font-medium">{format(day, 'd')}</div>
-                      <div className="text-muted-foreground">{format(day, 'EEE')}</div>
+                      <div className="text-muted-foreground hidden min-[900px]:block">{format(day, 'EEE')}</div>
                     </div>
                   );
                 })}
