@@ -180,7 +180,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                             width: `${position.width}%` 
                           }}
                           title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
-                          onClick={() => setEditingTask(task)}
+                          onClick={() => onTaskClick?.(task)}
                         />
                       </div>
                     </div>
