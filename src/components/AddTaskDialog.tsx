@@ -30,9 +30,19 @@ interface AddTaskDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   showTrigger?: boolean;
+  desktopDocked?: boolean;
 }
 
-export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialList, projects = [], open: controlledOpen, onOpenChange, showTrigger = true }: AddTaskDialogProps) => {
+export const AddTaskDialog = ({
+  onAddTask,
+  selectedProjectId,
+  selectedSpecialList,
+  projects = [],
+  open: controlledOpen,
+  onOpenChange,
+  showTrigger = true,
+  desktopDocked = false,
+}: AddTaskDialogProps) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = onOpenChange || setInternalOpen;
@@ -51,10 +61,9 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
   const isMobile = useIsMobile();
   const sidebar = useSidebar();
   const prevSidebarOpen = useRef<boolean | null>(null);
-  
+
   const MAX_IMAGES = 8;
 
-  // Auto-collapse sidebar on desktop when panel opens
   useEffect(() => {
     if (isMobile) return;
     if (open) {
@@ -64,9 +73,8 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
       sidebar.setOpen(prevSidebarOpen.current);
       prevSidebarOpen.current = null;
     }
-  }, [open, isMobile]);
+  }, [open, isMobile, sidebar]);
 
-  // Auto-set due date to today when creating task in "Today's To-Do" view
   useEffect(() => {
     if (open && selectedSpecialList === 'today' && !dueDate) {
       const today = new Date();
@@ -88,13 +96,13 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
             toast.error('Maximum 8 images per task');
             return;
           }
-          
+
           e.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
             const reader = new FileReader();
             reader.onload = (event) => {
-              setImages(prev => [...prev, event.target?.result as string]);
+              setImages((prev) => [...prev, event.target?.result as string]);
               toast.success('Image pasted successfully');
             };
             reader.readAsDataURL(blob);
@@ -117,22 +125,22 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    
+
     const remaining = MAX_IMAGES - images.length;
     if (remaining <= 0) {
       toast.error('Maximum 8 images per task');
       return;
     }
-    
+
     const filesToAdd = Array.from(files).slice(0, remaining);
     let processed = 0;
-    
-    filesToAdd.forEach(file => {
+
+    filesToAdd.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setImages(prev => [...prev, event.target?.result as string]);
+        setImages((prev) => [...prev, event.target?.result as string]);
         processed++;
-        
+
         if (processed === filesToAdd.length) {
           if (files.length > remaining) {
             toast.warning(`Only added ${remaining} images (limit: 8)`);
@@ -144,7 +152,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
       reader.readAsDataURL(file);
     });
   };
-  
+
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
     toast.success('Image removed');
@@ -173,13 +181,13 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
       images,
       timer: {
         totalSeconds: 0,
-        isRunning: false
+        isRunning: false,
       },
-      projectId: projectId || selectedProjectId || undefined
+      projectId: projectId || selectedProjectId || undefined,
     };
 
     onAddTask(newTask);
-    
+
     setTitle('');
     setDescription('');
     setPriority('medium');
@@ -190,7 +198,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     setImages([]);
     setProjectId(selectedProjectId || undefined);
     setOpen(false);
-    
+
     toast.success('Task created successfully');
   };
 
@@ -198,12 +206,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     <div className="space-y-4">
       <div>
         <Label htmlFor="title">Title *</Label>
-        <Input
-          id="title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Task title"
-        />
+        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
       </div>
 
       <div>
@@ -219,8 +222,10 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
 
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <Label htmlFor="project" className="text-xs">Project</Label>
-          <Select value={projectId || "none"} onValueChange={(v) => setProjectId(v === "none" ? undefined : v)}>
+          <Label htmlFor="project" className="text-xs">
+            Project
+          </Label>
+          <Select value={projectId || 'none'} onValueChange={(v) => setProjectId(v === 'none' ? undefined : v)}>
             <SelectTrigger id="project" className="text-xs h-9">
               <SelectValue placeholder="None" />
             </SelectTrigger>
@@ -239,7 +244,9 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
         </div>
 
         <div>
-          <Label htmlFor="priority" className="text-xs">Priority</Label>
+          <Label htmlFor="priority" className="text-xs">
+            Priority
+          </Label>
           <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
             <SelectTrigger id="priority" className="text-xs h-9">
               <SelectValue />
@@ -254,7 +261,9 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
         </div>
 
         <div>
-          <Label htmlFor="status" className="text-xs">Status</Label>
+          <Label htmlFor="status" className="text-xs">
+            Status
+          </Label>
           <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
             <SelectTrigger id="status" className="text-xs h-9">
               <SelectValue />
@@ -322,8 +331,8 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {images.map((img, idx) => (
                 <div key={idx} className="relative group">
-                  <img 
-                    src={img} 
+                  <img
+                    src={img}
                     alt={`Upload ${idx + 1}`}
                     className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => handleImageClick(idx)}
@@ -357,9 +366,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
           >
             📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
           </Button>
-          <p className="text-xs text-muted-foreground">
-            Desktop: You can also paste images with Ctrl+V
-          </p>
+          <p className="text-xs text-muted-foreground">Desktop: You can also paste images with Ctrl+V</p>
         </div>
       </div>
 
@@ -367,20 +374,10 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
         <Button variant="outline" onClick={() => setOpen(false)}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit}>
-          Create Task
-        </Button>
+        <Button onClick={handleSubmit}>Create Task</Button>
       </div>
     </div>
   );
-
-  const triggerButton = showTrigger ? (
-    <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button" onClick={() => setOpen(true)}>
-      <Plus className="h-4 w-4" />
-      <span className="hidden md:inline">Add Task</span>
-      <span className="md:hidden">Add</span>
-    </Button>
-  ) : null;
 
   const imageViewer = viewerOpen ? (
     <ImageViewer
@@ -391,16 +388,19 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     />
   ) : null;
 
-  // Mobile: centered dialog
+  const triggerButton = showTrigger ? (
+    <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button" onClick={() => setOpen(true)}>
+      <Plus className="h-4 w-4" />
+      <span className="hidden md:inline">Add Task</span>
+      <span className="md:hidden">Add</span>
+    </Button>
+  ) : null;
+
   if (isMobile) {
     return (
       <>
         <Dialog open={open} onOpenChange={setOpen}>
-          {showTrigger && (
-            <DialogTrigger asChild>
-              {triggerButton}
-            </DialogTrigger>
-          )}
+          {showTrigger && <DialogTrigger asChild>{triggerButton}</DialogTrigger>}
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:rounded-lg w-full sm:max-w-2xl mx-0 sm:mx-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
@@ -413,15 +413,22 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     );
   }
 
-  // Desktop: inline side panel (trigger button rendered separately, panel rendered via Index.tsx)
+  if (desktopDocked) {
+    return (
+      <>
+        {open && (
+          <SidePanel open={open} onClose={() => setOpen(false)} title="Create New Task" className="border-r border-l-0">
+            {formContent}
+          </SidePanel>
+        )}
+        {imageViewer}
+      </>
+    );
+  }
+
   return (
     <>
       {triggerButton}
-      {open && (
-        <SidePanel open={open} onClose={() => setOpen(false)} title="Create New Task">
-          {formContent}
-        </SidePanel>
-      )}
       {imageViewer}
     </>
   );

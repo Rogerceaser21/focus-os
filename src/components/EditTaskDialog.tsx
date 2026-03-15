@@ -24,9 +24,18 @@ interface EditTaskDialogProps {
   onUpdateTask: (task: Task) => void;
   projects?: Project[];
   onAssigned?: (taskId: string, email: string) => void;
+  desktopDocked?: boolean;
 }
 
-export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, projects = [], onAssigned }: EditTaskDialogProps) => {
+export const EditTaskDialog = ({
+  task,
+  open,
+  onOpenChange,
+  onUpdateTask,
+  projects = [],
+  onAssigned,
+  desktopDocked = false,
+}: EditTaskDialogProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
@@ -44,10 +53,9 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
   const isMobile = useIsMobile();
   const sidebar = useSidebar();
   const prevSidebarOpen = useRef<boolean | null>(null);
-  
+
   const MAX_IMAGES = 8;
 
-  // Auto-collapse sidebar on desktop when panel opens
   useEffect(() => {
     if (isMobile) return;
     if (open) {
@@ -57,7 +65,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
       sidebar.setOpen(prevSidebarOpen.current);
       prevSidebarOpen.current = null;
     }
-  }, [open, isMobile]);
+  }, [open, isMobile, sidebar]);
 
   useEffect(() => {
     if (open) {
@@ -78,6 +86,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
       const mobile = window.innerWidth < 640;
       setMaxHeight(mobile ? '160px' : '300px');
     };
+
     updateMaxHeight();
     window.addEventListener('resize', updateMaxHeight);
     return () => window.removeEventListener('resize', updateMaxHeight);
@@ -96,12 +105,13 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
             toast({ title: 'Maximum images reached', description: 'You can only add up to 8 images per task', variant: 'destructive' });
             return;
           }
+
           e.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
             const reader = new FileReader();
             reader.onload = (event) => {
-              setImages(prev => [...prev, event.target?.result as string]);
+              setImages((prev) => [...prev, event.target?.result as string]);
               toast({ title: 'Image pasted', description: 'Image added successfully' });
             };
             reader.readAsDataURL(blob);
@@ -118,26 +128,33 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+
     const remaining = MAX_IMAGES - images.length;
     if (remaining <= 0) {
       toast({ title: 'Maximum images reached', description: 'You can only add up to 8 images per task', variant: 'destructive' });
       return;
     }
+
     const filesToAdd = Array.from(files).slice(0, remaining);
     let processed = 0;
-    filesToAdd.forEach(file => {
+
+    filesToAdd.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setImages(prev => [...prev, event.target?.result as string]);
+        setImages((prev) => [...prev, event.target?.result as string]);
         processed++;
+
         if (processed === filesToAdd.length) {
-          toast({ title: 'Images added', description: files.length > remaining ? `Only added ${remaining} images (limit: 8)` : `Added ${filesToAdd.length} image(s)` });
+          toast({
+            title: 'Images added',
+            description: files.length > remaining ? `Only added ${remaining} images (limit: 8)` : `Added ${filesToAdd.length} image(s)`,
+          });
         }
       };
       reader.readAsDataURL(file);
     });
   };
-  
+
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
     toast({ title: 'Image removed', description: 'Image removed successfully' });
@@ -164,7 +181,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
       endDate,
       dueDate,
       images,
-      projectId: selectedProjectId || undefined
+      projectId: selectedProjectId || undefined,
     };
 
     onUpdateTask(updatedTask);
@@ -172,7 +189,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
     toast({ title: 'Task updated', description: 'Your task has been updated successfully' });
   };
 
-  const headerContent = (
+  const panelTitle = (
     <div className="flex items-center gap-2">
       <span>Edit Task</span>
       <Button
@@ -202,7 +219,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           onInput={(e) => {
             const target = e.target as HTMLTextAreaElement;
             target.style.height = 'auto';
-            target.style.height = target.scrollHeight + 'px';
+            target.style.height = `${target.scrollHeight}px`;
           }}
         />
       </div>
@@ -228,7 +245,9 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unassigned"><span className="text-muted-foreground">None</span></SelectItem>
+                <SelectItem value="unassigned">
+                  <span className="text-muted-foreground">None</span>
+                </SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     <div className="flex items-center gap-2">
@@ -242,7 +261,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           </div>
         )}
 
-        <div className={cn("space-y-1 sm:space-y-2", projects.length === 0 && "col-start-1")} data-task-tour-step="priority">
+        <div className={cn('space-y-1 sm:space-y-2', projects.length === 0 && 'col-start-1')} data-task-tour-step="priority">
           <Label className="text-xs sm:text-sm">Priority</Label>
           <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority)}>
             <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
@@ -277,7 +296,10 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           <Label className="text-xs sm:text-sm">Start</Label>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3", !startDate && "text-muted-foreground")}>
+              <Button
+                variant="outline"
+                className={cn('w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3', !startDate && 'text-muted-foreground')}
+              >
                 <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="truncate">{startDate ? format(startDate, 'MMM d') : 'Pick'}</span>
               </Button>
@@ -292,7 +314,10 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           <Label className="text-xs sm:text-sm">End</Label>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3", !endDate && "text-muted-foreground")}>
+              <Button
+                variant="outline"
+                className={cn('w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3', !endDate && 'text-muted-foreground')}
+              >
                 <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="truncate">{endDate ? format(endDate, 'MMM d') : 'Pick'}</span>
               </Button>
@@ -307,7 +332,10 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           <Label className="text-xs sm:text-sm">Due</Label>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3", !dueDate && "text-muted-foreground")}>
+              <Button
+                variant="outline"
+                className={cn('w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3', !dueDate && 'text-muted-foreground')}
+              >
                 <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="truncate">{dueDate ? format(dueDate, 'MMM d') : 'Pick'}</span>
               </Button>
@@ -326,8 +354,19 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {images.map((img, idx) => (
                 <div key={idx} className="relative group">
-                  <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => handleImageClick(idx)} />
-                  <button type="button" onClick={() => handleRemoveImage(idx)} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">×</button>
+                  <img
+                    src={img}
+                    alt={`Upload ${idx + 1}`}
+                    className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleImageClick(idx)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
             </div>
@@ -341,29 +380,30 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-        <Button onClick={handleSubmit} data-task-tour-step="save-button">Save Changes</Button>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} data-task-tour-step="save-button">
+          Save Changes
+        </Button>
       </div>
     </div>
   );
 
   const extras = (
     <>
-      {viewerOpen && (
-        <ImageViewer images={images} currentIndex={currentImageIndex} onClose={() => setViewerOpen(false)} onNavigate={setCurrentImageIndex} />
-      )}
+      {viewerOpen && <ImageViewer images={images} currentIndex={currentImageIndex} onClose={() => setViewerOpen(false)} onNavigate={setCurrentImageIndex} />}
       <ShareItemDialog itemType="task" itemId={task.id} itemTitle={task.title} open={shareDialogOpen} onOpenChange={setShareDialogOpen} onShared={() => onAssigned?.(task.id, '')} />
     </>
   );
 
-  // Mobile: centered dialog
   if (isMobile) {
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-full mx-0 sm:mx-auto p-4 sm:p-6">
             <DialogHeader>
-              <DialogTitle>{headerContent}</DialogTitle>
+              <DialogTitle>{panelTitle}</DialogTitle>
             </DialogHeader>
             {formContent}
           </DialogContent>
@@ -373,11 +413,14 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
     );
   }
 
-  // Desktop: inline side panel
+  if (!desktopDocked) {
+    return <>{extras}</>;
+  }
+
   return (
     <>
       {open && (
-        <SidePanel open={open} onClose={() => onOpenChange(false)} title={headerContent}>
+        <SidePanel open={open} onClose={() => onOpenChange(false)} title={panelTitle} className="border-r border-l-0">
           {formContent}
         </SidePanel>
       )}
