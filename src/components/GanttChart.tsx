@@ -95,6 +95,39 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
 
   return (
     <div className="space-y-6 pb-40">
+      {/* Action buttons row */}
+      <div className="flex items-center gap-3">
+        <Button variant="outline" className="gap-2 border-2" onClick={() => setAddTaskOpen(true)}>
+          <Plus className="h-4 w-4" />
+          New Task
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="gap-2 border-2" disabled={tasksWithoutDates.length === 0}>
+              <ListTodo className="h-4 w-4" />
+              Existing Task
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="max-h-64 overflow-y-auto">
+            {tasksWithoutDates.map(task => (
+              <DropdownMenuItem key={task.id} onClick={() => setEditingTask(task)}>
+                {task.title}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {addTaskOpen && onAddTask && (
+        <AddTaskDialog
+          open={addTaskOpen}
+          onOpenChange={setAddTaskOpen}
+          onAddTask={onAddTask}
+          selectedProjectId={projectId}
+          projects={projects}
+        />
+      )}
+
       {months.map((month, monthIndex) => {
         const monthTasks = getTasksForMonth(month.start, month.end);
         
