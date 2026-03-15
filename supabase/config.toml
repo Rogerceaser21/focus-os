@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.focusos-migrate-images]
 verify_jwt = false
+
+[functions.focusos-get-recipient-task]
+verify_jwt = false
