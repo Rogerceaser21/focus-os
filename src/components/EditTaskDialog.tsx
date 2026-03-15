@@ -402,7 +402,7 @@ export const EditTaskDialog = ({
 
   const extras = (
     <>
-      {viewerOpen && <ImageViewer images={images} currentIndex={currentImageIndex} onClose={() => setViewerOpen(false)} onNavigate={setCurrentImageIndex} />}
+      {viewerOpen && <ImageViewer images={images.map(getImageDisplayUrl)} currentIndex={currentImageIndex} onClose={() => setViewerOpen(false)} onNavigate={setCurrentImageIndex} />}
       <ShareItemDialog itemType="task" itemId={task.id} itemTitle={task.title} open={shareDialogOpen} onOpenChange={setShareDialogOpen} onShared={() => onAssigned?.(task.id, '')} />
     </>
   );
