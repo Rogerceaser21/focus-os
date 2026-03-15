@@ -55,6 +55,12 @@ export const EditTaskDialog = ({
   const isMobile = useIsMobile();
   const sidebar = useSidebar();
   const prevSidebarOpen = useRef<boolean | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+  }, []);
 
   const MAX_IMAGES = 8;
 
