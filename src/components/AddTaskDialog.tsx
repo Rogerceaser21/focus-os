@@ -92,6 +92,23 @@ export const AddTaskDialog = ({
     }
   }, [open, selectedSpecialList, dueDate]);
 
+  const uploadImageFile = useCallback(async (file: File | Blob) => {
+    if (!userId) {
+      toast.error('Not authenticated');
+      return;
+    }
+    try {
+      setUploading(true);
+      const path = await uploadTaskImage(file, userId);
+      setImages((prev) => [...prev, path]);
+      toast.success('Image uploaded successfully');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -109,12 +126,7 @@ export const AddTaskDialog = ({
           e.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              setImages((prev) => [...prev, event.target?.result as string]);
-              toast.success('Image pasted successfully');
-            };
-            reader.readAsDataURL(blob);
+            uploadImageFile(blob);
           }
           break;
         }
@@ -123,7 +135,7 @@ export const AddTaskDialog = ({
 
     document.addEventListener('paste', handleGlobalPaste);
     return () => document.removeEventListener('paste', handleGlobalPaste);
-  }, [open, images]);
+  }, [open, images, uploadImageFile]);
 
   useEffect(() => {
     if (open) {
@@ -131,7 +143,7 @@ export const AddTaskDialog = ({
     }
   }, [open, selectedProjectId]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -142,24 +154,13 @@ export const AddTaskDialog = ({
     }
 
     const filesToAdd = Array.from(files).slice(0, remaining);
-    let processed = 0;
-
-    filesToAdd.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setImages((prev) => [...prev, event.target?.result as string]);
-        processed++;
-
-        if (processed === filesToAdd.length) {
-          if (files.length > remaining) {
-            toast.warning(`Only added ${remaining} images (limit: 8)`);
-          } else {
-            toast.success(`Added ${filesToAdd.length} image(s)`);
-          }
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    for (const file of filesToAdd) {
+      await uploadImageFile(file);
+    }
+    if (files.length > remaining) {
+      toast.warning(`Only added ${remaining} images (limit: 8)`);
+    }
+  };
   };
 
   const handleRemoveImage = (index: number) => {
