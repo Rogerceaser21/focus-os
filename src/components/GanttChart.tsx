@@ -1,17 +1,28 @@
 import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addMonths } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { AddTaskDialog } from '@/components/AddTaskDialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, ListTodo } from 'lucide-react';
 
 interface GanttChartProps {
   tasks: Task[];
+  allTasks?: Task[];
   projectName?: string;
+  projectId?: string | null;
+  projects?: Project[];
   onTaskClick?: (task: Task) => void;
+  onAddTask?: (task: Task) => void;
 }
 
-export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: GanttChartProps) => {
+export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask }: GanttChartProps) => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
+
+  const tasksWithoutDates = allTasks.filter(t => !t.startDate || !t.endDate);
   const tasksWithDates = tasks
     .filter(t => t.startDate && t.endDate)
     .sort((a, b) => a.startDate!.getTime() - b.startDate!.getTime());
