@@ -58,6 +58,9 @@ export const EditTaskDialog = ({
   const [userId, setUserId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // If the task has assignedToEmail, the current user is the recipient of a shared task
+  const isReceivedSharedTask = !!task.assignedToEmail;
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, []);
