@@ -164,7 +164,8 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                   const isToday = isSameDay(day, today);
                   const dayNum = day.getDate();
                   const lastDay = month.days[month.days.length - 1].getDate();
-                  const showOnMobile = dayNum === 1 || dayNum === lastDay || dayNum % 5 === 0 || isToday;
+                  const isIntervalDay = dayNum % 5 === 0 && Math.abs(dayNum - lastDay) >= 2;
+                  const showOnMobile = dayNum === 1 || dayNum === lastDay || isIntervalDay || isToday;
                   return (
                     <div 
                       key={idx} 
