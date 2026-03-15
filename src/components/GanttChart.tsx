@@ -102,6 +102,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
           onAddTask={onAddTask}
           selectedProjectId={projectId}
           projects={projects}
+          showTrigger={false}
         />
       )}
 
