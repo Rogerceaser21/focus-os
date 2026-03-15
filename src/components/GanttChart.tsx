@@ -168,7 +168,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                     <div key={task.id} className="relative h-12 border-b border-border/50">
                       <div 
                         className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border} cursor-pointer hover:opacity-80 transition-opacity`}
-                        onClick={() => setEditingTask(task)}
+                        onClick={() => onTaskClick?.(task)}
                       >
                         {task.title}
                       </div>
