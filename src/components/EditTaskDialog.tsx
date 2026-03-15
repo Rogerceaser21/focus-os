@@ -101,6 +101,23 @@ export const EditTaskDialog = ({
     return () => window.removeEventListener('resize', updateMaxHeight);
   }, []);
 
+  const uploadImageFile = useCallback(async (file: File | Blob) => {
+    if (!userId) {
+      toast({ title: 'Not authenticated', variant: 'destructive' });
+      return;
+    }
+    try {
+      setUploading(true);
+      const path = await uploadTaskImage(file, userId);
+      setImages((prev) => [...prev, path]);
+      toast({ title: 'Image uploaded', description: 'Image uploaded successfully' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -118,12 +135,7 @@ export const EditTaskDialog = ({
           e.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              setImages((prev) => [...prev, event.target?.result as string]);
-              toast({ title: 'Image pasted', description: 'Image added successfully' });
-            };
-            reader.readAsDataURL(blob);
+            uploadImageFile(blob);
           }
           break;
         }
@@ -132,9 +144,9 @@ export const EditTaskDialog = ({
 
     document.addEventListener('paste', handleGlobalPaste);
     return () => document.removeEventListener('paste', handleGlobalPaste);
-  }, [open, images]);
+  }, [open, images, uploadImageFile]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -145,23 +157,12 @@ export const EditTaskDialog = ({
     }
 
     const filesToAdd = Array.from(files).slice(0, remaining);
-    let processed = 0;
-
-    filesToAdd.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setImages((prev) => [...prev, event.target?.result as string]);
-        processed++;
-
-        if (processed === filesToAdd.length) {
-          toast({
-            title: 'Images added',
-            description: files.length > remaining ? `Only added ${remaining} images (limit: 8)` : `Added ${filesToAdd.length} image(s)`,
-          });
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    for (const file of filesToAdd) {
+      await uploadImageFile(file);
+    }
+    if (files.length > remaining) {
+      toast({ title: 'Limit reached', description: `Only added ${remaining} images (limit: 8)` });
+    }
   };
 
   const handleRemoveImage = (index: number) => {
