@@ -179,8 +179,27 @@ const MeetingDetail = () => {
         }
       )
       .subscribe();
+
+    // Realtime subscription for sharing status updates
+    const sharingChannel = supabase
+      .channel(`meeting-sharing-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'focusos_shared_items',
+          filter: `sender_user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchSharingInfo();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(sharingChannel);
     };
   }, [user, id]);
 
