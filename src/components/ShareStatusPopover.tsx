@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Share2, Clock, CheckCircle2, XCircle, UserCheck, AlertTriangle, Eye } from 'lucide-react';
+import { Share2, Clock, CheckCircle2, XCircle, UserCheck, AlertTriangle, Activity } from 'lucide-react';
 import { RecipientWorkModal } from '@/components/RecipientWorkModal';
 
 export interface SharedRecipient {
