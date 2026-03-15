@@ -21,7 +21,7 @@ interface GanttChartProps {
 
 export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask, onOpenAddTask }: GanttChartProps) => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [addTaskOpen, setAddTaskOpen] = useState(false);
+  
 
   const tasksWithoutDates = allTasks.filter(t => !t.startDate || !t.endDate);
   const tasksWithDates = tasks
