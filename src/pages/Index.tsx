@@ -2065,6 +2065,7 @@ https://www.skyscanner.com`,
                 projects={projects}
                 onTaskClick={handleUpdateTask}
                 onAddTask={handleAddTask}
+                onOpenAddTask={() => handleAddTaskDialogOpen(true)}
               />
             </div> : <div className="mt-6">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
