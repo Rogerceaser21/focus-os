@@ -2,11 +2,11 @@ import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addMonths } from 'date-fns';
-import { useMemo } from 'react';
-
-
+import { useMemo, useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Plus, ListTodo } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface GanttChartProps {
   tasks: Task[];
