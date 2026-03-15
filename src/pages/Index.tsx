@@ -357,13 +357,13 @@ const Index = () => {
       // and the shared_item status is 'accepted', we mark it as 'completed' in the UI.
 
       // Build maps: task item_id → array of recipients, project item_id → array of recipients
-      const taskMap: Record<string, Array<{ email: string; name: string; status: string }>> = {};
-      const projectMap: Record<string, Array<{ email: string; name: string; status: string }>> = {};
+      const taskMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
+      const projectMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
       for (const si of sharedItems) {
         const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
           ? profilesMap[si.recipient_user_id]
           : si.recipient_email;
-        const entry = { email: si.recipient_email, name, status: si.status };
+        const entry = { email: si.recipient_email, name, status: si.status, sharedItemId: si.id };
         if (si.item_type === 'task') {
           if (!taskMap[si.item_id]) taskMap[si.item_id] = [];
           taskMap[si.item_id].push(entry);
