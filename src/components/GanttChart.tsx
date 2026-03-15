@@ -196,17 +196,6 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
         );
       })}
 
-      {editingTask && (
-        <EditTaskDialog 
-          task={editingTask} 
-          open={!!editingTask} 
-          onOpenChange={(open) => !open && setEditingTask(null)}
-          onUpdateTask={(updatedTask) => {
-            onTaskClick?.(updatedTask);
-            setEditingTask(null);
-          }}
-        />
-      )}
     </div>
   );
 };
