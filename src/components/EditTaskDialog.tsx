@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Task, TaskPriority, TaskStatus, Project } from '@/types/task';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -17,6 +15,7 @@ import { ImageViewer } from '@/components/ImageViewer';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
+import { SidePanel } from '@/components/SidePanel';
 
 interface EditTaskDialogProps {
   task: Task;
@@ -48,7 +47,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
   
   const MAX_IMAGES = 8;
 
-  // Auto-collapse sidebar on desktop when sheet opens
+  // Auto-collapse sidebar on desktop when panel opens
   useEffect(() => {
     if (isMobile) return;
     if (open) {
@@ -79,7 +78,6 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
       const mobile = window.innerWidth < 640;
       setMaxHeight(mobile ? '160px' : '300px');
     };
-    
     updateMaxHeight();
     window.addEventListener('resize', updateMaxHeight);
     return () => window.removeEventListener('resize', updateMaxHeight);
@@ -95,24 +93,16 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
           if (images.length >= MAX_IMAGES) {
-            toast({
-              title: 'Maximum images reached',
-              description: 'You can only add up to 8 images per task',
-              variant: 'destructive'
-            });
+            toast({ title: 'Maximum images reached', description: 'You can only add up to 8 images per task', variant: 'destructive' });
             return;
           }
-          
           e.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
             const reader = new FileReader();
             reader.onload = (event) => {
               setImages(prev => [...prev, event.target?.result as string]);
-              toast({
-                title: 'Image pasted',
-                description: 'Image added successfully'
-              });
+              toast({ title: 'Image pasted', description: 'Image added successfully' });
             };
             reader.readAsDataURL(blob);
           }
@@ -128,33 +118,20 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    
     const remaining = MAX_IMAGES - images.length;
     if (remaining <= 0) {
-      toast({
-        title: 'Maximum images reached',
-        description: 'You can only add up to 8 images per task',
-        variant: 'destructive'
-      });
+      toast({ title: 'Maximum images reached', description: 'You can only add up to 8 images per task', variant: 'destructive' });
       return;
     }
-    
     const filesToAdd = Array.from(files).slice(0, remaining);
     let processed = 0;
-    
     filesToAdd.forEach(file => {
       const reader = new FileReader();
       reader.onload = (event) => {
         setImages(prev => [...prev, event.target?.result as string]);
         processed++;
-        
         if (processed === filesToAdd.length) {
-          toast({
-            title: 'Images added',
-            description: files.length > remaining 
-              ? `Only added ${remaining} images (limit: 8)`
-              : `Added ${filesToAdd.length} image(s)`
-          });
+          toast({ title: 'Images added', description: files.length > remaining ? `Only added ${remaining} images (limit: 8)` : `Added ${filesToAdd.length} image(s)` });
         }
       };
       reader.readAsDataURL(file);
@@ -163,10 +140,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
   
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
-    toast({
-      title: 'Image removed',
-      description: 'Image removed successfully'
-    });
+    toast({ title: 'Image removed', description: 'Image removed successfully' });
   };
 
   const handleImageClick = (index: number) => {
@@ -176,11 +150,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
 
   const handleSubmit = () => {
     if (!title.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a task title',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: 'Please enter a task title', variant: 'destructive' });
       return;
     }
 
@@ -199,12 +169,23 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
 
     onUpdateTask(updatedTask);
     onOpenChange(false);
-    
-    toast({
-      title: 'Task updated',
-      description: 'Your task has been updated successfully'
-    });
+    toast({ title: 'Task updated', description: 'Your task has been updated successfully' });
   };
+
+  const headerContent = (
+    <div className="flex items-center gap-2">
+      <span>Edit Task</span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setShareDialogOpen(true)}
+        className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+        title="Assign & Email"
+      >
+        <Mail className="h-4 w-4" />
+      </Button>
+    </div>
+  );
 
   const formContent = (
     <div className="space-y-4 py-4">
@@ -217,10 +198,7 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           onChange={(e) => setTitle(e.target.value)}
           rows={3}
           className="text-sm resize-none min-h-0 h-auto overflow-hidden"
-          style={{ 
-            height: 'auto',
-            minHeight: '80px'
-          }}
+          style={{ height: 'auto', minHeight: '80px' }}
           onInput={(e) => {
             const target = e.target as HTMLTextAreaElement;
             target.style.height = 'auto';
@@ -241,29 +219,20 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
         />
       </div>
 
-      {/* Project, Priority, Status - 3 columns */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         {projects.length > 0 && (
           <div className="space-y-1 sm:space-y-2" data-task-tour-step="project" data-projects-tour-step="task-project-selector">
             <Label className="text-xs sm:text-sm">Project</Label>
-            <Select 
-              value={selectedProjectId || 'unassigned'} 
-              onValueChange={(value) => setSelectedProjectId(value === 'unassigned' ? null : value)}
-            >
+            <Select value={selectedProjectId || 'unassigned'} onValueChange={(value) => setSelectedProjectId(value === 'unassigned' ? null : value)}>
               <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unassigned">
-                  <span className="text-muted-foreground">None</span>
-                </SelectItem>
+                <SelectItem value="unassigned"><span className="text-muted-foreground">None</span></SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full flex-shrink-0" 
-                        style={{ backgroundColor: project.color }}
-                      />
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
                       <span className="truncate">{project.name}</span>
                     </div>
                   </SelectItem>
@@ -303,7 +272,6 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
         </div>
       </div>
 
-      {/* Start, End, Due Dates - 3 columns */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <div className="space-y-1 sm:space-y-2" data-task-tour-step="start-date">
           <Label className="text-xs sm:text-sm">Start</Label>
@@ -357,96 +325,38 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
           {images.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {images.map((img, idx) => (
-              <div key={idx} className="relative group">
-                  <img 
-                    src={img} 
-                    alt={`Upload ${idx + 1}`}
-                    className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => handleImageClick(idx)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                  >
-                    ×
-                  </button>
+                <div key={idx} className="relative group">
+                  <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => handleImageClick(idx)} />
+                  <button type="button" onClick={() => handleRemoveImage(idx)} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">×</button>
                 </div>
               ))}
             </div>
           )}
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            className="hidden"
-            id="edit-file-input"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full"
-            disabled={images.length >= MAX_IMAGES}
-          >
+          <input type="file" accept="image/*" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" id="edit-file-input" />
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full" disabled={images.length >= MAX_IMAGES}>
             📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
           </Button>
-          <p className="text-xs text-muted-foreground">
-            Desktop: You can also paste images with Ctrl+V
-          </p>
+          <p className="text-xs text-muted-foreground">Desktop: You can also paste images with Ctrl+V</p>
         </div>
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => onOpenChange(false)}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} data-task-tour-step="save-button">
-          Save Changes
-        </Button>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button onClick={handleSubmit} data-task-tour-step="save-button">Save Changes</Button>
       </div>
-    </div>
-  );
-
-  const headerContent = (
-    <div className="flex items-center justify-between">
-      <span>Edit Task</span>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setShareDialogOpen(true)}
-        className="h-8 w-8 p-0 mr-6 text-muted-foreground hover:text-primary"
-        title="Assign & Email"
-      >
-        <Mail className="h-4 w-4" />
-      </Button>
     </div>
   );
 
   const extras = (
     <>
       {viewerOpen && (
-        <ImageViewer
-          images={images}
-          currentIndex={currentImageIndex}
-          onClose={() => setViewerOpen(false)}
-          onNavigate={setCurrentImageIndex}
-        />
+        <ImageViewer images={images} currentIndex={currentImageIndex} onClose={() => setViewerOpen(false)} onNavigate={setCurrentImageIndex} />
       )}
-
-      <ShareItemDialog
-        itemType="task"
-        itemId={task.id}
-        itemTitle={task.title}
-        open={shareDialogOpen}
-        onOpenChange={setShareDialogOpen}
-        onShared={() => onAssigned?.(task.id, '')}
-      />
+      <ShareItemDialog itemType="task" itemId={task.id} itemTitle={task.title} open={shareDialogOpen} onOpenChange={setShareDialogOpen} onShared={() => onAssigned?.(task.id, '')} />
     </>
   );
 
+  // Mobile: centered dialog
   if (isMobile) {
     return (
       <>
@@ -463,18 +373,14 @@ export const EditTaskDialog = ({ task, open, onOpenChange, onUpdateTask, project
     );
   }
 
-  // Desktop: use Sheet (right side panel)
+  // Desktop: inline side panel
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[480px] sm:max-w-[480px] overflow-y-auto" disableOverlayPointerEvents>
-          <SheetHeader>
-            <SheetTitle>{headerContent}</SheetTitle>
-            <SheetDescription className="sr-only">Edit the task details</SheetDescription>
-          </SheetHeader>
+      {open && (
+        <SidePanel open={open} onClose={() => onOpenChange(false)} title={headerContent}>
           {formContent}
-        </SheetContent>
-      </Sheet>
+        </SidePanel>
+      )}
       {extras}
     </>
   );

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +14,7 @@ import { toast } from 'sonner';
 import { ImageViewer } from '@/components/ImageViewer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
+import { SidePanel } from '@/components/SidePanel';
 
 interface Project {
   id: string;
@@ -54,7 +54,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
   
   const MAX_IMAGES = 8;
 
-  // Auto-collapse sidebar on desktop when sheet opens
+  // Auto-collapse sidebar on desktop when panel opens
   useEffect(() => {
     if (isMobile) return;
     if (open) {
@@ -108,7 +108,6 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     return () => document.removeEventListener('paste', handleGlobalPaste);
   }, [open, images]);
 
-  // Sync projectId with selectedProjectId when dialog opens
   useEffect(() => {
     if (open) {
       setProjectId(selectedProjectId || undefined);
@@ -181,7 +180,6 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
 
     onAddTask(newTask);
     
-    // Reset form
     setTitle('');
     setDescription('');
     setPriority('medium');
@@ -219,7 +217,6 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
         />
       </div>
 
-      {/* Project, Priority, Status - 3 columns */}
       <div className="grid grid-cols-3 gap-2">
         <div>
           <Label htmlFor="project" className="text-xs">Project</Label>
@@ -232,10 +229,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   <div className="flex items-center gap-2">
-                    <div 
-                      className="w-2 h-2 rounded-full" 
-                      style={{ backgroundColor: project.color }}
-                    />
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: project.color }} />
                     <span className="truncate">{project.name}</span>
                   </div>
                 </SelectItem>
@@ -274,7 +268,6 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
         </div>
       </div>
 
-      {/* Start Date, End Date, Due Date - 3 columns */}
       <div className="grid grid-cols-3 gap-2">
         <div>
           <Label className="text-xs">Start Date</Label>
@@ -389,6 +382,16 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     </Button>
   ) : null;
 
+  const imageViewer = viewerOpen ? (
+    <ImageViewer
+      images={images}
+      currentIndex={currentImageIndex}
+      onClose={() => setViewerOpen(false)}
+      onNavigate={setCurrentImageIndex}
+    />
+  ) : null;
+
+  // Mobile: centered dialog
   if (isMobile) {
     return (
       <>
@@ -405,43 +408,21 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
             {formContent}
           </DialogContent>
         </Dialog>
-
-        {viewerOpen && (
-          <ImageViewer
-            images={images}
-            currentIndex={currentImageIndex}
-            onClose={() => setViewerOpen(false)}
-            onNavigate={setCurrentImageIndex}
-          />
-        )}
+        {imageViewer}
       </>
     );
   }
 
-  // Desktop: use Sheet (right side panel)
+  // Desktop: inline side panel (trigger button rendered separately, panel rendered via Index.tsx)
   return (
     <>
       {triggerButton}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-[480px] sm:max-w-[480px] overflow-y-auto" disableOverlayPointerEvents>
-          <SheetHeader>
-            <SheetTitle>Create New Task</SheetTitle>
-            <SheetDescription className="sr-only">Fill in the details to create a new task</SheetDescription>
-          </SheetHeader>
-          <div className="mt-4">
-            {formContent}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {viewerOpen && (
-        <ImageViewer
-          images={images}
-          currentIndex={currentImageIndex}
-          onClose={() => setViewerOpen(false)}
-          onNavigate={setCurrentImageIndex}
-        />
+      {open && (
+        <SidePanel open={open} onClose={() => setOpen(false)} title="Create New Task">
+          {formContent}
+        </SidePanel>
       )}
+      {imageViewer}
     </>
   );
 };
