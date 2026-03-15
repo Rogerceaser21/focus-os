@@ -226,7 +226,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
             {task.images.slice(0, 4).map((img, idx) => (
               <img 
                 key={idx}
-                src={img} 
+                src={getImageDisplayUrl(img)} 
                 alt={`Task attachment ${idx + 1}`} 
                 className="w-full h-24 object-cover rounded-md"
               />
