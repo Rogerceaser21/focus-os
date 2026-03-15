@@ -99,16 +99,14 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
                         {canViewWork ? (
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="h-6 w-6 p-0 shrink-0 text-purple-400 hover:text-foreground hover:bg-purple-500/20"
-                            title="Progress"
+                            variant="outline"
+                            className="text-[10px] h-5 px-2 shrink-0 border-purple-500/30 text-purple-400 hover:bg-purple-500/20"
                             onClick={(e) => { e.stopPropagation(); setViewWorkRecipient(r); }}
                           >
-                            <Activity className="w-3.5 h-3.5" />
+                            <Activity className="w-2.5 h-2.5 mr-0.5" />
+                            Progress
                           </Button>
-                        ) : (
-                          <div className="w-6 h-6 shrink-0" />
-                        )}
+                        ) : null}
                         <div className="min-w-0">
                           <p className="text-xs font-medium text-foreground truncate">{r.name || r.email}</p>
                           {r.name && r.name !== r.email && (
