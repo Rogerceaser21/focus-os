@@ -73,7 +73,8 @@ export const AddTaskDialog = ({
       sidebar.setOpen(prevSidebarOpen.current);
       prevSidebarOpen.current = null;
     }
-  }, [open, isMobile, sidebar]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isMobile]);
 
   useEffect(() => {
     if (open && selectedSpecialList === 'today' && !dueDate) {
@@ -417,7 +418,7 @@ export const AddTaskDialog = ({
     return (
       <>
         {open && (
-          <SidePanel open={open} onClose={() => setOpen(false)} title="Create New Task" className="border-r border-l-0">
+          <SidePanel open={open} onClose={() => setOpen(false)} title="Create New Task">
             {formContent}
           </SidePanel>
         )}

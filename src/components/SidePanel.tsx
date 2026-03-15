@@ -16,7 +16,7 @@ export const SidePanel = ({ open, onClose, title, children, className }: SidePan
 
   return (
     <div className={cn(
-      "h-full w-[420px] flex-shrink-0 border-r border-border/50 bg-card overflow-y-auto",
+      "h-full w-[420px] flex-shrink-0 border-l border-border/50 bg-card overflow-y-auto",
       className
     )}>
       <div className="p-4">
