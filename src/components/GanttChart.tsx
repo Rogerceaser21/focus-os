@@ -117,10 +117,8 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
             {/* Timeline Header */}
             <div className="mb-4">
               <div className="flex relative h-12 border-b">
-                {/* Buttons in the left label area - only on first month */}
+                {/* Buttons in the left label area */}
                 <div className="w-48 flex-shrink-0 flex items-center gap-1 pr-2">
-                  {monthIndex === 0 && (
-                    <>
                       <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-primary border-2" onClick={() => setAddTaskOpen(true)}>
                         <Plus className="h-3 w-3" />
                         New
