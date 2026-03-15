@@ -4,6 +4,7 @@ import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList } from 'lucide-react';
+import { ShareStatusPopover, SharedRecipient } from './ShareStatusPopover';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -37,6 +38,7 @@ interface ProjectSidebarProps {
   onCreateDialogOpenChange?: (open: boolean) => void;
   isTourActive?: boolean;
   userId?: string;
+  senderProjectSharedMap?: Record<string, SharedRecipient[]>;
 }
 
 export const ProjectSidebar = ({ 
@@ -52,7 +54,8 @@ export const ProjectSidebar = ({
   createDialogOpen,
   onCreateDialogOpenChange,
   isTourActive,
-  userId
+  userId,
+  senderProjectSharedMap = {}
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [sharedProjects, setSharedProjects] = useState<Project[]>([]);
@@ -787,16 +790,23 @@ export const ProjectSidebar = ({
                         : {}
                     }
                     renderItem={(project, isSelected) => (
-                      <Button
-                        variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
-                        className="w-full justify-start gap-2"
-                      >
-                        <Folder 
-                          className="h-4 w-4" 
-                          style={{ color: project.color }}
-                        />
-                        <span className="truncate">{project.name}</span>
-                      </Button>
+                      <div className="w-full">
+                        <Button
+                          variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                          className="w-full justify-start gap-2"
+                        >
+                          <Folder 
+                            className="h-4 w-4" 
+                            style={{ color: project.color }}
+                          />
+                          <span className="truncate">{project.name}</span>
+                        </Button>
+                        {senderProjectSharedMap[project.id] && (
+                          <div className="ml-8 mt-0.5 mb-1">
+                            <ShareStatusPopover recipients={senderProjectSharedMap[project.id]} itemType="Project" />
+                          </div>
+                        )}
+                      </div>
                     )}
                   />
                 </div>
