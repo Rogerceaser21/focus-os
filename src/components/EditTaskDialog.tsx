@@ -65,7 +65,8 @@ export const EditTaskDialog = ({
       sidebar.setOpen(prevSidebarOpen.current);
       prevSidebarOpen.current = null;
     }
-  }, [open, isMobile, sidebar]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isMobile]);
 
   useEffect(() => {
     if (open) {
