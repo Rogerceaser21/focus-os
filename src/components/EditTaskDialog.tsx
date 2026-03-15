@@ -382,7 +382,7 @@ export const EditTaskDialog = ({
             </div>
           )}
           <input type="file" accept="image/*" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" id="edit-file-input" />
-          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full" disabled={images.length >= MAX_IMAGES}>
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full" disabled={images.length >= MAX_IMAGES || uploading}>
             📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
           </Button>
           <p className="text-xs text-muted-foreground">Desktop: You can also paste images with Ctrl+V</p>
