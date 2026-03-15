@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Share2, Clock, CheckCircle2, XCircle, UserCheck, AlertTriangle, Eye } from 'lucide-react';
+import { Share2, Clock, CheckCircle2, XCircle, UserCheck, AlertTriangle, Activity } from 'lucide-react';
 import { RecipientWorkModal } from '@/components/RecipientWorkModal';
 
 export interface SharedRecipient {
@@ -101,10 +101,10 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
                             size="sm"
                             variant="ghost"
                             className="h-6 w-6 p-0 shrink-0 text-purple-400 hover:text-foreground hover:bg-purple-500/20"
-                            title="View Work"
+                            title="Progress"
                             onClick={(e) => { e.stopPropagation(); setViewWorkRecipient(r); }}
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Activity className="w-3.5 h-3.5" />
                           </Button>
                         ) : (
                           <div className="w-6 h-6 shrink-0" />
