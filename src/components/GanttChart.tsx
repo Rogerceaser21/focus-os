@@ -201,28 +201,21 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                   const taskColor = taskColors[tasksWithDates.findIndex(t => t.id === task.id) % taskColors.length];
 
                   return (
-                    <div key={task.id} className="relative h-12 border-b border-border/50">
+                    <div key={task.id} className="relative h-10 border-b border-border/50 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => onTaskClick?.(task)}>
                       <div 
-                        className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border} cursor-pointer hover:opacity-80 transition-opacity ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
-                        onClick={() => onTaskClick?.(task)}
+                        className={`absolute left-0 top-1 text-sm font-medium truncate max-w-[45%] ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
+                        title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
                       >
                         {task.title}
                       </div>
-                      <div className="relative h-full ml-48">
-                        <div 
-                          className={`absolute top-2 bottom-2 rounded ${taskColor.bg} hover:opacity-100 transition-opacity cursor-pointer ${task.status === 'completed' ? 'opacity-30' : 'opacity-80'}`}
-                          style={{ 
-                            left: `${position.left}%`, 
-                            width: `${position.width}%` 
-                          }}
-                          title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
-                          onClick={() => onTaskClick?.(task)}
-                        >
-                          {task.status === 'completed' && (
-                            <div className="absolute inset-y-1/2 left-0 right-0 h-0.5 bg-foreground/60" />
-                          )}
-                        </div>
-                      </div>
+                      {/* Date range underline bar */}
+                      <div 
+                        className={`absolute bottom-0 h-1.5 rounded-full ${taskColor.bg} ${task.status === 'completed' ? 'opacity-30' : 'opacity-90'}`}
+                        style={{ 
+                          left: `${position.left}%`, 
+                          width: `${position.width}%` 
+                        }}
+                      />
                     </div>
                   );
                 })}
