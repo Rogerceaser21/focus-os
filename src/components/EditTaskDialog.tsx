@@ -393,8 +393,8 @@ export const EditTaskDialog = ({
         <Button variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} data-task-tour-step="save-button">
-          Save Changes
+        <Button onClick={handleSubmit} data-task-tour-step="save-button" disabled={uploading}>
+          {uploading ? 'Uploading...' : 'Save Changes'}
         </Button>
       </div>
     </div>
