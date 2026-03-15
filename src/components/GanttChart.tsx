@@ -196,21 +196,25 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                   return (
                     <div key={task.id} className="relative h-12 border-b border-border/50">
                       <div 
-                        className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border} cursor-pointer hover:opacity-80 transition-opacity`}
+                        className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border} cursor-pointer hover:opacity-80 transition-opacity ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
                         onClick={() => onTaskClick?.(task)}
                       >
                         {task.title}
                       </div>
                       <div className="relative h-full ml-48">
                         <div 
-                          className={`absolute top-2 bottom-2 rounded ${taskColor.bg} opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
+                          className={`absolute top-2 bottom-2 rounded ${taskColor.bg} hover:opacity-100 transition-opacity cursor-pointer ${task.status === 'completed' ? 'opacity-30' : 'opacity-80'}`}
                           style={{ 
                             left: `${position.left}%`, 
                             width: `${position.width}%` 
                           }}
                           title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
                           onClick={() => onTaskClick?.(task)}
-                        />
+                        >
+                          {task.status === 'completed' && (
+                            <div className="absolute inset-y-1/2 left-0 right-0 h-0.5 bg-foreground/60" />
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
