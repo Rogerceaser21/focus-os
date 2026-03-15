@@ -162,12 +162,17 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
               <div className="flex relative h-12 border-b">
                 {month.days.map((day, idx) => {
                   const isToday = isSameDay(day, today);
+                  const dayNum = day.getDate();
+                  const showOnMobile = dayNum % 5 === 0 || isToday;
                   return (
                     <div 
                       key={idx} 
                       className={`flex-1 text-center text-xs py-2 border-r min-w-0 ${isToday ? 'bg-primary/10' : ''}`}
                     >
-                      <div className="font-medium truncate">{format(day, 'd')}</div>
+                      <div className="font-medium truncate">
+                        <span className="hidden sm:inline">{format(day, 'd')}</span>
+                        <span className="sm:hidden">{showOnMobile ? format(day, 'd') : ''}</span>
+                      </div>
                       <div className="text-muted-foreground hidden min-[1100px]:block truncate">{format(day, 'EEE')}</div>
                     </div>
                   );
