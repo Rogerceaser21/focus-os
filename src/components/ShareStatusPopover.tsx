@@ -101,10 +101,10 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
                             size="sm"
                             variant="ghost"
                             className="h-6 w-6 p-0 shrink-0 text-purple-400 hover:text-foreground hover:bg-purple-500/20"
-                            title="View Work"
+                            title="Progress"
                             onClick={(e) => { e.stopPropagation(); setViewWorkRecipient(r); }}
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Activity className="w-3.5 h-3.5" />
                           </Button>
                         ) : (
                           <div className="w-6 h-6 shrink-0" />
