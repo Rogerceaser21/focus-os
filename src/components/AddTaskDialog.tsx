@@ -384,7 +384,7 @@ export const AddTaskDialog = ({
         <Button variant="outline" onClick={() => setOpen(false)}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit}>Create Task</Button>
+        <Button onClick={handleSubmit} disabled={uploading}>{uploading ? 'Uploading...' : 'Create Task'}</Button>
       </div>
     </div>
   );
