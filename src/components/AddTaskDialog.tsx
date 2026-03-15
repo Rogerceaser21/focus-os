@@ -342,7 +342,7 @@ export const AddTaskDialog = ({
               {images.map((img, idx) => (
                 <div key={idx} className="relative group">
                   <img
-                    src={img}
+                    src={getImageDisplayUrl(img)}
                     alt={`Upload ${idx + 1}`}
                     className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => handleImageClick(idx)}
