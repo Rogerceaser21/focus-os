@@ -1409,7 +1409,7 @@ https://www.skyscanner.com`,
             <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => setProjectRefreshTrigger(prev => prev + 1)} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : undefined} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : undefined} isTourActive={showProjectsTour} userId={user?.id} senderProjectSharedMap={senderProjectSharedMap} />
 
             {/* Main Content */}
-            <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
+            <div className={`flex-1 relative z-10 overflow-x-hidden overflow-y-auto transition-all duration-300 ${!isMobile && (editingTask || addTaskDialogOpen) ? 'pr-[420px]' : ''}`}>
               <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4 pb-32">
                 {/* Header */}
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
