@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.focusos-request-changes]
 verify_jwt = false
+
+[functions.focusos-migrate-images]
+verify_jwt = false
