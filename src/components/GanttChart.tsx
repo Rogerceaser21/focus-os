@@ -2,11 +2,11 @@ import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addMonths } from 'date-fns';
-import { useMemo } from 'react';
-
-
+import { useMemo, useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Plus, ListTodo } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface GanttChartProps {
   tasks: Task[];
@@ -20,8 +20,10 @@ interface GanttChartProps {
 }
 
 export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask, onOpenAddTask }: GanttChartProps) => {
+  const isMobile = useIsMobile();
+  const [existingSheetOpen, setExistingSheetOpen] = useState(false);
 
-  const tasksWithoutDates = allTasks.filter(t => !t.startDate || !t.endDate);
+  const tasksWithoutDates = allTasks.filter(t => (!t.startDate || !t.endDate) && t.status !== 'completed');
   const tasksWithDates = tasks
     .filter(t => t.startDate && t.endDate)
     .sort((a, b) => a.startDate!.getTime() - b.startDate!.getTime());
@@ -113,21 +115,48 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                         <Plus className="h-3 w-3" />
                         New
                       </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-accent border-2" disabled={tasksWithoutDates.length === 0}>
+                      {isMobile ? (
+                        <>
+                          <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-accent border-2" disabled={tasksWithoutDates.length === 0} onClick={() => setExistingSheetOpen(true)}>
                             <ListTodo className="h-3 w-3" />
                             Existing
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="max-h-64 overflow-y-auto">
-                          {tasksWithoutDates.map(task => (
-                            <DropdownMenuItem key={task.id} onClick={() => onTaskClick?.(task)}>
-                              {task.title}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          <Sheet open={existingSheetOpen} onOpenChange={setExistingSheetOpen}>
+                            <SheetContent side="bottom" className="max-h-[60vh]">
+                              <SheetHeader>
+                                <SheetTitle>Unscheduled Tasks</SheetTitle>
+                              </SheetHeader>
+                              <div className="overflow-y-auto mt-3 space-y-1">
+                                {tasksWithoutDates.map(task => (
+                                  <button
+                                    key={task.id}
+                                    className="w-full text-left px-3 py-2.5 rounded-md border border-accent/50 text-sm truncate hover:bg-accent/10 transition-colors"
+                                    onClick={() => { onTaskClick?.(task); setExistingSheetOpen(false); }}
+                                  >
+                                    {task.title.length > 40 ? task.title.slice(0, 40) + '…' : task.title}
+                                  </button>
+                                ))}
+                              </div>
+                            </SheetContent>
+                          </Sheet>
+                        </>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-accent border-2" disabled={tasksWithoutDates.length === 0}>
+                              <ListTodo className="h-3 w-3" />
+                              Existing
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="max-h-64 overflow-y-auto border-accent/50 border">
+                            {tasksWithoutDates.map(task => (
+                              <DropdownMenuItem key={task.id} onClick={() => onTaskClick?.(task)} className="border-b border-accent/20 last:border-b-0">
+                                {task.title.length > 40 ? task.title.slice(0, 40) + '…' : task.title}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                 </div>
                 <div className="flex relative flex-1">
                 {month.days.map((day, idx) => {
@@ -167,21 +196,25 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                   return (
                     <div key={task.id} className="relative h-12 border-b border-border/50">
                       <div 
-                        className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border} cursor-pointer hover:opacity-80 transition-opacity`}
+                        className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border} cursor-pointer hover:opacity-80 transition-opacity ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
                         onClick={() => onTaskClick?.(task)}
                       >
                         {task.title}
                       </div>
                       <div className="relative h-full ml-48">
                         <div 
-                          className={`absolute top-2 bottom-2 rounded ${taskColor.bg} opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
+                          className={`absolute top-2 bottom-2 rounded ${taskColor.bg} hover:opacity-100 transition-opacity cursor-pointer ${task.status === 'completed' ? 'opacity-30' : 'opacity-80'}`}
                           style={{ 
                             left: `${position.left}%`, 
                             width: `${position.width}%` 
                           }}
                           title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
                           onClick={() => onTaskClick?.(task)}
-                        />
+                        >
+                          {task.status === 'completed' && (
+                            <div className="absolute inset-y-1/2 left-0 right-0 h-0.5 bg-foreground/60" />
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
