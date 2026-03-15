@@ -372,7 +372,7 @@ export const AddTaskDialog = ({
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
             className="w-full"
-            disabled={images.length >= MAX_IMAGES}
+            disabled={images.length >= MAX_IMAGES || uploading}
           >
             📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
           </Button>
