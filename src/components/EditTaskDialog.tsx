@@ -253,9 +253,9 @@ export const EditTaskDialog = ({
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         {projects.length > 0 && (
           <div className="space-y-1 sm:space-y-2" data-task-tour-step="project" data-projects-tour-step="task-project-selector">
-            <Label className="text-xs sm:text-sm">Project</Label>
-            <Select value={selectedProjectId || 'unassigned'} onValueChange={(value) => setSelectedProjectId(value === 'unassigned' ? null : value)}>
-              <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
+            <Label className="text-xs sm:text-sm">Project{isReceivedSharedTask && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
+            <Select value={selectedProjectId || 'unassigned'} onValueChange={(value) => !isReceivedSharedTask && setSelectedProjectId(value === 'unassigned' ? null : value)} disabled={isReceivedSharedTask}>
+              <SelectTrigger className={`text-xs sm:text-sm h-9 sm:h-10 ${isReceivedSharedTask ? 'opacity-60 cursor-not-allowed' : ''}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
