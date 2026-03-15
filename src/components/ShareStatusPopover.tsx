@@ -39,7 +39,7 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
     if (recipients.length === 1) {
       return `Shared with ${recipients[0].name || recipients[0].email}`;
     }
-    if (allCompleted) {
+    if (everyoneCompleted) {
       return `Shared ${itemType} Completed (${recipients.length})`;
     }
     const counts: Record<string, number> = {};
