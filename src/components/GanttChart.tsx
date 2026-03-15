@@ -95,29 +95,6 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
 
   return (
     <div className="space-y-6 pb-40">
-      {/* Action buttons row */}
-      <div className="flex items-center gap-3">
-        <Button variant="outline" className="gap-2 border-2" onClick={() => setAddTaskOpen(true)}>
-          <Plus className="h-4 w-4" />
-          New Task
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2 border-2" disabled={tasksWithoutDates.length === 0}>
-              <ListTodo className="h-4 w-4" />
-              Existing Task
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="max-h-64 overflow-y-auto">
-            {tasksWithoutDates.map(task => (
-              <DropdownMenuItem key={task.id} onClick={() => setEditingTask(task)}>
-                {task.title}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
       {addTaskOpen && onAddTask && (
         <AddTaskDialog
           open={addTaskOpen}
@@ -139,7 +116,34 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
             
             {/* Timeline Header */}
             <div className="mb-4">
-              <div className="flex relative h-12 border-b ml-48">
+              <div className="flex relative h-12 border-b">
+                {/* Buttons in the left label area - only on first month */}
+                <div className="w-48 flex-shrink-0 flex items-center gap-1 pr-2">
+                  {monthIndex === 0 && (
+                    <>
+                      <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border" onClick={() => setAddTaskOpen(true)}>
+                        <Plus className="h-3 w-3" />
+                        New
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border" disabled={tasksWithoutDates.length === 0}>
+                            <ListTodo className="h-3 w-3" />
+                            Existing
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="max-h-64 overflow-y-auto">
+                          {tasksWithoutDates.map(task => (
+                            <DropdownMenuItem key={task.id} onClick={() => setEditingTask(task)}>
+                              {task.title}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
+                  )}
+                </div>
+                <div className="flex relative flex-1">
                 {month.days.map((day, idx) => {
                   const isToday = isSameDay(day, today);
                   return (
