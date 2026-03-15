@@ -117,17 +117,6 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {canViewWork && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
-                            title="View Work"
-                            onClick={(e) => { e.stopPropagation(); setViewWorkRecipient(r); }}
-                          >
-                            <Eye className="w-3 h-3" />
-                          </Button>
-                        )}
                         <span className={`flex items-center gap-1 text-[10px] font-medium ${config.className}`}>
                           {config.icon}
                           {config.label}
