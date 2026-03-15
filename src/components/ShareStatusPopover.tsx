@@ -104,7 +104,7 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
                             onClick={(e) => { e.stopPropagation(); setViewWorkRecipient(r); }}
                           >
                             <span className="flex items-center gap-0.5">
-                              <Activity className="w-2.5 h-2.5 animate-[pulse_1.5s_ease-in-out_infinite]" />
+                              <Activity className="w-2.5 h-2.5 animate-[pulse_3s_ease-in-out_infinite]" />
                               <span>View</span>
                             </span>
                             <span>Progress</span>
