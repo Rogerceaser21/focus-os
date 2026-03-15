@@ -33,14 +33,31 @@ const statusConfig: Record<string, { icon: React.ReactNode; label: string; class
 export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDone, onRequestChanges, allCompleted, onMoveAllToDone }: ShareStatusPopoverProps) => {
   if (recipients.length === 0) return null;
 
-  const badgeText = recipients.length === 1
-    ? `Shared with ${recipients[0].name || recipients[0].email}`
-    : `Shared ${itemType} (${recipients.length})`;
+  const allCompleted = recipients.every(r => r.status === 'completed');
+
+  const buildStatusSummary = () => {
+    if (recipients.length === 1) {
+      return `Shared with ${recipients[0].name || recipients[0].email}`;
+    }
+    if (allCompleted) {
+      return `Shared ${itemType} Completed (${recipients.length})`;
+    }
+    const counts: Record<string, number> = {};
+    recipients.forEach(r => {
+      const s = r.status || 'pending';
+      counts[s] = (counts[s] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([status, count]) => `${count} ${status.charAt(0).toUpperCase() + status.slice(1)}`)
+      .join(', ');
+  };
+
+  const badgeText = buildStatusSummary();
 
   const trigger = children || (
     <Badge
       variant="outline"
-      className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 cursor-pointer hover:bg-purple-600/25 transition-colors"
+      className={`${allCompleted ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'bg-purple-600/15 text-purple-400 border-purple-600/30'} text-xs inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-colors`}
     >
       <Share2 className="h-3 w-3 shrink-0" />
       <span className="break-words">{badgeText}</span>
