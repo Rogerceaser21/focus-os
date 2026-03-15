@@ -311,6 +311,7 @@ const MeetingDetail = () => {
               ? resolveName(profileMap[s.recipient_user_id], s.recipient_email)
               : s.recipient_email,
             status: s.status,
+            sharedItemId: s.id,
           }));
           setMeetingSharedWith(recipients);
         }
