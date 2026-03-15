@@ -220,15 +220,16 @@ export const EditTaskDialog = ({
   const formContent = (
     <div className="space-y-4 py-4">
       <div className="space-y-2" data-task-tour-step="title">
-        <Label htmlFor="title">Title *</Label>
+        <Label htmlFor="title">Title *{isReceivedSharedTask && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
         <Textarea
           id="title"
           placeholder="Task title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => !isReceivedSharedTask && setTitle(e.target.value)}
           rows={3}
-          className="text-sm resize-none min-h-0 h-auto overflow-hidden"
+          className={`text-sm resize-none min-h-0 h-auto overflow-hidden ${isReceivedSharedTask ? 'opacity-60 cursor-not-allowed' : ''}`}
           style={{ height: 'auto', minHeight: '80px' }}
+          readOnly={isReceivedSharedTask}
           onInput={(e) => {
             const target = e.target as HTMLTextAreaElement;
             target.style.height = 'auto';
