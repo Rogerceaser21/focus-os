@@ -567,7 +567,7 @@ const Index = () => {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'focusos_shared_items',
           filter: `sender_user_id=eq.${user.id}`
