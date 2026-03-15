@@ -1,17 +1,28 @@
 import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addMonths } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { AddTaskDialog } from '@/components/AddTaskDialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, ListTodo } from 'lucide-react';
 
 interface GanttChartProps {
   tasks: Task[];
+  allTasks?: Task[];
   projectName?: string;
+  projectId?: string | null;
+  projects?: Project[];
   onTaskClick?: (task: Task) => void;
+  onAddTask?: (task: Task) => void;
 }
 
-export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: GanttChartProps) => {
+export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask }: GanttChartProps) => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
+
+  const tasksWithoutDates = allTasks.filter(t => !t.startDate || !t.endDate);
   const tasksWithDates = tasks
     .filter(t => t.startDate && t.endDate)
     .sort((a, b) => a.startDate!.getTime() - b.startDate!.getTime());
@@ -84,6 +95,39 @@ export const GanttChart = ({ tasks, projectName = 'Gantt Chart', onTaskClick }: 
 
   return (
     <div className="space-y-6 pb-40">
+      {/* Action buttons row */}
+      <div className="flex items-center gap-3">
+        <Button variant="outline" className="gap-2 border-2" onClick={() => setAddTaskOpen(true)}>
+          <Plus className="h-4 w-4" />
+          New Task
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="gap-2 border-2" disabled={tasksWithoutDates.length === 0}>
+              <ListTodo className="h-4 w-4" />
+              Existing Task
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="max-h-64 overflow-y-auto">
+            {tasksWithoutDates.map(task => (
+              <DropdownMenuItem key={task.id} onClick={() => setEditingTask(task)}>
+                {task.title}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {addTaskOpen && onAddTask && (
+        <AddTaskDialog
+          open={addTaskOpen}
+          onOpenChange={setAddTaskOpen}
+          onAddTask={onAddTask}
+          selectedProjectId={projectId}
+          projects={projects}
+        />
+      )}
+
       {months.map((month, monthIndex) => {
         const monthTasks = getTasksForMonth(month.start, month.end);
         

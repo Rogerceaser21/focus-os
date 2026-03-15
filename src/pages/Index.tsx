@@ -2014,7 +2014,8 @@ https://www.skyscanner.com`,
               </TabsContent>
             </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
               <GanttChart 
-                tasks={sortedTasks} 
+                tasks={sortedTasks}
+                allTasks={sortedTasks}
                 projectName={
                   selectedProjectId 
                     ? projects.find(p => p.id === selectedProjectId)?.name || 'Project'
@@ -2024,7 +2025,10 @@ https://www.skyscanner.com`,
                     ? 'Unassigned Tasks'
                     : 'All Tasks'
                 }
+                projectId={selectedProjectId}
+                projects={projects}
                 onTaskClick={handleUpdateTask}
+                onAddTask={handleAddTask}
               />
             </div> : <div className="mt-6">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
