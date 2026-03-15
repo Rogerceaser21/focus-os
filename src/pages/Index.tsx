@@ -1508,7 +1508,7 @@ https://www.skyscanner.com`,
                   </span>
                 </Button>
               )}
-              <AddTaskDialog open={addTaskDialogOpen} onOpenChange={handleAddTaskDialogOpen} onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} projects={projects} />
+              {viewMode !== 'gantt' && <AddTaskDialog open={addTaskDialogOpen} onOpenChange={handleAddTaskDialogOpen} onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} projects={projects} />}
             </div>
           </div>
 
