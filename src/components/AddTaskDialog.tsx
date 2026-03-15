@@ -161,7 +161,6 @@ export const AddTaskDialog = ({
       toast.warning(`Only added ${remaining} images (limit: 8)`);
     }
   };
-  };
 
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
