@@ -19,7 +19,7 @@ interface GanttChartProps {
   onOpenAddTask?: () => void;
 }
 
-export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask }: GanttChartProps) => {
+export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask, onOpenAddTask }: GanttChartProps) => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
 
