@@ -26,6 +26,7 @@ interface AddTaskDialogProps {
   projects?: Project[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
 }
 
 export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialList, projects = [], open: controlledOpen, onOpenChange }: AddTaskDialogProps) => {
