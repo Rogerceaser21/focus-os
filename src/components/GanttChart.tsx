@@ -215,7 +215,18 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                           left: `${position.left}%`, 
                           width: `${position.width}%` 
                         }}
-                      />
+                      >
+                        {task.status === 'completed' && (
+                          <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none">
+                            <defs>
+                              <pattern id={`zigzag-${task.id}`} patternUnits="userSpaceOnUse" width="8" height="6" patternTransform="rotate(0)">
+                                <polyline points="0,6 4,0 8,6" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-foreground" />
+                              </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill={`url(#zigzag-${task.id})`} />
+                          </svg>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
