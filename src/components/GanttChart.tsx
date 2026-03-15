@@ -115,21 +115,48 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                         <Plus className="h-3 w-3" />
                         New
                       </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-accent border-2" disabled={tasksWithoutDates.length === 0}>
+                      {isMobile ? (
+                        <>
+                          <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-accent border-2" disabled={tasksWithoutDates.length === 0} onClick={() => setExistingSheetOpen(true)}>
                             <ListTodo className="h-3 w-3" />
                             Existing
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="max-h-64 overflow-y-auto">
-                          {tasksWithoutDates.map(task => (
-                            <DropdownMenuItem key={task.id} onClick={() => onTaskClick?.(task)}>
-                              {task.title}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          <Sheet open={existingSheetOpen} onOpenChange={setExistingSheetOpen}>
+                            <SheetContent side="bottom" className="max-h-[60vh]">
+                              <SheetHeader>
+                                <SheetTitle>Unscheduled Tasks</SheetTitle>
+                              </SheetHeader>
+                              <div className="overflow-y-auto mt-3 space-y-1">
+                                {tasksWithoutDates.map(task => (
+                                  <button
+                                    key={task.id}
+                                    className="w-full text-left px-3 py-2.5 rounded-md border border-accent/50 text-sm truncate hover:bg-accent/10 transition-colors"
+                                    onClick={() => { onTaskClick?.(task); setExistingSheetOpen(false); }}
+                                  >
+                                    {task.title.length > 40 ? task.title.slice(0, 40) + '…' : task.title}
+                                  </button>
+                                ))}
+                              </div>
+                            </SheetContent>
+                          </Sheet>
+                        </>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-accent border-2" disabled={tasksWithoutDates.length === 0}>
+                              <ListTodo className="h-3 w-3" />
+                              Existing
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="max-h-64 overflow-y-auto border-accent/50 border">
+                            {tasksWithoutDates.map(task => (
+                              <DropdownMenuItem key={task.id} onClick={() => onTaskClick?.(task)} className="border-b border-accent/20 last:border-b-0">
+                                {task.title.length > 40 ? task.title.slice(0, 40) + '…' : task.title}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                 </div>
                 <div className="flex relative flex-1">
                 {month.days.map((day, idx) => {
