@@ -121,13 +121,13 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                 <div className="w-48 flex-shrink-0 flex items-center gap-1 pr-2">
                   {monthIndex === 0 && (
                     <>
-                      <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border" onClick={() => setAddTaskOpen(true)}>
+                      <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-primary border-2" onClick={() => setAddTaskOpen(true)}>
                         <Plus className="h-3 w-3" />
                         New
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border" disabled={tasksWithoutDates.length === 0}>
+                          <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-accent border-2" disabled={tasksWithoutDates.length === 0}>
                             <ListTodo className="h-3 w-3" />
                             Existing
                           </Button>
@@ -140,8 +140,6 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                           ))}
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </>
-                  )}
                 </div>
                 <div className="flex relative flex-1">
                 {month.days.map((day, idx) => {
