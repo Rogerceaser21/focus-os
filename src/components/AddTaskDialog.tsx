@@ -391,7 +391,7 @@ export const AddTaskDialog = ({
 
   const imageViewer = viewerOpen ? (
     <ImageViewer
-      images={images}
+      images={images.map(getImageDisplayUrl)}
       currentIndex={currentImageIndex}
       onClose={() => setViewerOpen(false)}
       onNavigate={setCurrentImageIndex}
