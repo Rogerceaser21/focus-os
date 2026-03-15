@@ -96,9 +96,19 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
                   <div key={idx} className="py-1.5 px-2 rounded-md bg-muted/30">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-6 h-6 rounded-full bg-purple-600/20 text-purple-400 flex items-center justify-center text-[10px] font-bold shrink-0">
-                          {(r.name || r.email).charAt(0).toUpperCase()}
-                        </div>
+                        {canViewWork ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 shrink-0 text-purple-400 hover:text-foreground hover:bg-purple-500/20"
+                            title="View Work"
+                            onClick={(e) => { e.stopPropagation(); setViewWorkRecipient(r); }}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                        ) : (
+                          <div className="w-6 h-6 shrink-0" />
+                        )}
                         <div className="min-w-0">
                           <p className="text-xs font-medium text-foreground truncate">{r.name || r.email}</p>
                           {r.name && r.name !== r.email && (
@@ -107,17 +117,6 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {canViewWork && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
-                            title="View Work"
-                            onClick={(e) => { e.stopPropagation(); setViewWorkRecipient(r); }}
-                          >
-                            <Eye className="w-3 h-3" />
-                          </Button>
-                        )}
                         <span className={`flex items-center gap-1 text-[10px] font-medium ${config.className}`}>
                           {config.icon}
                           {config.label}

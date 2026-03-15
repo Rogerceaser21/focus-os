@@ -322,7 +322,7 @@ const Index = () => {
     try {
       const { data: sharedItems, error } = await (supabase as any)
         .from('focusos_shared_items')
-        .select('item_id, item_type, recipient_email, recipient_user_id, recipient_task_id, status')
+        .select('id, item_id, item_type, recipient_email, recipient_user_id, recipient_task_id, status')
         .eq('sender_user_id', user.id)
         .in('item_type', ['task', 'project'])
         .neq('status', 'cancelled');
