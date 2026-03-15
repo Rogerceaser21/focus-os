@@ -790,16 +790,23 @@ export const ProjectSidebar = ({
                         : {}
                     }
                     renderItem={(project, isSelected) => (
-                      <Button
-                        variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
-                        className="w-full justify-start gap-2"
-                      >
-                        <Folder 
-                          className="h-4 w-4" 
-                          style={{ color: project.color }}
-                        />
-                        <span className="truncate">{project.name}</span>
-                      </Button>
+                      <div className="w-full">
+                        <Button
+                          variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                          className="w-full justify-start gap-2"
+                        >
+                          <Folder 
+                            className="h-4 w-4" 
+                            style={{ color: project.color }}
+                          />
+                          <span className="truncate">{project.name}</span>
+                        </Button>
+                        {senderProjectSharedMap[project.id] && (
+                          <div className="ml-8 mt-0.5 mb-1">
+                            <ShareStatusPopover recipients={senderProjectSharedMap[project.id]} itemType="Project" />
+                          </div>
+                        )}
+                      </div>
                     )}
                   />
                 </div>
