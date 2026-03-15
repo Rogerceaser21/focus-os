@@ -203,7 +203,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                   return (
                     <div key={task.id} className="relative h-10 border-b border-border/50 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => onTaskClick?.(task)}>
                       <div 
-                        className={`absolute left-0 top-1 text-sm font-medium truncate max-w-[45%] ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
+                        className={`absolute left-0 top-1 text-sm font-medium truncate max-w-full sm:max-w-[45%] ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
                         title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
                       >
                         {task.title}
