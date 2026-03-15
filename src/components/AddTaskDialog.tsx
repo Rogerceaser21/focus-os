@@ -63,8 +63,14 @@ export const AddTaskDialog = ({
   const isMobile = useIsMobile();
   const sidebar = useSidebar();
   const prevSidebarOpen = useRef<boolean | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const MAX_IMAGES = 8;
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+  }, []);
 
   useEffect(() => {
     if (isMobile) return;
