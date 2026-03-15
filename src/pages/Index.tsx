@@ -2040,6 +2040,38 @@ https://www.skyscanner.com`,
             </div>}
               </div>
             </div>
+
+            {/* Desktop Docked Task Panel (right of main content, no overlay) */}
+            {!isMobile && (
+              editingTask ? (
+                <EditTaskDialog
+                  task={editingTask}
+                  open={!!editingTask}
+                  desktopDocked
+                  onOpenChange={(open) => {
+                    if (!open && !showTaskTour && !showProjectsTour) {
+                      setEditingTask(null);
+                    }
+                  }}
+                  onUpdateTask={async (updatedTask) => {
+                    await handleUpdateTask(updatedTask);
+                    setEditingTask(null);
+                  }}
+                  projects={projects}
+                />
+              ) : (
+                <AddTaskDialog
+                  open={addTaskDialogOpen}
+                  onOpenChange={handleAddTaskDialogOpen}
+                  onAddTask={handleAddTask}
+                  selectedProjectId={selectedProjectId}
+                  selectedSpecialList={selectedSpecialList}
+                  projects={projects}
+                  showTrigger={false}
+                  desktopDocked
+                />
+              )
+            )}
           </div>
         </div>
 
