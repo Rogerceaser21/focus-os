@@ -111,7 +111,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
               <div className="flex relative h-12 border-b">
                 {/* Buttons in the left label area */}
                 <div className="w-48 flex-shrink-0 flex items-center gap-1 pr-2">
-                      <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-primary border-2" onClick={() => setAddTaskOpen(true)}>
+                      <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-primary border-2" onClick={() => onOpenAddTask?.()}>
                         <Plus className="h-3 w-3" />
                         New
                       </Button>
