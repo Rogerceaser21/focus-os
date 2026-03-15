@@ -15,6 +15,8 @@ import { ImageViewer } from '@/components/ImageViewer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
 import { SidePanel } from '@/components/SidePanel';
+import { uploadTaskImage, getImageDisplayUrl } from '@/lib/taskImageStorage';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Project {
   id: string;
