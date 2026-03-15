@@ -311,6 +311,7 @@ const MeetingDetail = () => {
               ? resolveName(profileMap[s.recipient_user_id], s.recipient_email)
               : s.recipient_email,
             status: s.status,
+            sharedItemId: s.id,
           }));
           setMeetingSharedWith(recipients);
         }
@@ -351,7 +352,7 @@ const MeetingDetail = () => {
             ? resolveName(profileMap[s.recipient_user_id], s.recipient_email)
             : s.recipient_email;
           if (!map[s.item_id]) map[s.item_id] = [];
-          map[s.item_id].push({ email: s.recipient_email, name, status: s.status });
+          map[s.item_id].push({ email: s.recipient_email, name, status: s.status, sharedItemId: s.id });
         });
         setTaskSharedWithMap(map);
       }

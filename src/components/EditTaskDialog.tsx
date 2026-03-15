@@ -58,6 +58,9 @@ export const EditTaskDialog = ({
   const [userId, setUserId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // If the task has assignedToEmail, the current user is the recipient of a shared task
+  const isReceivedSharedTask = !!task.assignedToEmail;
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, []);
@@ -217,15 +220,16 @@ export const EditTaskDialog = ({
   const formContent = (
     <div className="space-y-4 py-4">
       <div className="space-y-2" data-task-tour-step="title">
-        <Label htmlFor="title">Title *</Label>
+        <Label htmlFor="title">Title *{isReceivedSharedTask && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
         <Textarea
           id="title"
           placeholder="Task title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => !isReceivedSharedTask && setTitle(e.target.value)}
           rows={3}
-          className="text-sm resize-none min-h-0 h-auto overflow-hidden"
+          className={`text-sm resize-none min-h-0 h-auto overflow-hidden ${isReceivedSharedTask ? 'opacity-60 cursor-not-allowed' : ''}`}
           style={{ height: 'auto', minHeight: '80px' }}
+          readOnly={isReceivedSharedTask}
           onInput={(e) => {
             const target = e.target as HTMLTextAreaElement;
             target.style.height = 'auto';
@@ -249,9 +253,9 @@ export const EditTaskDialog = ({
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         {projects.length > 0 && (
           <div className="space-y-1 sm:space-y-2" data-task-tour-step="project" data-projects-tour-step="task-project-selector">
-            <Label className="text-xs sm:text-sm">Project</Label>
-            <Select value={selectedProjectId || 'unassigned'} onValueChange={(value) => setSelectedProjectId(value === 'unassigned' ? null : value)}>
-              <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
+            <Label className="text-xs sm:text-sm">Project{isReceivedSharedTask && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
+            <Select value={selectedProjectId || 'unassigned'} onValueChange={(value) => !isReceivedSharedTask && setSelectedProjectId(value === 'unassigned' ? null : value)} disabled={isReceivedSharedTask}>
+              <SelectTrigger className={`text-xs sm:text-sm h-9 sm:h-10 ${isReceivedSharedTask ? 'opacity-60 cursor-not-allowed' : ''}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -339,12 +343,13 @@ export const EditTaskDialog = ({
         </div>
 
         <div className="space-y-1 sm:space-y-2" data-task-tour-step="due-date">
-          <Label className="text-xs sm:text-sm">Due</Label>
+          <Label className="text-xs sm:text-sm">Due{isReceivedSharedTask && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
           <Popover>
-            <PopoverTrigger asChild>
+            <PopoverTrigger asChild disabled={isReceivedSharedTask}>
               <Button
                 variant="outline"
-                className={cn('w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3', !dueDate && 'text-muted-foreground')}
+                className={cn('w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3', !dueDate && 'text-muted-foreground', isReceivedSharedTask && 'opacity-60 cursor-not-allowed')}
+                disabled={isReceivedSharedTask}
               >
                 <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="truncate">{dueDate ? format(dueDate, 'MMM d') : 'Pick'}</span>

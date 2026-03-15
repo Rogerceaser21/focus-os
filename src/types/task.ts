@@ -24,7 +24,7 @@ export interface Task {
   assignedToEmail?: string;
   changeRequestMessage?: string;
   sharedWithName?: string;
-  sharedRecipients?: Array<{ email: string; name: string; status: string }>;
+  sharedRecipients?: Array<{ email: string; name: string; status: string; sharedItemId?: string }>;
 }
 
 export interface Project {
