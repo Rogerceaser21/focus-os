@@ -2191,8 +2191,21 @@ https://www.skyscanner.com`,
 
       <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setMobileDockOpen(true)} />
 
-      {/* Task Tour Edit Dialog */}
-      {editingTask && (
+      {/* Mobile Add Task Dialog */}
+      {isMobile && (
+        <AddTaskDialog
+          open={addTaskDialogOpen}
+          onOpenChange={handleAddTaskDialogOpen}
+          onAddTask={handleAddTask}
+          selectedProjectId={selectedProjectId}
+          selectedSpecialList={selectedSpecialList}
+          projects={projects}
+          showTrigger={false}
+        />
+      )}
+
+      {/* Mobile Edit Task Dialog */}
+      {isMobile && editingTask && (
         <EditTaskDialog
           task={editingTask}
           open={!!editingTask}
