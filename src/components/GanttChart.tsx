@@ -163,17 +163,18 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                 {month.days.map((day, idx) => {
                   const isToday = isSameDay(day, today);
                   const dayNum = day.getDate();
-                  const showOnMobile = dayNum % 5 === 0 || isToday;
+                  const lastDay = month.days[month.days.length - 1].getDate();
+                  const showOnMobile = dayNum === 1 || dayNum === lastDay || dayNum % 5 === 0 || isToday;
                   return (
                     <div 
                       key={idx} 
                       className={`flex-1 text-center text-xs py-2 border-r min-w-0 ${isToday ? 'bg-primary/10' : ''}`}
                     >
-                      <div className="font-medium truncate">
-                        <span className="hidden sm:inline">{format(day, 'd')}</span>
-                        <span className="sm:hidden">{showOnMobile ? format(day, 'd') : ''}</span>
+                      <div className="font-medium whitespace-nowrap overflow-visible">
+                        <span className="hidden sm:inline">{dayNum}</span>
+                        <span className="sm:hidden">{showOnMobile ? dayNum : ''}</span>
                       </div>
-                      <div className="text-muted-foreground hidden min-[1100px]:block truncate">{format(day, 'EEE')}</div>
+                      <div className="text-muted-foreground hidden min-[1100px]:block whitespace-nowrap">{format(day, 'EEE')}</div>
                     </div>
                   );
                 })}
