@@ -54,7 +54,8 @@ export const ProjectSidebar = ({
   createDialogOpen,
   onCreateDialogOpenChange,
   isTourActive,
-  userId
+  userId,
+  senderProjectSharedMap = {}
 }: ProjectSidebarProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [sharedProjects, setSharedProjects] = useState<Project[]>([]);
