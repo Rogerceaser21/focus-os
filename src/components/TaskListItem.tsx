@@ -673,30 +673,6 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
                   onMoveAllToDone={() => { onUpdate({ ...task, status: 'completed' }); }}
                 />
-              ) : task.completedByEmail && task.status !== 'completed' ? (
-                <>
-                  <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30">
-                    ✅ Completed by {task.completedByEmail}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
-                    onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, status: 'completed' }); }}
-                  >
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Move to Done
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
-                    onClick={(e) => { e.stopPropagation(); onRequestChanges?.(task); }}
-                  >
-                    <AlertTriangle className="w-3 h-3 mr-1" />
-                    Changes Needed
-                  </Button>
-                </>
               ) : null}
             </div>
           )}
