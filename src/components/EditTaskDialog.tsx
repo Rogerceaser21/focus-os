@@ -343,12 +343,13 @@ export const EditTaskDialog = ({
         </div>
 
         <div className="space-y-1 sm:space-y-2" data-task-tour-step="due-date">
-          <Label className="text-xs sm:text-sm">Due</Label>
+          <Label className="text-xs sm:text-sm">Due{isReceivedSharedTask && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
           <Popover>
-            <PopoverTrigger asChild>
+            <PopoverTrigger asChild disabled={isReceivedSharedTask}>
               <Button
                 variant="outline"
-                className={cn('w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3', !dueDate && 'text-muted-foreground')}
+                className={cn('w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3', !dueDate && 'text-muted-foreground', isReceivedSharedTask && 'opacity-60 cursor-not-allowed')}
+                disabled={isReceivedSharedTask}
               >
                 <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="truncate">{dueDate ? format(dueDate, 'MMM d') : 'Pick'}</span>
