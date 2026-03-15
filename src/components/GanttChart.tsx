@@ -96,16 +96,6 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
 
   return (
     <div className="space-y-6 pb-40">
-      {addTaskOpen && onAddTask && (
-        <AddTaskDialog
-          open={addTaskOpen}
-          onOpenChange={setAddTaskOpen}
-          onAddTask={onAddTask}
-          selectedProjectId={projectId}
-          projects={projects}
-          showTrigger={false}
-        />
-      )}
 
       {months.map((month, monthIndex) => {
         const monthTasks = getTasksForMonth(month.start, month.end);
