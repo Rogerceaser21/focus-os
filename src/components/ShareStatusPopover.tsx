@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Share2, Clock, CheckCircle2, XCircle, UserCheck, AlertTriangle } from 'lucide-react';
+import { Share2, Clock, CheckCircle2, XCircle, UserCheck, AlertTriangle, Eye } from 'lucide-react';
+import { RecipientWorkModal } from '@/components/RecipientWorkModal';
 
 export interface SharedRecipient {
   email: string;
   name: string;
   status: string;
+  sharedItemId?: string;
 }
 
 interface ShareStatusPopoverProps {
@@ -31,6 +34,8 @@ const statusConfig: Record<string, { icon: React.ReactNode; label: string; class
 };
 
 export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDone, onRequestChanges, allCompleted, onMoveAllToDone }: ShareStatusPopoverProps) => {
+  const [viewWorkRecipient, setViewWorkRecipient] = useState<SharedRecipient | null>(null);
+
   if (recipients.length === 0) return null;
 
   const everyoneCompleted = recipients.every(r => r.status === 'completed');
@@ -65,92 +70,118 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
   );
 
   return (
-    <Popover>
-      <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-        <button className="inline-flex" type="button">
-          {trigger}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        side="bottom"
-        className="w-80 p-3 z-[130]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Shared with {recipients.length} {recipients.length === 1 ? 'person' : 'people'}
-          </h4>
-          <div className="space-y-1.5 max-h-64 overflow-y-auto">
-            {recipients.map((r, idx) => {
-              const config = statusConfig[r.status] || statusConfig.pending;
-              const isCompleted = r.status === 'completed';
-              return (
-                <div key={idx} className="py-1.5 px-2 rounded-md bg-muted/30">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-6 h-6 rounded-full bg-purple-600/20 text-purple-400 flex items-center justify-center text-[10px] font-bold shrink-0">
-                        {(r.name || r.email).charAt(0).toUpperCase()}
+    <>
+      <Popover>
+        <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+          <button className="inline-flex" type="button">
+            {trigger}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          side="bottom"
+          className="w-80 p-3 z-[130]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Shared with {recipients.length} {recipients.length === 1 ? 'person' : 'people'}
+            </h4>
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              {recipients.map((r, idx) => {
+                const config = statusConfig[r.status] || statusConfig.pending;
+                const isCompleted = r.status === 'completed';
+                const canViewWork = (r.status === 'accepted' || r.status === 'completed') && r.sharedItemId;
+                return (
+                  <div key={idx} className="py-1.5 px-2 rounded-md bg-muted/30">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-6 h-6 rounded-full bg-purple-600/20 text-purple-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {(r.name || r.email).charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-foreground truncate">{r.name || r.email}</p>
+                          {r.name && r.name !== r.email && (
+                            <p className="text-[10px] text-muted-foreground truncate">{r.email}</p>
+                          )}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">{r.name || r.email}</p>
-                        {r.name && r.name !== r.email && (
-                          <p className="text-[10px] text-muted-foreground truncate">{r.email}</p>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {canViewWork && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                            title="View Work"
+                            onClick={(e) => { e.stopPropagation(); setViewWorkRecipient(r); }}
+                          >
+                            <Eye className="w-3 h-3" />
+                          </Button>
+                        )}
+                        <span className={`flex items-center gap-1 text-[10px] font-medium ${config.className}`}>
+                          {config.icon}
+                          {config.label}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Per-person actions when this recipient has completed */}
+                    {isCompleted && (onMoveToDone || onRequestChanges) && (
+                      <div className="flex items-center gap-1.5 mt-1.5 ml-8">
+                        {onMoveToDone && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-[10px] h-5 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                            onClick={(e) => { e.stopPropagation(); onMoveToDone(r.email); }}
+                          >
+                            <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
+                            Acknowledge
+                          </Button>
+                        )}
+                        {onRequestChanges && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-[10px] h-5 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                            onClick={(e) => { e.stopPropagation(); onRequestChanges(r.email); }}
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />
+                            Changes
+                          </Button>
                         )}
                       </div>
-                    </div>
-                    <span className={`flex items-center gap-1 text-[10px] font-medium shrink-0 ${config.className}`}>
-                      {config.icon}
-                      {config.label}
-                    </span>
+                    )}
                   </div>
-                  {/* Per-person actions when this recipient has completed */}
-                  {isCompleted && (onMoveToDone || onRequestChanges) && (
-                    <div className="flex items-center gap-1.5 mt-1.5 ml-8">
-                      {onMoveToDone && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-[10px] h-5 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
-                          onClick={(e) => { e.stopPropagation(); onMoveToDone(r.email); }}
-                        >
-                          <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
-                          Acknowledge
-                        </Button>
-                      )}
-                      {onRequestChanges && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-[10px] h-5 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
-                          onClick={(e) => { e.stopPropagation(); onRequestChanges(r.email); }}
-                        >
-                          <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />
-                          Changes
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {/* Global Move to Done only when ALL have completed */}
-          {allCompleted && onMoveAllToDone && (
-            <div className="pt-2 border-t border-border">
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full text-xs h-7 border-green-500/30 text-green-400 hover:bg-green-500/20"
-                onClick={(e) => { e.stopPropagation(); onMoveAllToDone(); }}
-              >
-                <CheckCircle2 className="w-3 h-3 mr-1" />
-                Move to Done (All Completed)
-              </Button>
+                );
+              })}
             </div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+            {/* Global Move to Done only when ALL have completed */}
+            {allCompleted && onMoveAllToDone && (
+              <div className="pt-2 border-t border-border">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full text-xs h-7 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                  onClick={(e) => { e.stopPropagation(); onMoveAllToDone(); }}
+                >
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  Move to Done (All Completed)
+                </Button>
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {viewWorkRecipient && viewWorkRecipient.sharedItemId && (
+        <RecipientWorkModal
+          open={!!viewWorkRecipient}
+          onOpenChange={(open) => { if (!open) setViewWorkRecipient(null); }}
+          sharedItemId={viewWorkRecipient.sharedItemId}
+          recipientEmail={viewWorkRecipient.email}
+          recipientName={viewWorkRecipient.name}
+        />
+      )}
+    </>
   );
 };
