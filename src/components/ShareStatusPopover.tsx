@@ -33,7 +33,7 @@ const statusConfig: Record<string, { icon: React.ReactNode; label: string; class
 export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDone, onRequestChanges, allCompleted, onMoveAllToDone }: ShareStatusPopoverProps) => {
   if (recipients.length === 0) return null;
 
-  const allCompleted = recipients.every(r => r.status === 'completed');
+  const everyoneCompleted = recipients.every(r => r.status === 'completed');
 
   const buildStatusSummary = () => {
     if (recipients.length === 1) {
