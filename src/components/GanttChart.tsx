@@ -16,6 +16,7 @@ interface GanttChartProps {
   projects?: Project[];
   onTaskClick?: (task: Task) => void;
   onAddTask?: (task: Task) => void;
+  onOpenAddTask?: () => void;
 }
 
 export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask }: GanttChartProps) => {
