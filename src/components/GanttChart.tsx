@@ -2,9 +2,9 @@ import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addMonths } from 'date-fns';
-import { useMemo, useState } from 'react';
-import { EditTaskDialog } from '@/components/EditTaskDialog';
-import { AddTaskDialog } from '@/components/AddTaskDialog';
+import { useMemo } from 'react';
+
+
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Plus, ListTodo } from 'lucide-react';
 
@@ -16,11 +16,10 @@ interface GanttChartProps {
   projects?: Project[];
   onTaskClick?: (task: Task) => void;
   onAddTask?: (task: Task) => void;
+  onOpenAddTask?: () => void;
 }
 
-export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask }: GanttChartProps) => {
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [addTaskOpen, setAddTaskOpen] = useState(false);
+export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask, onOpenAddTask }: GanttChartProps) => {
 
   const tasksWithoutDates = allTasks.filter(t => !t.startDate || !t.endDate);
   const tasksWithDates = tasks
@@ -95,16 +94,6 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
 
   return (
     <div className="space-y-6 pb-40">
-      {addTaskOpen && onAddTask && (
-        <AddTaskDialog
-          open={addTaskOpen}
-          onOpenChange={setAddTaskOpen}
-          onAddTask={onAddTask}
-          selectedProjectId={projectId}
-          projects={projects}
-          showTrigger={false}
-        />
-      )}
 
       {months.map((month, monthIndex) => {
         const monthTasks = getTasksForMonth(month.start, month.end);
@@ -120,7 +109,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
               <div className="flex relative h-12 border-b">
                 {/* Buttons in the left label area */}
                 <div className="w-48 flex-shrink-0 flex items-center gap-1 pr-2">
-                      <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-primary border-2" onClick={() => setAddTaskOpen(true)}>
+                      <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-primary border-2" onClick={() => onOpenAddTask?.()}>
                         <Plus className="h-3 w-3" />
                         New
                       </Button>
@@ -133,7 +122,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="max-h-64 overflow-y-auto">
                           {tasksWithoutDates.map(task => (
-                            <DropdownMenuItem key={task.id} onClick={() => setEditingTask(task)}>
+                            <DropdownMenuItem key={task.id} onClick={() => onTaskClick?.(task)}>
                               {task.title}
                             </DropdownMenuItem>
                           ))}
@@ -179,7 +168,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                     <div key={task.id} className="relative h-12 border-b border-border/50">
                       <div 
                         className={`absolute left-0 top-2 bottom-2 w-48 truncate text-sm font-medium border-b-2 ${taskColor.border} cursor-pointer hover:opacity-80 transition-opacity`}
-                        onClick={() => setEditingTask(task)}
+                        onClick={() => onTaskClick?.(task)}
                       >
                         {task.title}
                       </div>
@@ -191,7 +180,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                             width: `${position.width}%` 
                           }}
                           title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
-                          onClick={() => setEditingTask(task)}
+                          onClick={() => onTaskClick?.(task)}
                         />
                       </div>
                     </div>
@@ -207,17 +196,6 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
         );
       })}
 
-      {editingTask && (
-        <EditTaskDialog 
-          task={editingTask} 
-          open={!!editingTask} 
-          onOpenChange={(open) => !open && setEditingTask(null)}
-          onUpdateTask={(updatedTask) => {
-            onTaskClick?.(updatedTask);
-            setEditingTask(null);
-          }}
-        />
-      )}
     </div>
   );
 };

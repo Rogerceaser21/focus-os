@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2 } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -1408,8 +1408,40 @@ https://www.skyscanner.com`,
             {/* Sidebar */}
             <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => setProjectRefreshTrigger(prev => prev + 1)} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : undefined} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : undefined} isTourActive={showProjectsTour} userId={user?.id} senderProjectSharedMap={senderProjectSharedMap} />
 
+            {/* Desktop Docked Task Panel (left of main content, no overlay) */}
+            {!isMobile && (
+              editingTask ? (
+                <EditTaskDialog
+                  task={editingTask}
+                  open={!!editingTask}
+                  desktopDocked
+                  onOpenChange={(open) => {
+                    if (!open && !showTaskTour && !showProjectsTour) {
+                      setEditingTask(null);
+                    }
+                  }}
+                  onUpdateTask={async (updatedTask) => {
+                    await handleUpdateTask(updatedTask);
+                    setEditingTask(null);
+                  }}
+                  projects={projects}
+                />
+              ) : (
+                <AddTaskDialog
+                  open={addTaskDialogOpen}
+                  onOpenChange={handleAddTaskDialogOpen}
+                  onAddTask={handleAddTask}
+                  selectedProjectId={selectedProjectId}
+                  selectedSpecialList={selectedSpecialList}
+                  projects={projects}
+                  showTrigger={false}
+                  desktopDocked
+                />
+              )
+            )}
+
             {/* Main Content */}
-            <div className={`flex-1 relative z-10 overflow-x-hidden overflow-y-auto transition-all duration-300 ${!isMobile && (editingTask || addTaskDialogOpen) ? 'pr-[420px]' : ''}`}>
+            <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
               <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4 pb-32">
                 {/* Header */}
                 <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
@@ -1508,7 +1540,11 @@ https://www.skyscanner.com`,
                   </span>
                 </Button>
               )}
-              <AddTaskDialog open={addTaskDialogOpen} onOpenChange={handleAddTaskDialogOpen} onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} projects={projects} />
+              <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button" onClick={() => handleAddTaskDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                <span className="hidden md:inline">Add Task</span>
+                <span className="md:hidden">Add</span>
+              </Button>
             </div>
           </div>
 
@@ -2027,8 +2063,9 @@ https://www.skyscanner.com`,
                 }
                 projectId={selectedProjectId}
                 projects={projects}
-                onTaskClick={handleUpdateTask}
+                onTaskClick={setEditingTask}
                 onAddTask={handleAddTask}
+                onOpenAddTask={() => handleAddTaskDialogOpen(true)}
               />
             </div> : <div className="mt-6">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
@@ -2154,8 +2191,21 @@ https://www.skyscanner.com`,
 
       <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setMobileDockOpen(true)} />
 
-      {/* Task Tour Edit Dialog */}
-      {editingTask && (
+      {/* Mobile Add Task Dialog */}
+      {isMobile && (
+        <AddTaskDialog
+          open={addTaskDialogOpen}
+          onOpenChange={handleAddTaskDialogOpen}
+          onAddTask={handleAddTask}
+          selectedProjectId={selectedProjectId}
+          selectedSpecialList={selectedSpecialList}
+          projects={projects}
+          showTrigger={false}
+        />
+      )}
+
+      {/* Mobile Edit Task Dialog */}
+      {isMobile && editingTask && (
         <EditTaskDialog
           task={editingTask}
           open={!!editingTask}
