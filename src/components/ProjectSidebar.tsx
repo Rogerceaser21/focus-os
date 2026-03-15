@@ -38,6 +38,7 @@ interface ProjectSidebarProps {
   onCreateDialogOpenChange?: (open: boolean) => void;
   isTourActive?: boolean;
   userId?: string;
+  senderProjectSharedMap?: Record<string, SharedRecipient[]>;
 }
 
 export const ProjectSidebar = ({ 
