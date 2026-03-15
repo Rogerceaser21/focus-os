@@ -418,7 +418,7 @@ export const AddTaskDialog = ({
     return (
       <>
         {open && (
-          <SidePanel open={open} onClose={() => setOpen(false)} title="Create New Task" className="border-r border-l-0">
+          <SidePanel open={open} onClose={() => setOpen(false)} title="Create New Task">
             {formContent}
           </SidePanel>
         )}
