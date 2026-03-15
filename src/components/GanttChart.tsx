@@ -165,6 +165,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                     }}
                   />
                 )}
+                </div>
               </div>
             </div>
 
