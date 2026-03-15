@@ -122,7 +122,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="max-h-64 overflow-y-auto">
                           {tasksWithoutDates.map(task => (
-                            <DropdownMenuItem key={task.id} onClick={() => setEditingTask(task)}>
+                            <DropdownMenuItem key={task.id} onClick={() => onTaskClick?.(task)}>
                               {task.title}
                             </DropdownMenuItem>
                           ))}
