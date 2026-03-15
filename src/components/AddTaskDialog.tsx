@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +13,8 @@ import { Plus, Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ImageViewer } from '@/components/ImageViewer';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useSidebar } from '@/components/ui/sidebar';
 
 interface Project {
   id: string;
@@ -45,8 +48,23 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [projectId, setProjectId] = useState<string | undefined>(selectedProjectId || undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
+  const sidebar = useSidebar();
+  const prevSidebarOpen = useRef<boolean | null>(null);
   
   const MAX_IMAGES = 8;
+
+  // Auto-collapse sidebar on desktop when sheet opens
+  useEffect(() => {
+    if (isMobile) return;
+    if (open) {
+      prevSidebarOpen.current = sidebar.open;
+      sidebar.setOpen(false);
+    } else if (prevSidebarOpen.current !== null) {
+      sidebar.setOpen(prevSidebarOpen.current);
+      prevSidebarOpen.current = null;
+    }
+  }, [open, isMobile]);
 
   // Auto-set due date to today when creating task in "Today's To-Do" view
   useEffect(() => {
@@ -178,216 +196,252 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
     toast.success('Task created successfully');
   };
 
+  const formContent = (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="title">Title *</Label>
+        <Input
+          id="title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Task title"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Task description"
+          rows={3}
+        />
+      </div>
+
+      {/* Project, Priority, Status - 3 columns */}
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <Label htmlFor="project" className="text-xs">Project</Label>
+          <Select value={projectId || "none"} onValueChange={(v) => setProjectId(v === "none" ? undefined : v)}>
+            <SelectTrigger id="project" className="text-xs h-9">
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-2 h-2 rounded-full" 
+                      style={{ backgroundColor: project.color }}
+                    />
+                    <span className="truncate">{project.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="priority" className="text-xs">Priority</Label>
+          <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+            <SelectTrigger id="priority" className="text-xs h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="urgent">Urgent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="status" className="text-xs">Status</Label>
+          <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+            <SelectTrigger id="status" className="text-xs h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todo">To Do</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Start Date, End Date, Due Date - 3 columns */}
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <Label className="text-xs">Start Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9 px-2">
+                <CalendarIcon className="mr-1 h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{startDate ? format(startDate, 'MMM d') : 'Pick'}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div>
+          <Label className="text-xs">End Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9 px-2">
+                <CalendarIcon className="mr-1 h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{endDate ? format(endDate, 'MMM d') : 'Pick'}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar mode="single" selected={endDate} onSelect={setEndDate} />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div>
+          <Label className="text-xs">Due Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9 px-2">
+                <CalendarIcon className="mr-1 h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{dueDate ? format(dueDate, 'MMM d') : 'Pick'}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar mode="single" selected={dueDate} onSelect={setDueDate} />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="image">Images (Optional - Max 8)</Label>
+        <div className="space-y-2">
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {images.map((img, idx) => (
+                <div key={idx} className="relative group">
+                  <img 
+                    src={img} 
+                    alt={`Upload ${idx + 1}`}
+                    className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleImageClick(idx)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
+            id="file-input"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full"
+            disabled={images.length >= MAX_IMAGES}
+          >
+            📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Desktop: You can also paste images with Ctrl+V
+          </p>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4">
+        <Button variant="outline" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit}>
+          Create Task
+        </Button>
+      </div>
+    </div>
+  );
+
+  const triggerButton = showTrigger ? (
+    <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button" onClick={() => setOpen(true)}>
+      <Plus className="h-4 w-4" />
+      <span className="hidden md:inline">Add Task</span>
+      <span className="md:hidden">Add</span>
+    </Button>
+  ) : null;
+
+  if (isMobile) {
+    return (
+      <>
+        <Dialog open={open} onOpenChange={setOpen}>
+          {showTrigger && (
+            <DialogTrigger asChild>
+              {triggerButton}
+            </DialogTrigger>
+          )}
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:rounded-lg w-full sm:max-w-2xl mx-0 sm:mx-auto p-4 sm:p-6">
+            <DialogHeader>
+              <DialogTitle>Create New Task</DialogTitle>
+            </DialogHeader>
+            {formContent}
+          </DialogContent>
+        </Dialog>
+
+        {viewerOpen && (
+          <ImageViewer
+            images={images}
+            currentIndex={currentImageIndex}
+            onClose={() => setViewerOpen(false)}
+            onNavigate={setCurrentImageIndex}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Desktop: use Sheet (right side panel)
   return (
     <>
-    <Dialog open={open} onOpenChange={setOpen}>
-      {showTrigger && (
-        <DialogTrigger asChild>
-            <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button">
-              <Plus className="h-4 w-4" />
-              <span className="hidden md:inline">Add Task</span>
-              <span className="md:hidden">Add</span>
-            </Button>
-        </DialogTrigger>
+      {triggerButton}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="right" className="w-[480px] sm:max-w-[480px] overflow-y-auto" disableOverlayPointerEvents>
+          <SheetHeader>
+            <SheetTitle>Create New Task</SheetTitle>
+            <SheetDescription className="sr-only">Fill in the details to create a new task</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4">
+            {formContent}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {viewerOpen && (
+        <ImageViewer
+          images={images}
+          currentIndex={currentImageIndex}
+          onClose={() => setViewerOpen(false)}
+          onNavigate={setCurrentImageIndex}
+        />
       )}
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:rounded-lg w-full sm:max-w-2xl mx-0 sm:mx-auto p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Task title"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Task description"
-              rows={3}
-            />
-          </div>
-
-          {/* Project, Priority, Status - 3 columns on mobile */}
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <Label htmlFor="project" className="text-xs">Project</Label>
-              <Select value={projectId || "none"} onValueChange={(v) => setProjectId(v === "none" ? undefined : v)}>
-                <SelectTrigger id="project" className="text-xs h-9">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-2 h-2 rounded-full" 
-                          style={{ backgroundColor: project.color }}
-                        />
-                        <span className="truncate">{project.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="priority" className="text-xs">Priority</Label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-                <SelectTrigger id="priority" className="text-xs h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="status" className="text-xs">Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-                <SelectTrigger id="status" className="text-xs h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todo">To Do</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Start Date, End Date, Due Date - 3 columns on mobile */}
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <Label className="text-xs">Start Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9 px-2">
-                    <CalendarIcon className="mr-1 h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">{startDate ? format(startDate, 'MMM d') : 'Pick'}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Label className="text-xs">End Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9 px-2">
-                    <CalendarIcon className="mr-1 h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">{endDate ? format(endDate, 'MMM d') : 'Pick'}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={endDate} onSelect={setEndDate} />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Label className="text-xs">Due Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9 px-2">
-                    <CalendarIcon className="mr-1 h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">{dueDate ? format(dueDate, 'MMM d') : 'Pick'}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={dueDate} onSelect={setDueDate} />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="image">Images (Optional - Max 8)</Label>
-            <div className="space-y-2">
-              {images.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {images.map((img, idx) => (
-                    <div key={idx} className="relative group">
-                      <img 
-                        src={img} 
-                        alt={`Upload ${idx + 1}`}
-                        className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => handleImageClick(idx)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(idx)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                className="hidden"
-                id="file-input"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full"
-                disabled={images.length >= MAX_IMAGES}
-              >
-                📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Desktop: You can also paste images with Ctrl+V
-              </p>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit}>
-              Create Task
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {viewerOpen && (
-      <ImageViewer
-        images={images}
-        currentIndex={currentImageIndex}
-        onClose={() => setViewerOpen(false)}
-        onNavigate={setCurrentImageIndex}
-      />
-    )}
-  </>
+    </>
   );
 };
