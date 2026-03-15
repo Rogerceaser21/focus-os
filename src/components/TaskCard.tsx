@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Task, Project } from '@/types/task';
+import { getImageDisplayUrl } from '@/lib/taskImageStorage';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
