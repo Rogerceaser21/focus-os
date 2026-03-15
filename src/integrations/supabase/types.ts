@@ -916,6 +916,10 @@ export type Database = {
         Args: { command: string }
         Returns: undefined
       }
+      focusos_can_access_task_image: {
+        Args: { _file_owner_id: string; _user_id: string }
+        Returns: boolean
+      }
       get_app_configuration: { Args: never; Returns: Json }
     }
     Enums: {

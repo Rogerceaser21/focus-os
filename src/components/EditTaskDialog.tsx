@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Task, TaskPriority, TaskStatus, Project } from '@/types/task';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,6 +16,8 @@ import { ShareItemDialog } from '@/components/ShareItemDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
 import { SidePanel } from '@/components/SidePanel';
+import { uploadTaskImage, getImageDisplayUrl } from '@/lib/taskImageStorage';
+import { supabase } from '@/integrations/supabase/client';
 
 interface EditTaskDialogProps {
   task: Task;
@@ -53,6 +55,12 @@ export const EditTaskDialog = ({
   const isMobile = useIsMobile();
   const sidebar = useSidebar();
   const prevSidebarOpen = useRef<boolean | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+  }, []);
 
   const MAX_IMAGES = 8;
 
@@ -93,6 +101,23 @@ export const EditTaskDialog = ({
     return () => window.removeEventListener('resize', updateMaxHeight);
   }, []);
 
+  const uploadImageFile = useCallback(async (file: File | Blob) => {
+    if (!userId) {
+      toast({ title: 'Not authenticated', variant: 'destructive' });
+      return;
+    }
+    try {
+      setUploading(true);
+      const path = await uploadTaskImage(file, userId);
+      setImages((prev) => [...prev, path]);
+      toast({ title: 'Image uploaded', description: 'Image uploaded successfully' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -110,12 +135,7 @@ export const EditTaskDialog = ({
           e.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              setImages((prev) => [...prev, event.target?.result as string]);
-              toast({ title: 'Image pasted', description: 'Image added successfully' });
-            };
-            reader.readAsDataURL(blob);
+            uploadImageFile(blob);
           }
           break;
         }
@@ -124,9 +144,9 @@ export const EditTaskDialog = ({
 
     document.addEventListener('paste', handleGlobalPaste);
     return () => document.removeEventListener('paste', handleGlobalPaste);
-  }, [open, images]);
+  }, [open, images, uploadImageFile]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -137,23 +157,12 @@ export const EditTaskDialog = ({
     }
 
     const filesToAdd = Array.from(files).slice(0, remaining);
-    let processed = 0;
-
-    filesToAdd.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setImages((prev) => [...prev, event.target?.result as string]);
-        processed++;
-
-        if (processed === filesToAdd.length) {
-          toast({
-            title: 'Images added',
-            description: files.length > remaining ? `Only added ${remaining} images (limit: 8)` : `Added ${filesToAdd.length} image(s)`,
-          });
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    for (const file of filesToAdd) {
+      await uploadImageFile(file);
+    }
+    if (files.length > remaining) {
+      toast({ title: 'Limit reached', description: `Only added ${remaining} images (limit: 8)` });
+    }
   };
 
   const handleRemoveImage = (index: number) => {
@@ -356,7 +365,7 @@ export const EditTaskDialog = ({
               {images.map((img, idx) => (
                 <div key={idx} className="relative group">
                   <img
-                    src={img}
+                    src={getImageDisplayUrl(img)}
                     alt={`Upload ${idx + 1}`}
                     className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => handleImageClick(idx)}
@@ -373,7 +382,7 @@ export const EditTaskDialog = ({
             </div>
           )}
           <input type="file" accept="image/*" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" id="edit-file-input" />
-          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full" disabled={images.length >= MAX_IMAGES}>
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full" disabled={images.length >= MAX_IMAGES || uploading}>
             📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
           </Button>
           <p className="text-xs text-muted-foreground">Desktop: You can also paste images with Ctrl+V</p>
@@ -384,8 +393,8 @@ export const EditTaskDialog = ({
         <Button variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} data-task-tour-step="save-button">
-          Save Changes
+        <Button onClick={handleSubmit} data-task-tour-step="save-button" disabled={uploading}>
+          {uploading ? 'Uploading...' : 'Save Changes'}
         </Button>
       </div>
     </div>
@@ -393,7 +402,7 @@ export const EditTaskDialog = ({
 
   const extras = (
     <>
-      {viewerOpen && <ImageViewer images={images} currentIndex={currentImageIndex} onClose={() => setViewerOpen(false)} onNavigate={setCurrentImageIndex} />}
+      {viewerOpen && <ImageViewer images={images.map(getImageDisplayUrl)} currentIndex={currentImageIndex} onClose={() => setViewerOpen(false)} onNavigate={setCurrentImageIndex} />}
       <ShareItemDialog itemType="task" itemId={task.id} itemTitle={task.title} open={shareDialogOpen} onOpenChange={setShareDialogOpen} onShared={() => onAssigned?.(task.id, '')} />
     </>
   );
