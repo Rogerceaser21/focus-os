@@ -26,9 +26,10 @@ interface AddTaskDialogProps {
   projects?: Project[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
 }
 
-export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialList, projects = [], open: controlledOpen, onOpenChange }: AddTaskDialogProps) => {
+export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialList, projects = [], open: controlledOpen, onOpenChange, showTrigger = true }: AddTaskDialogProps) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = onOpenChange || setInternalOpen;
@@ -180,7 +181,7 @@ export const AddTaskDialog = ({ onAddTask, selectedProjectId, selectedSpecialLis
   return (
     <>
     <Dialog open={open} onOpenChange={setOpen}>
-      {controlledOpen === undefined && (
+      {showTrigger && (
         <DialogTrigger asChild>
             <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button">
               <Plus className="h-4 w-4" />
