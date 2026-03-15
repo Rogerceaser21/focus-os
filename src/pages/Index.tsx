@@ -1540,7 +1540,11 @@ https://www.skyscanner.com`,
                   </span>
                 </Button>
               )}
-              <AddTaskDialog open={addTaskDialogOpen} onOpenChange={handleAddTaskDialogOpen} onAddTask={handleAddTask} selectedProjectId={selectedProjectId} selectedSpecialList={selectedSpecialList} projects={projects} />
+              <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button" onClick={() => handleAddTaskDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                <span className="hidden md:inline">Add Task</span>
+                <span className="md:hidden">Add</span>
+              </Button>
             </div>
           </div>
 
