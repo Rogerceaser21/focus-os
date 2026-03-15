@@ -2063,7 +2063,7 @@ https://www.skyscanner.com`,
                 }
                 projectId={selectedProjectId}
                 projects={projects}
-                onTaskClick={handleUpdateTask}
+                onTaskClick={setEditingTask}
                 onAddTask={handleAddTask}
                 onOpenAddTask={() => handleAddTaskDialogOpen(true)}
               />

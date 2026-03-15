@@ -414,7 +414,19 @@ export const EditTaskDialog = ({
   }
 
   if (!desktopDocked) {
-    return <>{extras}</>;
+    return (
+      <>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-full mx-0 sm:mx-auto p-4 sm:p-6">
+            <DialogHeader>
+              <DialogTitle>{panelTitle}</DialogTitle>
+            </DialogHeader>
+            {formContent}
+          </DialogContent>
+        </Dialog>
+        {extras}
+      </>
+    );
   }
 
   return (
