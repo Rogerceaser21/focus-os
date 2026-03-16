@@ -97,3 +97,97 @@ The app needs a **client-side cache invalidation mechanism** that works regardle
 - ⚠️ `configureServer` middleware — dev-only, useless in production
 - ❌ No production cache invalidation strategy exists yet
 
+---
+
+## Collaborative Project Sharing Plan
+
+### Overview
+Transition from snapshot-cloning to a **membership-based collaborative model** for shared projects. Tasks within a shared project are a single source of truth — all members see and edit the same tasks in real-time. External delegation (to non-members) continues to use the existing snapshot-clone model.
+
+### Database Changes
+
+#### 1. New Table: `focusos_project_members`
+```sql
+CREATE TABLE public.focusos_project_members (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES public.focusos_projects(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  role text NOT NULL DEFAULT 'collaborator', -- 'owner', 'collaborator', 'viewer'
+  invited_by uuid NOT NULL,
+  invited_email text NOT NULL,
+  status text NOT NULL DEFAULT 'pending', -- 'pending', 'accepted', 'declined'
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (project_id, user_id)
+);
+```
+
+#### 2. RLS Policy Updates
+- **`focusos_projects`**: Add SELECT policy so members can view projects they belong to.
+- **`focusos_tasks`**: Add SELECT/UPDATE policies so project members can read/edit tasks in shared projects.
+  - Collaborators: Can edit title, description, status, images, timer. Can delegate to external users.
+  - Viewers: Read-only access.
+- **Owner-only fields**: Due date, priority, and member management are restricted to the project owner via RLS or edge function checks.
+
+#### 3. Realtime
+- Subscribe to `focusos_tasks` changes filtered by `project_id` for shared projects.
+- Subscribe to `focusos_project_members` for invitation status updates.
+
+### Permission Matrix
+
+| Action                        | Owner | Collaborator | Viewer | External Assignee |
+|-------------------------------|-------|-------------|--------|-------------------|
+| View tasks                    | ✅    | ✅          | ✅     | Own clone only    |
+| Add tasks                     | ✅    | ✅          | ❌     | ❌                |
+| Edit title/description        | ✅    | ✅          | ❌     | ❌                |
+| Edit priority/due date        | ✅    | ❌          | ❌     | ❌                |
+| Start/stop timer              | ✅    | ✅          | ❌     | ❌                |
+| Complete tasks                | ✅    | ✅          | ❌     | Own clone only    |
+| Delegate to external user     | ✅    | ✅          | ❌     | ❌                |
+| Manage members                | ✅    | ❌          | ❌     | ❌                |
+| Delete project                | ✅    | ❌          | ❌     | ❌                |
+
+### Conflict Prevention: Optimistic Locking
+
+To prevent silent overwrites when two collaborators edit the same task simultaneously:
+
+1. **Mechanism**: Every task update includes a check against `updated_at`. The update query uses:
+   ```sql
+   .update({ ... })
+   .eq('id', taskId)
+   .eq('updated_at', originalUpdatedAt)
+   ```
+   If 0 rows are affected, another user modified the task in between.
+
+2. **Client handling**: When a conflict is detected (0 rows returned), show a toast: *"This task was just updated by another collaborator. Your changes could not be saved — please review and try again."* Then refresh the task data from the server.
+
+3. **Scope**: Applied to all user-initiated field edits (title, description, priority, status, timer, due date). NOT applied to system-driven updates (realtime sync, completion sync) which use service-role and are authoritative.
+
+### Implementation Phases
+
+#### Phase 1: Database & Backend
+- Create `focusos_project_members` table with RLS
+- Create edge function `focusos-invite-project-member` (sends email invitation)
+- Create edge function `focusos-accept-project-invite` (accepts and sets user_id)
+- Update RLS on `focusos_tasks` and `focusos_projects` for member access
+
+#### Phase 2: Frontend — Project Sharing UI
+- Add "Invite Members" button in project sidebar (owner only)
+- Show member avatars/names on shared projects
+- Invitation accept/decline flow in sidebar notifications
+
+#### Phase 3: Frontend — Collaborative Editing
+- Add optimistic locking to all task update operations
+- Add Realtime subscriptions for shared project tasks
+- Enforce permission matrix in UI (disable fields based on role)
+- Show "Shared by" indicators and member presence
+
+#### Phase 4: External Delegation from Shared Projects
+- Allow collaborators to delegate tasks to non-members via existing email/clone flow
+- Completion sync from external assignees updates the shared task (visible to all members)
+
+### What This Does NOT Change
+- Individual task sharing (non-project) continues to use snapshot cloning
+- Meeting sharing continues as-is
+- The existing `focusos_shared_items` table remains for external delegation and individual shares
+
