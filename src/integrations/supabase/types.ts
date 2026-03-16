@@ -404,6 +404,50 @@ export type Database = {
         }
         Relationships: []
       }
+      focusos_project_members: {
+        Row: {
+          created_at: string
+          id: string
+          invited_by: string
+          invited_email: string
+          project_id: string
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_by: string
+          invited_email: string
+          project_id: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_by?: string
+          invited_email?: string
+          project_id?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "focusos_project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "focusos_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       focusos_projects: {
         Row: {
           color: string
@@ -918,6 +962,14 @@ export type Database = {
       }
       focusos_can_access_task_image: {
         Args: { _file_owner_id: string; _user_id: string }
+        Returns: boolean
+      }
+      focusos_get_project_role: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: string
+      }
+      focusos_is_project_member: {
+        Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
       get_app_configuration: { Args: never; Returns: Json }

@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.focusos-get-recipient-task]
 verify_jwt = false
+
+[functions.focusos-invite-project-member]
+verify_jwt = false
+
+[functions.focusos-accept-project-invite]
+verify_jwt = false
