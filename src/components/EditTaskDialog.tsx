@@ -27,6 +27,7 @@ interface EditTaskDialogProps {
   projects?: Project[];
   onAssigned?: (taskId: string, email: string) => void;
   desktopDocked?: boolean;
+  currentUserId?: string;
 }
 
 export const EditTaskDialog = ({
@@ -37,6 +38,7 @@ export const EditTaskDialog = ({
   projects = [],
   onAssigned,
   desktopDocked = false,
+  currentUserId,
 }: EditTaskDialogProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
@@ -60,6 +62,13 @@ export const EditTaskDialog = ({
 
   // If the task has assignedToEmail, the current user is the recipient of a shared task
   const isReceivedSharedTask = !!task.assignedToEmail;
+  
+  // Check if user is a collaborator (not owner) on a collaborative project
+  const taskProject = projects.find(p => p.id === task.projectId);
+  const isCollaboratorOnProject = taskProject?.isShared && taskProject?.userId !== currentUserId && !!currentUserId;
+  
+  // Due date is locked for both received shared tasks AND collaborators on collaborative projects
+  const isDueDateLocked = isReceivedSharedTask || isCollaboratorOnProject;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
@@ -343,13 +352,13 @@ export const EditTaskDialog = ({
         </div>
 
         <div className="space-y-1 sm:space-y-2" data-task-tour-step="due-date">
-          <Label className="text-xs sm:text-sm">Due{isReceivedSharedTask && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
+          <Label className="text-xs sm:text-sm">Due{isDueDateLocked && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
           <Popover>
-            <PopoverTrigger asChild disabled={isReceivedSharedTask}>
+            <PopoverTrigger asChild disabled={isDueDateLocked}>
               <Button
                 variant="outline"
-                className={cn('w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3', !dueDate && 'text-muted-foreground', isReceivedSharedTask && 'opacity-60 cursor-not-allowed')}
-                disabled={isReceivedSharedTask}
+                className={cn('w-full justify-start text-left font-normal text-xs sm:text-sm h-9 sm:h-10 px-2 sm:px-3', !dueDate && 'text-muted-foreground', isDueDateLocked && 'opacity-60 cursor-not-allowed')}
+                disabled={isDueDateLocked}
               >
                 <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="truncate">{dueDate ? format(dueDate, 'MMM d') : 'Pick'}</span>

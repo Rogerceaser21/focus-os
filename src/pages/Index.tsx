@@ -261,6 +261,7 @@ const Index = () => {
       name: p.name,
       color: p.color,
       isShared: p.is_shared ?? false,
+      userId: p.user_id,
       timer: {
         totalSeconds: 0,
         isRunning: false
@@ -1013,6 +1014,25 @@ https://www.skyscanner.com`,
     fetchTasks();
   };
   const handleUpdateTask = async (updatedTask: Task) => {
+    // Collaborative project completion gating:
+    // If a collaborator (non-owner) tries to mark a task as 'completed' in a shared project,
+    // instead set completedByEmail so the owner can acknowledge via "Move to Done"
+    const taskProject = projects.find(p => p.id === updatedTask.projectId);
+    const originalTask = tasks.find(t => t.id === updatedTask.id);
+    const isCollaboratorCompletion = taskProject?.isShared 
+      && taskProject?.userId !== user?.id 
+      && updatedTask.status === 'completed' 
+      && originalTask?.status !== 'completed';
+    
+    if (isCollaboratorCompletion) {
+      // Collaborator marks complete → set completedByEmail but revert status to previous
+      updatedTask = {
+        ...updatedTask,
+        status: originalTask?.status || 'todo',
+        completedByEmail: user?.email || 'unknown',
+      };
+    }
+
     // Optimistic update: Update local state immediately to prevent list jumping
     setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
     setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
@@ -1033,7 +1053,8 @@ https://www.skyscanner.com`,
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime,
       project_id: updatedTask.projectId || null,
-      sort_order: updatedTask.sortOrder ?? 0
+      sort_order: updatedTask.sortOrder ?? 0,
+      completed_by_email: updatedTask.completedByEmail || null,
     }).eq('id', updatedTask.id);
     if (error) {
       toast.error('Failed to update task');
@@ -1539,15 +1560,16 @@ https://www.skyscanner.com`,
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (() => {
                 const currentProject = projects.find(p => p.id === selectedProjectId);
+                const isCollaborator = (currentProject?.isShared && currentProject?.userId !== user?.id) ?? false;
                 const isSharedProject = currentProject?.isShared ?? false;
-                const assignedByEmail = isSharedProject ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+                const assignedByEmail = isCollaborator ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
                 return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
                     <div className="flex flex-col gap-0.5 flex-1">
                       <div className="flex items-center gap-2">
                         <span style={{ color: currentProject?.color }}>📁</span>
                         
-                        {isEditingProjectName && !isSharedProject ? (
+                        {isEditingProjectName && !isCollaborator ? (
                           <Input
                             autoFocus
                             value={editedProjectName}
@@ -1562,31 +1584,31 @@ https://www.skyscanner.com`,
                           />
                         ) : (
                           <span 
-                            className={`font-semibold text-base ${!isSharedProject ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
+                            className={`font-semibold text-base ${!isCollaborator ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
                             style={{ color: currentProject?.color }}
-                            onClick={!isSharedProject ? handleStartEditingProject : undefined}
+                            onClick={!isCollaborator ? handleStartEditingProject : undefined}
                             data-projects-tour-step="project-name"
                           >
                             {currentProject?.name}
                           </span>
                         )}
                       </div>
-                      {isSharedProject && assignedByEmail && (
+                      {isCollaborator && assignedByEmail && (
                         <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 ml-7 mt-1 w-fit">
                           <Share2 className="h-3 w-3 shrink-0" />
                           <span className="break-words">Project shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
                         </Badge>
                       )}
-                      {!isSharedProject && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
+                      {!isCollaborator && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
                         <div className="ml-7 mt-1">
                           <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
                         </div>
                       )}
-                      {!isSharedProject && selectedProjectId && (
+                      {!isCollaborator && selectedProjectId && (
                         <div className="ml-7 mt-1">
                           <ProjectMembersBar
                             projectId={selectedProjectId}
-                            isOwner={!isSharedProject}
+                            isOwner={!isCollaborator}
                             onInviteClick={() => setInviteDialogOpen(true)}
                             refreshTrigger={memberRefreshTrigger}
                           />
@@ -1622,7 +1644,7 @@ https://www.skyscanner.com`,
                       </DropdownMenuContent>
                     </DropdownMenu>
                     
-                    {!isSharedProject && (
+                    {!isCollaborator && (
                       <>
                         <Button 
                           variant={isReorderMode ? 'secondary' : 'ghost'}
@@ -1904,15 +1926,16 @@ https://www.skyscanner.com`,
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (() => {
                 const currentProject2 = projects.find(p => p.id === selectedProjectId);
+                const isCollaborator2 = (currentProject2?.isShared && currentProject2?.userId !== user?.id) ?? false;
                 const isSharedProject2 = currentProject2?.isShared ?? false;
-                const assignedByEmail2 = isSharedProject2 ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+                const assignedByEmail2 = isCollaborator2 ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
                 return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 px-3 py-2">
                     <div className="flex flex-col gap-0.5 flex-1">
                       <div className="flex items-center gap-2">
                         <span style={{ color: currentProject2?.color }}>📁</span>
                         
-                        {isEditingProjectName && !isSharedProject2 ? (
+                        {isEditingProjectName && !isCollaborator2 ? (
                           <Input
                             autoFocus
                             value={editedProjectName}
@@ -1927,28 +1950,28 @@ https://www.skyscanner.com`,
                           />
                         ) : (
                           <span 
-                            className={`font-semibold text-base ${!isSharedProject2 ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
+                            className={`font-semibold text-base ${!isCollaborator2 ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
                             style={{ color: currentProject2?.color }}
-                            onClick={!isSharedProject2 ? handleStartEditingProject : undefined}
+                            onClick={!isCollaborator2 ? handleStartEditingProject : undefined}
                           >
                             {currentProject2?.name}
                           </span>
                         )}
                       </div>
-                      {isSharedProject2 && assignedByEmail2 && (
+                      {isCollaborator2 && assignedByEmail2 && (
                         <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 ml-7 mt-1 w-fit">
                           <Share2 className="h-3 w-3 shrink-0" />
                           <span className="break-words">Project shared by {assignerNameMap[assignedByEmail2] || assignedByEmail2}</span>
                         </Badge>
                       )}
-                      {!isSharedProject2 && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
+                      {!isCollaborator2 && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
                         <div className="ml-7 mt-1">
                           <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
                         </div>
                       )}
                     </div>
                     
-                    {!isSharedProject2 && (
+                    {!isCollaborator2 && (
                       <>
                         <Button 
                           variant={isReorderMode ? 'secondary' : 'ghost'}
@@ -2072,6 +2095,7 @@ https://www.skyscanner.com`,
                     setEditingTask(null);
                   }}
                   projects={projects}
+                  currentUserId={user?.id}
                 />
               ) : (
                 <AddTaskDialog
@@ -2233,6 +2257,7 @@ https://www.skyscanner.com`,
             setEditingTask(null);
           }}
           projects={projects}
+          currentUserId={user?.id}
         />
       )}
 

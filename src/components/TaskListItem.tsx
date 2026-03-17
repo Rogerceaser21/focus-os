@@ -436,8 +436,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 )}
               </button>
 
-              {!projects?.find(p => p.id === task.projectId)?.isShared && (
-                <button
+              <button
                   data-description-safe-zone="true"
                   onClick={(e) => { e.stopPropagation(); onAssignTask?.(task); }}
                   className="p-1 rounded transition-colors text-teal-400 border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 hover:border-teal-400"
@@ -445,7 +444,6 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 >
                   <Share2 className="w-3 h-3" />
                 </button>
-              )}
 
               {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
                 <ShareStatusPopover
@@ -656,8 +654,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 )}
               </button>
 
-              {!projects?.find(p => p.id === task.projectId)?.isShared && (
-                <button
+              <button
                   data-description-safe-zone="true"
                   onClick={() => onAssignTask?.(task)}
                   className="p-1.5 rounded transition-colors text-teal-400 border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 hover:border-teal-400"
@@ -665,7 +662,6 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 >
                   <Share2 className="w-4 h-4" />
                 </button>
-              )}
 
               {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
                 <ShareStatusPopover
