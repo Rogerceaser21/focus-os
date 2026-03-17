@@ -1582,6 +1582,16 @@ https://www.skyscanner.com`,
                           <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
                         </div>
                       )}
+                      {!isSharedProject && selectedProjectId && (
+                        <div className="ml-7 mt-1">
+                          <ProjectMembersBar
+                            projectId={selectedProjectId}
+                            isOwner={!isSharedProject}
+                            onInviteClick={() => setInviteDialogOpen(true)}
+                            refreshTrigger={memberRefreshTrigger}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Status Dropdown for Mobile/Tablet */}
