@@ -139,6 +139,7 @@ export default function SettingsDialog({
                   <SelectValue placeholder="Select default view" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="home">Home</SelectItem>
                   <SelectItem value="today">Today's To-Do</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                   {projects.length > 0 && (

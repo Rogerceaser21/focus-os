@@ -32,7 +32,7 @@ const Auth = () => {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate('/');
+        navigate('/home');
       }
     });
   }, [navigate]);
@@ -41,7 +41,7 @@ const Auth = () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${window.location.origin}/home`,
       },
     });
     if (error) {
@@ -60,7 +60,7 @@ const Auth = () => {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/`,
+        emailRedirectTo: `${window.location.origin}/home`,
         data: {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
