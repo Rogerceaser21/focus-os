@@ -33,6 +33,29 @@ const Home = () => {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
 
+  // Set html/body background to match warm cream theme for iOS safe areas
+  useEffect(() => {
+    const html = document.documentElement;
+    const meta = document.querySelector('meta[name="theme-color"]') || document.createElement('meta');
+    const prevBg = html.style.background;
+    const prevBodyBg = document.body.style.background;
+    
+    html.style.background = '#ede7db';
+    document.body.style.background = '#ede7db';
+    
+    meta.setAttribute('name', 'theme-color');
+    meta.setAttribute('content', '#ede7db');
+    if (!document.querySelector('meta[name="theme-color"]')) {
+      document.head.appendChild(meta);
+    }
+
+    return () => {
+      html.style.background = prevBg;
+      document.body.style.background = prevBodyBg;
+      meta.setAttribute('content', '');
+    };
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     (supabase as any).from('focusos_profiles').select('first_name').eq('user_id', user.id).maybeSingle()
