@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,8 @@ import { Eye, EyeOff } from 'lucide-react';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isCream = theme === 'cream';
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -65,9 +68,9 @@ const ResetPassword = () => {
 
   if (!isRecovery) {
     return (
-      <div className="min-h-screen relative flex items-center justify-center p-4">
-        <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
+      <div className="min-h-screen relative flex items-center justify-center p-4 bg-background">
+        {!isCream && <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />}
+        {!isCream && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
         <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-card/90 border-2">
           <CardHeader>
             <CardTitle className="text-2xl">Verifying...</CardTitle>
@@ -84,9 +87,9 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4">
-      <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
+    <div className="min-h-screen relative flex items-center justify-center p-4 bg-background">
+      {!isCream && <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />}
+      {!isCream && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
       <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-card/90 border-2">
         <CardHeader>
           <CardTitle className="text-2xl">Set New Password</CardTitle>

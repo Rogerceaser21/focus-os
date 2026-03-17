@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import DarkVeil from '@/components/DarkVeil';
@@ -7,6 +8,8 @@ import DarkVeil from '@/components/DarkVeil';
 const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { theme } = useTheme();
+  const isCream = theme === 'cream';
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handlePlay = () => {
@@ -30,17 +33,19 @@ const Landing = () => {
   }
 
   return (
-    <div className="min-h-screen relative flex flex-col">
-      <DarkVeil 
-        hueShift={108} 
-        noiseIntensity={0} 
-        scanlineIntensity={0} 
-        speed={0.3} 
-        scanlineFrequency={0} 
-        warpAmount={0.4} 
-        resolutionScale={0.6} 
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />
+    <div className="min-h-screen relative flex flex-col bg-background">
+      {!isCream && (
+        <DarkVeil 
+          hueShift={108} 
+          noiseIntensity={0} 
+          scanlineIntensity={0} 
+          speed={0.3} 
+          scanlineFrequency={0} 
+          warpAmount={0.4} 
+          resolutionScale={0.6} 
+        />
+      )}
+      {!isCream && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
       
       {/* Main content with video */}
       <main className="relative z-10 flex flex-col items-center pt-4 sm:pt-6 px-4 pb-8">

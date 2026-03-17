@@ -46,7 +46,7 @@ export default function SettingsDialog({
   onSave,
 }: SettingsDialogProps) {
   const { setTheme } = useTheme();
-  const [selectedTheme, setSelectedTheme] = useState<'dark' | 'light'>('dark');
+  const [selectedTheme, setSelectedTheme] = useState<'dark' | 'light' | 'cream'>('dark');
   const [defaultView, setDefaultView] = useState<string>('today');
   const [displayMode, setDisplayMode] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -66,7 +66,7 @@ export default function SettingsDialog({
 
   // Apply theme immediately when changed
   const handleThemeChange = (value: string) => {
-    const newTheme = value as 'dark' | 'light';
+    const newTheme = value as 'dark' | 'light' | 'cream';
     setSelectedTheme(newTheme);
     setTheme(newTheme);
   };
@@ -119,6 +119,12 @@ export default function SettingsDialog({
                   <RadioGroupItem value="light" id="theme-light" />
                   <Label htmlFor="theme-light" className="font-normal cursor-pointer">
                     Light
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="cream" id="theme-cream" />
+                  <Label htmlFor="theme-cream" className="font-normal cursor-pointer">
+                    Cream
                   </Label>
                 </div>
               </RadioGroup>

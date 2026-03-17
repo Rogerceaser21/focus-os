@@ -33,25 +33,30 @@ const Home = () => {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
 
-  // Set html/body background to match warm cream theme for iOS safe areas
+  // Set html/body background to match theme for iOS safe areas
   useEffect(() => {
     const html = document.documentElement;
-    const meta = document.querySelector('meta[name="theme-color"]') || document.createElement('meta');
+    const body = document.body;
     const prevBg = html.style.background;
-    const prevBodyBg = document.body.style.background;
+    const prevBodyBg = body.style.background;
     
-    html.style.background = '#ede7db';
-    document.body.style.background = '#ede7db';
+    // Read the computed background color from the themed CSS
+    const computed = getComputedStyle(html);
+    const bg = computed.getPropertyValue('background-color') || `hsl(${computed.getPropertyValue('--background').trim()})`;
     
+    html.style.background = bg;
+    body.style.background = bg;
+    
+    const meta = document.querySelector('meta[name="theme-color"]') || document.createElement('meta');
     meta.setAttribute('name', 'theme-color');
-    meta.setAttribute('content', '#ede7db');
+    meta.setAttribute('content', bg);
     if (!document.querySelector('meta[name="theme-color"]')) {
       document.head.appendChild(meta);
     }
 
     return () => {
       html.style.background = prevBg;
-      document.body.style.background = prevBodyBg;
+      body.style.background = prevBodyBg;
       meta.setAttribute('content', '');
     };
   }, []);
@@ -72,19 +77,19 @@ const Home = () => {
   const handleTasksCreated = useCallback(() => navigate('/app'), [navigate]);
 
   if (authLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f0e8' }}>
-      <div className="animate-pulse" style={{ color: '#8a8070' }}>Loading...</div>
+    return <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="animate-pulse text-muted-foreground">Loading...</div>
     </div>;
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(180deg, #ede7db 0%, #f5f0e8 40%, #faf7f2 100%)' }}>
+    <div className="min-h-screen flex flex-col bg-background">
 
       {/* Main content — centered */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
         {/* Greeting */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight" style={{ color: '#2c2418' }}>
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground">
             {getGreeting()}{firstName ? `, ${firstName}` : ''}
           </h1>
           <div className="h-8 mt-3 relative">
@@ -96,7 +101,7 @@ const Home = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35 }}
                 className="text-base sm:text-lg absolute inset-0 flex items-center justify-center"
-                style={{ color: '#8a8070' }}
+                style={{ color: 'hsl(var(--muted-foreground))' }}
               >
                 {SUBTITLES[subtitleIndex]}
               </motion.p>
@@ -110,11 +115,10 @@ const Home = () => {
             whileTap={{ scale: 0.93 }}
             whileHover={{ scale: 1.03 }}
             onClick={() => setBrainDumpOpen(true)}
-            className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full flex items-center justify-center"
+            className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full flex items-center justify-center border-[3px] border-border"
             style={{
-              background: 'radial-gradient(circle at 40% 35%, #faf7f2, #e8e0d0)',
-              boxShadow: '0 8px 32px rgba(120, 100, 70, 0.2), inset 0 2px 8px rgba(255,255,255,0.6), inset 0 -2px 6px rgba(0,0,0,0.06)',
-              border: '3px solid #c9bfa8',
+              background: 'radial-gradient(circle at 40% 35%, hsl(var(--card)), hsl(var(--muted)))',
+              boxShadow: '0 8px 32px hsl(var(--glass-shadow)), inset 0 2px 8px hsl(0 0% 100% / 0.4), inset 0 -2px 6px hsl(0 0% 0% / 0.06)',
             }}
           >
             <div
@@ -125,7 +129,7 @@ const Home = () => {
               }}
             />
           </motion.button>
-          <span className="text-sm font-medium text-center" style={{ color: '#8a8070' }}>
+          <span className="text-sm font-medium text-center text-muted-foreground">
             Tap to capture your thoughts into tasks
           </span>
         </div>
@@ -133,12 +137,7 @@ const Home = () => {
         {/* Record Meeting — always centered */}
         <button
           onClick={() => navigate('/meetings')}
-          className="flex items-center gap-2 px-6 py-3 rounded-full transition-all"
-          style={{
-            background: 'rgba(201, 191, 168, 0.25)',
-            border: '1px solid rgba(201, 191, 168, 0.5)',
-            color: '#6b5e4d',
-          }}
+          className="flex items-center gap-2 px-6 py-3 rounded-full transition-all border border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary"
         >
           <Video className="w-4 h-4" />
           <span className="text-sm font-medium">Record Meeting</span>
@@ -147,8 +146,8 @@ const Home = () => {
 
       {/* Bottom nav — 4 equal-width buttons */}
       <div
-        className="fixed bottom-0 left-0 right-0 grid grid-cols-4 z-20"
-        style={{ background: 'rgba(30, 25, 18, 0.95)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+        className="fixed bottom-0 left-0 right-0 grid grid-cols-4 z-20 border-t border-border/30"
+        style={{ background: 'hsl(var(--dock-background))' }}
       >
         <BottomNavButton icon={<FolderOpen className="w-5 h-5" />} label="Projects" onClick={() => navigate('/app?view=projects')} />
         <BottomNavButton icon={<Calendar className="w-5 h-5" />} label="Meetings" onClick={() => navigate('/meetings')} />
@@ -170,8 +169,7 @@ const Home = () => {
 const BottomNavButton = ({ icon, label, onClick, accent }: { icon: React.ReactNode; label: string; onClick: () => void; accent?: boolean }) => (
   <button
     onClick={onClick}
-    className="flex flex-col items-center justify-center gap-1 py-3 transition-colors"
-    style={{ color: accent ? '#c07030' : '#9a9a9a' }}
+    className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${accent ? 'text-accent' : 'text-muted-foreground hover:text-foreground'}`}
   >
     {icon}
     <span className="text-[10px] font-medium leading-tight">{label}</span>
