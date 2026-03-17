@@ -1053,7 +1053,8 @@ https://www.skyscanner.com`,
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime,
       project_id: updatedTask.projectId || null,
-      sort_order: updatedTask.sortOrder ?? 0
+      sort_order: updatedTask.sortOrder ?? 0,
+      completed_by_email: updatedTask.completedByEmail || null,
     }).eq('id', updatedTask.id);
     if (error) {
       toast.error('Failed to update task');
