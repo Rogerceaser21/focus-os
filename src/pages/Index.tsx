@@ -1624,7 +1624,7 @@ https://www.skyscanner.com`,
                       </DropdownMenuContent>
                     </DropdownMenu>
                     
-                    {!isSharedProject && (
+                    {!isCollaborator && (
                       <>
                         <Button 
                           variant={isReorderMode ? 'secondary' : 'ghost'}
