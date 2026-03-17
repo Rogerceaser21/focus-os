@@ -38,6 +38,7 @@ export const EditTaskDialog = ({
   projects = [],
   onAssigned,
   desktopDocked = false,
+  currentUserId,
 }: EditTaskDialogProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
