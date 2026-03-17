@@ -77,8 +77,8 @@ const Home = () => {
   const handleTasksCreated = useCallback(() => navigate('/app'), [navigate]);
 
   if (authLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f0e8' }}>
-      <div className="animate-pulse" style={{ color: '#8a8070' }}>Loading...</div>
+    return <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="animate-pulse text-muted-foreground">Loading...</div>
     </div>;
   }
 
