@@ -493,6 +493,31 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               />
             </div>
           )}
+          {!isExpanded && !task.sharedRecipients?.length && task.completedByEmail && task.status !== 'completed' && (
+            <div className="flex items-center gap-2 flex-wrap ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
+              <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">
+                ✅ {task.completedByEmail}
+              </Badge>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-[10px] h-5 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, status: 'completed' }); }}
+              >
+                <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
+                Done
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-[10px] h-5 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                onClick={(e) => { e.stopPropagation(); onRequestChanges?.(task); }}
+              >
+                <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />
+                Changes
+              </Button>
+            </div>
+          )}
 
 
           {/* Change request banner (mobile) */}
