@@ -121,6 +121,12 @@ export default function SettingsDialog({
                     Light
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="cream" id="theme-cream" />
+                  <Label htmlFor="theme-cream" className="font-normal cursor-pointer">
+                    Cream
+                  </Label>
+                </div>
               </RadioGroup>
             </div>
 
