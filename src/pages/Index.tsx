@@ -2001,6 +2001,30 @@ https://www.skyscanner.com`,
                   projects={projects}
                   isReorderMode={isReorderMode}
                 />
+                {selectedSpecialList === 'today' && pastDueTasks.filter(t => t.status === 'completed').length > 0 && (
+                  <>
+                    <div className="mt-8 mb-4 flex items-center gap-2 px-2">
+                      <AlertTriangle className="h-4 w-4 text-orange-400/80" />
+                      <span className="text-sm font-semibold uppercase tracking-wider text-orange-400/80">Past Due (Completed)</span>
+                      <div className="flex-1 h-px bg-orange-400/20" />
+                      <span className="text-xs text-orange-400/60">{pastDueTasks.filter(t => t.status === 'completed').length}</span>
+                    </div>
+                    <DraggableTaskList
+                      tasks={pastDueTasks.filter(t => t.status === 'completed')}
+                      onUpdate={handleUpdateTask}
+                      onBatchUpdate={handleBatchUpdateTasks}
+                      onEditTask={setEditingTask}
+                      onAssignTask={handleAssignTask}
+                      onRequestChanges={handleRequestChanges}
+                      onDismissChangeRequest={handleDismissChangeRequest}
+                      globalViewMode={globalCardView}
+                      expandedTaskIds={expandedTaskIds}
+                      onTaskClick={handleTaskClick}
+                      projects={projects}
+                      isReorderMode={isReorderMode}
+                    />
+                  </>
+                )}
               </TabsContent>
             </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full grid grid-cols-4 h-auto">
