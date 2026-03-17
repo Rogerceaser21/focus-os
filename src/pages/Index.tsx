@@ -50,6 +50,8 @@ import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { DraggableTaskList } from '@/components/DraggableTaskList';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
 import { ShareStatusPopover } from '@/components/ShareStatusPopover';
+import { InviteProjectMemberDialog } from '@/components/InviteProjectMemberDialog';
+import { ProjectMembersBar } from '@/components/ProjectMembersBar';
 import { addDays } from 'date-fns';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
@@ -160,6 +162,8 @@ const Index = () => {
   const [changesNeededLoading, setChangesNeededLoading] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [senderSharedMap, setSenderSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
@@ -1578,6 +1582,16 @@ https://www.skyscanner.com`,
                           <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
                         </div>
                       )}
+                      {!isSharedProject && selectedProjectId && (
+                        <div className="ml-7 mt-1">
+                          <ProjectMembersBar
+                            projectId={selectedProjectId}
+                            isOwner={!isSharedProject}
+                            onInviteClick={() => setInviteDialogOpen(true)}
+                            refreshTrigger={memberRefreshTrigger}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Status Dropdown for Mobile/Tablet */}
@@ -2277,6 +2291,17 @@ https://www.skyscanner.com`,
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Invite Project Member Dialog */}
+      {selectedProjectId && (
+        <InviteProjectMemberDialog
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+          projectId={selectedProjectId}
+          projectName={projects.find(p => p.id === selectedProjectId)?.name || 'Project'}
+          onInviteSent={() => setMemberRefreshTrigger(prev => prev + 1)}
+        />
+      )}
     </SidebarProvider>
   </PullToRefresh>;
 };

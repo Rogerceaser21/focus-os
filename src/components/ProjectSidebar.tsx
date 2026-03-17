@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList } from 'lucide-react';
+import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList, Users } from 'lucide-react';
 import { ShareStatusPopover, SharedRecipient } from './ShareStatusPopover';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -61,9 +61,12 @@ export const ProjectSidebar = ({
   const [sharedProjects, setSharedProjects] = useState<Project[]>([]);
   const [meetings, setMeetings] = useState<{ id: string; title: string }[]>([]);
   const [sharedItems, setSharedItems] = useState<any[]>([]);
+  const [projectInvitations, setProjectInvitations] = useState<any[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [decliningId, setDecliningId] = useState<string | null>(null);
+  const [acceptingInviteId, setAcceptingInviteId] = useState<string | null>(null);
+  const [decliningInviteId, setDecliningInviteId] = useState<string | null>(null);
   const [isCreateOpenInternal, setIsCreateOpenInternal] = useState(false);
   const [sidebarSearchInput, setSidebarSearchInput] = useState('');
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState('');
@@ -83,6 +86,7 @@ export const ProjectSidebar = ({
     fetchProjects();
     fetchMeetings();
     fetchSharedItems();
+    fetchProjectInvitations();
   }, [projectRefreshTrigger]);
 
   // Supabase Realtime: live shared items for current user (as recipient)
@@ -284,6 +288,121 @@ export const ProjectSidebar = ({
 
     if (!error && data) {
       setSharedItems(data);
+    }
+  };
+
+  const fetchProjectInvitations = async () => {
+    if (!userId) return;
+    const { data, error } = await (supabase as any)
+      .from('focusos_project_members')
+      .select('id, project_id, invited_by, invited_email, role, status')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      // Fetch project names
+      const projectIds = data.map((i: any) => i.project_id);
+      const { data: projectsData } = await (supabase as any)
+        .from('focusos_projects')
+        .select('id, name, color')
+        .in('id', projectIds);
+
+      // Fetch inviter names
+      const inviterIds = data.map((i: any) => i.invited_by);
+      const { data: inviterProfiles } = await (supabase as any)
+        .from('focusos_profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', inviterIds);
+
+      const projectMap: Record<string, { name: string; color: string }> = {};
+      if (projectsData) {
+        for (const p of projectsData) {
+          projectMap[p.id] = { name: p.name, color: p.color };
+        }
+      }
+      const inviterMap: Record<string, string> = {};
+      if (inviterProfiles) {
+        for (const p of inviterProfiles) {
+          const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+          if (name) inviterMap[p.user_id] = name;
+        }
+      }
+
+      setProjectInvitations(data.map((i: any) => ({
+        ...i,
+        projectName: projectMap[i.project_id]?.name || 'Unknown Project',
+        projectColor: projectMap[i.project_id]?.color || '#3b82f6',
+        inviterName: inviterMap[i.invited_by] || i.invited_email,
+      })));
+    } else {
+      setProjectInvitations([]);
+    }
+  };
+
+  // Realtime for project invitations
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel('project-invitations-realtime')
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'focusos_project_members',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload: any) => {
+          if (payload.new?.status === 'pending') {
+            toast.info('📬 New project invitation!', {
+              description: `You've been invited to collaborate on a project`,
+            });
+          }
+          fetchProjectInvitations();
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
+
+  const handleAcceptProjectInvite = async (memberId: string) => {
+    setAcceptingInviteId(memberId);
+    try {
+      const { data, error } = await supabase.functions.invoke('focusos-accept-project-invite', {
+        body: { memberId, action: 'accept' },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success('Project invitation accepted!');
+      fetchProjectInvitations();
+      fetchProjects();
+    } catch (err) {
+      console.error('Accept invite error:', err);
+      toast.error('Failed to accept invitation');
+    } finally {
+      setAcceptingInviteId(null);
+    }
+  };
+
+  const handleDeclineProjectInvite = async (memberId: string) => {
+    setDecliningInviteId(memberId);
+    try {
+      const { data, error } = await supabase.functions.invoke('focusos-accept-project-invite', {
+        body: { memberId, action: 'decline' },
+      });
+      if (error) throw error;
+      toast.success('Invitation declined');
+      fetchProjectInvitations();
+    } catch (err) {
+      console.error('Decline invite error:', err);
+      toast.error('Failed to decline invitation');
+    } finally {
+      setDecliningInviteId(null);
     }
   };
 
@@ -589,6 +708,58 @@ export const ProjectSidebar = ({
                 Unassigned
               </Button>
             </div>
+
+            {/* Project Invitations Section */}
+            {projectInvitations.length > 0 && (
+              <div className="mt-3 px-2">
+                <div className="px-2 mb-2">
+                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5" />
+                    Project Invitations ({projectInvitations.length})
+                  </h3>
+                </div>
+                <div className="space-y-1.5">
+                  {projectInvitations.map((invite) => (
+                    <div key={invite.id} className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-1.5">
+                      <div className="flex items-start gap-2">
+                        <Folder className="h-3.5 w-3.5 mt-0.5" style={{ color: invite.projectColor }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{invite.projectName}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            From: {invite.inviterName}
+                          </p>
+                          <p className="text-xs text-muted-foreground capitalize">
+                            Role: {invite.role}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 h-7 text-xs gap-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                          onClick={() => handleAcceptProjectInvite(invite.id)}
+                          disabled={acceptingInviteId === invite.id}
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          {acceptingInviteId === invite.id ? '...' : 'Accept'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeclineProjectInvite(invite.id)}
+                          disabled={decliningInviteId === invite.id}
+                        >
+                          <XCircle className="h-3 w-3" />
+                          {decliningInviteId === invite.id ? '...' : 'Decline'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Shared Items Section */}
             {(() => {
