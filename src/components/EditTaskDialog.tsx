@@ -62,6 +62,13 @@ export const EditTaskDialog = ({
 
   // If the task has assignedToEmail, the current user is the recipient of a shared task
   const isReceivedSharedTask = !!task.assignedToEmail;
+  
+  // Check if user is a collaborator (not owner) on a collaborative project
+  const taskProject = projects.find(p => p.id === task.projectId);
+  const isCollaboratorOnProject = taskProject?.isShared && taskProject?.userId !== currentUserId && !!currentUserId;
+  
+  // Due date is locked for both received shared tasks AND collaborators on collaborative projects
+  const isDueDateLocked = isReceivedSharedTask || isCollaboratorOnProject;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
