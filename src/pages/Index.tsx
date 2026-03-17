@@ -162,6 +162,8 @@ const Index = () => {
   const [changesNeededLoading, setChangesNeededLoading] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [senderSharedMap, setSenderSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
