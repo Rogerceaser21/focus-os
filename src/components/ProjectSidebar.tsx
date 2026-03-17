@@ -27,8 +27,8 @@ import {
 interface ProjectSidebarProps {
   selectedProjectId: string | null;
   onSelectProject: (projectId: string | null) => void;
-  onSelectSpecialList: (list: 'unassigned' | 'today' | null) => void;
-  selectedSpecialList: 'unassigned' | 'today' | null;
+  onSelectSpecialList: (list: 'unassigned' | 'today' | 'past-due' | null) => void;
+  selectedSpecialList: 'unassigned' | 'today' | 'past-due' | null;
   projectRefreshTrigger?: number;
   onProjectCreated?: () => void;
   onStartTour?: () => void;
@@ -546,7 +546,7 @@ export const ProjectSidebar = ({
     onSelectSpecialList(null);
   };
 
-  const handleSelectSpecial = (list: 'unassigned' | 'today') => {
+  const handleSelectSpecial = (list: 'unassigned' | 'today' | 'past-due') => {
     onSelectSpecialList(list);
     onSelectProject(null);
   };
@@ -696,6 +696,18 @@ export const ProjectSidebar = ({
               >
                 <Calendar className="h-4 w-4" />
                 Today's To-Do
+              </Button>
+
+              <Button
+                variant={selectedSpecialList === 'past-due' ? 'secondary' : 'ghost'}
+                className="w-full justify-start gap-2 text-orange-400/80 hover:text-orange-400"
+                onClick={() => {
+                  handleSelectSpecial('past-due');
+                  if (isActuallyMobile) setOpenMobile(false);
+                }}
+              >
+                <Calendar className="h-4 w-4" />
+                Past Due
               </Button>
               
               <Button
