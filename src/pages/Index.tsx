@@ -1564,9 +1564,9 @@ https://www.skyscanner.com`,
                           />
                         ) : (
                           <span 
-                            className={`font-semibold text-base ${!isSharedProject ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
+                            className={`font-semibold text-base ${!isCollaborator ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
                             style={{ color: currentProject?.color }}
-                            onClick={!isSharedProject ? handleStartEditingProject : undefined}
+                            onClick={!isCollaborator ? handleStartEditingProject : undefined}
                             data-projects-tour-step="project-name"
                           >
                             {currentProject?.name}
