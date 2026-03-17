@@ -2386,7 +2386,7 @@ https://www.skyscanner.com`,
             <Button
               onClick={handleSubmitChangesNeeded}
               disabled={!changesNeededMessage.trim() || changesNeededLoading}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               {changesNeededLoading ? 'Sending...' : 'Send Changes Request'}
             </Button>

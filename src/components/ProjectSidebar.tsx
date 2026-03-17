@@ -809,7 +809,7 @@ export const ProjectSidebar = ({
                       ? <ClipboardList className="h-3.5 w-3.5 text-primary" />
                       : item.item_type === 'project' 
                       ? <Folder className="h-3.5 w-3.5 text-primary" />
-                      : <Mic className="h-3.5 w-3.5 text-teal-400" />;
+                      : <Mic className="h-3.5 w-3.5 text-primary" />;
                     
                     // For change_request items, sender_name holds the change message
                     const changeMessage = isChangeRequest ? item.sender_name : null;
