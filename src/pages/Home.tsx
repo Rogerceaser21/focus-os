@@ -169,8 +169,7 @@ const Home = () => {
 const BottomNavButton = ({ icon, label, onClick, accent }: { icon: React.ReactNode; label: string; onClick: () => void; accent?: boolean }) => (
   <button
     onClick={onClick}
-    className="flex flex-col items-center justify-center gap-1 py-3 transition-colors"
-    style={{ color: accent ? '#c07030' : '#9a9a9a' }}
+    className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${accent ? 'text-accent' : 'text-muted-foreground hover:text-foreground'}`}
   >
     {icon}
     <span className="text-[10px] font-medium leading-tight">{label}</span>
