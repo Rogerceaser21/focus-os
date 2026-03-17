@@ -7,7 +7,7 @@ import "./components/ParticleEffect.css";
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} themes={['dark', 'light', 'cream']}>
       <App />
     </ThemeProvider>
   </React.StrictMode>

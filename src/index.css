@@ -114,6 +114,59 @@ All colors MUST be HSL.
     --glass-blur: 20px;
     --glass-glow: 186 80% 55% / 0.2;
   }
+
+  /* Cream Theme */
+  .cream {
+    --background: 38 30% 92%;
+    --foreground: 30 25% 13%;
+
+    --card: 38 35% 96%;
+    --card-foreground: 30 25% 13%;
+
+    --popover: 38 35% 96%;
+    --popover-foreground: 30 25% 13%;
+
+    --primary: 186 80% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 35 20% 85%;
+    --secondary-foreground: 30 25% 18%;
+
+    --muted: 35 18% 88%;
+    --muted-foreground: 30 12% 45%;
+
+    --accent: 14 90% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 35 18% 78%;
+    --input: 35 18% 82%;
+    --ring: 186 80% 40%;
+
+    --success: 142 76% 40%;
+    --warning: 38 92% 50%;
+    --info: 199 89% 48%;
+
+    --sidebar-background: 38 28% 94%;
+    --sidebar-foreground: 30 25% 18%;
+    --sidebar-primary: 186 80% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 35 20% 88%;
+    --sidebar-accent-foreground: 30 25% 18%;
+    --sidebar-border: 35 18% 80%;
+    --sidebar-ring: 186 80% 40%;
+
+    --dock-background: 30 20% 16%;
+
+    /* Glass effect tokens - Cream mode */
+    --glass-background: 38 35% 96% / 0.7;
+    --glass-border: 35 18% 78% / 0.5;
+    --glass-shadow: 30 20% 30% / 0.08;
+    --glass-blur: 16px;
+    --glass-glow: 186 80% 50% / 0.15;
+  }
 }
 
 @layer base {
