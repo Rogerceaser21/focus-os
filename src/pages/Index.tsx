@@ -261,6 +261,7 @@ const Index = () => {
       name: p.name,
       color: p.color,
       isShared: p.is_shared ?? false,
+      userId: p.user_id,
       timer: {
         totalSeconds: 0,
         isRunning: false

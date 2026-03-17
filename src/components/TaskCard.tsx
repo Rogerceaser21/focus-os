@@ -277,8 +277,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               Pause
             </Button>
           )}
-          {!projects?.find(p => p.id === task.projectId)?.isShared && (
-            <Button
+          <Button
               size="sm"
               variant="ghost"
               onClick={() => onAssignTask?.(task)}
@@ -287,7 +286,6 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
             >
               <Share2 className="h-3 w-3" />
             </Button>
-          )}
           {task.assignedToEmail && (
             <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={`Shared by ${task.assignedToEmail}`}>
               Shared by {task.assignedToEmail}
