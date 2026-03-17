@@ -89,7 +89,7 @@ const Home = () => {
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
         {/* Greeting */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight" style={{ color: '#2c2418' }}>
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground">
             {getGreeting()}{firstName ? `, ${firstName}` : ''}
           </h1>
           <div className="h-8 mt-3 relative">
