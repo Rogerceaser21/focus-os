@@ -8,6 +8,8 @@ import DarkVeil from '@/components/DarkVeil';
 const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { theme } = useTheme();
+  const isCream = theme === 'cream';
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handlePlay = () => {
