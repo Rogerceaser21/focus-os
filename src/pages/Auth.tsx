@@ -15,6 +15,8 @@ import { Shield } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isCream = theme === 'cream';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
