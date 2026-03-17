@@ -577,7 +577,7 @@ export const ProjectSidebar = ({
             <DropdownMenuTrigger asChild>
               <Button 
                 size="sm" 
-                className="gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                className="gap-2 bg-accent hover:bg-accent/90 text-accent-foreground"
               >
                 <HelpCircle className="h-4 w-4" />
                 Help
