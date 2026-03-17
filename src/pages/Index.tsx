@@ -1549,7 +1549,7 @@ https://www.skyscanner.com`,
                       <div className="flex items-center gap-2">
                         <span style={{ color: currentProject?.color }}>📁</span>
                         
-                        {isEditingProjectName && !isSharedProject ? (
+                        {isEditingProjectName && !isCollaborator ? (
                           <Input
                             autoFocus
                             value={editedProjectName}
