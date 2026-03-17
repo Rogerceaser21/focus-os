@@ -291,7 +291,122 @@ export const ProjectSidebar = ({
     }
   };
 
-  const handleAcceptSharedItem = async (sharedItemId: string) => {
+  const fetchProjectInvitations = async () => {
+    if (!userId) return;
+    const { data, error } = await (supabase as any)
+      .from('focusos_project_members')
+      .select('id, project_id, invited_by, invited_email, role, status')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      // Fetch project names
+      const projectIds = data.map((i: any) => i.project_id);
+      const { data: projectsData } = await (supabase as any)
+        .from('focusos_projects')
+        .select('id, name, color')
+        .in('id', projectIds);
+
+      // Fetch inviter names
+      const inviterIds = data.map((i: any) => i.invited_by);
+      const { data: inviterProfiles } = await (supabase as any)
+        .from('focusos_profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', inviterIds);
+
+      const projectMap: Record<string, { name: string; color: string }> = {};
+      if (projectsData) {
+        for (const p of projectsData) {
+          projectMap[p.id] = { name: p.name, color: p.color };
+        }
+      }
+      const inviterMap: Record<string, string> = {};
+      if (inviterProfiles) {
+        for (const p of inviterProfiles) {
+          const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+          if (name) inviterMap[p.user_id] = name;
+        }
+      }
+
+      setProjectInvitations(data.map((i: any) => ({
+        ...i,
+        projectName: projectMap[i.project_id]?.name || 'Unknown Project',
+        projectColor: projectMap[i.project_id]?.color || '#3b82f6',
+        inviterName: inviterMap[i.invited_by] || i.invited_email,
+      })));
+    } else {
+      setProjectInvitations([]);
+    }
+  };
+
+  // Realtime for project invitations
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel('project-invitations-realtime')
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'focusos_project_members',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload: any) => {
+          if (payload.new?.status === 'pending') {
+            toast.info('📬 New project invitation!', {
+              description: `You've been invited to collaborate on a project`,
+            });
+          }
+          fetchProjectInvitations();
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
+
+  const handleAcceptProjectInvite = async (memberId: string) => {
+    setAcceptingInviteId(memberId);
+    try {
+      const { data, error } = await supabase.functions.invoke('focusos-accept-project-invite', {
+        body: { memberId, action: 'accept' },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success('Project invitation accepted!');
+      fetchProjectInvitations();
+      fetchProjects();
+    } catch (err) {
+      console.error('Accept invite error:', err);
+      toast.error('Failed to accept invitation');
+    } finally {
+      setAcceptingInviteId(null);
+    }
+  };
+
+  const handleDeclineProjectInvite = async (memberId: string) => {
+    setDecliningInviteId(memberId);
+    try {
+      const { data, error } = await supabase.functions.invoke('focusos-accept-project-invite', {
+        body: { memberId, action: 'decline' },
+      });
+      if (error) throw error;
+      toast.success('Invitation declined');
+      fetchProjectInvitations();
+    } catch (err) {
+      console.error('Decline invite error:', err);
+      toast.error('Failed to decline invitation');
+    } finally {
+      setDecliningInviteId(null);
+    }
+  };
+
+
     setAcceptingId(sharedItemId);
     try {
       const { data, error } = await supabase.functions.invoke('focusos-accept-shared-item', {
