@@ -709,6 +709,58 @@ export const ProjectSidebar = ({
               </Button>
             </div>
 
+            {/* Project Invitations Section */}
+            {projectInvitations.length > 0 && (
+              <div className="mt-3 px-2">
+                <div className="px-2 mb-2">
+                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5" />
+                    Project Invitations ({projectInvitations.length})
+                  </h3>
+                </div>
+                <div className="space-y-1.5">
+                  {projectInvitations.map((invite) => (
+                    <div key={invite.id} className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-1.5">
+                      <div className="flex items-start gap-2">
+                        <Folder className="h-3.5 w-3.5 mt-0.5" style={{ color: invite.projectColor }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{invite.projectName}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            From: {invite.inviterName}
+                          </p>
+                          <p className="text-xs text-muted-foreground capitalize">
+                            Role: {invite.role}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 h-7 text-xs gap-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                          onClick={() => handleAcceptProjectInvite(invite.id)}
+                          disabled={acceptingInviteId === invite.id}
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          {acceptingInviteId === invite.id ? '...' : 'Accept'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeclineProjectInvite(invite.id)}
+                          disabled={decliningInviteId === invite.id}
+                        >
+                          <XCircle className="h-3 w-3" />
+                          {decliningInviteId === invite.id ? '...' : 'Decline'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Shared Items Section */}
             {(() => {
               // Filter: hide accepted items for recipients, and sender's acknowledged items
