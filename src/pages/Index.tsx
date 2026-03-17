@@ -1944,7 +1944,7 @@ https://www.skyscanner.com`,
                           <span className="break-words">Project shared by {assignerNameMap[assignedByEmail2] || assignedByEmail2}</span>
                         </Badge>
                       )}
-                      {!isSharedProject2 && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
+                      {!isCollaborator2 && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
                         <div className="ml-7 mt-1">
                           <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
                         </div>
