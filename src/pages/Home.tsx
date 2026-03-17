@@ -115,11 +115,10 @@ const Home = () => {
             whileTap={{ scale: 0.93 }}
             whileHover={{ scale: 1.03 }}
             onClick={() => setBrainDumpOpen(true)}
-            className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full flex items-center justify-center"
+            className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full flex items-center justify-center border-[3px] border-border"
             style={{
-              background: 'radial-gradient(circle at 40% 35%, #faf7f2, #e8e0d0)',
-              boxShadow: '0 8px 32px rgba(120, 100, 70, 0.2), inset 0 2px 8px rgba(255,255,255,0.6), inset 0 -2px 6px rgba(0,0,0,0.06)',
-              border: '3px solid #c9bfa8',
+              background: 'radial-gradient(circle at 40% 35%, hsl(var(--card)), hsl(var(--muted)))',
+              boxShadow: '0 8px 32px hsl(var(--glass-shadow)), inset 0 2px 8px hsl(0 0% 100% / 0.4), inset 0 -2px 6px hsl(0 0% 0% / 0.06)',
             }}
           >
             <div
