@@ -74,6 +74,7 @@ export const AddTaskDialog = ({
 
   useEffect(() => {
     if (isMobile) return;
+
     if (open) {
       prevSidebarOpen.current = sidebar.open;
       sidebar.setOpen(false);
@@ -81,6 +82,13 @@ export const AddTaskDialog = ({
       sidebar.setOpen(prevSidebarOpen.current);
       prevSidebarOpen.current = null;
     }
+
+    return () => {
+      if (!isMobile && prevSidebarOpen.current !== null) {
+        sidebar.setOpen(prevSidebarOpen.current);
+        prevSidebarOpen.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isMobile]);
 
