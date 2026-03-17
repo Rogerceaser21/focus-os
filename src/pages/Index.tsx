@@ -1322,6 +1322,7 @@ https://www.skyscanner.com`,
 
   const getSelectedProjectName = (): string => {
     if (selectedSpecialList === 'today') return "Today's To-Do";
+    if (selectedSpecialList === 'past-due') return "Past Due";
     if (selectedSpecialList === 'unassigned') return "Unassigned";
     if (selectedProjectId) {
       const project = projects.find(p => p.id === selectedProjectId);
