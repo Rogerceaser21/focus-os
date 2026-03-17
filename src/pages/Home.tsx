@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Video, FolderOpen, Calendar, ListTodo, AlertTriangle, Home as HomeIcon, BookOpen } from 'lucide-react';
+import { FolderOpen, Calendar, ListTodo, AlertTriangle, Home as HomeIcon, BookOpen, Video } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
-import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
-import DarkVeil from '@/components/DarkVeil';
+import type { ProjectInfo } from '@/hooks/useBrainDumpLive';
 
 const SUBTITLES = [
   "Ready to capture your thoughts?",
@@ -30,85 +29,51 @@ const Home = () => {
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
 
-  // Redirect if not authenticated
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
+    if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
 
-  // Fetch profile & projects
   useEffect(() => {
     if (!user) return;
-
-    (supabase as any)
-      .from('focusos_profiles')
-      .select('first_name')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data }: any) => {
-        if (data?.first_name) setFirstName(data.first_name);
-      });
-
-    (supabase as any)
-      .from('focusos_projects')
-      .select('id, name, color')
-      .eq('user_id', user.id)
-      .order('name')
-      .then(({ data }: any) => {
-        if (data) setProjects(data);
-      });
+    (supabase as any).from('focusos_profiles').select('first_name').eq('user_id', user.id).maybeSingle()
+      .then(({ data }: any) => { if (data?.first_name) setFirstName(data.first_name); });
+    (supabase as any).from('focusos_projects').select('id, name, color').eq('user_id', user.id).order('name')
+      .then(({ data }: any) => { if (data) setProjects(data); });
   }, [user]);
 
-  // Rotate subtitles
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSubtitleIndex((prev) => (prev + 1) % SUBTITLES.length);
-    }, 4000);
+    const interval = setInterval(() => setSubtitleIndex((p) => (p + 1) % SUBTITLES.length), 4000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleTasksCreated = useCallback(() => {
-    // Navigate to app after brain dump creates tasks
-    navigate('/app');
-  }, [navigate]);
+  const handleTasksCreated = useCallback(() => navigate('/app'), [navigate]);
 
   if (authLoading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f0e8' }}>
+      <div className="animate-pulse" style={{ color: '#8a8070' }}>Loading...</div>
+    </div>;
   }
 
   return (
-    <div className="min-h-screen relative flex flex-col bg-background">
-      <DarkVeil
-        hueShift={108}
-        noiseIntensity={0}
-        scanlineIntensity={0}
-        speed={0.3}
-        scanlineFrequency={0}
-        warpAmount={0.4}
-        resolutionScale={0.6}
-      />
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(180deg, #ede7db 0%, #f5f0e8 40%, #faf7f2 100%)' }}>
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col flex-1 px-4 pt-8 pb-4">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
         {/* Greeting */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
-            {getGreeting()}, {firstName || 'there'}
+        <div className="text-center mb-10">
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight" style={{ color: '#2c2418' }}>
+            {getGreeting()}{firstName ? `, ${firstName}` : ''}
           </h1>
-          <div className="h-8 mt-2 relative">
+          <div className="h-8 mt-3 relative">
             <AnimatePresence mode="wait">
               <motion.p
                 key={subtitleIndex}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.4 }}
-                className="text-muted-foreground text-base sm:text-lg absolute inset-0 flex items-center justify-center"
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35 }}
+                className="text-base sm:text-lg absolute inset-0 flex items-center justify-center"
+                style={{ color: '#8a8070' }}
               >
                 {SUBTITLES[subtitleIndex]}
               </motion.p>
@@ -116,86 +81,80 @@ const Home = () => {
           </div>
         </div>
 
-        {/* Main action area with side buttons */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex items-center gap-4 sm:gap-8 w-full max-w-lg">
-            {/* Left side buttons */}
-            <div className="flex flex-col gap-4">
-              <button
-                onClick={() => navigate('/app?view=projects')}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card/60 backdrop-blur-sm border border-border/50 hover:bg-card/80 hover:border-primary/30 transition-all min-w-[72px]"
-              >
-                <FolderOpen className="w-5 h-5 text-primary" />
-                <span className="text-xs text-muted-foreground font-medium">Projects</span>
-              </button>
-              <button
-                onClick={() => navigate('/meetings')}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card/60 backdrop-blur-sm border border-border/50 hover:bg-card/80 hover:border-primary/30 transition-all min-w-[72px]"
-              >
-                <Calendar className="w-5 h-5 text-primary" />
-                <span className="text-xs text-muted-foreground font-medium">Meetings</span>
-              </button>
-            </div>
-
-            {/* Center - Brain Dump + Record Meeting */}
-            <div className="flex-1 flex flex-col items-center gap-4">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setBrainDumpOpen(true)}
-                className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-primary/20 border-2 border-primary/50 flex items-center justify-center hover:bg-primary/30 hover:border-primary transition-all shadow-lg shadow-primary/10"
-              >
-                <Mic className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
-              </motion.button>
-              <span className="text-sm text-muted-foreground font-medium">Brain Dump</span>
-
-              <button
-                onClick={() => navigate('/meetings')}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-card/60 backdrop-blur-sm border border-border/50 hover:bg-card/80 hover:border-primary/30 transition-all"
-              >
-                <Video className="w-4 h-4 text-primary" />
-                <span className="text-sm text-muted-foreground font-medium">Record Meeting</span>
-              </button>
-            </div>
-
-            {/* Right side buttons */}
-            <div className="flex flex-col gap-4">
-              <button
-                onClick={() => navigate('/app?view=today')}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card/60 backdrop-blur-sm border border-border/50 hover:bg-card/80 hover:border-primary/30 transition-all min-w-[72px]"
-              >
-                <ListTodo className="w-5 h-5 text-primary" />
-                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Today's To-Do</span>
-              </button>
-              <button
-                onClick={() => navigate('/app?view=past-due')}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card/60 backdrop-blur-sm border border-border/50 hover:bg-card/80 hover:border-orange-400/30 transition-all min-w-[72px]"
-              >
-                <AlertTriangle className="w-5 h-5 text-orange-400" />
-                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Past Due</span>
-              </button>
-            </div>
-          </div>
+        {/* Brain Dump Button */}
+        <div className="flex flex-col items-center gap-3 mb-10">
+          <motion.button
+            whileTap={{ scale: 0.93 }}
+            whileHover={{ scale: 1.03 }}
+            onClick={() => setBrainDumpOpen(true)}
+            className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full flex items-center justify-center"
+            style={{
+              background: 'radial-gradient(circle at 40% 35%, #faf7f2, #e8e0d0)',
+              boxShadow: '0 8px 32px rgba(120, 100, 70, 0.2), inset 0 2px 8px rgba(255,255,255,0.6), inset 0 -2px 6px rgba(0,0,0,0.06)',
+              border: '3px solid #c9bfa8',
+            }}
+          >
+            {/* Red dot */}
+            <div
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full"
+              style={{
+                background: 'radial-gradient(circle at 40% 35%, #d94040, #a02020)',
+                boxShadow: '0 2px 8px rgba(180, 40, 40, 0.4)',
+              }}
+            />
+          </motion.button>
+          <span className="text-sm font-medium" style={{ color: '#8a8070' }}>Tap to record</span>
         </div>
 
-        {/* Bottom navigation */}
-        <div className="flex items-center justify-center gap-12 pt-4 pb-2">
+        {/* Navigation grid */}
+        <div className="flex items-center gap-4 sm:gap-6 w-full max-w-sm justify-center mb-6">
+          {/* Left buttons */}
+          <div className="flex flex-col gap-3">
+            <NavButton icon={<FolderOpen className="w-5 h-5" />} label="Projects" onClick={() => navigate('/app?view=projects')} />
+            <NavButton icon={<Calendar className="w-5 h-5" />} label="Meetings" onClick={() => navigate('/meetings')} />
+          </div>
+
+          {/* Record Meeting center button */}
           <button
-            className="flex flex-col items-center gap-1 text-primary"
+            onClick={() => navigate('/meetings')}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full transition-all"
+            style={{
+              background: 'rgba(201, 191, 168, 0.25)',
+              border: '1px solid rgba(201, 191, 168, 0.5)',
+              color: '#6b5e4d',
+            }}
           >
-            <HomeIcon className="w-6 h-6" />
-            <span className="text-xs font-medium">Home</span>
+            <Video className="w-4 h-4" />
+            <span className="text-sm font-medium">Record Meeting</span>
           </button>
-          <button
-            onClick={() => navigate('/app')}
-            className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <BookOpen className="w-6 h-6" />
-            <span className="text-xs font-medium">Journal</span>
-          </button>
+
+          {/* Right buttons */}
+          <div className="flex flex-col gap-3">
+            <NavButton icon={<ListTodo className="w-5 h-5" />} label="Today's To-Do" onClick={() => navigate('/app?view=today')} />
+            <NavButton icon={<AlertTriangle className="w-5 h-5" style={{ color: '#c07030' }} />} label="Past Due" onClick={() => navigate('/app?view=past-due')} accent />
+          </div>
         </div>
       </div>
 
-      {/* Brain Dump Dialog */}
+      {/* Bottom nav */}
+      <div
+        className="fixed bottom-0 left-0 right-0 flex items-center justify-center gap-16 py-3 z-20"
+        style={{ background: 'rgba(30, 25, 18, 0.95)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <button className="flex flex-col items-center gap-0.5" style={{ color: '#5ec4d4' }}>
+          <HomeIcon className="w-6 h-6" />
+          <span className="text-[11px] font-medium">Home</span>
+        </button>
+        <button
+          onClick={() => navigate('/app')}
+          className="flex flex-col items-center gap-0.5 transition-colors"
+          style={{ color: '#7a7a7a' }}
+        >
+          <BookOpen className="w-6 h-6" />
+          <span className="text-[11px] font-medium">Journal</span>
+        </button>
+      </div>
+
       <BrainDumpLiveDialog
         open={brainDumpOpen}
         onOpenChange={setBrainDumpOpen}
@@ -206,5 +165,21 @@ const Home = () => {
     </div>
   );
 };
+
+/* Small nav button used on sides */
+const NavButton = ({ icon, label, onClick, accent }: { icon: React.ReactNode; label: string; onClick: () => void; accent?: boolean }) => (
+  <button
+    onClick={onClick}
+    className="flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-all min-w-[76px]"
+    style={{
+      background: 'rgba(255,255,255,0.55)',
+      border: '1px solid rgba(201, 191, 168, 0.4)',
+      color: accent ? '#c07030' : '#6b5e4d',
+    }}
+  >
+    {icon}
+    <span className="text-[11px] font-medium whitespace-nowrap">{label}</span>
+  </button>
+);
 
 export default Home;
