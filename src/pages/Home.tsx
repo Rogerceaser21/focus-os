@@ -129,7 +129,7 @@ const Home = () => {
               }}
             />
           </motion.button>
-          <span className="text-sm font-medium text-center" style={{ color: '#8a8070' }}>
+          <span className="text-sm font-medium text-center text-muted-foreground">
             Tap to capture your thoughts into tasks
           </span>
         </div>
