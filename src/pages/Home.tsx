@@ -137,12 +137,7 @@ const Home = () => {
         {/* Record Meeting — always centered */}
         <button
           onClick={() => navigate('/meetings')}
-          className="flex items-center gap-2 px-6 py-3 rounded-full transition-all"
-          style={{
-            background: 'rgba(201, 191, 168, 0.25)',
-            border: '1px solid rgba(201, 191, 168, 0.5)',
-            color: '#6b5e4d',
-          }}
+          className="flex items-center gap-2 px-6 py-3 rounded-full transition-all border border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary"
         >
           <Video className="w-4 h-4" />
           <span className="text-sm font-medium">Record Meeting</span>
