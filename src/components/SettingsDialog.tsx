@@ -46,7 +46,7 @@ export default function SettingsDialog({
   onSave,
 }: SettingsDialogProps) {
   const { setTheme } = useTheme();
-  const [selectedTheme, setSelectedTheme] = useState<'dark' | 'light'>('dark');
+  const [selectedTheme, setSelectedTheme] = useState<'dark' | 'light' | 'cream'>('dark');
   const [defaultView, setDefaultView] = useState<string>('today');
   const [displayMode, setDisplayMode] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
