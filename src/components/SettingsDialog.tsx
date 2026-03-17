@@ -66,7 +66,7 @@ export default function SettingsDialog({
 
   // Apply theme immediately when changed
   const handleThemeChange = (value: string) => {
-    const newTheme = value as 'dark' | 'light';
+    const newTheme = value as 'dark' | 'light' | 'cream';
     setSelectedTheme(newTheme);
     setTheme(newTheme);
   };
