@@ -406,7 +406,7 @@ export const ProjectSidebar = ({
     }
   };
 
-
+  const handleAcceptSharedItem = async (sharedItemId: string) => {
     setAcceptingId(sharedItemId);
     try {
       const { data, error } = await supabase.functions.invoke('focusos-accept-shared-item', {
