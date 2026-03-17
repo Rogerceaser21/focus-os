@@ -503,6 +503,7 @@ const Index = () => {
         fetchInitialTasks(
           selectedProjectId || 
           (selectedSpecialList === 'today' ? 'today' : 
+           selectedSpecialList === 'past-due' ? 'today' :
            selectedSpecialList === 'unassigned' ? 'unassigned' : 'today')
         );
       }
