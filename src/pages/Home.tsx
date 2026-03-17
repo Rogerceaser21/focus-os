@@ -101,7 +101,7 @@ const Home = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35 }}
                 className="text-base sm:text-lg absolute inset-0 flex items-center justify-center"
-                style={{ color: '#8a8070' }}
+                style={{ color: 'hsl(var(--muted-foreground))' }}
               >
                 {SUBTITLES[subtitleIndex]}
               </motion.p>
