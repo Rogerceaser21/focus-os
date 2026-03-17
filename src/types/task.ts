@@ -33,4 +33,5 @@ export interface Project {
   color: string;
   timer: TaskTimer;
   isShared?: boolean;
+  userId?: string;
 }
