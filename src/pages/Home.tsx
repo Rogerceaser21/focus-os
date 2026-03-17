@@ -33,25 +33,30 @@ const Home = () => {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
 
-  // Set html/body background to match warm cream theme for iOS safe areas
+  // Set html/body background to match theme for iOS safe areas
   useEffect(() => {
     const html = document.documentElement;
-    const meta = document.querySelector('meta[name="theme-color"]') || document.createElement('meta');
+    const body = document.body;
     const prevBg = html.style.background;
-    const prevBodyBg = document.body.style.background;
+    const prevBodyBg = body.style.background;
     
-    html.style.background = '#ede7db';
-    document.body.style.background = '#ede7db';
+    // Read the computed background color from the themed CSS
+    const computed = getComputedStyle(html);
+    const bg = computed.getPropertyValue('background-color') || `hsl(${computed.getPropertyValue('--background').trim()})`;
     
+    html.style.background = bg;
+    body.style.background = bg;
+    
+    const meta = document.querySelector('meta[name="theme-color"]') || document.createElement('meta');
     meta.setAttribute('name', 'theme-color');
-    meta.setAttribute('content', '#ede7db');
+    meta.setAttribute('content', bg);
     if (!document.querySelector('meta[name="theme-color"]')) {
       document.head.appendChild(meta);
     }
 
     return () => {
       html.style.background = prevBg;
-      document.body.style.background = prevBodyBg;
+      body.style.background = prevBodyBg;
       meta.setAttribute('content', '');
     };
   }, []);
