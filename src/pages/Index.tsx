@@ -2058,67 +2058,20 @@ https://www.skyscanner.com`,
                 </div>;
               })()}
 
-              <TabsContent value="all" className="mt-6">
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {(selectedSpecialList === 'today' ? todayOnlyTasks : sortedTasks).filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
-                </div>
-                {selectedSpecialList === 'today' && pastDueTasks.filter(t => t.status !== 'completed').length > 0 && (
-                  <>
-                    <div className="mt-8 mb-4 flex items-center gap-2 px-2">
-                      <AlertTriangle className="h-4 w-4 text-orange-400/80" />
-                      <span className="text-sm font-semibold uppercase tracking-wider text-orange-400/80">Past Due</span>
-                      <div className="flex-1 h-px bg-orange-400/20" />
-                      <span className="text-xs text-orange-400/60">{pastDueTasks.filter(t => t.status !== 'completed').length}</span>
-                    </div>
-                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                      {pastDueTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
-                    </div>
-                  </>
-                )}
+              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="todo" className="mt-6">
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {(selectedSpecialList === 'today' ? todayOnlyTasks : sortedTasks).filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
-                </div>
-                {selectedSpecialList === 'today' && pastDueTasks.filter(t => t.status === 'todo').length > 0 && (
-                  <>
-                    <div className="mt-8 mb-4 flex items-center gap-2 px-2">
-                      <AlertTriangle className="h-4 w-4 text-orange-400/80" />
-                      <span className="text-sm font-semibold uppercase tracking-wider text-orange-400/80">Past Due</span>
-                      <div className="flex-1 h-px bg-orange-400/20" />
-                      <span className="text-xs text-orange-400/60">{pastDueTasks.filter(t => t.status === 'todo').length}</span>
-                    </div>
-                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                      {pastDueTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
-                    </div>
-                  </>
-                )}
+              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="in-progress" className="mt-6">
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {(selectedSpecialList === 'today' ? todayOnlyTasks : sortedTasks).filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
-                </div>
-                {selectedSpecialList === 'today' && pastDueTasks.filter(t => t.status === 'in-progress').length > 0 && (
-                  <>
-                    <div className="mt-8 mb-4 flex items-center gap-2 px-2">
-                      <AlertTriangle className="h-4 w-4 text-orange-400/80" />
-                      <span className="text-sm font-semibold uppercase tracking-wider text-orange-400/80">Past Due</span>
-                      <div className="flex-1 h-px bg-orange-400/20" />
-                      <span className="text-xs text-orange-400/60">{pastDueTasks.filter(t => t.status === 'in-progress').length}</span>
-                    </div>
-                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                      {pastDueTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
-                    </div>
-                  </>
-                )}
+              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="completed" className="mt-6">
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {(selectedSpecialList === 'today' ? todayOnlyTasks : sortedTasks).filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
-                </div>
+              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
               </TabsContent>
             </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
               <GanttChart 
