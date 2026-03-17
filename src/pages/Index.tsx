@@ -1906,8 +1906,9 @@ https://www.skyscanner.com`,
 
               {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (() => {
                 const currentProject2 = projects.find(p => p.id === selectedProjectId);
+                const isCollaborator2 = (currentProject2?.isShared && currentProject2?.userId !== user?.id) ?? false;
                 const isSharedProject2 = currentProject2?.isShared ?? false;
-                const assignedByEmail2 = isSharedProject2 ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+                const assignedByEmail2 = isCollaborator2 ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
                 return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 px-3 py-2">
                     <div className="flex flex-col gap-0.5 flex-1">
