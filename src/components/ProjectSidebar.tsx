@@ -27,8 +27,8 @@ import {
 interface ProjectSidebarProps {
   selectedProjectId: string | null;
   onSelectProject: (projectId: string | null) => void;
-  onSelectSpecialList: (list: 'unassigned' | 'today' | null) => void;
-  selectedSpecialList: 'unassigned' | 'today' | null;
+  onSelectSpecialList: (list: 'unassigned' | 'today' | 'past-due' | null) => void;
+  selectedSpecialList: 'unassigned' | 'today' | 'past-due' | null;
   projectRefreshTrigger?: number;
   onProjectCreated?: () => void;
   onStartTour?: () => void;
