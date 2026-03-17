@@ -608,7 +608,7 @@ export const ProjectSidebar = ({
         <Button 
           variant="outline"
           size="sm" 
-          className="w-full gap-2 mt-2 border-teal-500/50 text-teal-400 hover:bg-teal-500/10 hover:border-teal-400"
+          className="w-full gap-2 mt-2 border-primary/50 text-primary hover:bg-primary/10 hover:border-primary"
           onClick={() => {
             navigate('/meetings');
             if (isActuallyMobile) setOpenMobile(false);
