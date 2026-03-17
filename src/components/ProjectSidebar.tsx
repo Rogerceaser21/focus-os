@@ -381,6 +381,8 @@ export const ProjectSidebar = ({
       toast.success('Project invitation accepted!');
       fetchProjectInvitations();
       fetchProjects();
+      // Trigger parent to refetch tasks so the shared project's tasks are loaded
+      onProjectCreated?.();
     } catch (err) {
       console.error('Accept invite error:', err);
       toast.error('Failed to accept invitation');
