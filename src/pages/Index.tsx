@@ -50,6 +50,8 @@ import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { DraggableTaskList } from '@/components/DraggableTaskList';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
 import { ShareStatusPopover } from '@/components/ShareStatusPopover';
+import { InviteProjectMemberDialog } from '@/components/InviteProjectMemberDialog';
+import { ProjectMembersBar } from '@/components/ProjectMembersBar';
 import { addDays } from 'date-fns';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
