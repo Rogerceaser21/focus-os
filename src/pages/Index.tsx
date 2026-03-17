@@ -178,7 +178,8 @@ const Index = () => {
   const [lastProcessedTourStep, setLastProcessedTourStep] = useState<number | null>(null);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences(user?.id);
-  const { setTheme } = useTheme();
+  const { setTheme, theme } = useTheme();
+  const isCream = theme === 'cream';
   const { triggerParticles, containerRef } = useParticleAnimation({
     particleCount: 12,
     colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
