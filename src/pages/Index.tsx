@@ -2075,6 +2075,7 @@ https://www.skyscanner.com`,
                     setEditingTask(null);
                   }}
                   projects={projects}
+                  currentUserId={user?.id}
                 />
               ) : (
                 <AddTaskDialog
