@@ -1951,7 +1951,7 @@ https://www.skyscanner.com`,
                       )}
                     </div>
                     
-                    {!isSharedProject2 && (
+                    {!isCollaborator2 && (
                       <>
                         <Button 
                           variant={isReorderMode ? 'secondary' : 'ghost'}
