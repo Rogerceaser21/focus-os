@@ -77,11 +77,11 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
     { bg: 'bg-green-500', border: 'border-green-500' },
     { bg: 'bg-orange-500', border: 'border-orange-500' },
     { bg: 'bg-pink-500', border: 'border-pink-500' },
-    { bg: 'bg-cyan-500', border: 'border-cyan-500' },
+    { bg: 'bg-amber-600', border: 'border-amber-600' },
     { bg: 'bg-yellow-500', border: 'border-yellow-500' },
     { bg: 'bg-indigo-500', border: 'border-indigo-500' },
     { bg: 'bg-red-500', border: 'border-red-500' },
-    { bg: 'bg-teal-500', border: 'border-teal-500' }
+    { bg: 'bg-rose-700', border: 'border-rose-700' }
   ];
 
   if (tasksWithDates.length === 0) {

@@ -74,7 +74,7 @@ const ProjectsFAB = () => {
         onClick={toggleSidebar}
         className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
         style={{
-          background: 'conic-gradient(from 0deg, hsl(186 80% 55%), hsl(270 80% 60%), hsl(14 90% 65%), hsl(186 80% 55%))'
+          background: 'conic-gradient(from 0deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)), hsl(var(--primary)))'
         }}
       >
         <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
@@ -1693,7 +1693,7 @@ https://www.skyscanner.com`,
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                          className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
                           onClick={() => setShareProjectDialogOpen(true)}
                         >
                           <Share2 className="h-4 w-4" />
@@ -1762,7 +1762,7 @@ https://www.skyscanner.com`,
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                        className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
                         onClick={() => setShareProjectDialogOpen(true)}
                       >
                         <Share2 className="h-4 w-4" />
@@ -1880,7 +1880,7 @@ https://www.skyscanner.com`,
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                        className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
                         onClick={() => setShareProjectDialogOpen(true)}
                       >
                         <Share2 className="h-4 w-4" />
@@ -2074,7 +2074,7 @@ https://www.skyscanner.com`,
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="gap-1 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                          className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
                           onClick={() => setShareProjectDialogOpen(true)}
                         >
                           <Share2 className="h-4 w-4" />
@@ -2245,7 +2245,7 @@ https://www.skyscanner.com`,
                         className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
                         data-tour-step="menu-fab"
                         style={{
-                          background: 'conic-gradient(from 0deg, hsl(186 80% 55%), hsl(270 80% 60%), hsl(14 90% 65%), hsl(186 80% 55%))'
+                          background: 'conic-gradient(from 0deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)), hsl(var(--primary)))'
                         }}
                       >
                         <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
@@ -2386,7 +2386,7 @@ https://www.skyscanner.com`,
             <Button
               onClick={handleSubmitChangesNeeded}
               disabled={!changesNeededMessage.trim() || changesNeededLoading}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               {changesNeededLoading ? 'Sending...' : 'Send Changes Request'}
             </Button>

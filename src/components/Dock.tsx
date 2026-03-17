@@ -125,7 +125,7 @@ export default function Dock({
                 {item.permanentLabel && item.permanentLabel !== 'Settings' && (() => {
                   const getBadgeColors = (label: string) => {
                     switch (label) {
-                      case 'Brain Dump': return { bg: 'bg-cyan-950 border-cyan-800', icon: 'text-cyan-400' };
+                      case 'Brain Dump': return { bg: 'bg-primary/10 border-primary/30', icon: 'text-primary' };
                       default: return { bg: 'bg-red-950 border-red-800', icon: 'text-red-400' };
                     }
                   };

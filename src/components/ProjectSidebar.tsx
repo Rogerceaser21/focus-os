@@ -577,7 +577,7 @@ export const ProjectSidebar = ({
             <DropdownMenuTrigger asChild>
               <Button 
                 size="sm" 
-                className="gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                className="gap-2 bg-accent hover:bg-accent/90 text-accent-foreground"
               >
                 <HelpCircle className="h-4 w-4" />
                 Help
@@ -608,7 +608,7 @@ export const ProjectSidebar = ({
         <Button 
           variant="outline"
           size="sm" 
-          className="w-full gap-2 mt-2 border-teal-500/50 text-teal-400 hover:bg-teal-500/10 hover:border-teal-400"
+          className="w-full gap-2 mt-2 border-primary/50 text-primary hover:bg-primary/10 hover:border-primary"
           onClick={() => {
             navigate('/meetings');
             if (isActuallyMobile) setOpenMobile(false);
@@ -670,7 +670,7 @@ export const ProjectSidebar = ({
                         if (isActuallyMobile) setOpenMobile(false);
                       }}
                     >
-                      <Mic className="h-4 w-4 text-teal-400" />
+                      <Mic className="h-4 w-4 text-primary" />
                       <span className="truncate">{meeting.title}</span>
                     </Button>
                   ))}
@@ -809,7 +809,7 @@ export const ProjectSidebar = ({
                       ? <ClipboardList className="h-3.5 w-3.5 text-primary" />
                       : item.item_type === 'project' 
                       ? <Folder className="h-3.5 w-3.5 text-primary" />
-                      : <Mic className="h-3.5 w-3.5 text-teal-400" />;
+                      : <Mic className="h-3.5 w-3.5 text-primary" />;
                     
                     // For change_request items, sender_name holds the change message
                     const changeMessage = isChangeRequest ? item.sender_name : null;
