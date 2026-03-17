@@ -86,6 +86,7 @@ export const ProjectSidebar = ({
     fetchProjects();
     fetchMeetings();
     fetchSharedItems();
+    fetchProjectInvitations();
   }, [projectRefreshTrigger]);
 
   // Supabase Realtime: live shared items for current user (as recipient)
