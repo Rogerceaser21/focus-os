@@ -1573,7 +1573,7 @@ https://www.skyscanner.com`,
                           </span>
                         )}
                       </div>
-                      {isSharedProject && assignedByEmail && (
+                      {isCollaborator && assignedByEmail && (
                         <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 ml-7 mt-1 w-fit">
                           <Share2 className="h-3 w-3 shrink-0" />
                           <span className="break-words">Project shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
