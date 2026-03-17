@@ -398,6 +398,15 @@ const Index = () => {
       const today = new Date();
       const todayEnd = endOfDay(today);
       filtered = allTasks.filter(t => t.dueDate && new Date(t.dueDate) <= todayEnd);
+    } else if (selectedSpecialList === 'past-due') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      filtered = allTasks.filter(t => {
+        if (!t.dueDate) return false;
+        const d = new Date(t.dueDate);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime() < today.getTime();
+      });
     }
     
     setTasks(filtered);
