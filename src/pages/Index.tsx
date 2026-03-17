@@ -1359,7 +1359,14 @@ https://www.skyscanner.com`,
         today.setHours(0, 0, 0, 0);
         const taskDueDate = new Date(task.dueDate);
         taskDueDate.setHours(0, 0, 0, 0);
-        return taskDueDate <= today;
+        return taskDueDate.getTime() === today.getTime();
+      } else if (selectedSpecialList === 'past-due') {
+        if (!task.dueDate) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const taskDueDate = new Date(task.dueDate);
+        taskDueDate.setHours(0, 0, 0, 0);
+        return taskDueDate.getTime() < today.getTime();
       }
       return true;
     });
