@@ -17,7 +17,7 @@ const Landing = () => {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/app');
+      navigate('/home');
     }
   }, [user, loading, navigate]);
 
