@@ -126,37 +126,37 @@ All colors MUST be HSL.
     --popover: 38 35% 96%;
     --popover-foreground: 30 25% 13%;
 
-    --primary: 186 80% 40%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 18 60% 45%;
+    --primary-foreground: 38 30% 96%;
 
     --secondary: 35 20% 85%;
     --secondary-foreground: 30 25% 18%;
 
     --muted: 35 18% 88%;
-    --muted-foreground: 30 12% 45%;
+    --muted-foreground: 30 18% 42%;
 
-    --accent: 14 90% 55%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 350 45% 35%;
+    --accent-foreground: 38 30% 96%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 38 30% 96%;
 
     --border: 35 18% 78%;
     --input: 35 18% 82%;
-    --ring: 186 80% 40%;
+    --ring: 18 60% 45%;
 
-    --success: 142 76% 40%;
-    --warning: 38 92% 50%;
-    --info: 199 89% 48%;
+    --success: 85 40% 38%;
+    --warning: 32 70% 48%;
+    --info: 28 55% 50%;
 
     --sidebar-background: 38 28% 94%;
     --sidebar-foreground: 30 25% 18%;
-    --sidebar-primary: 186 80% 40%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-primary: 18 60% 45%;
+    --sidebar-primary-foreground: 38 30% 96%;
     --sidebar-accent: 35 20% 88%;
     --sidebar-accent-foreground: 30 25% 18%;
     --sidebar-border: 35 18% 80%;
-    --sidebar-ring: 186 80% 40%;
+    --sidebar-ring: 18 60% 45%;
 
     --dock-background: 30 20% 16%;
 
@@ -165,7 +165,7 @@ All colors MUST be HSL.
     --glass-border: 35 18% 78% / 0.5;
     --glass-shadow: 30 20% 30% / 0.08;
     --glass-blur: 16px;
-    --glass-glow: 186 80% 50% / 0.15;
+    --glass-glow: 18 60% 45% / 0.15;
   }
 }
 
