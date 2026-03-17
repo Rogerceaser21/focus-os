@@ -146,8 +146,8 @@ const Home = () => {
 
       {/* Bottom nav — 4 equal-width buttons */}
       <div
-        className="fixed bottom-0 left-0 right-0 grid grid-cols-4 z-20"
-        style={{ background: 'rgba(30, 25, 18, 0.95)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+        className="fixed bottom-0 left-0 right-0 grid grid-cols-4 z-20 border-t border-border/30"
+        style={{ background: 'hsl(var(--dock-background))' }}
       >
         <BottomNavButton icon={<FolderOpen className="w-5 h-5" />} label="Projects" onClick={() => navigate('/app?view=projects')} />
         <BottomNavButton icon={<Calendar className="w-5 h-5" />} label="Meetings" onClick={() => navigate('/meetings')} />
