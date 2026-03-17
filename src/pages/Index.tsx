@@ -1579,7 +1579,7 @@ https://www.skyscanner.com`,
                           <span className="break-words">Project shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
                         </Badge>
                       )}
-                      {!isSharedProject && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
+                      {!isCollaborator && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
                         <div className="ml-7 mt-1">
                           <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
                         </div>
