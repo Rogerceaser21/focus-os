@@ -1395,27 +1395,8 @@ https://www.skyscanner.com`,
     sharedRecipients: senderSharedMap[t.id] || undefined,
   }));
 
-  // Split today view into "Today" (due today) and "Past Due" (due before today)
-  const { todayOnlyTasks, pastDueTasks } = useMemo(() => {
-    if (selectedSpecialList !== 'today') {
-      return { todayOnlyTasks: sortedTasks, pastDueTasks: [] as typeof sortedTasks };
-    }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayOnly: typeof sortedTasks = [];
-    const pastDue: typeof sortedTasks = [];
-    sortedTasks.forEach(task => {
-      if (!task.dueDate) return;
-      const taskDate = new Date(task.dueDate);
-      taskDate.setHours(0, 0, 0, 0);
-      if (taskDate.getTime() === today.getTime()) {
-        todayOnly.push(task);
-      } else if (taskDate.getTime() < today.getTime()) {
-        pastDue.push(task);
-      }
-    });
-    return { todayOnlyTasks: todayOnly, pastDueTasks: pastDue };
-  }, [sortedTasks, selectedSpecialList]);
+
+
   
   // Show loading screen while auth, preferences, or initial tasks are loading
   if (authLoading || prefsLoading || (user && !preferences) || (user && !initialLoadComplete)) {
