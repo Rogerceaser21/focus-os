@@ -27,6 +27,7 @@ interface EditTaskDialogProps {
   projects?: Project[];
   onAssigned?: (taskId: string, email: string) => void;
   desktopDocked?: boolean;
+  currentUserId?: string;
 }
 
 export const EditTaskDialog = ({
