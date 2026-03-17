@@ -670,7 +670,7 @@ export const ProjectSidebar = ({
                         if (isActuallyMobile) setOpenMobile(false);
                       }}
                     >
-                      <Mic className="h-4 w-4 text-teal-400" />
+                      <Mic className="h-4 w-4 text-primary" />
                       <span className="truncate">{meeting.title}</span>
                     </Button>
                   ))}
