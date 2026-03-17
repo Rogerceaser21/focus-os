@@ -1798,7 +1798,61 @@ https://www.skyscanner.com`,
                 </div>
               )}
 
-              {/* Unassigned Tasks Banner */}
+              {/* Past Due Banner */}
+              {selectedSpecialList === 'past-due' && (
+                <div className="mt-4 w-full bg-orange-400/5 p-1 rounded-md border border-orange-400/20">
+                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <AlertTriangle className="h-5 w-5 text-orange-400/80" />
+                      <span className="font-semibold text-base text-orange-400/80">
+                        Past Due
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant={isReorderMode ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setIsReorderMode(!isReorderMode)}
+                        className="gap-1"
+                      >
+                        <ArrowUpDown className="h-4 w-4" />
+                        <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                        <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
+                      </Button>
+
+                      {/* Status Dropdown for Mobile/Tablet */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
+                            <span className="text-sm">Status</span>
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setActiveTab('all')}>
+                            All ({sortedTasks.filter(t => t.status !== 'completed').length})
+                            {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setActiveTab('todo')}>
+                            To Do ({sortedTasks.filter(t => t.status === 'todo').length})
+                            {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
+                            Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
+                            {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setActiveTab('completed')}>
+                            Done ({sortedTasks.filter(t => t.status === 'completed').length})
+                            {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {selectedSpecialList === 'unassigned' && (
                 <div className="mt-4 w-full bg-muted p-1 rounded-md border">
                   <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
