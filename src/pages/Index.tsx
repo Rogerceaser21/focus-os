@@ -1930,9 +1930,9 @@ https://www.skyscanner.com`,
                           />
                         ) : (
                           <span 
-                            className={`font-semibold text-base ${!isSharedProject2 ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
+                            className={`font-semibold text-base ${!isCollaborator2 ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
                             style={{ color: currentProject2?.color }}
-                            onClick={!isSharedProject2 ? handleStartEditingProject : undefined}
+                            onClick={!isCollaborator2 ? handleStartEditingProject : undefined}
                           >
                             {currentProject2?.name}
                           </span>
