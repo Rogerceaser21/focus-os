@@ -83,7 +83,7 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(180deg, #ede7db 0%, #f5f0e8 40%, #faf7f2 100%)' }}>
+    <div className="min-h-screen flex flex-col bg-background">
 
       {/* Main content — centered */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
