@@ -2291,6 +2291,17 @@ https://www.skyscanner.com`,
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Invite Project Member Dialog */}
+      {selectedProjectId && (
+        <InviteProjectMemberDialog
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+          projectId={selectedProjectId}
+          projectName={projects.find(p => p.id === selectedProjectId)?.name || 'Project'}
+          onInviteSent={() => setMemberRefreshTrigger(prev => prev + 1)}
+        />
+      )}
     </SidebarProvider>
   </PullToRefresh>;
 };
