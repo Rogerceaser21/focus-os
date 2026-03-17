@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Landing from "./pages/Landing";
+import Home from "./pages/Home";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Intro from "./pages/Intro";
