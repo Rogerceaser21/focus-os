@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FolderOpen, Calendar, ListTodo, AlertTriangle, Home as HomeIcon, BookOpen, Video } from 'lucide-react';
+import { FolderOpen, Calendar, ListTodo, AlertTriangle, Video } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
@@ -57,7 +57,7 @@ const Home = () => {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(180deg, #ede7db 0%, #f5f0e8 40%, #faf7f2 100%)' }}>
 
-      {/* Main content */}
+      {/* Main content — centered */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
         {/* Greeting */}
         <div className="text-center mb-10">
@@ -82,7 +82,7 @@ const Home = () => {
         </div>
 
         {/* Brain Dump Button */}
-        <div className="flex flex-col items-center gap-3 mb-10">
+        <div className="flex flex-col items-center gap-3 mb-8">
           <motion.button
             whileTap={{ scale: 0.93 }}
             whileHover={{ scale: 1.03 }}
@@ -94,7 +94,6 @@ const Home = () => {
               border: '3px solid #c9bfa8',
             }}
           >
-            {/* Red dot */}
             <div
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full"
               style={{
@@ -103,56 +102,35 @@ const Home = () => {
               }}
             />
           </motion.button>
-          <span className="text-sm font-medium" style={{ color: '#8a8070' }}>Tap to record</span>
+          <span className="text-sm font-medium text-center" style={{ color: '#8a8070' }}>
+            Tap to capture your thoughts into tasks
+          </span>
         </div>
 
-        {/* Navigation grid */}
-        <div className="flex items-center gap-4 sm:gap-6 w-full max-w-sm justify-center mb-6">
-          {/* Left buttons */}
-          <div className="flex flex-col gap-3">
-            <NavButton icon={<FolderOpen className="w-5 h-5" />} label="Projects" onClick={() => navigate('/app?view=projects')} />
-            <NavButton icon={<Calendar className="w-5 h-5" />} label="Meetings" onClick={() => navigate('/meetings')} />
-          </div>
-
-          {/* Record Meeting center button */}
-          <button
-            onClick={() => navigate('/meetings')}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full transition-all"
-            style={{
-              background: 'rgba(201, 191, 168, 0.25)',
-              border: '1px solid rgba(201, 191, 168, 0.5)',
-              color: '#6b5e4d',
-            }}
-          >
-            <Video className="w-4 h-4" />
-            <span className="text-sm font-medium">Record Meeting</span>
-          </button>
-
-          {/* Right buttons */}
-          <div className="flex flex-col gap-3">
-            <NavButton icon={<ListTodo className="w-5 h-5" />} label="Today's To-Do" onClick={() => navigate('/app?view=today')} />
-            <NavButton icon={<AlertTriangle className="w-5 h-5" style={{ color: '#c07030' }} />} label="Past Due" onClick={() => navigate('/app?view=past-due')} accent />
-          </div>
-        </div>
+        {/* Record Meeting — always centered */}
+        <button
+          onClick={() => navigate('/meetings')}
+          className="flex items-center gap-2 px-6 py-3 rounded-full transition-all"
+          style={{
+            background: 'rgba(201, 191, 168, 0.25)',
+            border: '1px solid rgba(201, 191, 168, 0.5)',
+            color: '#6b5e4d',
+          }}
+        >
+          <Video className="w-4 h-4" />
+          <span className="text-sm font-medium">Record Meeting</span>
+        </button>
       </div>
 
-      {/* Bottom nav */}
+      {/* Bottom nav — 4 equal-width buttons */}
       <div
-        className="fixed bottom-0 left-0 right-0 flex items-center justify-center gap-16 py-3 z-20"
+        className="fixed bottom-0 left-0 right-0 grid grid-cols-4 z-20"
         style={{ background: 'rgba(30, 25, 18, 0.95)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
       >
-        <button className="flex flex-col items-center gap-0.5" style={{ color: '#5ec4d4' }}>
-          <HomeIcon className="w-6 h-6" />
-          <span className="text-[11px] font-medium">Home</span>
-        </button>
-        <button
-          onClick={() => navigate('/app')}
-          className="flex flex-col items-center gap-0.5 transition-colors"
-          style={{ color: '#7a7a7a' }}
-        >
-          <BookOpen className="w-6 h-6" />
-          <span className="text-[11px] font-medium">Journal</span>
-        </button>
+        <BottomNavButton icon={<FolderOpen className="w-5 h-5" />} label="Projects" onClick={() => navigate('/app?view=projects')} />
+        <BottomNavButton icon={<Calendar className="w-5 h-5" />} label="Meetings" onClick={() => navigate('/meetings')} />
+        <BottomNavButton icon={<ListTodo className="w-5 h-5" />} label="Today's To-Do" onClick={() => navigate('/app?view=today')} />
+        <BottomNavButton icon={<AlertTriangle className="w-5 h-5" />} label="Past Due" onClick={() => navigate('/app?view=past-due')} accent />
       </div>
 
       <BrainDumpLiveDialog
@@ -166,19 +144,14 @@ const Home = () => {
   );
 };
 
-/* Small nav button used on sides */
-const NavButton = ({ icon, label, onClick, accent }: { icon: React.ReactNode; label: string; onClick: () => void; accent?: boolean }) => (
+const BottomNavButton = ({ icon, label, onClick, accent }: { icon: React.ReactNode; label: string; onClick: () => void; accent?: boolean }) => (
   <button
     onClick={onClick}
-    className="flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-all min-w-[76px]"
-    style={{
-      background: 'rgba(255,255,255,0.55)',
-      border: '1px solid rgba(201, 191, 168, 0.4)',
-      color: accent ? '#c07030' : '#6b5e4d',
-    }}
+    className="flex flex-col items-center justify-center gap-1 py-3 transition-colors"
+    style={{ color: accent ? '#c07030' : '#9a9a9a' }}
   >
     {icon}
-    <span className="text-[11px] font-medium whitespace-nowrap">{label}</span>
+    <span className="text-[10px] font-medium leading-tight">{label}</span>
   </button>
 );
 
