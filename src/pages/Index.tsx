@@ -134,7 +134,7 @@ const Index = () => {
 
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'gantt' | 'time-tracking'>('grid');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | null>(null);
+  const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | 'past-due' | null>(null);
   const [projectRefreshTrigger, setProjectRefreshTrigger] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);

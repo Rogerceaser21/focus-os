@@ -546,7 +546,7 @@ export const ProjectSidebar = ({
     onSelectSpecialList(null);
   };
 
-  const handleSelectSpecial = (list: 'unassigned' | 'today') => {
+  const handleSelectSpecial = (list: 'unassigned' | 'today' | 'past-due') => {
     onSelectSpecialList(list);
     onSelectProject(null);
   };
