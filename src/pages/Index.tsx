@@ -1014,6 +1014,25 @@ https://www.skyscanner.com`,
     fetchTasks();
   };
   const handleUpdateTask = async (updatedTask: Task) => {
+    // Collaborative project completion gating:
+    // If a collaborator (non-owner) tries to mark a task as 'completed' in a shared project,
+    // instead set completedByEmail so the owner can acknowledge via "Move to Done"
+    const taskProject = projects.find(p => p.id === updatedTask.projectId);
+    const originalTask = tasks.find(t => t.id === updatedTask.id);
+    const isCollaboratorCompletion = taskProject?.isShared 
+      && taskProject?.userId !== user?.id 
+      && updatedTask.status === 'completed' 
+      && originalTask?.status !== 'completed';
+    
+    if (isCollaboratorCompletion) {
+      // Collaborator marks complete → set completedByEmail but revert status to previous
+      updatedTask = {
+        ...updatedTask,
+        status: originalTask?.status || 'todo',
+        completedByEmail: user?.email || 'unknown',
+      };
+    }
+
     // Optimistic update: Update local state immediately to prevent list jumping
     setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
     setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
