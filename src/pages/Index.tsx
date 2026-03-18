@@ -87,6 +87,12 @@ const ProjectsFAB = () => {
   );
 };
 
+// BottomNav wrapper that provides sidebar toggle - must be inside SidebarProvider
+const BottomNavWithSidebar = ({ projects }: { projects: { id: string; name: string; color?: string }[] }) => {
+  const { toggleSidebar } = useSidebar();
+  return <BottomNav projects={projects} onToggleSidebar={toggleSidebar} />;
+};
+
 // Mobile sidebar controller for Projects Tour - must be inside SidebarProvider
 const MobileSidebarController = ({ tourStep, isTourActive, currentTourStep }: { tourStep: number | null; isTourActive: boolean; currentTourStep: number }) => {
   const { setOpenMobile, isMobile } = useSidebar();
