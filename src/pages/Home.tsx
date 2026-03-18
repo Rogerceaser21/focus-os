@@ -151,7 +151,7 @@ const Home = () => {
         
         <BottomNavButton icon={<FolderOpen className="w-5 h-5" />} label="Projects" onClick={() => navigate('/app?view=projects')} />
         <BottomNavButton icon={<Calendar className="w-5 h-5" />} label="Meetings" onClick={() => navigate('/meetings')} />
-        <BottomNavButton icon={<ListTodo className="w-5 h-5" />} label="Today's To-Do" onClick={() => navigate('/app?view=today')} />
+        <BottomNavButton icon={<ListTodo className="w-5 h-5" />} label="Today" onClick={() => navigate('/app?view=today')} />
         <BottomNavButton icon={<AlertTriangle className="w-5 h-5" />} label="Past Due" onClick={() => navigate('/app?view=past-due')} accent />
       </div>
 
