@@ -4,7 +4,8 @@ import { FolderOpen, Calendar, ListTodo, AlertTriangle, Settings, LogOut } from 
 import { supabase } from '@/integrations/supabase/client';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
-
+import { useSidebar } from '@/components/ui/sidebar';
+import { useIsMobile } from '@/hooks/use-mobile';
 interface BottomNavProps {
   projects?: { id: string; name: string; color?: string }[];
 }
