@@ -36,7 +36,6 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-      >
         <NavButton
           icon={<FolderOpen className="w-5 h-5" />}
           label="Projects"
