@@ -61,6 +61,7 @@ const Meetings = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('project');
+  const shouldOpenNew = searchParams.get('new') === 'true';
   const { user, loading: authLoading } = useAuth();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
