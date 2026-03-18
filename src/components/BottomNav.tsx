@@ -43,7 +43,13 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
         <NavButton
           icon={<FolderOpen className="w-5 h-5" />}
           label="Projects"
-          onClick={() => navigate('/app?view=projects')}
+          onClick={() => {
+            if (isMobile && location.pathname === '/app') {
+              toggleSidebar();
+            } else {
+              navigate('/app?view=projects');
+            }
+          }}
           active={isActive('/app', 'projects')}
         />
         <NavButton
