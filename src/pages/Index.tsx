@@ -2202,15 +2202,15 @@ https://www.skyscanner.com`,
               style={{ bottom: 'calc(80px + env(safe-area-inset-bottom))' }}
               data-tour-step="menu-fab"
             >
-              {/* Brain Dump button - appears above */}
+               {/* Brain Dump button - appears above, centered to main button */}
               <AnimatePresence>
                 {fabExpanded && (
                   <motion.button
                     initial={{ opacity: 0, y: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, y: -70, scale: 1 }}
+                    animate={{ opacity: 1, y: -66, scale: 1 }}
                     exit={{ opacity: 0, y: 0, scale: 0.5 }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="absolute bottom-0 right-0 w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+                    className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
                     onClick={() => {
                       setFabExpanded(false);
                       setDialogOpen(true);
@@ -2226,15 +2226,15 @@ https://www.skyscanner.com`,
                 )}
               </AnimatePresence>
 
-              {/* Record Meeting button - appears to the left */}
+              {/* Record Meeting button - appears to the left, centered to main button */}
               <AnimatePresence>
                 {fabExpanded && (
                   <motion.button
                     initial={{ opacity: 0, x: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, x: -70, scale: 1 }}
+                    animate={{ opacity: 1, x: -66, scale: 1 }}
                     exit={{ opacity: 0, x: 0, scale: 0.5 }}
                     transition={{ duration: 0.2, ease: 'easeOut', delay: 0.05 }}
-                    className="absolute bottom-0 right-0 w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+                    className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
                     onClick={() => {
                       setFabExpanded(false);
                       navigate('/meetings');
@@ -2256,14 +2256,14 @@ https://www.skyscanner.com`,
                 animate={{ rotate: fabExpanded ? 45 : 0 }}
                 transition={{ duration: 0.2 }}
                 onClick={() => setFabExpanded(prev => !prev)}
-                className="relative w-[56px] h-[56px] rounded-full shadow-lg flex items-center justify-center border-2 border-muted"
+                className="relative w-[56px] h-[56px] rounded-full shadow-lg flex items-center justify-center border-[3.5px] border-foreground/70"
                 style={{ background: 'hsl(var(--card))' }}
               >
                 <div
                   className="rounded-full transition-all duration-200"
                   style={{
-                    width: fabExpanded ? 20 : 22,
-                    height: fabExpanded ? 20 : 22,
+                    width: 14,
+                    height: 14,
                     backgroundColor: 'hsl(var(--destructive))',
                   }}
                 />
