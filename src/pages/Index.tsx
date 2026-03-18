@@ -2181,69 +2181,94 @@ https://www.skyscanner.com`,
           </div>
         </div>
 
-        {/* Mobile Brain Dump dock - hidden when dialogs are open */}
+        {/* Radial FAB Menu - hidden when dialogs are open */}
         {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
           <>
+            {/* Overlay when expanded */}
+            <AnimatePresence>
+              {fabExpanded && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[99] bg-black/20"
+                  onClick={() => setFabExpanded(false)}
+                />
+              )}
+            </AnimatePresence>
 
-            {/* FAB when closed, Dock slides from right when open */}
-            <>
-              {/* Overlay - click to close */}
+            <div
+              className="fixed right-6 z-[100]"
+              style={{ bottom: 'calc(80px + env(safe-area-inset-bottom))' }}
+              data-tour-step="menu-fab"
+            >
+              {/* Brain Dump button - appears above */}
               <AnimatePresence>
-                {mobileDockOpen && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[99] bg-black/20"
-                    onClick={() => setMobileDockOpen(false)}
-                  />
-                )}
-              </AnimatePresence>
-
-              {/* FAB button - only visible when dock is closed */}
-              <AnimatePresence>
-                {!mobileDockOpen && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, delay: 0.2 }}
-                    className="fixed right-6 z-[100]"
-                    style={{ bottom: 'calc(80px + env(safe-area-inset-bottom))' }}
+                {fabExpanded && (
+                  <motion.button
+                    initial={{ opacity: 0, y: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, y: -70, scale: 1 }}
+                    exit={{ opacity: 0, y: 0, scale: 0.5 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="absolute bottom-0 right-0 w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+                    onClick={() => {
+                      setFabExpanded(false);
+                      setDialogOpen(true);
+                    }}
                   >
-                    <button
-                      onClick={() => setMobileDockOpen(true)}
-                      className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
-                      data-tour-step="menu-fab"
-                      style={{
-                        background: 'conic-gradient(from 0deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)), hsl(var(--primary)))'
-                      }}
-                    >
-                      <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
-                        <Mic className="w-6 h-6 text-primary" />
-                      </div>
-                    </button>
-                  </motion.div>
+                    {/* Brain/lightbulb icon */}
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 18h6" />
+                      <path d="M10 22h4" />
+                      <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+                    </svg>
+                  </motion.button>
                 )}
               </AnimatePresence>
 
-              {/* Dock - slides from right edge to center */}
+              {/* Record Meeting button - appears to the left */}
               <AnimatePresence>
-                {mobileDockOpen && (
-                  <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none">
-                    <motion.div
-                      initial={{ x: '100vw' }}
-                      animate={{ x: 0 }}
-                      exit={{ x: '100vw' }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                      className="pointer-events-auto"
-                    >
-                      <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
-                    </motion.div>
-                  </div>
+                {fabExpanded && (
+                  <motion.button
+                    initial={{ opacity: 0, x: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, x: -70, scale: 1 }}
+                    exit={{ opacity: 0, x: 0, scale: 0.5 }}
+                    transition={{ duration: 0.2, ease: 'easeOut', delay: 0.05 }}
+                    className="absolute bottom-0 right-0 w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+                    onClick={() => {
+                      setFabExpanded(false);
+                      navigate('/meetings');
+                    }}
+                  >
+                    {/* Meeting/people icon */}
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </motion.button>
                 )}
               </AnimatePresence>
-            </>
+
+              {/* Main record button */}
+              <motion.button
+                animate={{ rotate: fabExpanded ? 45 : 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setFabExpanded(prev => !prev)}
+                className="relative w-[56px] h-[56px] rounded-full shadow-lg flex items-center justify-center border-2 border-muted"
+                style={{ background: 'hsl(var(--card))' }}
+              >
+                <div
+                  className="rounded-full transition-all duration-200"
+                  style={{
+                    width: fabExpanded ? 20 : 22,
+                    height: fabExpanded ? 20 : 22,
+                    backgroundColor: 'hsl(var(--destructive))',
+                  }}
+                />
+              </motion.button>
+            </div>
           </>
         )}
       </div>
