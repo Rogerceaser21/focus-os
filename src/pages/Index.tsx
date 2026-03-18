@@ -1735,7 +1735,7 @@ https://www.skyscanner.com`,
                     <div className="flex items-center gap-2 flex-1">
                       <Calendar className="h-5 w-5 text-primary" />
                       <span className="font-semibold text-base text-primary">
-                        Today's To-Do
+                        Today
                       </span>
                     </div>
 
