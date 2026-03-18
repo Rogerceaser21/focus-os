@@ -43,8 +43,8 @@ const BottomNav = ({ projects = [], onToggleSidebar }: BottomNavProps) => {
           icon={<FolderOpen className="w-5 h-5" />}
           label="Projects"
           onClick={() => {
-            if (isMobile && location.pathname === '/app') {
-              toggleSidebar();
+            if (isMobile && location.pathname === '/app' && onToggleSidebar) {
+              onToggleSidebar();
             } else {
               navigate('/app?view=projects');
             }
