@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2, Pause, Play, RefreshCw, Share2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
+import RecordFAB from '@/components/RecordFAB';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1110,6 +1111,10 @@ const Meetings = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    <RecordFAB
+      onBrainDump={() => {}}
+      onMeeting={() => setShowParticipants(true)}
+    />
     <BottomNav />
     </>
   );
