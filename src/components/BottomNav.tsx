@@ -15,6 +15,8 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
+  const { toggleSidebar } = useSidebar();
+  const isMobile = useIsMobile();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
