@@ -1577,54 +1577,48 @@ https://www.skyscanner.com`,
                 const assignedByEmail = isCollaborator ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
                 return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
-                    <div className="flex flex-col gap-0.5 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span style={{ color: currentProject?.color }}>📁</span>
-                        
-                        {isEditingProjectName && !isCollaborator ? (
-                          <Input
-                            autoFocus
-                            value={editedProjectName}
-                            onChange={(e) => setEditedProjectName(e.target.value)}
-                            onBlur={handleSaveProjectName}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveProjectName();
-                              if (e.key === 'Escape') setIsEditingProjectName(false);
-                            }}
-                            className="font-semibold text-base h-auto py-1 px-2"
-                            style={{ color: currentProject?.color }}
-                          />
-                        ) : (
-                          <span 
-                            className={`font-semibold text-base ${!isCollaborator ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
-                            style={{ color: currentProject?.color }}
-                            onClick={!isCollaborator ? handleStartEditingProject : undefined}
-                            data-projects-tour-step="project-name"
-                          >
-                            {currentProject?.name}
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-2 flex-1 flex-wrap">
+                      <span style={{ color: currentProject?.color }}>📁</span>
+                      
+                      {isEditingProjectName && !isCollaborator ? (
+                        <Input
+                          autoFocus
+                          value={editedProjectName}
+                          onChange={(e) => setEditedProjectName(e.target.value)}
+                          onBlur={handleSaveProjectName}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveProjectName();
+                            if (e.key === 'Escape') setIsEditingProjectName(false);
+                          }}
+                          className="font-semibold text-base h-auto py-1 px-2"
+                          style={{ color: currentProject?.color }}
+                        />
+                      ) : (
+                        <span 
+                          className={`font-semibold text-base ${!isCollaborator ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
+                          style={{ color: currentProject?.color }}
+                          onClick={!isCollaborator ? handleStartEditingProject : undefined}
+                          data-projects-tour-step="project-name"
+                        >
+                          {currentProject?.name}
+                        </span>
+                      )}
                       {isCollaborator && assignedByEmail && (
-                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 ml-7 mt-1 w-fit">
+                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit">
                           <Share2 className="h-3 w-3 shrink-0" />
-                          <span className="break-words">Project shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
+                          <span className="break-words">Shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
                         </Badge>
                       )}
                       {!isCollaborator && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
-                        <div className="ml-7 mt-1">
-                          <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
-                        </div>
+                        <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
                       )}
                       {!isCollaborator && selectedProjectId && (
-                        <div className="ml-7 mt-1">
-                          <ProjectMembersBar
-                            projectId={selectedProjectId}
-                            isOwner={!isCollaborator}
-                            onInviteClick={() => setInviteDialogOpen(true)}
-                            refreshTrigger={memberRefreshTrigger}
-                          />
-                        </div>
+                        <ProjectMembersBar
+                          projectId={selectedProjectId}
+                          isOwner={!isCollaborator}
+                          onInviteClick={() => setInviteDialogOpen(true)}
+                          refreshTrigger={memberRefreshTrigger}
+                        />
                       )}
                     </div>
 
