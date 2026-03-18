@@ -163,7 +163,7 @@ const Index = () => {
   const [changesNeededDialogOpen, setChangesNeededDialogOpen] = useState(false);
   const [changesNeededLoading, setChangesNeededLoading] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
-  const [mobileDockOpen, setMobileDockOpen] = useState(false);
+  
   const [fabExpanded, setFabExpanded] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
