@@ -2196,7 +2196,7 @@ https://www.skyscanner.com`,
         onRecordingChange={setIsBrainDumpRecording}
       />
 
-      <BottomNav projects={projects} />
+      <BottomNavWithSidebar projects={projects} />
 
       <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setFabExpanded(true)} />
 
