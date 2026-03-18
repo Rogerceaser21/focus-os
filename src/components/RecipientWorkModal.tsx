@@ -71,7 +71,7 @@ export const RecipientWorkModal = ({ open, onOpenChange, sharedItemId, recipient
   const statusLabel: Record<string, { text: string; className: string }> = {
     todo: { text: 'To Do', className: 'bg-muted text-foreground' },
     'in-progress': { text: 'In Progress', className: 'bg-primary/15 text-primary' },
-    completed: { text: 'Completed', className: 'bg-green-500/15 text-green-400' },
+    completed: { text: 'Completed', className: 'bg-success/15 text-success' },
   };
 
   return (
@@ -115,7 +115,7 @@ export const RecipientWorkModal = ({ open, onOpenChange, sharedItemId, recipient
                 </Badge>
                 <Badge variant="outline" className="text-xs capitalize">{task.priority}</Badge>
                 {task.completed_at && (
-                  <span className="text-[10px] text-green-400 flex items-center gap-1">
+                  <span className="text-[10px] text-success flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3" />
                     {format(new Date(task.completed_at), 'MMM d, yyyy')}
                   </span>
@@ -144,7 +144,7 @@ export const RecipientWorkModal = ({ open, onOpenChange, sharedItemId, recipient
                 <p className="text-sm font-mono">
                   {formatTimer(task.timer_total_seconds, task.timer_is_running, task.timer_start_time)}
                   {task.timer_is_running && (
-                    <Badge className="ml-2 bg-green-500/15 text-green-400 text-[10px]">Running</Badge>
+                    <Badge className="ml-2 bg-success/15 text-success text-[10px]">Running</Badge>
                   )}
                 </p>
               </div>

@@ -30,7 +30,7 @@ const statusConfig: Record<string, { icon: React.ReactNode; label: string; class
   pending: { icon: <Clock className="h-3 w-3" />, label: 'Pending', className: 'text-yellow-400' },
   accepted: { icon: <UserCheck className="h-3 w-3" />, label: 'Accepted', className: 'text-blue-400' },
   declined: { icon: <XCircle className="h-3 w-3" />, label: 'Declined', className: 'text-red-400' },
-  completed: { icon: <CheckCircle2 className="h-3 w-3" />, label: 'Completed', className: 'text-green-400' },
+  completed: { icon: <CheckCircle2 className="h-3 w-3" />, label: 'Completed', className: 'text-success' },
 };
 
 export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDone, onRequestChanges, allCompleted, onMoveAllToDone }: ShareStatusPopoverProps) => {
@@ -62,7 +62,7 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
   const trigger = children || (
     <Badge
       variant="outline"
-      className={`${everyoneCompleted ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'bg-purple-600/15 text-purple-400 border-purple-600/30'} text-xs inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-colors`}
+      className={`${everyoneCompleted ? 'bg-success/15 text-success border-success/30' : 'bg-purple-600/15 text-purple-400 border-purple-600/30'} text-xs inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-colors`}
     >
       <Share2 className="h-3 w-3 shrink-0" />
       <span className="break-words">{badgeText}</span>
@@ -131,7 +131,7 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-[10px] h-5 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                            className="text-[10px] h-5 px-2 border-success/30 text-success hover:bg-success/20"
                             onClick={(e) => { e.stopPropagation(); onMoveToDone(r.email); }}
                           >
                             <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
@@ -161,7 +161,7 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
                 <Button
                   size="sm"
                   variant="outline"
-                  className="w-full text-xs h-7 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                  className="w-full text-xs h-7 border-success/30 text-success hover:bg-success/20"
                   onClick={(e) => { e.stopPropagation(); onMoveAllToDone(); }}
                 >
                   <CheckCircle2 className="w-3 h-3 mr-1" />

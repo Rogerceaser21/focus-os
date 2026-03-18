@@ -303,13 +303,13 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
             </div>
           ) : task.completedByEmail && task.status !== 'completed' ? (
             <>
-              <Badge variant="outline" className="bg-green-500/15 text-green-400 border-green-500/30 text-xs ml-auto">
+              <Badge variant="outline" className="bg-success/15 text-success border-success/30 text-xs ml-auto">
                 ✅ Completed by {task.completedByEmail}
               </Badge>
               <Button
                 size="sm"
                 variant="outline"
-                className="text-xs h-6 px-2 border-green-500/30 text-green-400 hover:bg-green-500/20"
+                className="text-xs h-6 px-2 border-success/30 text-success hover:bg-success/20"
                 onClick={() => onUpdate({ ...task, status: 'completed' })}
               >
                 <CheckCircle2 className="h-3 w-3 mr-1" />

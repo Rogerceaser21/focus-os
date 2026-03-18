@@ -263,7 +263,7 @@ export const ShareItemDialog = ({ itemType, itemId, itemTitle, open, onOpenChang
                     )}
                   </div>
                   {contact.isFocusOSUser && (
-                    <span className="flex items-center gap-1 text-[10px] text-green-400 font-medium shrink-0">
+                    <span className="flex items-center gap-1 text-[10px] text-success font-medium shrink-0">
                       <UserCheck className="h-3 w-3" />
                       Focus OS
                     </span>
@@ -310,7 +310,7 @@ export const ShareItemDialog = ({ itemType, itemId, itemTitle, open, onOpenChang
                     )}
                   </div>
                   {r.isFocusOSUser && (
-                    <span className="flex items-center gap-1 text-[10px] text-green-400 font-medium shrink-0">
+                    <span className="flex items-center gap-1 text-[10px] text-success font-medium shrink-0">
                       <UserCheck className="h-3 w-3" />
                     </span>
                   )}
