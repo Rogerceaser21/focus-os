@@ -94,6 +94,7 @@ All colors MUST be HSL.
     --ring: 186 80% 55%;
 
     --success: 142 76% 50%;
+    --success-foreground: 0 0% 100%;
     --warning: 38 92% 60%;
     --info: 199 89% 58%;
 
