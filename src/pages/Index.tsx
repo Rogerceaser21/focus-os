@@ -2210,72 +2210,65 @@ https://www.skyscanner.com`,
         {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
           <>
 
-            {/* Mobile: FAB when closed, Dock slides from right to bottom position when open */}
-            {isMobile && (
-              <>
-                {/* Overlay - click to close */}
-                <AnimatePresence>
-                  {mobileDockOpen && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-[99] bg-black/20"
-                      onClick={() => setMobileDockOpen(false)}
-                    />
-                  )}
-                </AnimatePresence>
+            {/* FAB when closed, Dock slides from right when open */}
+            <>
+              {/* Overlay - click to close */}
+              <AnimatePresence>
+                {mobileDockOpen && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[99] bg-black/20"
+                    onClick={() => setMobileDockOpen(false)}
+                  />
+                )}
+              </AnimatePresence>
 
-                {/* Projects FAB button - bottom left, only visible when dock is closed and sidebar is closed */}
-                <AnimatePresence>
-                  {!mobileDockOpen && !sidebarOpen && <ProjectsFAB />}
-                </AnimatePresence>
-
-                {/* FAB button - only visible when dock is closed */}
-                <AnimatePresence>
-                  {!mobileDockOpen && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15, delay: 0.2 }}
-                      className="fixed right-6 z-[100]"
-                      style={{ bottom: 'calc(44px + env(safe-area-inset-bottom))' }}
+              {/* FAB button - only visible when dock is closed */}
+              <AnimatePresence>
+                {!mobileDockOpen && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15, delay: 0.2 }}
+                    className="fixed right-6 z-[100]"
+                    style={{ bottom: 'calc(44px + env(safe-area-inset-bottom))' }}
+                  >
+                    <button
+                      onClick={() => setMobileDockOpen(true)}
+                      className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
+                      data-tour-step="menu-fab"
+                      style={{
+                        background: 'conic-gradient(from 0deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)), hsl(var(--primary)))'
+                      }}
                     >
-                      <button
-                        onClick={() => setMobileDockOpen(true)}
-                        className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
-                        data-tour-step="menu-fab"
-                        style={{
-                          background: 'conic-gradient(from 0deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)), hsl(var(--primary)))'
-                        }}
-                      >
-                        <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
-                          <Mic className="w-6 h-6 text-primary" />
-                        </div>
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
+                        <Mic className="w-6 h-6 text-primary" />
+                      </div>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                {/* Dock - slides from right edge to center */}
-                <AnimatePresence>
-                  {mobileDockOpen && (
-                    <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none">
-                      <motion.div
-                        initial={{ x: '100vw' }}
-                        animate={{ x: 0 }}
-                        exit={{ x: '100vw' }}
-                        transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="pointer-events-auto"
-                      >
-                        <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
-                      </motion.div>
-                    </div>
-                  )}
-                </AnimatePresence>
-              </>
-            )}
+              {/* Dock - slides from right edge to center */}
+              <AnimatePresence>
+                {mobileDockOpen && (
+                  <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none">
+                    <motion.div
+                      initial={{ x: '100vw' }}
+                      animate={{ x: 0 }}
+                      exit={{ x: '100vw' }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="pointer-events-auto"
+                    >
+                      <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            </>
           </>
         )}
       </div>
