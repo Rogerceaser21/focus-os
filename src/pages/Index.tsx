@@ -1441,7 +1441,6 @@ https://www.skyscanner.com`,
   if (!user) {
     return null;
   }
-  const [fabExpanded, setFabExpanded] = useState(false);
 
   return <PullToRefresh>
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
