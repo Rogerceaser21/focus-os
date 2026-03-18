@@ -31,7 +31,11 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
     <>
       <div
         className="fixed bottom-0 left-0 right-0 grid grid-cols-6 z-20 border-t border-border/30"
-        style={{ background: 'hsl(var(--dock-background))' }}
+        style={{
+          background: 'hsl(var(--dock-background))',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
       >
         <NavButton
           icon={<FolderOpen className="w-5 h-5" />}
