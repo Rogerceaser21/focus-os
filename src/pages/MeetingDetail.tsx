@@ -765,7 +765,8 @@ const MeetingDetail = () => {
   const summary = parseSummary(meeting.summary);
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+    <div className="min-h-screen bg-background pb-16">
       {/* Header */}
       <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
