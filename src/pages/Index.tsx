@@ -603,9 +603,18 @@ const Index = () => {
 
   // Apply user preferences on load
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+
     if (preferences && !preferencesLoaded && projects.length > 0 && !selectedProjectId && !selectedSpecialList) {
-      // Apply default view
-      if (preferences.default_view === 'today') {
+      // If URL has a view param, use it (from Home nav)
+      if (viewParam === 'past-due' || viewParam === 'today' || viewParam === 'unassigned') {
+        setSelectedSpecialList(viewParam);
+        setSelectedProjectId(null);
+      } else if (viewParam === 'projects') {
+        // Just load default project view
+        setSelectedSpecialList(null);
+      } else if (preferences.default_view === 'today') {
         setSelectedSpecialList('today');
         setSelectedProjectId(null);
       } else if (preferences.default_view === 'unassigned') {
