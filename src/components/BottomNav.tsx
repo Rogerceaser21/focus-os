@@ -10,12 +10,11 @@ interface BottomNavProps {
   onToggleSidebar?: () => void;
 }
 
-const BottomNav = ({ projects = [] }: BottomNavProps) => {
+const BottomNav = ({ projects = [], onToggleSidebar }: BottomNavProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
-  const { toggleSidebar } = useSidebar();
   const isMobile = useIsMobile();
 
   const handleSignOut = async () => {
