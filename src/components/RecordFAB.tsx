@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface RecordFABProps {
   onBrainDump: () => void;
+  /** If provided, called instead of navigating to /meetings?new=true */
+  onMeeting?: () => void;
 }
 
-const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump }) => {
+const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting }) => {
   const [fabExpanded, setFabExpanded] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
-  const isOnMeetingsPage = location.pathname === '/meetings';
 
   return (
     <>
@@ -66,10 +66,8 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump }) => {
               className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
               onClick={() => {
                 setFabExpanded(false);
-                if (isOnMeetingsPage) {
-                  // Already on meetings page - trigger new meeting via URL param reload
-                  navigate('/meetings?new=true', { replace: true });
-                  window.location.reload();
+                if (onMeeting) {
+                  onMeeting();
                 } else {
                   navigate('/meetings?new=true');
                 }
