@@ -33,7 +33,8 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
         className="fixed bottom-0 left-0 right-0 grid grid-cols-6 z-20 border-t border-border/30"
         style={{
           background: 'hsl(var(--dock-background))',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
+          marginBottom: '-20px',
         }}
       >
         <NavButton
