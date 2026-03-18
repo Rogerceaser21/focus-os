@@ -1110,6 +1110,10 @@ const Meetings = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    <RecordFAB
+      onBrainDump={() => {}}
+      onMeeting={() => setShowParticipants(true)}
+    />
     <BottomNav />
     </>
   );

@@ -54,6 +54,7 @@ import { ShareStatusPopover } from '@/components/ShareStatusPopover';
 import { InviteProjectMemberDialog } from '@/components/InviteProjectMemberDialog';
 import { ProjectMembersBar } from '@/components/ProjectMembersBar';
 import { addDays } from 'date-fns';
+import RecordFAB from '@/components/RecordFAB';
 
 // Projects FAB component for mobile - must be inside SidebarProvider
 const ProjectsFAB = () => {
