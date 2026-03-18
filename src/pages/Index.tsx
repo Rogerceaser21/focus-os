@@ -117,6 +117,7 @@ const MobileSidebarController = ({ tourStep, isTourActive, currentTourStep }: { 
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     user,
     loading: authLoading,
