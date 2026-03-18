@@ -7,6 +7,7 @@ import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { useIsMobile } from '@/hooks/use-mobile';
 interface BottomNavProps {
   projects?: { id: string; name: string; color?: string }[];
+  onToggleSidebar?: () => void;
 }
 
 const BottomNav = ({ projects = [] }: BottomNavProps) => {
