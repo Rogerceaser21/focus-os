@@ -695,7 +695,7 @@ export const ProjectSidebar = ({
                 }}
               >
                 <Calendar className="h-4 w-4" />
-                Today's To-Do
+                Today
               </Button>
 
               <Button
