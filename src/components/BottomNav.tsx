@@ -73,7 +73,7 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        projects={projects}
+        projects={projects.map(p => ({ id: p.id, name: p.name, color: p.color || '#888' }))}
         preferences={preferences}
         loading={prefsLoading}
         onSave={updatePreferences}
