@@ -2292,7 +2292,7 @@ https://www.skyscanner.com`,
 
       <BottomNav projects={projects} />
 
-      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setMobileDockOpen(true)} />
+      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setFabExpanded(true)} />
 
       {/* Mobile Add Task Dialog */}
       {isMobile && (
