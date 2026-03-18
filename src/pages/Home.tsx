@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FolderOpen, Calendar, ListTodo, AlertTriangle, Video } from 'lucide-react';
+import { Video } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
+import BottomNav from '@/components/BottomNav';
 import type { ProjectInfo } from '@/hooks/useBrainDumpLive';
 
 const SUBTITLES = [
@@ -144,16 +145,7 @@ const Home = () => {
         </button>
       </div>
 
-      {/* Bottom nav — 4 equal-width buttons */}
-      <div
-        className="fixed bottom-0 left-0 right-0 grid grid-cols-4 z-20 border-t border-border/30"
-        style={{ background: 'hsl(var(--dock-background))' }}>
-        
-        <BottomNavButton icon={<FolderOpen className="w-5 h-5" />} label="Projects" onClick={() => navigate('/app?view=projects')} />
-        <BottomNavButton icon={<Calendar className="w-5 h-5" />} label="Meetings" onClick={() => navigate('/meetings')} />
-        <BottomNavButton icon={<ListTodo className="w-5 h-5" />} label="Today" onClick={() => navigate('/app?view=today')} />
-        <BottomNavButton icon={<AlertTriangle className="w-5 h-5" />} label="Past Due" onClick={() => navigate('/app?view=past-due')} accent />
-      </div>
+      <BottomNav projects={projects} />
 
       <BrainDumpLiveDialog
         open={brainDumpOpen}
@@ -165,15 +157,5 @@ const Home = () => {
     </div>);
 
 };
-
-const BottomNavButton = ({ icon, label, onClick, accent }: {icon: React.ReactNode;label: string;onClick: () => void;accent?: boolean;}) =>
-<button
-  onClick={onClick}
-  className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${accent ? 'text-accent hover:text-red-400' : 'text-muted-foreground hover:text-white'}`}>
-  
-    {icon}
-    <span className="leading-tight text-sm font-bold">{label}</span>
-  </button>;
-
 
 export default Home;

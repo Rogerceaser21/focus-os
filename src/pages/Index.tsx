@@ -39,6 +39,7 @@ import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Dock from '@/components/Dock';
+import BottomNav from '@/components/BottomNav';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import SettingsDialog from '@/components/SettingsDialog';
@@ -1477,14 +1478,6 @@ https://www.skyscanner.com`,
                     setProjectRefreshTrigger(prev => prev + 1);
                   }} dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} onCtaPhaseChange={setIsBrainDumpCtaActive} />
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <Button variant="outline" onClick={() => setSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-0 shrink-0">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" onClick={handleSignOut} className="min-h-[44px] min-w-[44px] p-0 shrink-0">
-                      <LogOut className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
 
           {/* Actions Bar */}
@@ -2304,14 +2297,7 @@ https://www.skyscanner.com`,
         onRecordingChange={setIsBrainDumpRecording}
       />
 
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        projects={projects}
-        preferences={preferences}
-        loading={prefsLoading}
-        onSave={updatePreferences}
-      />
+      <BottomNav projects={projects} />
 
       <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setMobileDockOpen(true)} />
 

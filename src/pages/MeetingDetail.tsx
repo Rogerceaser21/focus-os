@@ -48,6 +48,7 @@ import { format } from 'date-fns';
 import { TaskListItem } from '@/components/TaskListItem';
 import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
+import BottomNav from '@/components/BottomNav';
 import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
@@ -764,7 +765,8 @@ const MeetingDetail = () => {
   const summary = parseSummary(meeting.summary);
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+    <div className="min-h-screen bg-background pb-16">
       {/* Header */}
       <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
@@ -1328,6 +1330,8 @@ const MeetingDetail = () => {
         />
       )}
     </div>
+    <BottomNav />
+    </>
   );
 };
 
