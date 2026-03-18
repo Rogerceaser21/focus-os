@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FolderOpen, Calendar, ListTodo, AlertTriangle, Video } from 'lucide-react';
+import { Video } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
+import BottomNav from '@/components/BottomNav';
 import type { ProjectInfo } from '@/hooks/useBrainDumpLive';
 
 const SUBTITLES = [
