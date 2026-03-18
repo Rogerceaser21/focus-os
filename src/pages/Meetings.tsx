@@ -1108,6 +1108,8 @@ const Meetings = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    <BottomNav />
+    </>
   );
 };
 

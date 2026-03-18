@@ -1329,6 +1329,8 @@ const MeetingDetail = () => {
         />
       )}
     </div>
+    <BottomNav />
+    </>
   );
 };
 

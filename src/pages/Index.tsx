@@ -2297,14 +2297,7 @@ https://www.skyscanner.com`,
         onRecordingChange={setIsBrainDumpRecording}
       />
 
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        projects={projects}
-        preferences={preferences}
-        loading={prefsLoading}
-        onSave={updatePreferences}
-      />
+      <BottomNav projects={projects} />
 
       <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setMobileDockOpen(true)} />
 
