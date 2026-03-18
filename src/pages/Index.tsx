@@ -38,7 +38,7 @@ import HeroSection from '@/components/HeroSection';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
-import Dock from '@/components/Dock';
+
 import BottomNav from '@/components/BottomNav';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
@@ -163,7 +163,8 @@ const Index = () => {
   const [changesNeededDialogOpen, setChangesNeededDialogOpen] = useState(false);
   const [changesNeededLoading, setChangesNeededLoading] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
-  const [mobileDockOpen, setMobileDockOpen] = useState(false);
+  
+  const [fabExpanded, setFabExpanded] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
@@ -1440,32 +1441,6 @@ https://www.skyscanner.com`,
   if (!user) {
     return null;
   }
-  const dockItems = [
-    {
-      icon: (
-        <div className="relative w-12 h-12 flex items-center justify-center">
-          <svg viewBox="0 0 256 256" className="w-10 h-10" xmlns="http://www.w3.org/2000/svg">
-            <path d="m123.48 66.47c.43 12.92 1.59 125.78.28 133.63-1.18 7.07-5.7 19.84-14.33 21.18s-14.23-5.15-16.82-6-9.75 3.53-15.41-.34-4.42-14-6-15.72-10.34.31-14.54-5.49-.55-12-1.88-13.68-14.27-3.2-16.1-16.75c-2.08-15.55 10.39-18.59 10.32-21.01s-10.34-15.65-5.14-31.91 18.88-18 19.68-19.46-5.46-10.42 2.78-23.34 20.13-9.43 21.82-10.58-.29-6.24 5.44-13.45c5.29-6.66 15.41-8.3 22.72-4.09 6.63 3.86 6.75 14.09 7.18 27.01z" className="fill-foreground" opacity="0.15"/>
-            <path d="m132.29 63.82c-.67 13-1.88 126.42-.7 134.33 1.06 7.12 3 15.1 13.59 20.24 8 3.88 15.62-2.43 18.13-3.25s8.51.27 14.32-3.53 8.34-12.3 9.92-13.19 9.23-.12 13.6-5.89.8-11.79 1.3-13.67 11.92-4.1 14.06-16.43c2.64-15.17-9.72-19.26-10.06-21.31s9.28-9.24 6.29-23.55c-3.27-15.63-13.39-17.49-14.16-19.42s5.16-6.87 2.08-15.8-11-8.73-12.16-10.66 1.67-6.79-3.18-12.79c-5.05-6.25-15.3-3.09-17-4s-1.66-7.15-7.53-13.37c-4.6-4.87-14.63-7.39-21.29-1.73-5.91 5-6.5 11.04-7.21 24.02z" className="fill-foreground" opacity="0.15"/>
-            <path d="m107.06 229.47c-7.58 0-13.08-3.77-16.23-5.93l-.08-.05-.37.08c-3.87.89-11.08 2.54-17.69-2-5.94-4.06-7.45-10.76-8.16-15.52-4.21-.54-10.23-1.95-14.32-7.6a19.73 19.73 0 0 1-3.53-13.45c-14-6.82-15.38-16.75-15.9-20.62-1.78-13.08 4.22-20.23 8.64-24.05-3-6.52-7.6-18.54-3.18-32.38a35.26 35.26 0 0 1 18.21-21.54c-.93-5.35-1-13.53 5.12-23.13 7-10.91 16.37-13.24 22.25-13.77a28 28 0 0 1 5.49-10.9c7.65-9.62 22.13-12.28 33-6 10.26 5.87 10.69 18.75 11.13 32.39v1.22c.32 9.58 1.72 126 .18 135.21-1.93 11.61-8.59 25.85-21 27.78a23.41 23.41 0 0 1-3.56.26z" className="fill-foreground"/>
-            <path d="m150.54 227.64a20 20 0 0 1-8.87-2.06c-15.19-7.4-17.09-20.14-18-26.26-1.36-9.09 0-124.6.62-135.93.64-12.4 1.15-22.19 10-29.72 10-8.48 24.76-5.64 32.29 2.33a32.91 32.91 0 0 1 6.82 10.88c5.06-.13 12.83.44 18.12 7a20.39 20.39 0 0 1 4.76 12.84 21.51 21.51 0 0 1 11.93 13 22.48 22.48 0 0 1-.07 15.47c4.24 3.19 10 9.12 12.41 20.72a32.1 32.1 0 0 1-3.95 23.62c4.37 4.12 10 11.67 7.77 24.26-1.86 10.66-8.76 16.09-13.29 18.88a19.24 19.24 0 0 1-3.58 14.67c-4.63 6.12-11.19 7.64-15.16 8.27-1.88 3.5-5 9.16-10.36 12.67-5.8 3.79-11.56 4.18-15 4.41l-1.24.09-.79.42c-2.73 1.54-8.05 4.44-14.41 4.44z" className="fill-foreground"/>
-            <path d="M128 72C105 72 88 90 88 112C88 129 97 143 110 152C113 154 114 157 114 160V168C114 170.2 115.8 172 118 172H138C140.2 172 142 170.2 142 168V160C142 157 143 154 146 152C159 143 168 129 168 112C168 90 151 72 128 72Z" className="fill-primary"/>
-            <path d="M112 172H144C147.3 172 150 174.7 150 178V184C150 187.3 147.3 190 144 190H112C108.7 190 106 187.3 106 184V178C106 174.7 108.7 172 112 172Z" className="fill-primary"/>
-            <path d="M114 190H142C144.2 190 146 191.8 146 194V198C146 200.2 144.2 202 142 202H114C111.8 202 110 200.2 110 198V194C110 191.8 111.8 190 114 190Z" className="fill-primary"/>
-          </svg>
-        </div>
-      ),
-      label: 'Brain Dump',
-      permanentLabel: 'Brain Dump',
-      isRecording: isBrainDumpRecording,
-      isHighlighted: isBrainDumpCtaActive,
-      tourStepId: 'brain-dump',
-      onClick: (e?: React.MouseEvent<HTMLElement>) => {
-        if (e) triggerParticles(e.currentTarget);
-        setDialogOpen(true);
-      }
-    }
-  ];
 
   return <PullToRefresh>
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -2206,69 +2181,94 @@ https://www.skyscanner.com`,
           </div>
         </div>
 
-        {/* Mobile Brain Dump dock - hidden when dialogs are open */}
+        {/* Radial FAB Menu - hidden when dialogs are open */}
         {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
           <>
+            {/* Overlay when expanded */}
+            <AnimatePresence>
+              {fabExpanded && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[99] bg-black/20"
+                  onClick={() => setFabExpanded(false)}
+                />
+              )}
+            </AnimatePresence>
 
-            {/* FAB when closed, Dock slides from right when open */}
-            <>
-              {/* Overlay - click to close */}
+            <div
+              className="fixed right-6 z-[100]"
+              style={{ bottom: 'calc(80px + env(safe-area-inset-bottom))' }}
+              data-tour-step="menu-fab"
+            >
+              {/* Brain Dump button - appears above */}
               <AnimatePresence>
-                {mobileDockOpen && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[99] bg-black/20"
-                    onClick={() => setMobileDockOpen(false)}
-                  />
-                )}
-              </AnimatePresence>
-
-              {/* FAB button - only visible when dock is closed */}
-              <AnimatePresence>
-                {!mobileDockOpen && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, delay: 0.2 }}
-                    className="fixed right-6 z-[100]"
-                    style={{ bottom: 'calc(80px + env(safe-area-inset-bottom))' }}
+                {fabExpanded && (
+                  <motion.button
+                    initial={{ opacity: 0, y: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, y: -70, scale: 1 }}
+                    exit={{ opacity: 0, y: 0, scale: 0.5 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="absolute bottom-0 right-0 w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+                    onClick={() => {
+                      setFabExpanded(false);
+                      setDialogOpen(true);
+                    }}
                   >
-                    <button
-                      onClick={() => setMobileDockOpen(true)}
-                      className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
-                      data-tour-step="menu-fab"
-                      style={{
-                        background: 'conic-gradient(from 0deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)), hsl(var(--primary)))'
-                      }}
-                    >
-                      <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
-                        <Mic className="w-6 h-6 text-primary" />
-                      </div>
-                    </button>
-                  </motion.div>
+                    {/* Brain/lightbulb icon */}
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 18h6" />
+                      <path d="M10 22h4" />
+                      <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+                    </svg>
+                  </motion.button>
                 )}
               </AnimatePresence>
 
-              {/* Dock - slides from right edge to center */}
+              {/* Record Meeting button - appears to the left */}
               <AnimatePresence>
-                {mobileDockOpen && (
-                  <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none">
-                    <motion.div
-                      initial={{ x: '100vw' }}
-                      animate={{ x: 0 }}
-                      exit={{ x: '100vw' }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                      className="pointer-events-auto"
-                    >
-                      <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
-                    </motion.div>
-                  </div>
+                {fabExpanded && (
+                  <motion.button
+                    initial={{ opacity: 0, x: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, x: -70, scale: 1 }}
+                    exit={{ opacity: 0, x: 0, scale: 0.5 }}
+                    transition={{ duration: 0.2, ease: 'easeOut', delay: 0.05 }}
+                    className="absolute bottom-0 right-0 w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+                    onClick={() => {
+                      setFabExpanded(false);
+                      navigate('/meetings');
+                    }}
+                  >
+                    {/* Meeting/people icon */}
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </motion.button>
                 )}
               </AnimatePresence>
-            </>
+
+              {/* Main record button */}
+              <motion.button
+                animate={{ rotate: fabExpanded ? 45 : 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setFabExpanded(prev => !prev)}
+                className="relative w-[56px] h-[56px] rounded-full shadow-lg flex items-center justify-center border-2 border-muted"
+                style={{ background: 'hsl(var(--card))' }}
+              >
+                <div
+                  className="rounded-full transition-all duration-200"
+                  style={{
+                    width: fabExpanded ? 20 : 22,
+                    height: fabExpanded ? 20 : 22,
+                    backgroundColor: 'hsl(var(--destructive))',
+                  }}
+                />
+              </motion.button>
+            </div>
           </>
         )}
       </div>
@@ -2292,7 +2292,7 @@ https://www.skyscanner.com`,
 
       <BottomNav projects={projects} />
 
-      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setMobileDockOpen(true)} />
+      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setFabExpanded(true)} />
 
       {/* Mobile Add Task Dialog */}
       {isMobile && (
