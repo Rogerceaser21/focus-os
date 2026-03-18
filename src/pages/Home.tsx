@@ -8,11 +8,11 @@ import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import type { ProjectInfo } from '@/hooks/useBrainDumpLive';
 
 const SUBTITLES = [
-  "Ready to capture your thoughts?",
-  "Ready to convert them into tasks or projects?",
-  "Do you have a new project in mind?",
-  "What's on your mind?",
-];
+"Ready to capture your thoughts?",
+"Ready to convert them into tasks or projects?",
+"Do you have a new project in mind?",
+"What's on your mind?"];
+
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -39,14 +39,14 @@ const Home = () => {
     const body = document.body;
     const prevBg = html.style.background;
     const prevBodyBg = body.style.background;
-    
+
     // Read the computed background color from the themed CSS
     const computed = getComputedStyle(html);
     const bg = computed.getPropertyValue('background-color') || `hsl(${computed.getPropertyValue('--background').trim()})`;
-    
+
     html.style.background = bg;
     body.style.background = bg;
-    
+
     const meta = document.querySelector('meta[name="theme-color"]') || document.createElement('meta');
     meta.setAttribute('name', 'theme-color');
     meta.setAttribute('content', bg);
@@ -63,10 +63,10 @@ const Home = () => {
 
   useEffect(() => {
     if (!user) return;
-    (supabase as any).from('focusos_profiles').select('first_name').eq('user_id', user.id).maybeSingle()
-      .then(({ data }: any) => { if (data?.first_name) setFirstName(data.first_name); });
-    (supabase as any).from('focusos_projects').select('id, name, color').eq('user_id', user.id).order('name')
-      .then(({ data }: any) => { if (data) setProjects(data); });
+    (supabase as any).from('focusos_profiles').select('first_name').eq('user_id', user.id).maybeSingle().
+    then(({ data }: any) => {if (data?.first_name) setFirstName(data.first_name);});
+    (supabase as any).from('focusos_projects').select('id, name, color').eq('user_id', user.id).order('name').
+    then(({ data }: any) => {if (data) setProjects(data);});
   }, [user]);
 
   useEffect(() => {
@@ -101,8 +101,8 @@ const Home = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35 }}
                 className="text-base sm:text-lg absolute inset-0 flex items-center justify-center"
-                style={{ color: 'hsl(var(--muted-foreground))' }}
-              >
+                style={{ color: 'hsl(var(--muted-foreground))' }}>
+                
                 {SUBTITLES[subtitleIndex]}
               </motion.p>
             </AnimatePresence>
@@ -118,16 +118,16 @@ const Home = () => {
             className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full flex items-center justify-center border-[3px] border-border"
             style={{
               background: 'radial-gradient(circle at 40% 35%, hsl(var(--card)), hsl(var(--muted)))',
-              boxShadow: '0 8px 32px hsl(var(--glass-shadow)), inset 0 2px 8px hsl(0 0% 100% / 0.4), inset 0 -2px 6px hsl(0 0% 0% / 0.06)',
-            }}
-          >
+              boxShadow: '0 8px 32px hsl(var(--glass-shadow)), inset 0 2px 8px hsl(0 0% 100% / 0.4), inset 0 -2px 6px hsl(0 0% 0% / 0.06)'
+            }}>
+            
             <div
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full"
               style={{
                 background: 'radial-gradient(circle at 40% 35%, #d94040, #a02020)',
-                boxShadow: '0 2px 8px rgba(180, 40, 40, 0.4)',
-              }}
-            />
+                boxShadow: '0 2px 8px rgba(180, 40, 40, 0.4)'
+              }} />
+            
           </motion.button>
           <span className="text-sm font-medium text-center text-muted-foreground">
             Tap to capture your thoughts into tasks
@@ -137,8 +137,8 @@ const Home = () => {
         {/* Record Meeting — always centered */}
         <button
           onClick={() => navigate('/meetings')}
-          className="flex items-center gap-2 px-6 py-3 rounded-full transition-all border border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary"
-        >
+          className="flex items-center gap-2 px-6 py-3 rounded-full transition-all border border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary">
+          
           <Video className="w-4 h-4" />
           <span className="text-sm font-medium">Record Meeting</span>
         </button>
@@ -147,8 +147,8 @@ const Home = () => {
       {/* Bottom nav — 4 equal-width buttons */}
       <div
         className="fixed bottom-0 left-0 right-0 grid grid-cols-4 z-20 border-t border-border/30"
-        style={{ background: 'hsl(var(--dock-background))' }}
-      >
+        style={{ background: 'hsl(var(--dock-background))' }}>
+        
         <BottomNavButton icon={<FolderOpen className="w-5 h-5" />} label="Projects" onClick={() => navigate('/app?view=projects')} />
         <BottomNavButton icon={<Calendar className="w-5 h-5" />} label="Meetings" onClick={() => navigate('/meetings')} />
         <BottomNavButton icon={<ListTodo className="w-5 h-5" />} label="Today's To-Do" onClick={() => navigate('/app?view=today')} />
@@ -160,20 +160,20 @@ const Home = () => {
         onOpenChange={setBrainDumpOpen}
         userId={user.id}
         projects={projects}
-        onTasksCreated={handleTasksCreated}
-      />
-    </div>
-  );
+        onTasksCreated={handleTasksCreated} />
+      
+    </div>);
+
 };
 
-const BottomNavButton = ({ icon, label, onClick, accent }: { icon: React.ReactNode; label: string; onClick: () => void; accent?: boolean }) => (
-  <button
-    onClick={onClick}
-    className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${accent ? 'text-accent' : 'text-muted-foreground hover:text-foreground'}`}
-  >
+const BottomNavButton = ({ icon, label, onClick, accent }: {icon: React.ReactNode;label: string;onClick: () => void;accent?: boolean;}) =>
+<button
+  onClick={onClick}
+  className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${accent ? 'text-accent' : 'text-muted-foreground hover:text-foreground'}`}>
+  
     {icon}
-    <span className="text-[10px] font-medium leading-tight">{label}</span>
-  </button>
-);
+    <span className="leading-tight text-sm font-bold">{label}</span>
+  </button>;
+
 
 export default Home;
