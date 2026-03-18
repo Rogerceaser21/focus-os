@@ -92,7 +92,7 @@ const Meetings = () => {
     { name: '', email: '' },
     { name: '', email: '' },
   ]);
-  const [showParticipants, setShowParticipants] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(shouldOpenNew);
   const [meetingName, setMeetingName] = useState('');
 
   // Delete state

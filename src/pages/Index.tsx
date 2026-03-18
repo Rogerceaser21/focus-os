@@ -2237,7 +2237,7 @@ https://www.skyscanner.com`,
                     className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
                     onClick={() => {
                       setFabExpanded(false);
-                      navigate('/meetings');
+                      navigate('/meetings?new=true');
                     }}
                   >
                     {/* Meeting/people icon */}
