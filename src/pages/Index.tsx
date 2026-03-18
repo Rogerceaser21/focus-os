@@ -661,6 +661,19 @@ const Index = () => {
     }
   }, [preferences, preferencesLoaded, projects]);
 
+  // React to URL search param changes (e.g. from BottomNav clicks)
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    const urlParams = new URLSearchParams(location.search);
+    const viewParam = urlParams.get('view');
+    if (viewParam === 'past-due' || viewParam === 'today' || viewParam === 'unassigned') {
+      setSelectedSpecialList(viewParam);
+      setSelectedProjectId(null);
+    } else if (viewParam === 'projects') {
+      setSelectedSpecialList(null);
+    }
+  }, [location.search, preferencesLoaded]);
+
   // Reset reorder mode when switching projects/views
   useEffect(() => {
     setIsReorderMode(false);
