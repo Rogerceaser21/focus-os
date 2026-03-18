@@ -1477,14 +1477,6 @@ https://www.skyscanner.com`,
                     setProjectRefreshTrigger(prev => prev + 1);
                   }} dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} onCtaPhaseChange={setIsBrainDumpCtaActive} />
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <Button variant="outline" onClick={() => setSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-0 shrink-0">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" onClick={handleSignOut} className="min-h-[44px] min-w-[44px] p-0 shrink-0">
-                      <LogOut className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
 
           {/* Actions Bar */}

@@ -158,14 +158,4 @@ const Home = () => {
 
 };
 
-const BottomNavButton = ({ icon, label, onClick, accent }: {icon: React.ReactNode;label: string;onClick: () => void;accent?: boolean;}) =>
-<button
-  onClick={onClick}
-  className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${accent ? 'text-accent hover:text-red-400' : 'text-muted-foreground hover:text-white'}`}>
-  
-    {icon}
-    <span className="leading-tight text-sm font-bold">{label}</span>
-  </button>;
-
-
 export default Home;
