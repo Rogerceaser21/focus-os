@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Fuse from 'fuse.js';
 import PullToRefresh from '@/components/PullToRefresh';
 import { useTheme } from 'next-themes';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -117,6 +117,7 @@ const MobileSidebarController = ({ tourStep, isTourActive, currentTourStep }: { 
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     user,
     loading: authLoading,
@@ -659,6 +660,19 @@ const Index = () => {
       setPreferencesLoaded(true);
     }
   }, [preferences, preferencesLoaded, projects]);
+
+  // React to URL search param changes (e.g. from BottomNav clicks)
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    const urlParams = new URLSearchParams(location.search);
+    const viewParam = urlParams.get('view');
+    if (viewParam === 'past-due' || viewParam === 'today' || viewParam === 'unassigned') {
+      setSelectedSpecialList(viewParam);
+      setSelectedProjectId(null);
+    } else if (viewParam === 'projects') {
+      setSelectedSpecialList(null);
+    }
+  }, [location.search, preferencesLoaded]);
 
   // Reset reorder mode when switching projects/views
   useEffect(() => {
