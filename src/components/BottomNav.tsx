@@ -6,7 +6,7 @@ import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 
 interface BottomNavProps {
-  projects?: { id: string; name: string; color: string }[];
+  projects?: { id: string; name: string; color?: string }[];
 }
 
 const BottomNav = ({ projects = [] }: BottomNavProps) => {
