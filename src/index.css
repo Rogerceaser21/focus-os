@@ -40,6 +40,7 @@ All colors MUST be HSL.
     --radius: 1rem;
 
     --success: 142 76% 40%;
+    --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --info: 199 89% 48%;
 
@@ -93,6 +94,7 @@ All colors MUST be HSL.
     --ring: 186 80% 55%;
 
     --success: 142 76% 50%;
+    --success-foreground: 0 0% 100%;
     --warning: 38 92% 60%;
     --info: 199 89% 58%;
 
@@ -146,6 +148,7 @@ All colors MUST be HSL.
     --ring: 18 60% 45%;
 
     --success: 85 40% 38%;
+    --success-foreground: 38 30% 96%;
     --warning: 32 70% 48%;
     --info: 28 55% 50%;
 

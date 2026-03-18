@@ -751,7 +751,7 @@ export const ProjectSidebar = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1 h-7 text-xs gap-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                          className="flex-1 h-7 text-xs gap-1 border-success/30 text-success hover:bg-success/10"
                           onClick={() => handleAcceptProjectInvite(invite.id)}
                           disabled={acceptingInviteId === invite.id}
                         >
@@ -853,7 +853,7 @@ export const ProjectSidebar = ({
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 h-7 text-xs gap-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                              className="flex-1 h-7 text-xs gap-1 border-success/30 text-success hover:bg-success/10"
                               onClick={() => handleAcceptSharedItem(item.id)}
                               disabled={acceptingId === item.id}
                             >
@@ -900,14 +900,14 @@ export const ProjectSidebar = ({
                         )}
                         {isAccepted && (
                           <div className="flex items-center gap-1.5">
-                            <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-400 border-green-500/20">
+                            <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/20">
                               Accepted
                             </Badge>
                             {isSender && !item.sender_acknowledged && (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-6 px-2 text-[10px] gap-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                                className="h-6 px-2 text-[10px] gap-1 border-success/30 text-success hover:bg-success/10"
                                 onClick={() => handleAcknowledgeSharedItem(item.id)}
                               >
                                 <CheckCircle2 className="h-3 w-3" />
