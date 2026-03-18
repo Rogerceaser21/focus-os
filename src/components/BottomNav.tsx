@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FolderOpen, Calendar, ListTodo, AlertTriangle, Settings, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
