@@ -2206,23 +2206,9 @@ https://www.skyscanner.com`,
           </div>
         </div>
 
-        {/* Dock Bar - Hidden when dialogs are open */}
+        {/* Mobile Brain Dump dock - hidden when dialogs are open */}
         {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
           <>
-            {/* Desktop: Bottom dock - always visible */}
-            {!isMobile && (
-              <AnimatePresence>
-                <motion.div
-                  initial={{ y: 100, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: 100, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
-                >
-                  <Dock items={dockItems} panelHeight={90} baseItemSize={50} />
-                </motion.div>
-              </AnimatePresence>
-            )}
 
             {/* Mobile: FAB when closed, Dock slides from right to bottom position when open */}
             {isMobile && (
