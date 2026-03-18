@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FolderOpen, Calendar, ListTodo, AlertTriangle, Settings, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,32 +14,6 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
-
-  // Sync html/body background to dock color to prevent visual gaps below the nav
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    const prevHtmlBg = html.style.background;
-    const prevBodyBg = body.style.background;
-
-    const dockBg = `hsl(${getComputedStyle(html).getPropertyValue('--dock-background').trim()})`;
-
-    html.style.background = dockBg;
-    body.style.background = dockBg;
-
-    const meta = document.querySelector('meta[name="theme-color"]') || document.createElement('meta');
-    meta.setAttribute('name', 'theme-color');
-    meta.setAttribute('content', dockBg);
-    if (!document.querySelector('meta[name="theme-color"]')) {
-      document.head.appendChild(meta);
-    }
-
-    return () => {
-      html.style.background = prevHtmlBg;
-      body.style.background = prevBodyBg;
-      meta.setAttribute('content', '');
-    };
-  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
