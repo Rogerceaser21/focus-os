@@ -1459,19 +1459,10 @@ https://www.skyscanner.com`,
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
               <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4 pb-32">
-                {/* Header */}
-                <div className="mb-4 sm:mb-6 lg:mb-8 flex flex-row justify-between items-center gap-4">
-                  <div className="flex items-center gap-2 sm:gap-4">
-                    <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px] hidden md:flex" />
-                    <HeroSection onTasksCreated={() => {
-                    fetchTasks();
-                    setProjectRefreshTrigger(prev => prev + 1);
-                  }} dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} onCtaPhaseChange={setIsBrainDumpCtaActive} />
-                  </div>
-                </div>
 
           {/* Actions Bar */}
           <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6">
+            <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px] hidden md:flex shrink-0" />
             <div className="relative flex-[2] md:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hidden lg:block" />
               <Input placeholder="Search" value={searchInput} onChange={e => setSearchInput(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10 lg:hidden" />

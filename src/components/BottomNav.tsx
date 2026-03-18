@@ -4,7 +4,8 @@ import { FolderOpen, Calendar, ListTodo, AlertTriangle, Settings, LogOut } from 
 import { supabase } from '@/integrations/supabase/client';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
-
+import { useSidebar } from '@/components/ui/sidebar';
+import { useIsMobile } from '@/hooks/use-mobile';
 interface BottomNavProps {
   projects?: { id: string; name: string; color?: string }[];
 }
@@ -14,6 +15,8 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
+  const { toggleSidebar } = useSidebar();
+  const isMobile = useIsMobile();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -40,7 +43,13 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
         <NavButton
           icon={<FolderOpen className="w-5 h-5" />}
           label="Projects"
-          onClick={() => navigate('/app?view=projects')}
+          onClick={() => {
+            if (isMobile && location.pathname === '/app') {
+              toggleSidebar();
+            } else {
+              navigate('/app?view=projects');
+            }
+          }}
           active={isActive('/app', 'projects')}
         />
         <NavButton
