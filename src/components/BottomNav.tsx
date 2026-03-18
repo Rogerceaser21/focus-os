@@ -15,33 +15,6 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
 
-  // Sync html/body background to dock color so no gap shows on desktop
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    const prevBg = html.style.background;
-    const prevBodyBg = body.style.background;
-
-    const computed = getComputedStyle(html);
-    const bg = computed.getPropertyValue('background-color') || `hsl(${computed.getPropertyValue('--background').trim()})`;
-
-    html.style.background = bg;
-    body.style.background = bg;
-
-    const meta = document.querySelector('meta[name="theme-color"]') || document.createElement('meta');
-    meta.setAttribute('name', 'theme-color');
-    meta.setAttribute('content', bg);
-    if (!document.querySelector('meta[name="theme-color"]')) {
-      document.head.appendChild(meta);
-    }
-
-    return () => {
-      html.style.background = prevBg;
-      body.style.background = prevBodyBg;
-      meta.setAttribute('content', '');
-    };
-  }, []);
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate('/auth');
@@ -60,7 +33,8 @@ const BottomNav = ({ projects = [] }: BottomNavProps) => {
         className="fixed bottom-0 left-0 right-0 grid grid-cols-6 z-20 border-t border-border/30"
         style={{
           background: 'hsl(var(--dock-background))',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
+          marginBottom: '-20px',
         }}
       >
         <NavButton
