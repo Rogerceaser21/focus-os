@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2, Pause, Play, RefreshCw, Share2 } from 'lucide-react';
+import AppLogo from '@/components/AppLogo';
 import BottomNav from '@/components/BottomNav';
 import RecordFAB from '@/components/RecordFAB';
 import {
@@ -716,6 +717,7 @@ const Meetings = () => {
       {/* Header */}
       <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+          <AppLogo className="mr-1" />
           <Button variant="ghost" size="icon" onClick={() => navigate('/app')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
