@@ -266,7 +266,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
     <>
       <div 
         data-task-card
-        className={`group w-full glass-card rounded-lg px-1.5 py-1 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
+        className={`group w-full glass-card rounded-lg px-1 py-0.5 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
         onClick={isMobile && globalViewMode === 'compact' ? undefined : onTaskClick}
       >
         {/* Mobile/Tablet Layout */}
