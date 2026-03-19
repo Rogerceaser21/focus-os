@@ -266,11 +266,11 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
     <>
       <div 
         data-task-card
-        className={`group w-full glass-card rounded-lg p-1.5 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
+        className={`group w-full glass-card rounded-lg px-1.5 py-1 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
         onClick={isMobile && globalViewMode === 'compact' ? undefined : onTaskClick}
       >
         {/* Mobile/Tablet Layout */}
-        <div className="flex flex-col gap-1 lg:hidden">
+        <div className="flex flex-col gap-0 lg:hidden">
           {/* Line 1: Checkbox + Title + Play/Pause */}
           <div className="flex items-center gap-2">
             <Checkbox
@@ -539,7 +539,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         </div>
 
         {/* Desktop Layout */}
-        <div className="hidden lg:flex lg:flex-col gap-1">
+        <div className="hidden lg:flex lg:flex-col gap-0">
           {/* Line 1: Checkbox + Title + Play/Pause */}
           <div className="flex items-center gap-2">
             <Checkbox
