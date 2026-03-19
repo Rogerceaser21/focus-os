@@ -270,7 +270,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         onClick={isMobile && globalViewMode === 'compact' ? undefined : onTaskClick}
       >
         {/* Mobile/Tablet Layout */}
-        <div className="flex flex-col gap-1 lg:hidden">
+        <div className="flex flex-col gap-0 lg:hidden">
           {/* Line 1: Checkbox + Title + Play/Pause */}
           <div className="flex items-center gap-2">
             <Checkbox
