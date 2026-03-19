@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -8,9 +8,32 @@ interface RecordFABProps {
   onMeeting?: () => void;
 }
 
+const DOUBLE_TAP_DELAY = 300;
+
 const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting }) => {
   const [fabExpanded, setFabExpanded] = useState(false);
   const navigate = useNavigate();
+  const lastTapRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMainClick = useCallback(() => {
+    const now = Date.now();
+    const elapsed = now - lastTapRef.current;
+    lastTapRef.current = now;
+
+    if (elapsed < DOUBLE_TAP_DELAY) {
+      // Double-tap → go home
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      setFabExpanded(false);
+      navigate('/home');
+      return;
+    }
+
+    // Wait to see if a second tap comes
+    tapTimerRef.current = setTimeout(() => {
+      setFabExpanded(prev => !prev);
+    }, DOUBLE_TAP_DELAY);
+  }, [navigate]);
 
   return (
     <>
