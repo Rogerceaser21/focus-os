@@ -541,7 +541,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         {/* Desktop Layout */}
         <div className="hidden lg:flex lg:flex-col gap-0">
           {/* Line 1: Checkbox + Title + Play/Pause */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Checkbox
               onClick={(e) => e.stopPropagation()}
               checked={isChecked}
@@ -557,13 +557,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 autoFocus
                 rows={1}
-                className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
+                className="font-semibold text-sm leading-tight min-h-0 h-auto py-0 px-1 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <h3
                 ref={titleContainerRef}
-                className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
+                className={`font-semibold text-sm leading-tight text-foreground cursor-text rounded px-1 py-0 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (task.assignedToEmail) return;
@@ -582,7 +582,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 variant="ghost"
                 size="sm"
                 onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
-                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 title="Edit task"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -592,7 +592,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               variant="ghost"
               size="sm"
               onClick={handleStartStop}
-              className="h-8 w-8 p-0 shrink-0"
+              className="h-7 w-7 p-0 shrink-0"
             >
               {timer.isRunning ? (
                 <Pause className="h-4 w-4" />
@@ -603,7 +603,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
           </div>
 
           {/* Line 2: Description */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {isEditingDescription ? (
               <Textarea
                 ref={handleDescriptionMount}
@@ -612,13 +612,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 onBlur={handleDescriptionBlur}
                 autoFocus
                 rows={1}
-                className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
+                className="text-sm leading-tight min-h-0 h-auto py-0 px-1 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <p 
                 ref={descriptionContainerRef}
-                className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 whitespace-pre-wrap ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
+                className={`text-sm leading-tight text-muted-foreground cursor-text rounded px-1 py-0 transition-colors flex-1 whitespace-pre-wrap ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isIndividuallyExpanded) {
@@ -639,7 +639,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
 
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
-            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-x-1 gap-y-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
               <div data-description-safe-zone="true">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -647,7 +647,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                       className="inline-flex"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}>
+                      <Badge variant="outline" className={`${priorityColors[task.priority]} cursor-pointer hover:opacity-80 text-xs`}>
                         {task.priority}
                       </Badge>
                     </button>
@@ -668,34 +668,34 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </DropdownMenu>
               </div>
               
-              <Badge className={statusColors[task.status]}>
+              <Badge className={`${statusColors[task.status]} text-xs`}>
                 {task.status}
               </Badge>
               
               <button 
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-0.5"
                 data-description-safe-zone="true"
                 onClick={() => onEditTask?.(task)}
               >
-                <Calendar className="w-4 h-4" />
+                <Calendar className="w-3 h-3" />
                 <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
               </button>
 
-              <div className="flex items-center gap-1 text-sm text-muted-foreground border border-border rounded px-2 py-1">
-                <Clock className="w-4 h-4" />
-                <span className="font-mono min-w-[80px]">{formatTime(displaySeconds, true)}</span>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground border border-border rounded px-2 py-0.5">
+                <Clock className="w-3 h-3" />
+                <span className="font-mono min-w-[72px]">{formatTime(displaySeconds, true)}</span>
               </div>
 
               <button
                 data-description-safe-zone="true"
                 onClick={() => onEditTask?.(task)}
-                className={`p-1.5 rounded transition-colors relative ${
+                className={`p-1 rounded transition-colors relative ${
                   task.images && task.images.length > 0
                     ? 'text-primary border border-primary bg-primary/15'
                     : 'text-muted-foreground border border-border bg-muted/20'
                 }`}
               >
-                <Image className="w-4 h-4" />
+                <Image className="w-3 h-3" />
                 {task.images && task.images.length > 0 && (
                   <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] rounded-full w-3 h-3 flex items-center justify-center">
                     {task.images.length}
@@ -706,10 +706,10 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               <button
                   data-description-safe-zone="true"
                   onClick={() => onAssignTask?.(task)}
-                  className="p-1.5 rounded transition-colors text-primary border border-primary/30 bg-primary/10 hover:bg-primary/20 hover:border-primary"
+                  className="p-1 rounded transition-colors text-primary border border-primary/30 bg-primary/10 hover:bg-primary/20 hover:border-primary"
                   title="Share Task"
                 >
-                  <Share2 className="w-4 h-4" />
+                  <Share2 className="w-3 h-3" />
                 </button>
 
               {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
@@ -722,25 +722,25 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 />
               ) : task.completedByEmail && task.status !== 'completed' ? (
                 <>
-                  <Badge variant="outline" className="bg-success/15 text-success border-success/30 text-xs">
+                  <Badge variant="outline" className="bg-success/15 text-success border-success/30 text-[10px]">
                     ✅ Completed by {task.completedByEmail}
                   </Badge>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs h-6 px-2 border-success/30 text-success hover:bg-success/20"
+                    className="text-[10px] h-5 px-2 border-success/30 text-success hover:bg-success/20"
                     onClick={(e) => { e.stopPropagation(); onUpdate({ ...task, status: 'completed' }); }}
                   >
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
                     Move to Done
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs h-6 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                    className="text-[10px] h-5 px-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
                     onClick={(e) => { e.stopPropagation(); onRequestChanges?.(task); }}
                   >
-                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />
                     Changes Needed
                   </Button>
                 </>
