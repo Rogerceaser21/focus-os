@@ -97,6 +97,66 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Notify the sender via email
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (resendApiKey) {
+      // Get project name
+      const { data: project } = await adminClient
+        .from("focusos_projects")
+        .select("name")
+        .eq("id", member.project_id)
+        .single();
+
+      // Get sender email
+      const { data: senderUser } = await adminClient
+        .from("focusos_users")
+        .select("email")
+        .eq("user_id", member.invited_by)
+        .single();
+
+      // Get recipient name
+      const { data: recipientProfile } = await adminClient
+        .from("focusos_profiles")
+        .select("first_name, last_name")
+        .eq("user_id", userId)
+        .single();
+
+      const recipientName = recipientProfile
+        ? `${recipientProfile.first_name || ""} ${recipientProfile.last_name || ""}`.trim() || userEmail
+        : userEmail;
+
+      const projectName = project?.name || "a project";
+      const actionText = action === "accept" ? "accepted" : "declined";
+      const actionColor = action === "accept" ? "#22c55e" : "#ef4444";
+
+      if (senderUser?.email) {
+        const emailRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${resendApiKey}`,
+          },
+          body: JSON.stringify({
+            from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
+            to: [senderUser.email],
+            subject: `${recipientName} ${actionText} your invitation to "${projectName}"`,
+            html: `
+              <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+                <h2 style="color: #7c3aed;">Project Invitation ${actionText.charAt(0).toUpperCase() + actionText.slice(1)}</h2>
+                <p><strong>${recipientName}</strong> (${userEmail}) has <span style="color: ${actionColor}; font-weight: bold;">${actionText}</span> your invitation to collaborate on <strong>"${projectName}"</strong>.</p>
+                ${action === "accept" ? '<p>They now have access to the project.</p>' : '<p>They will not be added to the project.</p>'}
+                <a href="https://focusos2.lovable.app" style="display: inline-block; background: #7c3aed; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Open Focus OS</a>
+              </div>
+            `,
+          }),
+        });
+
+        if (!emailRes.ok) {
+          console.error("Sender notification email failed:", await emailRes.text());
+        }
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, status: newStatus }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
