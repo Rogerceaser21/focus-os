@@ -539,7 +539,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         </div>
 
         {/* Desktop Layout */}
-        <div className="hidden lg:flex lg:flex-col gap-1">
+        <div className="hidden lg:flex lg:flex-col gap-0">
           {/* Line 1: Checkbox + Title + Play/Pause */}
           <div className="flex items-center gap-2">
             <Checkbox
