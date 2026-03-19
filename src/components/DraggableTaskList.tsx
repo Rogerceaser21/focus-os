@@ -273,7 +273,7 @@ export const DraggableTaskList = ({
                   <div className="flex-1 h-px bg-border" />
                   <span className="text-xs text-muted-foreground">{tasksInGroup.length}</span>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
                   {tasksInGroup.map((task) => (
                     <SortableTaskItem
                       key={task.id}
