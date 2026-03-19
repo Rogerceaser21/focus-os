@@ -34,7 +34,16 @@ const SidebarContext = React.createContext<SidebarContext | null>(null);
 function useSidebar() {
   const context = React.useContext(SidebarContext);
   if (!context) {
-    throw new Error("useSidebar must be used within a SidebarProvider.");
+    // Return a safe no-op fallback so components work outside SidebarProvider
+    return {
+      state: "expanded" as const,
+      open: false,
+      setOpen: (() => {}) as React.Dispatch<React.SetStateAction<boolean>>,
+      openMobile: false,
+      setOpenMobile: (() => {}) as React.Dispatch<React.SetStateAction<boolean>>,
+      isMobile: false,
+      toggleSidebar: () => {},
+    } satisfies SidebarContext;
   }
 
   return context;
