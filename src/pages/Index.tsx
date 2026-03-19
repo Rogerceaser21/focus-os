@@ -38,7 +38,6 @@ import HeroSection from '@/components/HeroSection';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
-import AppLogo from '@/components/AppLogo';
 
 import BottomNav from '@/components/BottomNav';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
@@ -1469,7 +1468,6 @@ https://www.skyscanner.com`,
 
           {/* Actions Bar */}
           <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6">
-            <AppLogo className="relative z-10 shrink-0" />
             <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px] hidden md:flex shrink-0" />
             <div className="relative flex-[2] md:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hidden lg:block" />
