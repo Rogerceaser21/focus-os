@@ -110,7 +110,7 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting }) => {
         <motion.button
           animate={{ rotate: fabExpanded ? 45 : 0 }}
           transition={{ duration: 0.2 }}
-          onClick={() => setFabExpanded(prev => !prev)}
+          onClick={handleMainClick}
           className="relative w-[56px] h-[56px] rounded-full shadow-lg flex items-center justify-center border-[3.5px] border-foreground/70"
           style={{ background: 'hsl(var(--card))' }}
         >
