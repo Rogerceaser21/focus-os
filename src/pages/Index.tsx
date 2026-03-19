@@ -38,6 +38,7 @@ import HeroSection from '@/components/HeroSection';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import AppLogo from '@/components/AppLogo';
 
 import BottomNav from '@/components/BottomNav';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
