@@ -303,16 +303,15 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 onRequestChanges={(email) => onRequestChanges?.({ ...task, completedByEmail: email })}
                 allCompleted={!!allCompleted}
                 onMoveAllToDone={() => { onUpdate({ ...task, status: 'completed' }); }}
-                trigger={
-                  <Badge
-                    variant="outline"
-                    className={`cursor-pointer text-[10px] truncate max-w-full ${allCompleted ? 'bg-success/15 text-success border-success/30' : 'bg-primary/10 text-primary border-primary/30'}`}
-                  >
-                    <Share2 className="w-3 h-3 mr-1 shrink-0" />
-                    <span className="truncate">{sharedText}</span>
-                  </Badge>
-                }
-              />
+              >
+                <Badge
+                  variant="outline"
+                  className={`cursor-pointer text-[10px] truncate max-w-full ${allCompleted ? 'bg-success/15 text-success border-success/30' : 'bg-primary/10 text-primary border-primary/30'}`}
+                >
+                  <Share2 className="w-3 h-3 mr-1 shrink-0" />
+                  <span className="truncate">{sharedText}</span>
+                </Badge>
+              </ShareStatusPopover>
             </div>
           )}
         </div>
