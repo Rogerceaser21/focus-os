@@ -9,15 +9,6 @@ export const useAuth = () => {
   const initializedRef = useRef(false);
 
   useEffect(() => {
-    // Safety timeout — if auth never resolves, stop loading after 5s
-    const timeout = setTimeout(() => {
-      if (!initializedRef.current) {
-        console.warn('[useAuth] Session restore timed out after 5s — clearing loading state');
-        initializedRef.current = true;
-        setLoading(false);
-      }
-    }, 5000);
-
     // Set up auth state listener FIRST (as per Supabase docs)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
@@ -43,10 +34,7 @@ export const useAuth = () => {
         setLoading(false);
       });
 
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
