@@ -55,6 +55,7 @@ import { ShareItemDialog } from '@/components/ShareItemDialog';
 import { ShareStatusPopover, SharedRecipient } from '@/components/ShareStatusPopover';
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Participant {
   name: string;
@@ -89,7 +90,8 @@ const MeetingDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
-  const { preferences } = useUserPreferences(user?.id);
+  const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences(user?.id);
+  const isMobile = useIsMobile();
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -149,6 +151,10 @@ const MeetingDetail = () => {
   const [editOverview, setEditOverview] = useState('');
   const [editOutline, setEditOutline] = useState<{ heading: string; points: string[] }[]>([]);
   const [savingSummary, setSavingSummary] = useState(false);
+
+  const activeTaskCardView = isMobile
+    ? (preferences?.default_task_card_view_mobile ?? 'compact')
+    : (preferences?.default_task_card_view ?? 'compact');
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -1121,7 +1127,7 @@ const MeetingDetail = () => {
                                   onUpdate={handleSavedTaskUpdate}
                                   onEditTask={setEditingTask}
                                   onAssignTask={(t) => handleAssignTask(t)}
-                                  globalViewMode={window.innerWidth < 768 ? (preferences?.default_task_card_view_mobile ?? 'compact') : (preferences?.default_task_card_view ?? 'compact')}
+                                  globalViewMode={activeTaskCardView}
                                   isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                                   onTaskClick={() => toggleExpand(task.id)}
                                   projects={allProjects}
@@ -1330,7 +1336,11 @@ const MeetingDetail = () => {
         />
       )}
     </div>
-    <BottomNav />
+    <BottomNav
+      preferences={preferences}
+      prefsLoading={prefsLoading}
+      onSavePreferences={updatePreferences}
+    />
     </>
   );
 };

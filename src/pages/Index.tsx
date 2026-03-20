@@ -43,7 +43,7 @@ import BottomNav from '@/components/BottomNav';
 import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import SettingsDialog from '@/components/SettingsDialog';
-import { useUserPreferences } from '@/hooks/useUserPreferences';
+import { useUserPreferences, type UserPreferences } from '@/hooks/useUserPreferences';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { TaskTour } from '@/components/TaskTour';
 import { ProjectTour } from '@/components/ProjectTour';
@@ -88,9 +88,36 @@ const ProjectsFAB = () => {
 };
 
 // BottomNav wrapper that provides sidebar toggle - must be inside SidebarProvider
-const BottomNavWithSidebar = ({ projects }: { projects: { id: string; name: string; color?: string }[] }) => {
+type BottomNavWithSidebarProps = {
+  projects: { id: string; name: string; color?: string }[];
+  preferences: UserPreferences | null;
+  prefsLoading: boolean;
+  onSavePreferences: (updates: Partial<UserPreferences>) => Promise<void>;
+  settingsOpen: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
+};
+
+const BottomNavWithSidebar = ({
+  projects,
+  preferences,
+  prefsLoading,
+  onSavePreferences,
+  settingsOpen,
+  onSettingsOpenChange,
+}: BottomNavWithSidebarProps) => {
   const { toggleSidebar } = useSidebar();
-  return <BottomNav projects={projects} onToggleSidebar={toggleSidebar} />;
+
+  return (
+    <BottomNav
+      projects={projects}
+      onToggleSidebar={toggleSidebar}
+      preferences={preferences}
+      prefsLoading={prefsLoading}
+      onSavePreferences={onSavePreferences}
+      settingsOpen={settingsOpen}
+      onSettingsOpenChange={onSettingsOpenChange}
+    />
+  );
 };
 
 // Mobile sidebar controller for Projects Tour - must be inside SidebarProvider
@@ -655,13 +682,6 @@ const Index = () => {
       // Apply task filter
       setActiveTab(preferences.default_task_filter);
       
-      // Apply task card view based on screen size
-      const isMobileScreen = window.innerWidth < 768;
-      const cardView = isMobileScreen
-        ? (preferences.default_task_card_view_mobile || 'compact')
-        : (preferences.default_task_card_view || 'compact');
-      setGlobalCardView(cardView);
-      
       // Apply theme
       if (preferences.theme) {
         setTheme(preferences.theme);
@@ -670,6 +690,17 @@ const Index = () => {
       setPreferencesLoaded(true);
     }
   }, [preferences, preferencesLoaded, projects]);
+
+  useEffect(() => {
+    if (!preferences) return;
+
+    setGlobalCardView(
+      isMobile
+        ? (preferences.default_task_card_view_mobile ?? 'compact')
+        : (preferences.default_task_card_view ?? 'compact')
+    );
+    setExpandedTaskIds(new Set());
+  }, [isMobile, preferences?.default_task_card_view, preferences?.default_task_card_view_mobile]);
 
   // React to URL search param changes (e.g. from BottomNav clicks)
   useEffect(() => {
@@ -2211,7 +2242,14 @@ https://www.skyscanner.com`,
         onRecordingChange={setIsBrainDumpRecording}
       />
 
-      <BottomNavWithSidebar projects={projects} />
+      <BottomNavWithSidebar
+        projects={projects}
+        preferences={preferences}
+        prefsLoading={prefsLoading}
+        onSavePreferences={updatePreferences}
+        settingsOpen={settingsOpen}
+        onSettingsOpenChange={setSettingsOpen}
+      />
 
       <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setFabExpanded(true)} />
 
