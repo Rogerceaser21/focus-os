@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import focusOsLogo from '@/assets/focus-os-logo.png';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Video } from 'lucide-react';
