@@ -325,7 +325,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               >
                 <Badge
                   variant="outline"
-                  className={`cursor-pointer text-[10px] truncate max-w-full ${allCompleted ? 'bg-success/15 text-success border-success/30' : 'bg-primary/10 text-primary border-primary/30'}`}
+                  className={`cursor-pointer text-[10px] truncate max-w-full ${allCompleted ? 'bg-success/15 text-success border-success/30' : 'bg-purple-600/15 text-purple-400 border-purple-600/30'}`}
                 >
                   <Share2 className="w-3 h-3 mr-1 shrink-0" />
                   <span className="truncate">{sharedText}</span>

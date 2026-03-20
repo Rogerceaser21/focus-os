@@ -1674,7 +1674,6 @@ https://www.skyscanner.com`,
                         >
                           <ArrowUpDown className="h-4 w-4" />
                           <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                          <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
                         </Button>
 
                         <Button
