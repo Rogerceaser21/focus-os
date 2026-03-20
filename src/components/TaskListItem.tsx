@@ -290,11 +290,30 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
             onCheckedChange={handleCheckboxChange}
             className="shrink-0"
           />
-          <span
-            className={`font-semibold text-sm truncate flex-1 min-w-0 ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
-          >
-            {task.title}
-          </span>
+          {isEditingTitle ? (
+            <Textarea
+              ref={handleTitleMount}
+              value={editedTitle}
+              onChange={(e) => setEditedTitle(e.target.value)}
+              onBlur={handleTitleBlur}
+              onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
+              autoFocus
+              rows={1}
+              className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 min-w-0 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span
+              className={`font-semibold text-sm truncate flex-1 min-w-0 cursor-text rounded px-1.5 py-0.5 ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (task.assignedToEmail) return;
+                setIsEditingTitle(true);
+              }}
+            >
+              {editedTitle}
+            </span>
+          )}
           {sharedText && (
             <div className="shrink-0 max-w-[40%] sm:max-w-none" onClick={(e) => e.stopPropagation()}>
               <ShareStatusPopover
@@ -314,6 +333,29 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               </ShareStatusPopover>
             </div>
           )}
+          {onEditTask && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
+              className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+              title="Edit task"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => { e.stopPropagation(); handleStartStop(); }}
+            className="h-7 w-7 p-0 shrink-0"
+          >
+            {timer.isRunning ? (
+              <Pause className="h-3.5 w-3.5" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+          </Button>
         </div>
       </div>
     );
