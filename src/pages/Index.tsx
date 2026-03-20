@@ -477,12 +477,17 @@ const Index = () => {
   useEffect(() => {
     const loadInitialData = async () => {
       if (user && preferences && !initialLoadComplete) {
-        // User is already authenticated via useAuth - no need to re-check session
-        await Promise.all([
-          fetchInitialTasks(preferences.default_view),
-          fetchProjects()
-        ]);
-        setInitialLoadComplete(true);
+        try {
+          await Promise.all([
+            fetchInitialTasks(preferences.default_view),
+            fetchProjects()
+          ]);
+        } catch (err) {
+          console.error('[Index] Initial data load failed:', err);
+        } finally {
+          // Always mark complete so UI doesn't hang
+          setInitialLoadComplete(true);
+        }
       }
     };
     loadInitialData();
