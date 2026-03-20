@@ -1689,7 +1689,7 @@ https://www.skyscanner.com`,
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
+                          className="gap-1 px-1.5 sm:px-3 text-primary hover:text-primary/80 hover:bg-primary/10"
                           onClick={() => setShareProjectDialogOpen(true)}
                         >
                           <Share2 className="h-4 w-4" />
