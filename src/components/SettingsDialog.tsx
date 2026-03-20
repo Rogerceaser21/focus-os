@@ -175,7 +175,7 @@ export default function SettingsDialog({
 
             {/* Display Mode Selection */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold">Default Display Mode</Label>
+              <Label className="text-base font-semibold">Default Task Display Mode</Label>
               <p className="text-sm text-muted-foreground">
                 How do you want tasks to be displayed?
               </p>
