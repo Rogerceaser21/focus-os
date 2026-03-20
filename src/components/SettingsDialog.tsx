@@ -138,7 +138,7 @@ export default function SettingsDialog({
             {/* Default View Selection */}
             <div className="space-y-3">
               <Label htmlFor="default-view" className="text-base font-semibold">
-                Default View
+                Default Project/List View
               </Label>
               <p className="text-sm text-muted-foreground">
                 Choose which view to load when you first log in
