@@ -41,14 +41,36 @@ const Auth = () => {
   }, [navigate]);
 
   const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/home`,
-      },
-    });
-    if (error) {
-      toast.error(error.message);
+    const isCustomDomain =
+      !window.location.hostname.includes("lovable.app") &&
+      !window.location.hostname.includes("lovableproject.com") &&
+      !window.location.hostname.includes("localhost");
+
+    if (isCustomDomain) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/home`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/home`,
+        },
+      });
+      if (error) {
+        toast.error(error.message);
+      }
     }
   };
 
