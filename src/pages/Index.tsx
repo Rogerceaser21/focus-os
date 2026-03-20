@@ -1590,9 +1590,9 @@ https://www.skyscanner.com`,
                 const isSharedProject = currentProject?.isShared ?? false;
                 const assignedByEmail = isCollaborator ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
                 return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
-                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
-                    <div className="flex items-center gap-2 flex-1 flex-wrap">
-                      <span style={{ color: currentProject?.color }}>📁</span>
+                  <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-1 flex-wrap">
+                      <span className="hidden sm:inline" style={{ color: currentProject?.color }}>📁</span>
                       
                       {isEditingProjectName && !isCollaborator ? (
                         <Input
