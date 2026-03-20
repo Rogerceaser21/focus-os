@@ -1121,7 +1121,7 @@ const MeetingDetail = () => {
                                   onUpdate={handleSavedTaskUpdate}
                                   onEditTask={setEditingTask}
                                   onAssignTask={(t) => handleAssignTask(t)}
-                                  globalViewMode={preferences?.default_task_card_view ?? 'full'}
+                                  globalViewMode={window.innerWidth < 768 ? (preferences?.default_task_card_view_mobile ?? 'compact') : (preferences?.default_task_card_view ?? 'compact')}
                                   isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                                   onTaskClick={() => toggleExpand(task.id)}
                                   projects={allProjects}
