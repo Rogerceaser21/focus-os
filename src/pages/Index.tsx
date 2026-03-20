@@ -256,11 +256,7 @@ const Index = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [expandedTaskIds]);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
+  // Auth redirect is now handled in the render gate below
 
   // Helper function to transform DB task format to app Task format
   const transformDbTask = useCallback((dbTask: any): Task => ({
