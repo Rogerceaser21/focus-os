@@ -655,10 +655,12 @@ const Index = () => {
       // Apply task filter
       setActiveTab(preferences.default_task_filter);
       
-      // Apply task card view
-      if (preferences.default_task_card_view) {
-        setGlobalCardView(preferences.default_task_card_view);
-      }
+      // Apply task card view based on screen size
+      const isMobileScreen = window.innerWidth < 768;
+      const cardView = isMobileScreen
+        ? (preferences.default_task_card_view_mobile || 'compact')
+        : (preferences.default_task_card_view || 'compact');
+      setGlobalCardView(cardView);
       
       // Apply theme
       if (preferences.theme) {

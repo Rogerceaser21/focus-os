@@ -245,28 +245,58 @@ export default function SettingsDialog({
 
             <Separator />
 
-            {/* Task Card View Selection */}
+            {/* Task Card View - Mobile */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold">Default Task Card View</Label>
+              <Label className="text-base font-semibold">Mobile Task Card View</Label>
               <p className="text-sm text-muted-foreground">
-                Choose how much detail to show in task cards by default
+                Default card detail level on mobile devices
               </p>
-              <RadioGroup value={taskCardView} onValueChange={(value) => setTaskCardView(value as 'full' | 'compact' | 'minimal')}>
+              <RadioGroup value={taskCardViewMobile} onValueChange={(value) => setTaskCardViewMobile(value as 'full' | 'compact' | 'minimal')}>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="full" id="full-view" />
-                  <Label htmlFor="full-view" className="font-normal cursor-pointer">
+                  <RadioGroupItem value="full" id="mobile-full-view" />
+                  <Label htmlFor="mobile-full-view" className="font-normal cursor-pointer">
                     Full View (show all details)
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="compact" id="compact-view" />
-                  <Label htmlFor="compact-view" className="font-normal cursor-pointer">
+                  <RadioGroupItem value="compact" id="mobile-compact-view" />
+                  <Label htmlFor="mobile-compact-view" className="font-normal cursor-pointer">
                     Compact View (hide metadata by default)
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="minimal" id="minimal-view" />
-                  <Label htmlFor="minimal-view" className="font-normal cursor-pointer">
+                  <RadioGroupItem value="minimal" id="mobile-minimal-view" />
+                  <Label htmlFor="mobile-minimal-view" className="font-normal cursor-pointer">
+                    Minimal View (title + shared badge only)
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            {/* Task Card View - Desktop/Tablet */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Desktop/Tablet Task Card View</Label>
+              <p className="text-sm text-muted-foreground">
+                Default card detail level on larger screens
+              </p>
+              <RadioGroup value={taskCardView} onValueChange={(value) => setTaskCardView(value as 'full' | 'compact' | 'minimal')}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="full" id="desktop-full-view" />
+                  <Label htmlFor="desktop-full-view" className="font-normal cursor-pointer">
+                    Full View (show all details)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="compact" id="desktop-compact-view" />
+                  <Label htmlFor="desktop-compact-view" className="font-normal cursor-pointer">
+                    Compact View (hide metadata by default)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="minimal" id="desktop-minimal-view" />
+                  <Label htmlFor="desktop-minimal-view" className="font-normal cursor-pointer">
                     Minimal View (title + shared badge only)
                   </Label>
                 </div>
