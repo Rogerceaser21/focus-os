@@ -1590,9 +1590,9 @@ https://www.skyscanner.com`,
                 const isSharedProject = currentProject?.isShared ?? false;
                 const assignedByEmail = isCollaborator ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
                 return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
-                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
-                    <div className="flex items-center gap-2 flex-1 flex-wrap">
-                      <span style={{ color: currentProject?.color }}>📁</span>
+                  <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-1 flex-wrap">
+                      <span className="hidden sm:inline" style={{ color: currentProject?.color }}>📁</span>
                       
                       {isEditingProjectName && !isCollaborator ? (
                         <Input
@@ -1639,8 +1639,8 @@ https://www.skyscanner.com`,
                     {/* Status Dropdown for Mobile/Tablet */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
-                          <span className="text-sm">Status</span>
+                        <Button variant="outline" className="gap-1 border-2 h-9 px-2 sm:px-3 flex lg:hidden">
+                          <span className="text-sm hidden sm:inline">Status</span>
                           <ChevronDown className="h-3 w-3" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -1670,17 +1670,16 @@ https://www.skyscanner.com`,
                           variant={isReorderMode ? 'secondary' : 'ghost'}
                           size="sm"
                           onClick={() => setIsReorderMode(!isReorderMode)}
-                          className="gap-1"
+                          className="gap-1 px-1.5 sm:px-3"
                         >
                           <ArrowUpDown className="h-4 w-4" />
                           <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                          <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
                         </Button>
 
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="gap-1"
+                          className="gap-1 px-1.5 sm:px-3"
                           onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}
                         >
                           <Mic className="h-4 w-4" />
@@ -1690,7 +1689,7 @@ https://www.skyscanner.com`,
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
+                          className="gap-1 px-1.5 sm:px-3 text-primary hover:text-primary/80 hover:bg-primary/10"
                           onClick={() => setShareProjectDialogOpen(true)}
                         >
                           <Share2 className="h-4 w-4" />
