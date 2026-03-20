@@ -13,7 +13,7 @@ import { Eye, EyeOff } from 'lucide-react';
 const ResetPassword = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const isCream = theme === 'cream';
+  const isDark = theme === 'dark';
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
