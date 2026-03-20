@@ -9,7 +9,7 @@ const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { theme } = useTheme();
-  const isCream = theme === 'cream';
+  const isDark = theme === 'dark';
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handlePlay = () => {
