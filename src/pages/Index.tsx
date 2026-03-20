@@ -149,7 +149,7 @@ const Index = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isBrainDumpRecording, setIsBrainDumpRecording] = useState(false);
   const [isBrainDumpCtaActive, setIsBrainDumpCtaActive] = useState(false);
-  const [globalCardView, setGlobalCardView] = useState<'full' | 'compact'>('full');
+  const [globalCardView, setGlobalCardView] = useState<'full' | 'compact' | 'minimal'>('full');
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
