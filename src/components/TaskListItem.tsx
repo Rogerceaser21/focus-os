@@ -22,7 +22,7 @@ interface TaskListItemProps {
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
-  globalViewMode: 'full' | 'compact';
+  globalViewMode: 'full' | 'compact' | 'minimal';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
   projects?: Project[];

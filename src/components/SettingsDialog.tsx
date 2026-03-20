@@ -248,7 +248,7 @@ export default function SettingsDialog({
               <p className="text-sm text-muted-foreground">
                 Choose how much detail to show in task cards by default
               </p>
-              <RadioGroup value={taskCardView} onValueChange={(value) => setTaskCardView(value as 'full' | 'compact')}>
+              <RadioGroup value={taskCardView} onValueChange={(value) => setTaskCardView(value as 'full' | 'compact' | 'minimal')}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="full" id="full-view" />
                   <Label htmlFor="full-view" className="font-normal cursor-pointer">
@@ -259,6 +259,12 @@ export default function SettingsDialog({
                   <RadioGroupItem value="compact" id="compact-view" />
                   <Label htmlFor="compact-view" className="font-normal cursor-pointer">
                     Compact View (hide metadata by default)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="minimal" id="minimal-view" />
+                  <Label htmlFor="minimal-view" className="font-normal cursor-pointer">
+                    Minimal View (title + shared badge only)
                   </Label>
                 </div>
               </RadioGroup>
