@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import focusOsLogo from '@/assets/focus-os-logo.png';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Video } from 'lucide-react';
@@ -64,7 +63,6 @@ const Home = () => {
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
         {/* Greeting */}
         <div className="text-center mb-10">
-          <img src={focusOsLogo} alt="Focus OS" className="h-10 sm:h-12 mx-auto mb-4 dark:invert" />
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground">
             {getGreeting()}{firstName ? `, ${firstName}` : ''}
           </h1>
