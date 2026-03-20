@@ -25,7 +25,7 @@ export const SidePanel = ({ open, onClose, title, children, className }: SidePan
           <X className="h-4 w-4" />
         </Button>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-24">
         {children}
       </div>
     </div>
