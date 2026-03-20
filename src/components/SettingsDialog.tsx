@@ -60,7 +60,8 @@ export default function SettingsDialog({
       setDefaultView(preferences.default_view);
       setDisplayMode(preferences.default_display_mode);
       setTaskFilter(preferences.default_task_filter);
-      setTaskCardView(preferences.default_task_card_view || 'full');
+      setTaskCardView(preferences.default_task_card_view || 'compact');
+      setTaskCardViewMobile(preferences.default_task_card_view_mobile || 'compact');
       setSelectedTheme(preferences.theme || 'dark');
     }
   }, [preferences]);
