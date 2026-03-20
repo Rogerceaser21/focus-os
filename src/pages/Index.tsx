@@ -1528,22 +1528,36 @@ https://www.skyscanner.com`,
               </div>
 
               {viewMode === 'list' && (
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    setGlobalCardView(prev => prev === 'full' ? 'compact' : 'full');
-                    setExpandedTaskIds(new Set());
-                  }}
-                  className="gap-2 border-2 w-[70px] lg:w-auto h-10"
-                >
-                  <Eye className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {globalCardView === 'full' ? 'view -' : 'view +'}
-                  </span>
-                  <span className="sm:hidden">
-                    {globalCardView === 'full' ? '-' : '+'}
-                  </span>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline"
+                      className="gap-2 border-2 w-[70px] lg:w-auto h-10"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span className="hidden sm:inline">
+                        {globalCardView === 'full' ? 'Full' : globalCardView === 'compact' ? 'Compact' : 'Minimal'}
+                      </span>
+                      <span className="sm:hidden">
+                        {globalCardView === 'full' ? '+' : globalCardView === 'compact' ? '-' : '≡'}
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuItem onClick={() => { setGlobalCardView('full'); setExpandedTaskIds(new Set()); }}>
+                      <Check className={`h-4 w-4 mr-2 ${globalCardView === 'full' ? 'opacity-100' : 'opacity-0'}`} />
+                      Full
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setGlobalCardView('compact'); setExpandedTaskIds(new Set()); }}>
+                      <Check className={`h-4 w-4 mr-2 ${globalCardView === 'compact' ? 'opacity-100' : 'opacity-0'}`} />
+                      Compact
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setGlobalCardView('minimal'); setExpandedTaskIds(new Set()); }}>
+                      <Check className={`h-4 w-4 mr-2 ${globalCardView === 'minimal' ? 'opacity-100' : 'opacity-0'}`} />
+                      Minimal
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button" onClick={() => handleAddTaskDialogOpen(true)}>
                 <Plus className="h-4 w-4" />
