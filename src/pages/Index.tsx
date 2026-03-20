@@ -1639,8 +1639,8 @@ https://www.skyscanner.com`,
                     {/* Status Dropdown for Mobile/Tablet */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
-                          <span className="text-sm">Status</span>
+                        <Button variant="outline" className="gap-1 border-2 h-9 px-2 sm:px-3 flex lg:hidden">
+                          <span className="text-sm hidden sm:inline">Status</span>
                           <ChevronDown className="h-3 w-3" />
                         </Button>
                       </DropdownMenuTrigger>
