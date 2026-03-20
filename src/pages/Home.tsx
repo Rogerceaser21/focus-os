@@ -50,10 +50,15 @@ const Home = () => {
 
   const handleTasksCreated = useCallback(() => navigate('/app'), [navigate]);
 
-  if (authLoading || !user) {
+  if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="animate-pulse text-muted-foreground">Loading...</div>
     </div>;
+  }
+
+  if (!user) {
+    navigate('/auth');
+    return null;
   }
 
   return (
