@@ -1,21 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FolderOpen, Calendar, ListTodo, AlertTriangle, Settings, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import SettingsDialog from '@/components/SettingsDialog';
-import { useUserPreferences } from '@/hooks/useUserPreferences';
+import { useUserPreferences, type UserPreferences } from '@/hooks/useUserPreferences';
+import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
+
 interface BottomNavProps {
   projects?: { id: string; name: string; color?: string }[];
   onToggleSidebar?: () => void;
+  preferences?: UserPreferences | null;
+  prefsLoading?: boolean;
+  onSavePreferences?: (updates: Partial<UserPreferences>) => Promise<void>;
+  settingsOpen?: boolean;
+  onSettingsOpenChange?: (open: boolean) => void;
 }
 
-const BottomNav = ({ projects = [], onToggleSidebar }: BottomNavProps) => {
+const BottomNav = ({
+  projects = [],
+  onToggleSidebar,
+  preferences: providedPreferences,
+  prefsLoading: providedPrefsLoading,
+  onSavePreferences,
+  settingsOpen: controlledSettingsOpen,
+  onSettingsOpenChange,
+}: BottomNavProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences();
+  const [internalSettingsOpen, setInternalSettingsOpen] = useState(false);
+  const { user } = useAuth();
+  const {
+    preferences: localPreferences,
+    loading: localPrefsLoading,
+    updatePreferences: updateLocalPreferences,
+  } = useUserPreferences(user?.id);
   const isMobile = useIsMobile();
+
+  const settingsOpen = controlledSettingsOpen ?? internalSettingsOpen;
+  const setSettingsOpen = onSettingsOpenChange ?? setInternalSettingsOpen;
+  const preferences = providedPreferences ?? localPreferences;
+  const prefsLoading = providedPrefsLoading ?? localPrefsLoading;
+  const handleSavePreferences = onSavePreferences ?? updateLocalPreferences;
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -85,10 +111,10 @@ const BottomNav = ({ projects = [], onToggleSidebar }: BottomNavProps) => {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        projects={projects.map(p => ({ id: p.id, name: p.name, color: p.color || '#888' }))}
+        projects={projects.map((p) => ({ id: p.id, name: p.name, color: p.color || '#888' }))}
         preferences={preferences}
         loading={prefsLoading}
-        onSave={updatePreferences}
+        onSave={handleSavePreferences}
       />
     </>
   );
