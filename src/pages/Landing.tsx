@@ -34,7 +34,7 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen relative flex flex-col bg-background">
-      {!isCream && (
+      {isDark && (
         <DarkVeil 
           hueShift={108} 
           noiseIntensity={0} 
@@ -45,7 +45,7 @@ const Landing = () => {
           resolutionScale={0.6} 
         />
       )}
-      {!isCream && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
+      {isDark && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
       
       {/* Main content with video */}
       <main className="relative z-10 flex flex-col items-center pt-4 sm:pt-6 px-4 pb-8">
