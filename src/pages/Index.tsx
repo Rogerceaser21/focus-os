@@ -497,8 +497,13 @@ const Index = () => {
   useEffect(() => {
     const loadRemainingData = async () => {
       if (initialLoadComplete && user && !fullDataLoaded) {
-        await Promise.all([fetchAllTasks(), fetchSenderSharedItems()]);
-        setFullDataLoaded(true);
+        try {
+          await Promise.all([fetchAllTasks(), fetchSenderSharedItems()]);
+        } catch (err) {
+          console.error('[Index] Background data load failed:', err);
+        } finally {
+          setFullDataLoaded(true);
+        }
       }
     };
     loadRemainingData();
