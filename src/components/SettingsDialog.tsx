@@ -50,7 +50,7 @@ export default function SettingsDialog({
   const [defaultView, setDefaultView] = useState<string>('today');
   const [displayMode, setDisplayMode] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
-  const [taskCardView, setTaskCardView] = useState<'full' | 'compact'>('full');
+  const [taskCardView, setTaskCardView] = useState<'full' | 'compact' | 'minimal'>('full');
   const [saving, setSaving] = useState(false);
 
   // Initialize form with preferences when they load
