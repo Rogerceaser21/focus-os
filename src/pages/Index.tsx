@@ -1670,7 +1670,7 @@ https://www.skyscanner.com`,
                           variant={isReorderMode ? 'secondary' : 'ghost'}
                           size="sm"
                           onClick={() => setIsReorderMode(!isReorderMode)}
-                          className="gap-1"
+                          className="gap-1 px-1.5 sm:px-3"
                         >
                           <ArrowUpDown className="h-4 w-4" />
                           <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
