@@ -80,6 +80,7 @@ export default function SettingsDialog({
       default_display_mode: displayMode,
       default_task_filter: taskFilter,
       default_task_card_view: taskCardView,
+      default_task_card_view_mobile: taskCardViewMobile,
       theme: selectedTheme,
     });
     setSaving(false);
