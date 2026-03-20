@@ -22,7 +22,7 @@ interface TaskListItemProps {
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
-  globalViewMode: 'full' | 'compact';
+  globalViewMode: 'full' | 'compact' | 'minimal';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
   projects?: Project[];
@@ -261,6 +261,63 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
       setTimeout(() => { recentlyBlurredRef.current = false; }, 2000);
     }
   };
+
+  // Helper to build condensed shared badge text (e.g. "1A, 2C, 1P")
+  const getCondensedSharedText = () => {
+    if (!task.sharedRecipients || task.sharedRecipients.length === 0) return null;
+    const counts: Record<string, number> = {};
+    task.sharedRecipients.forEach(r => {
+      const key = r.status === 'accepted' ? 'A' : r.status === 'completed' ? 'C' : r.status === 'declined' ? 'D' : 'P';
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return Object.entries(counts).map(([k, v]) => `${v}${k}`).join(', ');
+  };
+
+  // Minimal view: single line with checkbox + title + condensed shared badge
+  if (globalViewMode === 'minimal') {
+    const sharedText = getCondensedSharedText();
+    const allCompleted = task.sharedRecipients?.every(r => r.status === 'completed');
+    return (
+      <div
+        data-task-card
+        className={`group w-full glass-card rounded-lg px-1.5 py-1 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
+        onClick={onTaskClick}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <Checkbox
+            onClick={(e) => e.stopPropagation()}
+            checked={isChecked}
+            onCheckedChange={handleCheckboxChange}
+            className="shrink-0"
+          />
+          <span
+            className={`font-semibold text-sm truncate flex-1 min-w-0 ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
+          >
+            {task.title}
+          </span>
+          {sharedText && (
+            <div className="shrink-0 max-w-[40%] sm:max-w-none" onClick={(e) => e.stopPropagation()}>
+              <ShareStatusPopover
+                recipients={task.sharedRecipients!}
+                itemType="Task"
+                onRequestChanges={(email) => onRequestChanges?.({ ...task, completedByEmail: email })}
+                allCompleted={!!allCompleted}
+                onMoveAllToDone={() => { onUpdate({ ...task, status: 'completed' }); }}
+              >
+                <Badge
+                  variant="outline"
+                  className={`cursor-pointer text-[10px] truncate max-w-full ${allCompleted ? 'bg-success/15 text-success border-success/30' : 'bg-primary/10 text-primary border-primary/30'}`}
+                >
+                  <Share2 className="w-3 h-3 mr-1 shrink-0" />
+                  <span className="truncate">{sharedText}</span>
+                </Badge>
+              </ShareStatusPopover>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
