@@ -256,11 +256,7 @@ const Index = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [expandedTaskIds]);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
+  // Auth redirect is now handled in the render gate below
 
   // Helper function to transform DB task format to app Task format
   const transformDbTask = useCallback((dbTask: any): Task => ({
@@ -1476,8 +1472,26 @@ https://www.skyscanner.com`,
 
 
   
-  // Show loading screen while auth, preferences, or initial tasks are loading
-  if (authLoading || prefsLoading || (user && !preferences) || (user && !initialLoadComplete)) {
+  // Show loading screen while auth is resolving
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Auth resolved but no user — redirect immediately (no blank screen)
+  if (!user) {
+    navigate('/auth');
+    return null;
+  }
+
+  // User exists but data still loading
+  if (prefsLoading || !preferences || !initialLoadComplete) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -1486,10 +1500,6 @@ https://www.skyscanner.com`,
         </div>
       </div>
     );
-  }
-  
-  if (!user) {
-    return null;
   }
 
   return <PullToRefresh>
