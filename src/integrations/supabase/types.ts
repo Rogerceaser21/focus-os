@@ -663,6 +663,7 @@ export type Database = {
           created_at: string | null
           default_display_mode: string
           default_task_card_view: string | null
+          default_task_card_view_mobile: string | null
           default_task_filter: string
           default_view: string
           has_completed_onboarding: boolean
@@ -680,6 +681,7 @@ export type Database = {
           created_at?: string | null
           default_display_mode?: string
           default_task_card_view?: string | null
+          default_task_card_view_mobile?: string | null
           default_task_filter?: string
           default_view?: string
           has_completed_onboarding?: boolean
@@ -697,6 +699,7 @@ export type Database = {
           created_at?: string | null
           default_display_mode?: string
           default_task_card_view?: string | null
+          default_task_card_view_mobile?: string | null
           default_task_filter?: string
           default_view?: string
           has_completed_onboarding?: boolean
