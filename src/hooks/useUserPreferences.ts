@@ -58,7 +58,7 @@ export const useUserPreferences = (userId?: string | null) => {
           default_display_mode: 'list',
           default_task_filter: 'all',
           default_task_card_view: 'compact',
-          default_task_card_view_mobile: 'compact',
+          default_task_card_view_mobile: 'minimal',
           theme: 'dark',
           has_completed_onboarding: false,
           has_completed_task_tour: false,
