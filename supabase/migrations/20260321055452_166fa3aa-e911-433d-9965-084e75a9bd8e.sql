@@ -1,0 +1,1 @@
+ALTER TABLE public.focusos_user_preferences ALTER COLUMN theme SET DEFAULT 'cream';
