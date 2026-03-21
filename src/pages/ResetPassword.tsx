@@ -18,6 +18,11 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isRecovery, setIsRecovery] = useState(false);
 
+  // Force cream theme on ResetPassword page
+  useEffect(() => {
+    setTheme('cream');
+  }, [setTheme]);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
