@@ -26,12 +26,6 @@ const Auth = () => {
   useEffect(() => {
     setTheme('cream');
   }, [setTheme]);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [forgotPassword, setForgotPassword] = useState(false);
 
   // Admin reset state
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
