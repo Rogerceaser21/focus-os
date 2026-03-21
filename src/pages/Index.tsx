@@ -120,26 +120,27 @@ const BottomNavWithSidebar = ({
   );
 };
 
-// Mobile sidebar controller for Projects Tour - must be inside SidebarProvider
-const MobileSidebarController = ({ tourStep, isTourActive, currentTourStep }: { tourStep: number | null; isTourActive: boolean; currentTourStep: number }) => {
+// Mobile sidebar controller - handles both Projects Tour AND openSidebar navigation
+const MobileSidebarController = ({ tourStep, isTourActive, currentTourStep, openSidebarRequested, onOpenSidebarHandled }: { tourStep: number | null; isTourActive: boolean; currentTourStep: number; openSidebarRequested: boolean; onOpenSidebarHandled: () => void }) => {
   const { setOpenMobile, isMobile } = useSidebar();
   
+  // Handle openSidebar request from navigation (e.g. Home -> Projects)
+  React.useEffect(() => {
+    if (!openSidebarRequested || !isMobile) return;
+    setOpenMobile(true);
+    onOpenSidebarHandled();
+  }, [openSidebarRequested, isMobile, setOpenMobile, onOpenSidebarHandled]);
+
+  // Handle tour steps
   React.useEffect(() => {
     if (!isTourActive || !isMobile) return;
     
-    // Use currentTourStep (the actual displayed step) not tourStep (last processed)
     const activeStep = currentTourStep;
     
-    console.log('[MobileSidebarController] activeStep:', activeStep);
-    
-    // Steps that need sidebar OPEN: 0 (new-project-button) and 2 (demo-project)
     if (activeStep === 0 || activeStep === 2) {
-      console.log('[MobileSidebarController] Opening sidebar for step:', activeStep);
       setOpenMobile(true);
     } else {
-      // Use consistent 500ms delay to ensure content loads before closing
       const timer = setTimeout(() => {
-        console.log('[MobileSidebarController] Closing sidebar for step:', activeStep);
         setOpenMobile(false);
       }, 500);
       return () => clearTimeout(timer);
