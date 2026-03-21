@@ -41,6 +41,7 @@ export const useUserPreferences = (userId?: string | null) => {
         await createDefaultPreferences(uid);
       } else {
         setPreferences(data as UserPreferences);
+        if (data.theme) setTheme(data.theme);
       }
     } catch (error) {
       console.error('Error fetching preferences:', error);
