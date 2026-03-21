@@ -728,6 +728,19 @@ const Index = () => {
     }
   }, [location.search, preferencesLoaded]);
 
+  // Auto-open sidebar when arriving via openSidebar param (mobile)
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('openSidebar') === 'true' && isMobile) {
+      setSidebarOpen(true);
+      // Strip the param from the URL without triggering a re-render loop
+      urlParams.delete('openSidebar');
+      const cleanSearch = urlParams.toString();
+      navigate(cleanSearch ? `/app?${cleanSearch}` : '/app', { replace: true });
+    }
+  }, [location.search, preferencesLoaded, isMobile, navigate]);
+
   // Reset reorder mode when switching projects/views
   useEffect(() => {
     setIsReorderMode(false);
