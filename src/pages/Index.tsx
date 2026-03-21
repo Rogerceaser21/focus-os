@@ -188,6 +188,7 @@ const Index = () => {
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [openSidebarRequested, setOpenSidebarRequested] = useState(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
   const [tasksLoading, setTasksLoading] = useState(false);
