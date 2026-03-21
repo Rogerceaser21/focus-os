@@ -31,6 +31,9 @@ const Home = () => {
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
 
+  // Silently prefetch all data for /app and /meetings while user is on Home screen
+  usePrefetchAppData(user?.id);
+
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
