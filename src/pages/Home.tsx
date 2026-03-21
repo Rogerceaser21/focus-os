@@ -57,8 +57,11 @@ const Home = () => {
   }
 
   if (!user) {
-    navigate('/auth');
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Redirecting...</div>
+      </div>
+    );
   }
 
   return (

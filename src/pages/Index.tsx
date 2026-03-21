@@ -162,6 +162,13 @@ const Index = () => {
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [authLoading, user, navigate]);
+
   // Debounce search input → searchQuery (300ms)
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(searchInput), 300);
@@ -1484,10 +1491,16 @@ https://www.skyscanner.com`,
     );
   }
   
-  // Auth resolved but no user — redirect immediately (no blank screen)
+  // Auth resolved but no user — show spinner while useEffect redirects
   if (!user) {
-    navigate('/auth');
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
   // User exists but data still loading
