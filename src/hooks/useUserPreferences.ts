@@ -23,6 +23,7 @@ export interface UserPreferences {
 }
 
 export const useUserPreferences = (userId?: string | null) => {
+  const { setTheme } = useTheme();
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [loading, setLoading] = useState(true);
 
