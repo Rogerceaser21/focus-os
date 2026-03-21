@@ -162,6 +162,13 @@ const Index = () => {
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [authLoading, user, navigate]);
+
   // Debounce search input → searchQuery (300ms)
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(searchInput), 300);
