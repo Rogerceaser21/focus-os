@@ -65,6 +65,7 @@ const Meetings = () => {
   const projectId = searchParams.get('project');
   const shouldOpenNew = searchParams.get('new') === 'true';
   const { user, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
