@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Video } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
 import type { ProjectInfo } from '@/hooks/useBrainDumpLive';
