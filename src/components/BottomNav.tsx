@@ -71,10 +71,8 @@ const BottomNav = ({
           onClick={() => {
             if (isMobile && location.pathname === '/app' && onToggleSidebar) {
               onToggleSidebar();
-            } else if (isMobile) {
-              navigate('/app?openSidebar=true');
             } else {
-              navigate('/app?view=projects');
+              navigate('/app?openSidebar=true');
             }
           }}
           active={isActive('/app', 'projects')}
