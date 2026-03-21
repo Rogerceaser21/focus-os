@@ -233,6 +233,7 @@ const Index = () => {
     animationDuration: 0.6
   });
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   // Sync sidebar state with screen size changes
