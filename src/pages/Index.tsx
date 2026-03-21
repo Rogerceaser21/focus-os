@@ -731,17 +731,40 @@ const Index = () => {
   }, [location.search, preferencesLoaded]);
 
   // Auto-open sidebar when arriving via openSidebar param (mobile)
+  // Also apply the user's default_view preference so the right tasks load
   useEffect(() => {
-    if (!preferencesLoaded) return;
+    if (!preferencesLoaded || !preferences) return;
     const urlParams = new URLSearchParams(location.search);
     if (urlParams.get('openSidebar') === 'true' && isMobile) {
-      setSidebarOpen(true);
-      // Strip the param from the URL without triggering a re-render loop
+      // Apply the user's default_view to select the right project/list
+      const dv = preferences.default_view;
+      if (dv === 'today') {
+        setSelectedSpecialList('today');
+        setSelectedProjectId(null);
+      } else if (dv === 'unassigned') {
+        setSelectedSpecialList('unassigned');
+        setSelectedProjectId(null);
+      } else if (dv && dv !== 'home') {
+        // It's a project ID
+        const projectExists = projects.some(p => p.id === dv);
+        if (projectExists) {
+          setSelectedProjectId(dv);
+          setSelectedSpecialList(null);
+        } else {
+          setSelectedSpecialList('today');
+          setSelectedProjectId(null);
+        }
+      }
+
+      // Signal the child component to call setOpenMobile(true)
+      setOpenSidebarRequested(true);
+
+      // Strip the param from the URL
       urlParams.delete('openSidebar');
       const cleanSearch = urlParams.toString();
       navigate(cleanSearch ? `/app?${cleanSearch}` : '/app', { replace: true });
     }
-  }, [location.search, preferencesLoaded, isMobile, navigate]);
+  }, [location.search, preferencesLoaded, preferences, isMobile, navigate, projects]);
 
   // Reset reorder mode when switching projects/views
   useEffect(() => {
