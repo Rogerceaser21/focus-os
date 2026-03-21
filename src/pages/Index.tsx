@@ -730,12 +730,12 @@ const Index = () => {
     }
   }, [location.search, preferencesLoaded]);
 
-  // Auto-open sidebar when arriving via openSidebar param (mobile)
-  // Also apply the user's default_view preference so the right tasks load
+  // Auto-open sidebar when arriving via openSidebar param (mobile + desktop)
+  // Apply the user's default_view preference so the right tasks load
   useEffect(() => {
     if (!preferencesLoaded || !preferences) return;
     const urlParams = new URLSearchParams(location.search);
-    if (urlParams.get('openSidebar') === 'true' && isMobile) {
+    if (urlParams.get('openSidebar') === 'true') {
       // Apply the user's default_view to select the right project/list
       const dv = preferences.default_view;
       if (dv === 'today') {
@@ -756,8 +756,10 @@ const Index = () => {
         }
       }
 
-      // Signal the child component to call setOpenMobile(true)
-      setOpenSidebarRequested(true);
+      // On mobile, signal the child component to call setOpenMobile(true)
+      if (isMobile) {
+        setOpenSidebarRequested(true);
+      }
 
       // Strip the param from the URL
       urlParams.delete('openSidebar');
