@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Video } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
 import type { ProjectInfo } from '@/hooks/useBrainDumpLive';
@@ -29,6 +30,9 @@ const Home = () => {
   const [subtitleIndex, setSubtitleIndex] = useState(0);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
+
+  // Silently prefetch all data for /app and /meetings while user is on Home screen
+  usePrefetchAppData(user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');

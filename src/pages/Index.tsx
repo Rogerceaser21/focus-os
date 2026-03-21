@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Fuse from 'fuse.js';
 import PullToRefresh from '@/components/PullToRefresh';
 import { useTheme } from 'next-themes';
@@ -232,6 +233,7 @@ const Index = () => {
     animationDuration: 0.6
   });
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   // Sync sidebar state with screen size changes
@@ -364,7 +366,52 @@ const Index = () => {
     }
   }, [transformDbTask]);
 
-  // Fetch shared items where current user is sender, to show "Shared with" on task cards and project headers
+  // Build shared item maps from raw data (used by both cache and fetch paths)
+  const buildSharedMaps = useCallback(async (sharedItems: any[]) => {
+    if (!sharedItems || sharedItems.length === 0) {
+      setSenderSharedMap({});
+      setSenderProjectSharedMap({});
+      return;
+    }
+
+    const recipientUserIds = sharedItems
+      .map((si: any) => si.recipient_user_id)
+      .filter((id: string | null) => id != null);
+
+    let profilesMap: Record<string, string> = {};
+    if (recipientUserIds.length > 0) {
+      const { data: profiles } = await (supabase as any)
+        .from('focusos_profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', recipientUserIds);
+      if (profiles) {
+        for (const p of profiles) {
+          const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+          if (name) profilesMap[p.user_id] = name;
+        }
+      }
+    }
+
+    const taskMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
+    const projectMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
+    for (const si of sharedItems) {
+      const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
+        ? profilesMap[si.recipient_user_id]
+        : si.recipient_email;
+      const entry = { email: si.recipient_email, name, status: si.status, sharedItemId: si.id };
+      if (si.item_type === 'task') {
+        if (!taskMap[si.item_id]) taskMap[si.item_id] = [];
+        taskMap[si.item_id].push(entry);
+      } else if (si.item_type === 'project') {
+        if (!projectMap[si.item_id]) projectMap[si.item_id] = [];
+        projectMap[si.item_id].push(entry);
+      }
+    }
+    setSenderSharedMap(taskMap);
+    setSenderProjectSharedMap(projectMap);
+  }, []);
+
+  // Fetch shared items where current user is sender
   const fetchSenderSharedItems = useCallback(async () => {
     if (!user) return;
     try {
@@ -376,56 +423,11 @@ const Index = () => {
         .neq('status', 'cancelled');
       
       if (error || !sharedItems) return;
-
-      // Collect unique recipient_user_ids to look up names
-      const recipientUserIds = sharedItems
-        .map((si: any) => si.recipient_user_id)
-        .filter((id: string | null) => id != null);
-
-      let profilesMap: Record<string, string> = {};
-      if (recipientUserIds.length > 0) {
-        const { data: profiles } = await (supabase as any)
-          .from('focusos_profiles')
-          .select('user_id, first_name, last_name')
-          .in('user_id', recipientUserIds);
-        
-        if (profiles) {
-          for (const p of profiles) {
-            const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
-            if (name) profilesMap[p.user_id] = name;
-          }
-        }
-      }
-
-      // Check if any accepted recipient tasks have been completed
-      // We need to look at the sender's own tasks for completed_by_email as a signal,
-      // but better: check if the recipient_task status is 'completed' via the shared_items + tasks join
-      // Since we can't read other users' tasks due to RLS, we use the completed_by_email on sender's task
-      // and the focusos_shared_items status field. For now, if the sender's task has completed_by_email set
-      // and the shared_item status is 'accepted', we mark it as 'completed' in the UI.
-
-      // Build maps: task item_id → array of recipients, project item_id → array of recipients
-      const taskMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
-      const projectMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
-      for (const si of sharedItems) {
-        const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
-          ? profilesMap[si.recipient_user_id]
-          : si.recipient_email;
-        const entry = { email: si.recipient_email, name, status: si.status, sharedItemId: si.id };
-        if (si.item_type === 'task') {
-          if (!taskMap[si.item_id]) taskMap[si.item_id] = [];
-          taskMap[si.item_id].push(entry);
-        } else if (si.item_type === 'project') {
-          if (!projectMap[si.item_id]) projectMap[si.item_id] = [];
-          projectMap[si.item_id].push(entry);
-        }
-      }
-      setSenderSharedMap(taskMap);
-      setSenderProjectSharedMap(projectMap);
+      await buildSharedMaps(sharedItems);
     } catch (err) {
       console.error('Error fetching sender shared items:', err);
     }
-  }, [user]);
+  }, [user, buildSharedMaps]);
 
 
   const filterTasksFromCache = useCallback(() => {
@@ -478,25 +480,52 @@ const Index = () => {
     }
   }, [projectRefreshTrigger, initialLoadComplete, fetchProjects]);
 
-  // Phase 1: Initial fast load - preferences + initial view tasks + all projects
+  // Phase 1: Initial fast load - try warm cache first, then fetch
   useEffect(() => {
     const loadInitialData = async () => {
       if (user && preferences && !initialLoadComplete) {
         try {
-          await Promise.all([
-            fetchInitialTasks(preferences.default_view),
-            fetchProjects()
-          ]);
+          // Check if data was prefetched on the Home screen
+          const cachedTasks = queryClient.getQueryData(['focusos-all-tasks', user.id]) as any[] | undefined;
+          const cachedProjects = queryClient.getQueryData(['focusos-projects', user.id]) as any[] | undefined;
+
+          if (cachedTasks && cachedProjects) {
+            // Warm cache hit — use prefetched data instantly (no network)
+            const transformedTasks = cachedTasks.map(transformDbTask);
+            setAllTasks(transformedTasks);
+            setTasks(transformedTasks);
+            setFullDataLoaded(true);
+
+            setProjects(cachedProjects.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              color: p.color,
+              isShared: p.is_shared ?? false,
+              userId: p.user_id,
+              timer: { totalSeconds: 0, isRunning: false }
+            })));
+
+            // Also seed shared items from cache
+            const cachedShared = queryClient.getQueryData(['focusos-sender-shared-items', user.id]) as any[] | undefined;
+            if (cachedShared) {
+              buildSharedMaps(cachedShared);
+            }
+          } else {
+            // No cache — fetch as before
+            await Promise.all([
+              fetchInitialTasks(preferences.default_view),
+              fetchProjects()
+            ]);
+          }
         } catch (err) {
           console.error('[Index] Initial data load failed:', err);
         } finally {
-          // Always mark complete so UI doesn't hang
           setInitialLoadComplete(true);
         }
       }
     };
     loadInitialData();
-  }, [user, preferences, initialLoadComplete, fetchInitialTasks, fetchProjects]);
+  }, [user, preferences, initialLoadComplete, fetchInitialTasks, fetchProjects, queryClient, transformDbTask]);
 
   // Phase 2: Background load - all remaining tasks + sender shared items
   useEffect(() => {
