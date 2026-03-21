@@ -803,6 +803,8 @@ const Index = () => {
     markOnboardingComplete();
   };
 
+  const handleOpenSidebarHandled = useCallback(() => setOpenSidebarRequested(false), []);
+
   const handleHelpClick = () => {
     setShowTour(true);
   };
