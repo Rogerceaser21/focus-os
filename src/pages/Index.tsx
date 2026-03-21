@@ -366,7 +366,52 @@ const Index = () => {
     }
   }, [transformDbTask]);
 
-  // Fetch shared items where current user is sender, to show "Shared with" on task cards and project headers
+  // Build shared item maps from raw data (used by both cache and fetch paths)
+  const buildSharedMaps = useCallback(async (sharedItems: any[]) => {
+    if (!sharedItems || sharedItems.length === 0) {
+      setSenderSharedMap({});
+      setSenderProjectSharedMap({});
+      return;
+    }
+
+    const recipientUserIds = sharedItems
+      .map((si: any) => si.recipient_user_id)
+      .filter((id: string | null) => id != null);
+
+    let profilesMap: Record<string, string> = {};
+    if (recipientUserIds.length > 0) {
+      const { data: profiles } = await (supabase as any)
+        .from('focusos_profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', recipientUserIds);
+      if (profiles) {
+        for (const p of profiles) {
+          const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+          if (name) profilesMap[p.user_id] = name;
+        }
+      }
+    }
+
+    const taskMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
+    const projectMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
+    for (const si of sharedItems) {
+      const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
+        ? profilesMap[si.recipient_user_id]
+        : si.recipient_email;
+      const entry = { email: si.recipient_email, name, status: si.status, sharedItemId: si.id };
+      if (si.item_type === 'task') {
+        if (!taskMap[si.item_id]) taskMap[si.item_id] = [];
+        taskMap[si.item_id].push(entry);
+      } else if (si.item_type === 'project') {
+        if (!projectMap[si.item_id]) projectMap[si.item_id] = [];
+        projectMap[si.item_id].push(entry);
+      }
+    }
+    setSenderSharedMap(taskMap);
+    setSenderProjectSharedMap(projectMap);
+  }, []);
+
+  // Fetch shared items where current user is sender
   const fetchSenderSharedItems = useCallback(async () => {
     if (!user) return;
     try {
@@ -378,56 +423,11 @@ const Index = () => {
         .neq('status', 'cancelled');
       
       if (error || !sharedItems) return;
-
-      // Collect unique recipient_user_ids to look up names
-      const recipientUserIds = sharedItems
-        .map((si: any) => si.recipient_user_id)
-        .filter((id: string | null) => id != null);
-
-      let profilesMap: Record<string, string> = {};
-      if (recipientUserIds.length > 0) {
-        const { data: profiles } = await (supabase as any)
-          .from('focusos_profiles')
-          .select('user_id, first_name, last_name')
-          .in('user_id', recipientUserIds);
-        
-        if (profiles) {
-          for (const p of profiles) {
-            const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
-            if (name) profilesMap[p.user_id] = name;
-          }
-        }
-      }
-
-      // Check if any accepted recipient tasks have been completed
-      // We need to look at the sender's own tasks for completed_by_email as a signal,
-      // but better: check if the recipient_task status is 'completed' via the shared_items + tasks join
-      // Since we can't read other users' tasks due to RLS, we use the completed_by_email on sender's task
-      // and the focusos_shared_items status field. For now, if the sender's task has completed_by_email set
-      // and the shared_item status is 'accepted', we mark it as 'completed' in the UI.
-
-      // Build maps: task item_id → array of recipients, project item_id → array of recipients
-      const taskMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
-      const projectMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
-      for (const si of sharedItems) {
-        const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
-          ? profilesMap[si.recipient_user_id]
-          : si.recipient_email;
-        const entry = { email: si.recipient_email, name, status: si.status, sharedItemId: si.id };
-        if (si.item_type === 'task') {
-          if (!taskMap[si.item_id]) taskMap[si.item_id] = [];
-          taskMap[si.item_id].push(entry);
-        } else if (si.item_type === 'project') {
-          if (!projectMap[si.item_id]) projectMap[si.item_id] = [];
-          projectMap[si.item_id].push(entry);
-        }
-      }
-      setSenderSharedMap(taskMap);
-      setSenderProjectSharedMap(projectMap);
+      await buildSharedMaps(sharedItems);
     } catch (err) {
       console.error('Error fetching sender shared items:', err);
     }
-  }, [user]);
+  }, [user, buildSharedMaps]);
 
 
   const filterTasksFromCache = useCallback(() => {
