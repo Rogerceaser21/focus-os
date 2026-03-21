@@ -120,26 +120,27 @@ const BottomNavWithSidebar = ({
   );
 };
 
-// Mobile sidebar controller for Projects Tour - must be inside SidebarProvider
-const MobileSidebarController = ({ tourStep, isTourActive, currentTourStep }: { tourStep: number | null; isTourActive: boolean; currentTourStep: number }) => {
+// Mobile sidebar controller - handles both Projects Tour AND openSidebar navigation
+const MobileSidebarController = ({ tourStep, isTourActive, currentTourStep, openSidebarRequested, onOpenSidebarHandled }: { tourStep: number | null; isTourActive: boolean; currentTourStep: number; openSidebarRequested: boolean; onOpenSidebarHandled: () => void }) => {
   const { setOpenMobile, isMobile } = useSidebar();
   
+  // Handle openSidebar request from navigation (e.g. Home -> Projects)
+  React.useEffect(() => {
+    if (!openSidebarRequested || !isMobile) return;
+    setOpenMobile(true);
+    onOpenSidebarHandled();
+  }, [openSidebarRequested, isMobile, setOpenMobile, onOpenSidebarHandled]);
+
+  // Handle tour steps
   React.useEffect(() => {
     if (!isTourActive || !isMobile) return;
     
-    // Use currentTourStep (the actual displayed step) not tourStep (last processed)
     const activeStep = currentTourStep;
     
-    console.log('[MobileSidebarController] activeStep:', activeStep);
-    
-    // Steps that need sidebar OPEN: 0 (new-project-button) and 2 (demo-project)
     if (activeStep === 0 || activeStep === 2) {
-      console.log('[MobileSidebarController] Opening sidebar for step:', activeStep);
       setOpenMobile(true);
     } else {
-      // Use consistent 500ms delay to ensure content loads before closing
       const timer = setTimeout(() => {
-        console.log('[MobileSidebarController] Closing sidebar for step:', activeStep);
         setOpenMobile(false);
       }, 500);
       return () => clearTimeout(timer);
@@ -187,6 +188,7 @@ const Index = () => {
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [openSidebarRequested, setOpenSidebarRequested] = useState(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
   const [tasksLoading, setTasksLoading] = useState(false);
@@ -729,17 +731,40 @@ const Index = () => {
   }, [location.search, preferencesLoaded]);
 
   // Auto-open sidebar when arriving via openSidebar param (mobile)
+  // Also apply the user's default_view preference so the right tasks load
   useEffect(() => {
-    if (!preferencesLoaded) return;
+    if (!preferencesLoaded || !preferences) return;
     const urlParams = new URLSearchParams(location.search);
     if (urlParams.get('openSidebar') === 'true' && isMobile) {
-      setSidebarOpen(true);
-      // Strip the param from the URL without triggering a re-render loop
+      // Apply the user's default_view to select the right project/list
+      const dv = preferences.default_view;
+      if (dv === 'today') {
+        setSelectedSpecialList('today');
+        setSelectedProjectId(null);
+      } else if (dv === 'unassigned') {
+        setSelectedSpecialList('unassigned');
+        setSelectedProjectId(null);
+      } else if (dv && dv !== 'home') {
+        // It's a project ID
+        const projectExists = projects.some(p => p.id === dv);
+        if (projectExists) {
+          setSelectedProjectId(dv);
+          setSelectedSpecialList(null);
+        } else {
+          setSelectedSpecialList('today');
+          setSelectedProjectId(null);
+        }
+      }
+
+      // Signal the child component to call setOpenMobile(true)
+      setOpenSidebarRequested(true);
+
+      // Strip the param from the URL
       urlParams.delete('openSidebar');
       const cleanSearch = urlParams.toString();
       navigate(cleanSearch ? `/app?${cleanSearch}` : '/app', { replace: true });
     }
-  }, [location.search, preferencesLoaded, isMobile, navigate]);
+  }, [location.search, preferencesLoaded, preferences, isMobile, navigate, projects]);
 
   // Reset reorder mode when switching projects/views
   useEffect(() => {
@@ -777,6 +802,8 @@ const Index = () => {
     setShowTour(false);
     markOnboardingComplete();
   };
+
+  const handleOpenSidebarHandled = useCallback(() => setOpenSidebarRequested(false), []);
 
   const handleHelpClick = () => {
     setShowTour(true);
@@ -1530,7 +1557,7 @@ https://www.skyscanner.com`,
 
   return <PullToRefresh>
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} />
+      <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} openSidebarRequested={openSidebarRequested} onOpenSidebarHandled={handleOpenSidebarHandled} />
       <div className="min-h-screen flex w-full relative">
         {!isCream && <div ref={containerRef} className="dock-particle-container" />}
         {!isCream && <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />}
