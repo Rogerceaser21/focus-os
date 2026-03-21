@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Fuse from 'fuse.js';
 import PullToRefresh from '@/components/PullToRefresh';
 import { useTheme } from 'next-themes';
