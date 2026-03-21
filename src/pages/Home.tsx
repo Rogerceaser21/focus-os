@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Video } from 'lucide-react';
-import focusOsLogo from '@/assets/focusos-logo.png';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
@@ -71,14 +70,6 @@ const Home = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Logo */}
-      <div className="w-full px-4 pt-6">
-        <img
-          src={focusOsLogo}
-          alt="Focus OS"
-          className="w-full max-w-md mx-auto h-auto"
-        />
-      </div>
 
       {/* Main content — centered */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
