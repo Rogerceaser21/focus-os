@@ -8,21 +8,24 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import DarkVeil from '@/components/DarkVeil';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Shield } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const { setTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
+
+  // Force cream theme on Auth page
+  useEffect(() => {
+    setTheme('cream');
+  }, [setTheme]);
 
   // Admin reset state
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
@@ -206,8 +209,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4 bg-background">
-      {isDark && <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />}
-      {isDark && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
+      
       
       <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-card/90 border-2">
         <CardHeader>

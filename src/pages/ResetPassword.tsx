@@ -7,18 +7,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import DarkVeil from '@/components/DarkVeil';
 import { Eye, EyeOff } from 'lucide-react';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const { setTheme } = useTheme();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isRecovery, setIsRecovery] = useState(false);
+
+  // Force cream theme on ResetPassword page
+  useEffect(() => {
+    setTheme('cream');
+  }, [setTheme]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -69,8 +72,7 @@ const ResetPassword = () => {
   if (!isRecovery) {
     return (
       <div className="min-h-screen relative flex items-center justify-center p-4 bg-background">
-        {isDark && <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />}
-        {isDark && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
+        
         <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-card/90 border-2">
           <CardHeader>
             <CardTitle className="text-2xl">Verifying...</CardTitle>
@@ -88,8 +90,7 @@ const ResetPassword = () => {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4 bg-background">
-      {isDark && <DarkVeil hueShift={108} noiseIntensity={0} scanlineIntensity={0} speed={0.3} scanlineFrequency={0} warpAmount={0.4} resolutionScale={0.6} />}
-      {isDark && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
+      
       <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-card/90 border-2">
         <CardHeader>
           <CardTitle className="text-2xl">Set New Password</CardTitle>
