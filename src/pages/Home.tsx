@@ -76,7 +76,7 @@ const Home = () => {
         <img
           src={focusOsLogo}
           alt="Focus OS"
-          className="w-full max-w-md mx-auto h-auto dark:invert"
+          className="w-full max-w-md mx-auto h-auto"
         />
       </div>
 
