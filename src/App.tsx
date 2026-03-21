@@ -13,7 +13,7 @@ import Meetings from "./pages/Meetings";
 import MeetingDetail from "./pages/MeetingDetail";
 import NotFound from "./pages/NotFound";
 import ImportTasks from "./pages/ImportTasks";
-import { ThemeSyncer } from "./components/ThemeSyncer";
+
 
 const queryClient = new QueryClient();
 
