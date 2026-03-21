@@ -1555,7 +1555,7 @@ https://www.skyscanner.com`,
 
   return <PullToRefresh>
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} />
+      <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} openSidebarRequested={openSidebarRequested} onOpenSidebarHandled={useCallback(() => setOpenSidebarRequested(false), [])} />
       <div className="min-h-screen flex w-full relative">
         {!isCream && <div ref={containerRef} className="dock-particle-container" />}
         {!isCream && <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />}
