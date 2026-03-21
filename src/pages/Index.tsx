@@ -480,25 +480,52 @@ const Index = () => {
     }
   }, [projectRefreshTrigger, initialLoadComplete, fetchProjects]);
 
-  // Phase 1: Initial fast load - preferences + initial view tasks + all projects
+  // Phase 1: Initial fast load - try warm cache first, then fetch
   useEffect(() => {
     const loadInitialData = async () => {
       if (user && preferences && !initialLoadComplete) {
         try {
-          await Promise.all([
-            fetchInitialTasks(preferences.default_view),
-            fetchProjects()
-          ]);
+          // Check if data was prefetched on the Home screen
+          const cachedTasks = queryClient.getQueryData(['focusos-all-tasks', user.id]) as any[] | undefined;
+          const cachedProjects = queryClient.getQueryData(['focusos-projects', user.id]) as any[] | undefined;
+
+          if (cachedTasks && cachedProjects) {
+            // Warm cache hit — use prefetched data instantly (no network)
+            const transformedTasks = cachedTasks.map(transformDbTask);
+            setAllTasks(transformedTasks);
+            setTasks(transformedTasks);
+            setFullDataLoaded(true);
+
+            setProjects(cachedProjects.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              color: p.color,
+              isShared: p.is_shared ?? false,
+              userId: p.user_id,
+              timer: { totalSeconds: 0, isRunning: false }
+            })));
+
+            // Also seed shared items from cache
+            const cachedShared = queryClient.getQueryData(['focusos-sender-shared-items', user.id]) as any[] | undefined;
+            if (cachedShared) {
+              buildSharedMaps(cachedShared);
+            }
+          } else {
+            // No cache — fetch as before
+            await Promise.all([
+              fetchInitialTasks(preferences.default_view),
+              fetchProjects()
+            ]);
+          }
         } catch (err) {
           console.error('[Index] Initial data load failed:', err);
         } finally {
-          // Always mark complete so UI doesn't hang
           setInitialLoadComplete(true);
         }
       }
     };
     loadInitialData();
-  }, [user, preferences, initialLoadComplete, fetchInitialTasks, fetchProjects]);
+  }, [user, preferences, initialLoadComplete, fetchInitialTasks, fetchProjects, queryClient, transformDbTask]);
 
   // Phase 2: Background load - all remaining tasks + sender shared items
   useEffect(() => {
