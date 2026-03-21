@@ -20,7 +20,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
-      <ThemeSyncer />
+      
       <Toaster />
       <Sonner />
       <Routes>
