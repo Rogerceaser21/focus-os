@@ -129,8 +129,30 @@ const Meetings = () => {
 
   useEffect(() => {
     if (user) {
-      fetchMeetings();
-      fetchProjects();
+      // Try warm cache first for meetings and projects
+      const cachedMeetings = queryClient.getQueryData(['focusos-meetings', user.id]) as any[] | undefined;
+      const cachedProjects = queryClient.getQueryData(['focusos-projects', user.id]) as any[] | undefined;
+
+      if (cachedMeetings && !projectId) {
+        setMeetings(
+          cachedMeetings.map((m: any) => ({
+            ...m,
+            action_items: Array.isArray(m.action_items) ? m.action_items : [],
+            processing_status: m.processing_status || 'done',
+            processing_error: m.processing_error || null,
+          }))
+        );
+        setLoading(false);
+      } else {
+        fetchMeetings();
+      }
+
+      if (cachedProjects) {
+        setProjects(cachedProjects.map((p: any) => ({ id: p.id, name: p.name, color: p.color })));
+      } else {
+        fetchProjects();
+      }
+
       checkOrphanedSessions();
       fetchMeetingSharingInfo();
     }
