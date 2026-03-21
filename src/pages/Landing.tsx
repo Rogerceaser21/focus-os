@@ -7,9 +7,13 @@ import { useAuth } from '@/hooks/useAuth';
 const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const { setTheme } = useTheme();
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Force cream theme on Landing page
+  useEffect(() => {
+    setTheme('cream');
+  }, [setTheme]);
 
   const handlePlay = () => {
     if (videoRef.current) {
