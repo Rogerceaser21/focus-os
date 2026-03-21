@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -22,6 +23,7 @@ export interface UserPreferences {
 }
 
 export const useUserPreferences = (userId?: string | null) => {
+  const { setTheme } = useTheme();
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -39,6 +41,7 @@ export const useUserPreferences = (userId?: string | null) => {
         await createDefaultPreferences(uid);
       } else {
         setPreferences(data as UserPreferences);
+        if (data.theme) setTheme(data.theme);
       }
     } catch (error) {
       console.error('Error fetching preferences:', error);
