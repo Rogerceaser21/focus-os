@@ -374,21 +374,32 @@ SILENT MODE:
 
                 } else if (fc.name === 'add_task_to_project') {
                   const projectName = args.project_name || '';
-                  const match = projectsRef.current.find(
-                    p => p.name.toLowerCase() === projectName.toLowerCase()
+                  const normalizedSearch = projectName.toLowerCase().trim();
+                  
+                  // Check existing DB projects first
+                  const existingMatch = projectsRef.current.find(
+                    p => p.name.toLowerCase() === normalizedSearch
                   );
+                  
+                  // If not found in DB, check session-created new projects
+                  const newProjectMatch = !existingMatch ? newProjectsRef.current.get(normalizedSearch) : null;
+                  
+                  const isExistingProject = !!existingMatch;
+                  const isNewProject = !!newProjectMatch;
+                  const resolvedProjectName = existingMatch?.name || newProjectMatch || projectName;
+                  
                   const title = args.title || 'Untitled Task';
                   const existingTask = findDuplicateTask(title);
                   
                   if (existingTask) {
-                    // DEDUP: Merge into existing task instead of creating duplicate
                     console.log(`DEDUP: "${title}" matches existing task "${existingTask.title}" (${existingTask.id}), updating instead`);
                     setTasks(prev => {
                       const next = prev.map(t => t.id === existingTask.id ? {
                         ...t,
                         ...(args.description && { description: args.description }),
                         ...(args.priority && { priority: args.priority as TaskPriority }),
-                        ...(match && { destination: 'existing-project' as const, projectName: match.name, projectId: match.id }),
+                        ...(isExistingProject && { destination: 'existing-project' as const, projectName: existingMatch.name, projectId: existingMatch.id }),
+                        ...(isNewProject && { destination: 'new-project' as const, projectName: resolvedProjectName }),
                         ...(args.start_date && { startDate: args.start_date }),
                         ...(args.end_date && { endDate: args.end_date }),
                         ...(args.due_date && { dueDate: args.due_date }),
@@ -398,21 +409,22 @@ SILENT MODE:
                     });
                   } else {
                     const taskId = `brain-dump-${++taskCounterRef.current}`;
+                    const destination = isExistingProject ? 'existing-project' : isNewProject ? 'new-project' : 'today';
                     const newTask: BrainDumpTask = {
                       id: taskId,
                       title,
                       description: args.description,
                       priority: (args.priority as TaskPriority) || 'medium',
-                      destination: match ? 'existing-project' : 'today',
-                      projectName: match?.name || projectName,
-                      projectId: match?.id,
+                      destination,
+                      projectName: resolvedProjectName,
+                      projectId: existingMatch?.id,
                       ...(args.start_date && { startDate: args.start_date }),
                       ...(args.end_date && { endDate: args.end_date }),
                       ...(args.due_date && { dueDate: args.due_date }),
                     };
                     setTasks(prev => {
                       const next = [...prev, newTask];
-                      result = { result: 'ok', task_id: taskId, matched_project: match?.name || 'none', current_tasks: getCurrentTasksSummary(next) };
+                      result = { result: 'ok', task_id: taskId, matched_project: resolvedProjectName, destination, current_tasks: getCurrentTasksSummary(next) };
                       return next;
                     });
                   }
