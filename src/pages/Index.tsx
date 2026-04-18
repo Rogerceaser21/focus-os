@@ -1605,7 +1605,10 @@ https://www.skyscanner.com`,
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
-              <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4 pb-32">
+              <div
+                className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4"
+                style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 128px)' }}
+              >
 
           {/* Actions Bar */}
           <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6">

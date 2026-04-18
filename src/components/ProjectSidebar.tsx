@@ -629,7 +629,10 @@ export const ProjectSidebar = ({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+      <div
+        className="flex-1 min-h-0 flex flex-col overflow-y-auto"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}
+      >
         {isSearching ? (
           /* Search results */
           <div className="p-2 space-y-3 flex-1 min-h-0 overflow-y-auto">
