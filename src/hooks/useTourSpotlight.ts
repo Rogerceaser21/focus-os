@@ -150,29 +150,5 @@ export function computeTooltipPosition(
   left = Math.max(margin, Math.min(left, vw - tooltipWidth - margin));
   top = Math.max(margin, Math.min(top, vh - tooltipHeight - margin));
 
-  // Collision avoidance: if the (clamped) tooltip rect overlaps the target rect,
-  // push it vertically so they don't overlap. This handles the small-viewport case
-  // where neither side "fits" cleanly and the clamp drops the tooltip on top of
-  // the spotlighted element (which made the target look blurred/hidden).
-  const overlapsTarget =
-    left < rect.right + 4 &&
-    left + tooltipWidth > rect.left - 4 &&
-    top < rect.bottom + 4 &&
-    top + tooltipHeight > rect.top - 4;
-
-  if (overlapsTarget) {
-    const spaceBelow = vh - rect.bottom - margin * 2;
-    const spaceAbove = rect.top - margin * 2;
-    if (spaceBelow >= tooltipHeight) {
-      top = rect.bottom + margin;
-    } else if (spaceAbove >= tooltipHeight) {
-      top = rect.top - tooltipHeight - margin;
-    } else {
-      // Last resort: shrink-fit to whichever side has more room
-      top = spaceBelow >= spaceAbove ? rect.bottom + margin : margin;
-    }
-    top = Math.max(margin, Math.min(top, vh - tooltipHeight - margin));
-  }
-
   return { left, top, placement };
 }
