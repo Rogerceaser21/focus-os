@@ -555,17 +555,30 @@ export const ProjectSidebar = ({
   const isActuallyMobile = useIsMobile();
 
   const handleHelpMenuClick = (tourType: 'menu-magic' | 'tasks' | 'projects') => {
-    if (tourType === 'menu-magic' && onStartTour) {
-      onStartTour();
-    } else if (tourType === 'tasks' && onStartTaskTour) {
-      onStartTaskTour();
-    } else if (tourType === 'projects' && onStartProjectsTour) {
-      onStartProjectsTour();
+    // Close the sidebar first so its backdrop/blur doesn't sit over the tour spotlight.
+    // On mobile this closes the Sheet; on desktop this collapses the sidebar column.
+    if (isActuallyMobile) {
+      setOpenMobile(false);
     } else {
-      toast.info('Coming soon!', {
-        description: `This tour is under development.`
-      });
+      try { setSidebarOpen?.(false); } catch { /* no-op if context unavailable */ }
     }
+
+    // Wait for the Sheet/sidebar exit animation + backdrop unmount before starting
+    // the tour, otherwise the spotlight measures targets behind the blurred overlay.
+    const startDelay = 320;
+    setTimeout(() => {
+      if (tourType === 'menu-magic' && onStartTour) {
+        onStartTour();
+      } else if (tourType === 'tasks' && onStartTaskTour) {
+        onStartTaskTour();
+      } else if (tourType === 'projects' && onStartProjectsTour) {
+        onStartProjectsTour();
+      } else {
+        toast.info('Coming soon!', {
+          description: `This tour is under development.`,
+        });
+      }
+    }, startDelay);
   };
 
   const sidebarContent = (
