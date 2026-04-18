@@ -1151,9 +1151,7 @@ https://www.skyscanner.com`,
 
   const handleAddTask = async (newTask: Task) => {
     if (!user) return;
-    const {
-      error
-    } = await (supabase as any).from('focusos_tasks').insert({
+    const { data, error } = await (supabase as any).from('focusos_tasks').insert({
       user_id: user.id,
       project_id: newTask.projectId || null,
       title: newTask.title,
@@ -1166,13 +1164,19 @@ https://www.skyscanner.com`,
       images: newTask.images || [],
       timer_total_seconds: 0,
       timer_is_running: false
-    });
+    }).select().single();
     if (error) {
       toast.error('Failed to create task');
       return;
     }
-    toast.success('Task created!');
-    fetchTasks();
+    // Optimistic insert as a safety net in case realtime is briefly disconnected.
+    // The realtime INSERT handler dedupes by id, so no duplicate row will appear.
+    if (data) {
+      const inserted = transformDbTask(data);
+      setTasks(prev => prev.some(t => t.id === inserted.id) ? prev : [...prev, inserted]);
+      setAllTasks(prev => prev.length === 0 || prev.some(t => t.id === inserted.id) ? prev : [...prev, inserted]);
+    }
+    // Toast is fired by AddTaskDialog; do not duplicate it here.
   };
   const handleUpdateTask = async (updatedTask: Task) => {
     // Collaborative project completion gating:
