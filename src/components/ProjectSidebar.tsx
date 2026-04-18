@@ -551,7 +551,7 @@ export const ProjectSidebar = ({
     onSelectProject(null);
   };
 
-  const { open: sidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
+  const { open: sidebarOpen, setOpen: setSidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
   const isActuallyMobile = useIsMobile();
 
   const handleHelpMenuClick = (tourType: 'menu-magic' | 'tasks' | 'projects') => {
