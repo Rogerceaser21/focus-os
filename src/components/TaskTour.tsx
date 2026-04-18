@@ -1,132 +1,72 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface TourStep {
-  target: string;
-  title: string;
-  description: string;
-  position?: 'top' | 'bottom' | 'left' | 'right';
-}
-
-const tourSteps: TourStep[] = [
-  {
-    target: '[data-task-tour-step="add-task-button"]',
-    title: 'Add Task Button',
-    description: 'This is your quick way to create new tasks! Click here to open the task creation form and start organizing your work.',
-    position: 'bottom',
-  },
-  {
-    target: '[data-task-tour-step="title"]',
-    title: 'Task Title',
-    description: 'Give your task a clear, descriptive title. This is the main identifier for your task and helps you quickly understand what needs to be done.',
-    position: 'bottom',
-  },
-  {
-    target: '[data-task-tour-step="description"]',
-    title: 'Task Description',
-    description: 'Add detailed notes, instructions, or context here. You can include as much information as you need to complete the task.',
-    position: 'top',
-  },
-  {
-    target: '[data-task-tour-step="description"]',
-    title: 'Clickable Links',
-    description: 'Any URLs you add in the description become clickable hyperlinks! Perfect for adding reference materials, booking sites, or any web resources you need.',
-    position: 'top',
-  },
-  {
-    target: '[data-task-tour-step="project"]',
-    title: 'Assign to Project',
-    description: 'Organize your tasks by assigning them to a project. This helps keep related tasks grouped together and makes it easier to track progress on larger goals.',
-    position: 'top',
-  },
-  {
-    target: '[data-task-tour-step="priority"]',
-    title: 'Priority Level',
-    description: 'Set the importance of your task. Choose from Low, Medium, High, or Urgent to help prioritize your workload effectively.',
-    position: 'top',
-  },
-  {
-    target: '[data-task-tour-step="start-date"]',
-    title: 'Start Date',
-    description: 'When do you plan to begin working on this task? Setting a start date helps you plan your schedule and track when work should commence.',
-    position: 'top',
-  },
-  {
-    target: '[data-task-tour-step="end-date"]',
-    title: 'End Date',
-    description: 'When should the task be completed? This helps you visualize the task duration in the Gantt view and manage your timeline.',
-    position: 'top',
-  },
-  {
-    target: '[data-task-tour-step="due-date"]',
-    title: 'Due Date',
-    description: 'The deadline for your task! Tasks with a due date of today or earlier will appear in your "Today\'s To-Do" list.',
-    position: 'top',
-  },
-  {
-    target: '[data-task-tour-step="images"]',
-    title: 'Attach Images',
-    description: 'Need to add visual references? You can paste images directly (Ctrl+V) or choose files from your device. Up to 8 images per task!',
-    position: 'top',
-  },
-  {
-    target: '[data-task-tour-step="save-button"]',
-    title: 'Save Your Task',
-    description: 'All done! Click "Save Changes" to update your task with all the details you\'ve added. Your task is now ready to be completed!',
-    position: 'top',
-  },
-];
+import { taskTourSteps, type TaskTourStep } from './tour/taskTourSteps';
+import { useTourSpotlight, computeTooltipPosition, type TooltipPlacement } from '@/hooks/useTourSpotlight';
 
 interface TaskTourProps {
   isOpen: boolean;
   onComplete: () => void;
+  /** Called when the active step index changes — used by Index.tsx to open the Edit dialog */
   onStepChange?: (step: number) => void;
 }
 
+const TOOLTIP_WIDTH = 320;
+const SPOTLIGHT_PADDING = 8;
+
 export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [tooltipHeight, setTooltipHeight] = useState(220);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setCurrentStep(0);
-      return;
-    }
-
-    const updateTargetPosition = () => {
-      const target = document.querySelector(tourSteps[currentStep].target);
-      if (target) {
-        setTargetRect(target.getBoundingClientRect());
-      } else {
-        setTargetRect(null);
-      }
-    };
-
-    // Initial delay to let dialog render
-    const timer = setTimeout(updateTargetPosition, 100);
-    
-    window.addEventListener('resize', updateTargetPosition);
-    window.addEventListener('scroll', updateTargetPosition);
-
-    // Also update on any DOM changes (for dialog content)
-    const observer = new MutationObserver(updateTargetPosition);
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', updateTargetPosition);
-      window.removeEventListener('scroll', updateTargetPosition);
-      observer.disconnect();
-    };
+  // Filter out optional steps whose targets don't exist (e.g. project step when no projects)
+  const steps = useMemo<TaskTourStep[]>(() => {
+    if (!isOpen) return taskTourSteps;
+    return taskTourSteps.filter((s) => {
+      if (!s.optional) return true;
+      return !!document.querySelector(s.target);
+    });
   }, [isOpen, currentStep]);
 
+  const step = steps[currentStep];
+  const targetRect = useTourSpotlight(isOpen ? step?.target ?? null : null, isOpen);
+
+  // Reset on close
+  useEffect(() => {
+    if (!isOpen) setCurrentStep(0);
+  }, [isOpen]);
+
+  // Measure tooltip after render so positioning math is accurate
+  useLayoutEffect(() => {
+    if (tooltipRef.current) {
+      const h = tooltipRef.current.getBoundingClientRect().height;
+      if (h && Math.abs(h - tooltipHeight) > 4) setTooltipHeight(h);
+    }
+  });
+
+  // Decide preferred tooltip placement
+  const preferredPlacement: TooltipPlacement = useMemo(() => {
+    if (!targetRect) return 'bottom';
+    const isDesktop = window.innerWidth >= 1024;
+    const docked = document.querySelector('[data-side-panel="task"], [data-side-panel="edit-task"]');
+    // On desktop with a docked side panel, prefer LEFT (panel sits on the right edge)
+    if (isDesktop && docked && currentStep > 0) return 'left';
+    // The Add Task button (step 0) lives in the top toolbar — prefer below it
+    if (currentStep === 0) return 'bottom';
+    // Mobile / tablet — bottom by default, the helper will flip if needed
+    return 'bottom';
+  }, [targetRect, currentStep]);
+
+  const tooltipPos = targetRect
+    ? computeTooltipPosition(targetRect, TOOLTIP_WIDTH, tooltipHeight, preferredPlacement)
+    : null;
+
   const handleNext = () => {
-    if (currentStep < tourSteps.length - 1) {
-      const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
-      onStepChange?.(nextStep);
+    if (currentStep < steps.length - 1) {
+      const next = currentStep + 1;
+      setCurrentStep(next);
+      onStepChange?.(next);
     } else {
       handleComplete();
     }
@@ -134,9 +74,9 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
 
   const handlePrev = () => {
     if (currentStep > 0) {
-      const prevStep = currentStep - 1;
-      setCurrentStep(prevStep);
-      onStepChange?.(prevStep);
+      const prev = currentStep - 1;
+      setCurrentStep(prev);
+      onStepChange?.(prev);
     }
   };
 
@@ -145,47 +85,7 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
     onComplete();
   };
 
-  const handleSkip = () => {
-    setCurrentStep(0);
-    onComplete();
-  };
-
-  if (!isOpen) return null;
-
-  const step = tourSteps[currentStep];
-  const padding = 8;
-
-  // Calculate tooltip position based on step preference
-  const getTooltipPosition = () => {
-    if (!targetRect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
-
-    const tooltipWidth = 320;
-    const tooltipHeight = 240; // Increased to account for actual tooltip content height
-    const margin = 16;
-
-    let left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
-    let top: number;
-
-    // Clamp left position to viewport
-    left = Math.max(margin, Math.min(left, window.innerWidth - tooltipWidth - margin));
-
-    if (step.position === 'bottom' || step.position === undefined) {
-      top = targetRect.bottom + margin;
-      if (top + tooltipHeight > window.innerHeight - margin) {
-        top = targetRect.top - tooltipHeight - margin;
-      }
-    } else {
-      // Position above: calculate so tooltip sits entirely above the target
-      top = targetRect.top - tooltipHeight - margin;
-      if (top < margin) {
-        top = targetRect.bottom + margin;
-      }
-    }
-
-    return { left: `${left}px`, top: `${top}px` };
-  };
-
-  const tooltipPos = getTooltipPosition();
+  if (!isOpen || !step) return null;
 
   return (
     <AnimatePresence>
@@ -196,17 +96,17 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
         className="fixed inset-0 pointer-events-none"
         style={{ zIndex: 99999 }}
       >
-        {/* Overlay with spotlight cutout */}
+        {/* Spotlight overlay */}
         <svg className="absolute inset-0 w-full h-full">
           <defs>
             <mask id="task-spotlight-mask">
               <rect x="0" y="0" width="100%" height="100%" fill="white" />
               {targetRect && (
                 <rect
-                  x={targetRect.left - padding}
-                  y={targetRect.top - padding}
-                  width={targetRect.width + padding * 2}
-                  height={targetRect.height + padding * 2}
+                  x={targetRect.left - SPOTLIGHT_PADDING}
+                  y={targetRect.top - SPOTLIGHT_PADDING}
+                  width={targetRect.width + SPOTLIGHT_PADDING * 2}
+                  height={targetRect.height + SPOTLIGHT_PADDING * 2}
                   rx="8"
                   fill="black"
                 />
@@ -218,50 +118,58 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
             y="0"
             width="100%"
             height="100%"
-            fill="rgba(0, 0, 0, 0.75)"
+            fill="rgba(0, 0, 0, 0.7)"
             mask="url(#task-spotlight-mask)"
           />
         </svg>
 
-        {/* Spotlight border highlight */}
+        {/* Spotlight border */}
         {targetRect && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute"
+            className="absolute pointer-events-none"
             style={{
-              left: targetRect.left - padding,
-              top: targetRect.top - padding,
-              width: targetRect.width + padding * 2,
-              height: targetRect.height + padding * 2,
+              left: targetRect.left - SPOTLIGHT_PADDING,
+              top: targetRect.top - SPOTLIGHT_PADDING,
+              width: targetRect.width + SPOTLIGHT_PADDING * 2,
+              height: targetRect.height + SPOTLIGHT_PADDING * 2,
               borderRadius: '8px',
               border: '2px solid hsl(var(--primary))',
-              boxShadow: '0 0 20px hsl(var(--primary) / 0.5)',
-              pointerEvents: 'none',
+              boxShadow: '0 0 24px hsl(var(--primary) / 0.55)',
             }}
           />
         )}
 
         {/* Tooltip card */}
         <motion.div
+          ref={tooltipRef}
           key={currentStep}
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto"
-          style={{ ...tooltipPos, zIndex: 100000 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="absolute bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto"
+          style={{
+            width: `${TOOLTIP_WIDTH}px`,
+            maxWidth: 'calc(100vw - 32px)',
+            left: tooltipPos ? `${tooltipPos.left}px` : '50%',
+            top: tooltipPos ? `${tooltipPos.top}px` : '50%',
+            transform: tooltipPos ? undefined : 'translate(-50%, -50%)',
+            zIndex: 100000,
+          }}
         >
-          {/* Skip button */}
+          {/* Skip */}
           <button
-            onClick={handleSkip}
+            onClick={handleComplete}
             className="absolute top-3 right-3 p-1 rounded-full hover:bg-muted transition-colors"
+            aria-label="Skip tour"
           >
             <X className="w-4 h-4 text-muted-foreground" />
           </button>
 
           {/* Step indicator */}
-          <div className="flex gap-1.5 mb-3 flex-wrap">
-            {tourSteps.map((_, index) => (
+          <div className="flex gap-1.5 mb-3 flex-wrap pr-6">
+            {steps.map((_, index) => (
               <div
                 key={index}
                 className={`h-1.5 rounded-full transition-all ${
@@ -275,20 +183,15 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
             ))}
           </div>
 
-          {/* Tour Title */}
           <div className="text-xs font-medium text-primary uppercase tracking-wider mb-2">
             Tasks Tour
           </div>
 
-          {/* Content */}
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            {step.title}
-          </h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{step.title}</h3>
           <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
             {step.description}
           </p>
 
-          {/* Navigation */}
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
@@ -302,18 +205,12 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
             </Button>
 
             <span className="text-xs text-muted-foreground">
-              {currentStep + 1} of {tourSteps.length}
+              {currentStep + 1} of {steps.length}
             </span>
 
-            <Button
-              size="sm"
-              onClick={handleNext}
-              className="gap-1"
-            >
-              {currentStep === tourSteps.length - 1 ? 'Done' : 'Next'}
-              {currentStep < tourSteps.length - 1 && (
-                <ChevronRight className="w-4 h-4" />
-              )}
+            <Button size="sm" onClick={handleNext} className="gap-1">
+              {currentStep === steps.length - 1 ? 'Done' : 'Next'}
+              {currentStep < steps.length - 1 && <ChevronRight className="w-4 h-4" />}
             </Button>
           </div>
         </motion.div>
