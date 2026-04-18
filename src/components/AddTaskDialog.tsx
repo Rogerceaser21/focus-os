@@ -60,6 +60,7 @@ export const AddTaskDialog = ({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [projectId, setProjectId] = useState<string | undefined>(selectedProjectId || undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
   const sidebar = useSidebar();
   const prevSidebarOpen = useRef<boolean | null>(null);
@@ -99,6 +100,15 @@ export const AddTaskDialog = ({
       setDueDate(today);
     }
   }, [open, selectedSpecialList, dueDate]);
+
+  // Auto-focus the Title field when the dialog/side panel opens.
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => {
+      titleInputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(t);
+  }, [open]);
 
   const uploadImageFile = useCallback(async (file: File | Blob) => {
     if (!userId) {
@@ -223,7 +233,7 @@ export const AddTaskDialog = ({
     <div className="space-y-4">
       <div>
         <Label htmlFor="title">Title *</Label>
-        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
+        <Input ref={titleInputRef} id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
       </div>
 
       <div>
