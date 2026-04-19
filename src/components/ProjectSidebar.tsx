@@ -580,7 +580,10 @@ export const ProjectSidebar = ({
     } as const;
 
     // Show loading overlay immediately so the user gets visual feedback
+    const t0 = performance.now();
+    console.log('[TOUR-TIMING] click → overlay shown', 0);
     setLaunchingTourLabel(labelMap[tourType]);
+    (window as any).__tourT0 = t0;
 
     // Close the sidebar first so its backdrop/blur doesn't sit over the tour spotlight.
     if (isActuallyMobile) {
@@ -593,6 +596,7 @@ export const ProjectSidebar = ({
     // the tour, otherwise the spotlight measures targets behind the blurred overlay.
     const startDelay = 280;
     setTimeout(() => {
+      console.log('[TOUR-TIMING] startDelay elapsed → calling onStart', Math.round(performance.now() - t0));
       if (tourType === 'menu-magic' && onStartTour) {
         onStartTour();
       } else if (tourType === 'tasks' && onStartTaskTour) {
