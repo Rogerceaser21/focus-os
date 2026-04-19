@@ -38,18 +38,20 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
   }, [isOpen]);
 
   // Notify listeners (e.g. the loading overlay in ProjectSidebar) ONLY after BOTH
-  // the spotlight target and the tooltip card have actually painted. We use a
-  // double rAF to guarantee the browser has completed a paint frame before firing.
+  // the spotlight target and the tooltip card have actually painted.
   const firedReadyRef = useRef(false);
   useEffect(() => {
     if (!isOpen) {
       firedReadyRef.current = false;
       return;
     }
+    const t0 = (window as any).__tourT0 ?? performance.now();
+    if (targetRect) console.log('[TOUR-TIMING] targetRect resolved', Math.round(performance.now() - t0));
     if (targetRect && tooltipRef.current && !firedReadyRef.current) {
       firedReadyRef.current = true;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+          console.log('[TOUR-TIMING] firing tour-ready (overlay dismissed)', Math.round(performance.now() - t0));
           window.dispatchEvent(new CustomEvent('focusos:tour-ready', { detail: { tour: 'tasks' } }));
         });
       });
