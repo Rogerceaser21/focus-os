@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTourSpotlight, computeTooltipPosition, type TooltipPlacement } from '@/hooks/useTourSpotlight';
 
 interface TourStep {
   target: string;
   title: string;
   description: string;
-  position?: 'top' | 'bottom' | 'left' | 'right';
+  position?: TooltipPlacement;
   action?: 'click-project' | 'show-move-task';
 }
 
@@ -37,14 +38,12 @@ const tourSteps: TourStep[] = [
     title: 'Rename Your Project',
     description: 'Click on the project name to edit it. You can rename your project anytime to better reflect its purpose.',
     position: 'bottom',
-    // No action - informational only
   },
   {
     target: '[data-projects-tour-step="delete-button"]',
     title: 'Delete Project',
     description: 'When you no longer need a project, you can delete it using this button. Be careful - this will also delete all tasks within the project!',
     position: 'bottom',
-    // No action - informational only
   },
   {
     target: '[data-projects-tour-step="task-project-selector"]',
@@ -61,75 +60,79 @@ interface ProjectTourProps {
   onStepChange?: (step: number, action?: string) => void;
 }
 
+const TOOLTIP_WIDTH = 320;
+const SPOTLIGHT_PADDING = 8;
+
 export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [tooltipHeight, setTooltipHeight] = useState(240);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const isCompletingRef = useRef(false);
 
+  const step = tourSteps[currentStep];
+  const targetRect = useTourSpotlight(isOpen ? step?.target ?? null : null, isOpen, 10000);
+
+  // Reset on close
   useEffect(() => {
     if (!isOpen) {
       setCurrentStep(0);
+      isCompletingRef.current = false;
+    }
+  }, [isOpen]);
+
+  // Dispatch tour-ready ONLY after both spotlight target AND tooltip have painted.
+  // This is what the loading overlay listens for to dismiss itself.
+  const firedReadyRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      firedReadyRef.current = false;
       return;
     }
-    
-    // Reset completion guard when tour opens
-    isCompletingRef.current = false;
+    if (targetRect && tooltipRef.current && !firedReadyRef.current) {
+      firedReadyRef.current = true;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.dispatchEvent(new CustomEvent('focusos:tour-ready', { detail: { tour: 'projects' } }));
+        });
+      });
+    }
+  }, [isOpen, targetRect]);
 
-    const updateTargetPosition = () => {
-      const target = document.querySelector(tourSteps[currentStep].target);
-      if (target) {
-        setTargetRect(target.getBoundingClientRect());
-      } else {
-        setTargetRect(null);
-      }
-    };
+  // Measure tooltip after render so positioning is accurate
+  useLayoutEffect(() => {
+    if (tooltipRef.current) {
+      const h = tooltipRef.current.getBoundingClientRect().height;
+      if (h && Math.abs(h - tooltipHeight) > 4) setTooltipHeight(h);
+    }
+  });
 
-    // Initial delay to let UI render
-    const timer = setTimeout(updateTargetPosition, 100);
-    
-    window.addEventListener('resize', updateTargetPosition);
-    window.addEventListener('scroll', updateTargetPosition);
+  const preferredPlacement: TooltipPlacement = useMemo(() => {
+    return step?.position ?? 'bottom';
+  }, [step]);
 
-    // Also update on any DOM changes
-    const observer = new MutationObserver(updateTargetPosition);
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', updateTargetPosition);
-      window.removeEventListener('scroll', updateTargetPosition);
-      observer.disconnect();
-    };
-  }, [isOpen, currentStep]);
+  const tooltipPos = targetRect
+    ? computeTooltipPosition(targetRect, TOOLTIP_WIDTH, tooltipHeight, preferredPlacement)
+    : null;
 
   const handleNext = async () => {
     if (isCompletingRef.current) return;
-    console.log('[ProjectTour] handleNext called, currentStep:', currentStep);
-    
+
     if (currentStep < tourSteps.length - 1) {
       const nextStep = currentStep + 1;
       const nextStepData = tourSteps[nextStep];
-      
-      // If NEXT step has an action, trigger it BEFORE advancing
-      // This ensures UI is ready before spotlight tries to find target
+
+      // If NEXT step has an action, trigger it BEFORE advancing so UI is ready
       if (nextStepData.action) {
-        console.log('[ProjectTour] Triggering action for next step:', nextStepData.action);
         onStepChange?.(nextStep, nextStepData.action);
-        
-        // Wait for action to complete based on type
-        const delay = nextStepData.action === 'click-project' ? 1000 : 
+        const delay = nextStepData.action === 'click-project' ? 1000 :
                       nextStepData.action === 'show-move-task' ? 1500 : 500;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
-      
-      console.log('[ProjectTour] Moving to step:', nextStep);
+
       setCurrentStep(nextStep);
-      
-      // Notify parent of step change (without action)
       await new Promise(resolve => setTimeout(resolve, 100));
       onStepChange?.(nextStep);
     } else {
-      console.log('[ProjectTour] Completing tour');
       handleComplete();
     }
   };
@@ -157,58 +160,7 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
     onComplete();
   };
 
-  if (!isOpen) return null;
-
-  const step = tourSteps[currentStep];
-  const padding = 8;
-
-  // Calculate tooltip position based on step preference
-  const getTooltipPosition = () => {
-    if (!targetRect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
-
-    const tooltipWidth = 320;
-    const tooltipHeight = 240;
-    const margin = 16;
-
-    let left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
-    let top: number;
-
-    // Clamp left position to viewport
-    left = Math.max(margin, Math.min(left, window.innerWidth - tooltipWidth - margin));
-
-    if (step.position === 'bottom' || step.position === undefined) {
-      top = targetRect.bottom + margin;
-      if (top + tooltipHeight > window.innerHeight - margin) {
-        top = targetRect.top - tooltipHeight - margin;
-      }
-    } else if (step.position === 'top') {
-      top = targetRect.top - tooltipHeight - margin;
-      if (top < margin) {
-        top = targetRect.bottom + margin;
-      }
-    } else if (step.position === 'right') {
-      left = targetRect.right + margin;
-      top = targetRect.top + targetRect.height / 2 - tooltipHeight / 2;
-      if (left + tooltipWidth > window.innerWidth - margin) {
-        left = targetRect.left - tooltipWidth - margin;
-      }
-    } else if (step.position === 'left') {
-      left = targetRect.left - tooltipWidth - margin;
-      top = targetRect.top + targetRect.height / 2 - tooltipHeight / 2;
-      if (left < margin) {
-        left = targetRect.right + margin;
-      }
-    } else {
-      top = targetRect.bottom + margin;
-    }
-
-    // Clamp top position to viewport
-    top = Math.max(margin, Math.min(top, window.innerHeight - tooltipHeight - margin));
-
-    return { left: `${left}px`, top: `${top}px` };
-  };
-
-  const tooltipPos = getTooltipPosition();
+  if (!isOpen || !step) return null;
 
   const tourContent = (
     <AnimatePresence>
@@ -217,19 +169,19 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0"
-        style={{ zIndex: 999999, pointerEvents: 'none' }}
+        style={{ zIndex: 99999, pointerEvents: 'none' }}
       >
-        {/* Overlay with spotlight cutout */}
+        {/* Spotlight overlay */}
         <svg className="absolute inset-0 w-full h-full">
           <defs>
             <mask id="projects-spotlight-mask">
               <rect x="0" y="0" width="100%" height="100%" fill="white" />
               {targetRect && (
                 <rect
-                  x={targetRect.left - padding}
-                  y={targetRect.top - padding}
-                  width={targetRect.width + padding * 2}
-                  height={targetRect.height + padding * 2}
+                  x={targetRect.left - SPOTLIGHT_PADDING}
+                  y={targetRect.top - SPOTLIGHT_PADDING}
+                  width={targetRect.width + SPOTLIGHT_PADDING * 2}
+                  height={targetRect.height + SPOTLIGHT_PADDING * 2}
                   rx="8"
                   fill="black"
                 />
@@ -241,49 +193,58 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
             y="0"
             width="100%"
             height="100%"
-            fill="rgba(0, 0, 0, 0.75)"
+            fill="rgba(0, 0, 0, 0.7)"
             mask="url(#projects-spotlight-mask)"
           />
         </svg>
 
-        {/* Spotlight border highlight */}
+        {/* Spotlight border */}
         {targetRect && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute"
+            className="absolute pointer-events-none"
             style={{
-              left: targetRect.left - padding,
-              top: targetRect.top - padding,
-              width: targetRect.width + padding * 2,
-              height: targetRect.height + padding * 2,
+              left: targetRect.left - SPOTLIGHT_PADDING,
+              top: targetRect.top - SPOTLIGHT_PADDING,
+              width: targetRect.width + SPOTLIGHT_PADDING * 2,
+              height: targetRect.height + SPOTLIGHT_PADDING * 2,
               borderRadius: '8px',
               border: '2px solid hsl(var(--primary))',
-              boxShadow: '0 0 20px hsl(var(--primary) / 0.5)',
-              pointerEvents: 'none',
+              boxShadow: '0 0 24px hsl(var(--primary) / 0.55)',
             }}
           />
         )}
 
         {/* Tooltip card */}
         <motion.div
+          ref={tooltipRef}
           key={currentStep}
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          className="absolute w-[90vw] max-w-[320px] bg-card border border-border rounded-xl shadow-2xl p-4"
-          style={{ ...tooltipPos, zIndex: 999999, pointerEvents: 'auto' }}
+          exit={{ opacity: 0, y: -8 }}
+          className="absolute bg-card border border-border rounded-xl shadow-2xl p-4"
+          style={{
+            width: `${TOOLTIP_WIDTH}px`,
+            maxWidth: 'calc(100vw - 32px)',
+            left: tooltipPos ? `${tooltipPos.left}px` : '50%',
+            top: tooltipPos ? `${tooltipPos.top}px` : '50%',
+            transform: tooltipPos ? undefined : 'translate(-50%, -50%)',
+            zIndex: 100000,
+            pointerEvents: 'auto',
+          }}
         >
-          {/* Skip button */}
+          {/* Skip */}
           <button
             onClick={handleSkip}
             className="absolute top-3 right-3 p-1 rounded-full hover:bg-muted transition-colors"
+            aria-label="Skip tour"
           >
             <X className="w-4 h-4 text-muted-foreground" />
           </button>
 
           {/* Step indicator */}
-          <div className="flex gap-1.5 mb-3 flex-wrap">
+          <div className="flex gap-1.5 mb-3 flex-wrap pr-6">
             {tourSteps.map((_, index) => (
               <div
                 key={index}
@@ -298,20 +259,15 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
             ))}
           </div>
 
-          {/* Tour Title */}
           <div className="text-xs font-medium text-primary uppercase tracking-wider mb-2">
             Projects Tour
           </div>
 
-          {/* Content */}
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            {step.title}
-          </h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{step.title}</h3>
           <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
             {step.description}
           </p>
 
-          {/* Navigation */}
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
@@ -331,16 +287,13 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
             <Button
               size="sm"
               onClick={(e) => {
-                console.log('[ProjectTour] Next button clicked, step:', currentStep);
                 e.stopPropagation();
                 handleNext();
               }}
               className="gap-1"
             >
               {currentStep === tourSteps.length - 1 ? 'Done' : 'Next'}
-              {currentStep < tourSteps.length - 1 && (
-                <ChevronRight className="w-4 h-4" />
-              )}
+              {currentStep < tourSteps.length - 1 && <ChevronRight className="w-4 h-4" />}
             </Button>
           </div>
         </motion.div>
@@ -348,6 +301,5 @@ export const ProjectTour = ({ isOpen, onComplete, onStepChange }: ProjectTourPro
     </AnimatePresence>
   );
 
-  // Render in a portal to ensure it's above everything including Sheet dialogs
   return createPortal(tourContent, document.body);
 };
