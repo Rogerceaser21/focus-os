@@ -37,6 +37,20 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
     if (!isOpen) setCurrentStep(0);
   }, [isOpen]);
 
+  // Notify listeners (e.g. the loading overlay in ProjectSidebar) the moment
+  // the first spotlight is actually painted so they can dismiss any "Loading…" UI.
+  const firedReadyRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      firedReadyRef.current = false;
+      return;
+    }
+    if (targetRect && !firedReadyRef.current) {
+      firedReadyRef.current = true;
+      window.dispatchEvent(new CustomEvent('focusos:tour-ready', { detail: { tour: 'tasks' } }));
+    }
+  }, [isOpen, targetRect]);
+
   // Measure tooltip after render so positioning math is accurate
   useLayoutEffect(() => {
     if (tooltipRef.current) {
