@@ -45,13 +45,10 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
       firedReadyRef.current = false;
       return;
     }
-    const t0 = (window as any).__tourT0 ?? performance.now();
-    if (targetRect) console.log('[TOUR-TIMING] targetRect resolved', Math.round(performance.now() - t0));
     if (targetRect && tooltipRef.current && !firedReadyRef.current) {
       firedReadyRef.current = true;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          console.log('[TOUR-TIMING] firing tour-ready (overlay dismissed)', Math.round(performance.now() - t0));
           window.dispatchEvent(new CustomEvent('focusos:tour-ready', { detail: { tour: 'tasks' } }));
         });
       });
