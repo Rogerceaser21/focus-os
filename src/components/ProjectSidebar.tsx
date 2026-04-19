@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { CreateProjectDialog } from './CreateProjectDialog';
+import { TourLoadingOverlay } from './TourLoadingOverlay';
 import AnimatedList from './AnimatedList';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -554,9 +555,19 @@ export const ProjectSidebar = ({
   const { open: sidebarOpen, setOpen: setSidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
   const isActuallyMobile = useIsMobile();
 
+  const [launchingTourLabel, setLaunchingTourLabel] = useState<string | null>(null);
+
   const handleHelpMenuClick = (tourType: 'menu-magic' | 'tasks' | 'projects') => {
+    const labelMap = {
+      'menu-magic': 'Menu Magic Tour',
+      'tasks': 'Tasks Tour',
+      'projects': 'Projects Tour',
+    } as const;
+
+    // Show loading overlay immediately so the user gets visual feedback
+    setLaunchingTourLabel(labelMap[tourType]);
+
     // Close the sidebar first so its backdrop/blur doesn't sit over the tour spotlight.
-    // On mobile this closes the Sheet; on desktop this collapses the sidebar column.
     if (isActuallyMobile) {
       setOpenMobile(false);
     } else {
@@ -565,7 +576,7 @@ export const ProjectSidebar = ({
 
     // Wait for the Sheet/sidebar exit animation + backdrop unmount before starting
     // the tour, otherwise the spotlight measures targets behind the blurred overlay.
-    const startDelay = 320;
+    const startDelay = 280;
     setTimeout(() => {
       if (tourType === 'menu-magic' && onStartTour) {
         onStartTour();
@@ -578,6 +589,8 @@ export const ProjectSidebar = ({
           description: `This tour is under development.`,
         });
       }
+      // Hide the overlay shortly after the tour mounts so the spotlight is visible
+      setTimeout(() => setLaunchingTourLabel(null), 200);
     }, startDelay);
   };
 
@@ -1054,6 +1067,7 @@ export const ProjectSidebar = ({
             {sidebarContent}
           </div>
           {createDialog}
+          <TourLoadingOverlay label={launchingTourLabel} />
         </>
       );
     }
@@ -1070,6 +1084,7 @@ export const ProjectSidebar = ({
           </SheetContent>
         </Sheet>
         {createDialog}
+        <TourLoadingOverlay label={launchingTourLabel} />
       </>
     );
   }
@@ -1085,6 +1100,7 @@ export const ProjectSidebar = ({
     >
       {sidebarContent}
       {createDialog}
+      <TourLoadingOverlay label={launchingTourLabel} />
     </div>
   );
 };
