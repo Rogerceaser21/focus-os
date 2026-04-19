@@ -557,6 +557,21 @@ export const ProjectSidebar = ({
 
   const [launchingTourLabel, setLaunchingTourLabel] = useState<string | null>(null);
 
+  // Dismiss the loading overlay as soon as the tour signals it has painted
+  // its first spotlight (event dispatched from TaskTour / ProjectTour).
+  useEffect(() => {
+    if (!launchingTourLabel) return;
+    const handleReady = () => setLaunchingTourLabel(null);
+    window.addEventListener('focusos:tour-ready', handleReady as EventListener);
+    // Safety net: if the tour never reports ready (e.g. target missing),
+    // hide the overlay after 4s so the user is never stuck.
+    const safety = window.setTimeout(() => setLaunchingTourLabel(null), 4000);
+    return () => {
+      window.removeEventListener('focusos:tour-ready', handleReady as EventListener);
+      clearTimeout(safety);
+    };
+  }, [launchingTourLabel]);
+
   const handleHelpMenuClick = (tourType: 'menu-magic' | 'tasks' | 'projects') => {
     const labelMap = {
       'menu-magic': 'Menu Magic Tour',
@@ -585,12 +600,10 @@ export const ProjectSidebar = ({
       } else if (tourType === 'projects' && onStartProjectsTour) {
         onStartProjectsTour();
       } else {
-        toast.info('Coming soon!', {
-          description: `This tour is under development.`,
-        });
+        toast.info('Coming soon!', { description: 'This tour is under development.' });
+        setLaunchingTourLabel(null);
       }
-      // Hide the overlay shortly after the tour mounts so the spotlight is visible
-      setTimeout(() => setLaunchingTourLabel(null), 200);
+      // Overlay is dismissed by the 'focusos:tour-ready' event (see effect above).
     }, startDelay);
   };
 
