@@ -30,7 +30,7 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
   }, [isOpen, currentStep]);
 
   const step = steps[currentStep];
-  const targetRect = useTourSpotlight(isOpen ? step?.target ?? null : null, isOpen);
+  const targetRect = useTourSpotlight(isOpen ? step?.target ?? null : null, isOpen, 10000);
 
   // Reset on close
   useEffect(() => {

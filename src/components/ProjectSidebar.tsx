@@ -564,8 +564,9 @@ export const ProjectSidebar = ({
     const handleReady = () => setLaunchingTourLabel(null);
     window.addEventListener('focusos:tour-ready', handleReady as EventListener);
     // Safety net: if the tour never reports ready (e.g. target missing),
-    // hide the overlay after 4s so the user is never stuck.
-    const safety = window.setTimeout(() => setLaunchingTourLabel(null), 4000);
+    // hide the overlay after 15s so the user is never stuck. Must be long
+    // enough that the ready event wins under any normal conditions.
+    const safety = window.setTimeout(() => setLaunchingTourLabel(null), 15000);
     return () => {
       window.removeEventListener('focusos:tour-ready', handleReady as EventListener);
       clearTimeout(safety);
