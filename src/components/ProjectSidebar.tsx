@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { CreateProjectDialog } from './CreateProjectDialog';
+import { TourLoadingOverlay } from './TourLoadingOverlay';
 import AnimatedList from './AnimatedList';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
