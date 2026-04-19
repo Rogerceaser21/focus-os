@@ -37,17 +37,22 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
     if (!isOpen) setCurrentStep(0);
   }, [isOpen]);
 
-  // Notify listeners (e.g. the loading overlay in ProjectSidebar) the moment
-  // the first spotlight is actually painted so they can dismiss any "Loading…" UI.
+  // Notify listeners (e.g. the loading overlay in ProjectSidebar) ONLY after BOTH
+  // the spotlight target and the tooltip card have actually painted. We use a
+  // double rAF to guarantee the browser has completed a paint frame before firing.
   const firedReadyRef = useRef(false);
   useEffect(() => {
     if (!isOpen) {
       firedReadyRef.current = false;
       return;
     }
-    if (targetRect && !firedReadyRef.current) {
+    if (targetRect && tooltipRef.current && !firedReadyRef.current) {
       firedReadyRef.current = true;
-      window.dispatchEvent(new CustomEvent('focusos:tour-ready', { detail: { tour: 'tasks' } }));
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.dispatchEvent(new CustomEvent('focusos:tour-ready', { detail: { tour: 'tasks' } }));
+        });
+      });
     }
   }, [isOpen, targetRect]);
 
