@@ -38,8 +38,7 @@ export const TaskTour = ({ isOpen, onComplete, onStepChange }: TaskTourProps) =>
   }, [isOpen]);
 
   // Notify listeners (e.g. the loading overlay in ProjectSidebar) ONLY after BOTH
-  // the spotlight target and the tooltip card have actually painted. We use a
-  // double rAF to guarantee the browser has completed a paint frame before firing.
+  // the spotlight target and the tooltip card have actually painted.
   const firedReadyRef = useRef(false);
   useEffect(() => {
     if (!isOpen) {
