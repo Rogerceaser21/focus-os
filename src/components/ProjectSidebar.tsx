@@ -1067,6 +1067,7 @@ export const ProjectSidebar = ({
             {sidebarContent}
           </div>
           {createDialog}
+          <TourLoadingOverlay label={launchingTourLabel} />
         </>
       );
     }
@@ -1083,6 +1084,7 @@ export const ProjectSidebar = ({
           </SheetContent>
         </Sheet>
         {createDialog}
+        <TourLoadingOverlay label={launchingTourLabel} />
       </>
     );
   }
@@ -1098,6 +1100,7 @@ export const ProjectSidebar = ({
     >
       {sidebarContent}
       {createDialog}
+      <TourLoadingOverlay label={launchingTourLabel} />
     </div>
   );
 };
