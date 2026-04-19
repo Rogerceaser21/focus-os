@@ -36,13 +36,16 @@ export function useTourSpotlight(
     const attachToTarget = (el: Element) => {
       currentTarget = el;
       // Scroll into view (centered) so the spotlight always lands on visible content
+      // Scroll into view INSTANTLY (not smooth) so the rect is correct immediately —
+      // any "smooth" scroll would leave the spotlight measuring the pre-scroll position
+      // and force the loading overlay to dismiss before the user sees the target.
       try {
-        el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+        el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
       } catch {
         /* older browsers */
       }
-      // Initial measure after scroll settles
-      window.setTimeout(measure, 250);
+      // Measure on the next frame so layout has settled after the instant scroll
+      requestAnimationFrame(() => measure());
       measure();
 
       // ResizeObserver on the target
