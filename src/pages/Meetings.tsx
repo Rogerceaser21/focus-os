@@ -757,7 +757,7 @@ const Meetings = () => {
     <>
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10" data-meetings-tour-step="page">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/app')}>
             <ArrowLeft className="h-5 w-5" />
@@ -772,7 +772,7 @@ const Meetings = () => {
             )}
           </div>
           {recordingState === 'idle' && !showParticipants && (
-            <Button className="gap-2" onClick={() => setShowParticipants(true)}>
+            <Button className="gap-2" onClick={() => setShowParticipants(true)} data-meetings-tour-step="new-meeting">
               <Plus className="h-4 w-4" />
               New Meeting
             </Button>
@@ -1003,7 +1003,7 @@ const Meetings = () => {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" data-meetings-tour-step="list">
             {meetings.map(meeting => {
               const project = projects.find(p => p.id === meeting.project_id);
               const updatedAt = new Date(meeting.updated_at || meeting.created_at).getTime();
