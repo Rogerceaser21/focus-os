@@ -256,6 +256,15 @@ const MeetingDetail = () => {
 
   const fetchMeeting = async () => {
     setLoading(true);
+
+    // Demo meeting intercept — used by the Meetings tour
+    if (isDemo) {
+      setMeeting(DEMO_MEETING as any);
+      setTranscript(DEMO_TRANSCRIPT);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await (supabase as any)
       .from('focusos_meetings')
       .select('*')
