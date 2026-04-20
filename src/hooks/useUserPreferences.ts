@@ -15,6 +15,7 @@ export interface UserPreferences {
   has_completed_onboarding: boolean;
   has_completed_task_tour: boolean;
   has_completed_projects_tour: boolean;
+  has_completed_home_tour: boolean;
   notify_due_date: boolean;
   notify_timer: boolean;
   timer_alert_interval_minutes: number;
@@ -65,7 +66,8 @@ export const useUserPreferences = (userId?: string | null) => {
           theme: 'cream',
           has_completed_onboarding: false,
           has_completed_task_tour: false,
-          has_completed_projects_tour: false
+          has_completed_projects_tour: false,
+          has_completed_home_tour: false
         })
         .select()
         .single();
@@ -108,6 +110,23 @@ export const useUserPreferences = (userId?: string | null) => {
       setPreferences(data as UserPreferences);
     } catch (error) {
       console.error('Error marking task tour complete:', error);
+    }
+  };
+
+  const markHomeTourComplete = async () => {
+    if (!userId || !preferences) return;
+    try {
+      const { data, error } = await (supabase as any)
+        .from('focusos_user_preferences')
+        .update({ has_completed_home_tour: true })
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      setPreferences(data as UserPreferences);
+    } catch (error) {
+      console.error('Error marking home tour complete:', error);
     }
   };
 
@@ -157,5 +176,5 @@ export const useUserPreferences = (userId?: string | null) => {
     }
   }, [userId]);
 
-  return { preferences, loading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete };
+  return { preferences, loading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete, markHomeTourComplete };
 };

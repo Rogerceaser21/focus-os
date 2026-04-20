@@ -1,0 +1,1 @@
+ALTER TABLE public.focusos_user_preferences ADD COLUMN IF NOT EXISTS has_completed_home_tour BOOLEAN NOT NULL DEFAULT false;
