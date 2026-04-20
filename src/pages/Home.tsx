@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Video } from 'lucide-react';
+import { Video, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
+import { HomeTour } from '@/components/HomeTour';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import type { ProjectInfo } from '@/hooks/useBrainDumpLive';
 
 const SUBTITLES = [
@@ -30,6 +32,8 @@ const Home = () => {
   const [subtitleIndex, setSubtitleIndex] = useState(0);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
+  const [tourOpen, setTourOpen] = useState(false);
+  const { preferences, markHomeTourComplete } = useUserPreferences(user?.id);
 
   // Silently prefetch all data for /app and /meetings while user is on Home screen
   usePrefetchAppData(user?.id);
@@ -51,6 +55,19 @@ const Home = () => {
     const interval = setInterval(() => setSubtitleIndex((p) => (p + 1) % SUBTITLES.length), 4000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-launch the Home tour for first-time users
+  useEffect(() => {
+    if (preferences && !preferences.has_completed_home_tour) {
+      const t = setTimeout(() => setTourOpen(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, [preferences]);
+
+  const handleTourComplete = useCallback(() => {
+    setTourOpen(false);
+    markHomeTourComplete();
+  }, [markHomeTourComplete]);
 
   const handleTasksCreated = useCallback(() => navigate('/app'), [navigate]);
 
@@ -98,6 +115,7 @@ const Home = () => {
         {/* Brain Dump Button */}
         <div className="flex flex-col items-center gap-3 mb-8">
           <motion.button
+            data-home-tour-step="brain-dump"
             whileTap={{ scale: 0.93 }}
             whileHover={{ scale: 1.03 }}
             onClick={() => setBrainDumpOpen(true)}
@@ -119,6 +137,44 @@ const Home = () => {
             Tap to capture your thoughts into tasks
           </span>
         </div>
+
+        {/* Record Meeting — always centered */}
+        <button
+          data-home-tour-step="record-meeting"
+          onClick={() => navigate('/meetings')}
+          className="flex items-center gap-2 px-6 py-3 rounded-full transition-all border border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary">
+          
+          <Video className="w-4 h-4" />
+          <span className="text-sm font-medium">Record Meeting</span>
+        </button>
+      </div>
+
+      {/* Help / replay tour button */}
+      <button
+        onClick={() => setTourOpen(true)}
+        aria-label="Take the Home tour"
+        className="fixed right-4 z-30 flex items-center justify-center w-10 h-10 rounded-full border border-border bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-md"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}
+      >
+        <HelpCircle className="w-5 h-5" />
+      </button>
+
+      <BottomNav projects={projects} />
+
+      <HomeTour isOpen={tourOpen} onComplete={handleTourComplete} />
+
+      <BrainDumpLiveDialog
+        open={brainDumpOpen}
+        onOpenChange={setBrainDumpOpen}
+        userId={user.id}
+        projects={projects}
+        onTasksCreated={handleTasksCreated} />
+      
+    </div>);
+
+};
+
+export default Home;
 
         {/* Record Meeting — always centered */}
         <button
