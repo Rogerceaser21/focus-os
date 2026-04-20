@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2, Pause, Play, RefreshCw, Share2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import RecordFAB from '@/components/RecordFAB';
+import { MeetingsTour } from '@/components/MeetingsTour';
+import { DEMO_MEETING_ID } from '@/lib/demoMeeting';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,8 +67,24 @@ const Meetings = () => {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('project');
   const shouldOpenNew = searchParams.get('new') === 'true';
+  const tourParam = searchParams.get('tour');
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
+  const { preferences, markMeetingsTourComplete } = useUserPreferences(user?.id);
+
+  // Tour state — open if explicitly requested OR auto-launch for first-time users once preferences load
+  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    if (tourParam === 'meetings') {
+      setTourOpen(true);
+      return;
+    }
+    if (preferences && !preferences.has_completed_meetings_tour) {
+      // Auto-launch once for new users — small delay so the page paints first
+      const t = setTimeout(() => setTourOpen(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, [tourParam, preferences]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -738,7 +757,7 @@ const Meetings = () => {
     <>
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10" data-meetings-tour-step="page">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/app')}>
             <ArrowLeft className="h-5 w-5" />
@@ -753,7 +772,7 @@ const Meetings = () => {
             )}
           </div>
           {recordingState === 'idle' && !showParticipants && (
-            <Button className="gap-2" onClick={() => setShowParticipants(true)}>
+            <Button className="gap-2" onClick={() => setShowParticipants(true)} data-meetings-tour-step="new-meeting">
               <Plus className="h-4 w-4" />
               New Meeting
             </Button>
@@ -972,7 +991,7 @@ const Meetings = () => {
             ))}
           </div>
         ) : meetings.length === 0 && recordingState === 'idle' ? (
-          <div className="text-center py-20">
+          <div className="text-center py-20" data-meetings-tour-step="list">
             <Mic className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
             <h2 className="text-lg font-semibold mb-1">No meetings yet</h2>
             <p className="text-muted-foreground text-sm mb-6">
@@ -984,7 +1003,7 @@ const Meetings = () => {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" data-meetings-tour-step="list">
             {meetings.map(meeting => {
               const project = projects.find(p => p.id === meeting.project_id);
               const updatedAt = new Date(meeting.updated_at || meeting.created_at).getTime();
@@ -1140,6 +1159,17 @@ const Meetings = () => {
       onMeeting={() => setShowParticipants(true)}
     />
     <BottomNav />
+    <MeetingsTour
+      isOpen={tourOpen}
+      phase="list"
+      onComplete={() => {
+        setTourOpen(false);
+        markMeetingsTourComplete();
+      }}
+      onAdvanceToDetail={() => {
+        navigate(`/meetings/${DEMO_MEETING_ID}?tour=meetings&phase=detail`);
+      }}
+    />
     </>
   );
 };

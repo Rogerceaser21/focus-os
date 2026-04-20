@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,8 @@ import { ShareStatusPopover, SharedRecipient } from '@/components/ShareStatusPop
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { MeetingsTour } from '@/components/MeetingsTour';
+import { DEMO_MEETING_ID, DEMO_MEETING, DEMO_TRANSCRIPT } from '@/lib/demoMeeting';
 
 interface Participant {
   name: string;
@@ -89,9 +91,30 @@ interface StructuredSummary {
 const MeetingDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences(user?.id);
+  const { preferences, loading: prefsLoading, updatePreferences, markMeetingsTourComplete } = useUserPreferences(user?.id);
   const isMobile = useIsMobile();
+
+  // Demo meeting interception — used by the Meetings tour
+  const isDemo = id === DEMO_MEETING_ID;
+  const tourPhase = searchParams.get('phase');
+  const tourActive = searchParams.get('tour') === 'meetings';
+  const [demoTourOpen, setDemoTourOpen] = useState(false);
+
+  useEffect(() => {
+    if (isDemo && tourActive && tourPhase === 'detail') {
+      // Small delay so the page paints first
+      const t = setTimeout(() => setDemoTourOpen(true), 400);
+      return () => clearTimeout(t);
+    }
+  }, [isDemo, tourActive, tourPhase]);
+
+  const demoBlocked = (action: string) => {
+    toast.info(`${action} is disabled during the tour`, {
+      description: 'This is a sample meeting — try it on a real one!',
+    });
+  };
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -163,14 +186,16 @@ const MeetingDetail = () => {
   useEffect(() => {
     if (user && id) {
       fetchMeeting();
-      fetchProjects();
-      fetchSharingInfo();
+      if (!isDemo) {
+        fetchProjects();
+        fetchSharingInfo();
+      }
     }
-  }, [user, id]);
+  }, [user, id, isDemo]);
 
   // Realtime subscription for task updates (e.g. external completion via email)
   useEffect(() => {
-    if (!user || !id) return;
+    if (!user || !id || isDemo) return;
     const channel = supabase
       .channel(`meeting-tasks-${id}`)
       .on(
@@ -233,6 +258,15 @@ const MeetingDetail = () => {
 
   const fetchMeeting = async () => {
     setLoading(true);
+
+    // Demo meeting intercept — used by the Meetings tour
+    if (isDemo) {
+      setMeeting(DEMO_MEETING as any);
+      setTranscript(DEMO_TRANSCRIPT);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await (supabase as any)
       .from('focusos_meetings')
       .select('*')
@@ -779,7 +813,7 @@ const MeetingDetail = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate('/meetings')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0" data-meetings-tour-step="title">
             {editingTitle ? (
               <Input
                 ref={titleInputRef}
@@ -795,7 +829,7 @@ const MeetingDetail = () => {
             ) : (
               <h1
                 className="text-xl font-bold truncate cursor-pointer hover:text-primary/80 transition-colors"
-                onClick={startEditingTitle}
+                onClick={isDemo ? () => demoBlocked('Renaming') : startEditingTitle}
                 title="Click to rename"
               >
                 {meeting.title}
@@ -896,7 +930,7 @@ const MeetingDetail = () => {
 
             {/* Overview */}
             {(summary.overview || editingSummary) && (
-              <Card>
+              <Card data-meetings-tour-step="overview">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -904,12 +938,12 @@ const MeetingDetail = () => {
                       Overview
                     </h2>
                     {!editingSummary && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" data-meetings-tour-step="overview-edit">
                         <Button
                           variant="outline"
                           size="sm"
                           className="gap-1.5 text-xs"
-                          onClick={startEditingSummary}
+                          onClick={isDemo ? () => demoBlocked('Editing') : startEditingSummary}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                           Edit
@@ -918,7 +952,7 @@ const MeetingDetail = () => {
                           variant="outline"
                           size="sm"
                           className="gap-1.5 text-xs"
-                          onClick={() => handleResummarize()}
+                          onClick={isDemo ? () => demoBlocked('Re-summarizing') : () => handleResummarize()}
                           disabled={resummarizing}
                         >
                           {resummarizing ? (
@@ -946,7 +980,7 @@ const MeetingDetail = () => {
 
             {/* Outline */}
             {(summary.outline.length > 0 || editingSummary) && (
-              <Card>
+              <Card data-meetings-tour-step="outline">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -954,12 +988,12 @@ const MeetingDetail = () => {
                       Outline
                     </h2>
                     {!editingSummary && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5" data-meetings-tour-step="outline-detail">
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-7 px-2 text-xs"
-                          onClick={() => handleDetailChange('less')}
+                          onClick={isDemo ? () => demoBlocked('Adjusting detail') : () => handleDetailChange('less')}
                           disabled={resummarizing || detailLevel === 'concise'}
                         >
                           <Minus className="h-3 w-3 mr-1" />
@@ -1061,7 +1095,8 @@ const MeetingDetail = () => {
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() => setShowSendSummaryDialog(true)}
+                    onClick={isDemo ? () => demoBlocked('Sending email') : () => setShowSendSummaryDialog(true)}
+                    data-meetings-tour-step="share-email"
                   >
                     <Mail className="h-4 w-4" />
                     Share Summary via Email
@@ -1070,7 +1105,8 @@ const MeetingDetail = () => {
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() => setShareMeetingDialogOpen(true)}
+                    onClick={isDemo ? () => demoBlocked('Sharing') : () => setShareMeetingDialogOpen(true)}
+                    data-meetings-tour-step="share-meeting"
                   >
                     <Share2 className="h-4 w-4" />
                     Share Meeting
@@ -1082,9 +1118,28 @@ const MeetingDetail = () => {
               </div>
             )}
 
+            {/* Demo action items (tour only) — real action items render below */}
+            {isDemo && (
+              <Card data-meetings-tour-step="action-items">
+                <CardContent className="p-5">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Action Items ({DEMO_MEETING.action_items.length})
+                  </h2>
+                  <ul className="space-y-2">
+                    {DEMO_MEETING.action_items.map((item: any, i: number) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <ClipboardList className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                        <span><strong>{item.title}</strong> — assigned to {item.assignee}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Action Items */}
             {savedTasks.length > 0 && (
-              <Card>
+              <Card data-meetings-tour-step="action-items">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -1340,6 +1395,15 @@ const MeetingDetail = () => {
       preferences={preferences}
       prefsLoading={prefsLoading}
       onSavePreferences={updatePreferences}
+    />
+    <MeetingsTour
+      isOpen={demoTourOpen}
+      phase="detail"
+      onComplete={() => {
+        setDemoTourOpen(false);
+        markMeetingsTourComplete();
+        navigate('/meetings');
+      }}
     />
     </>
   );

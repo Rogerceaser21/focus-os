@@ -619,6 +619,12 @@ export const ProjectSidebar = ({
               <DropdownMenuItem onClick={() => navigate('/home?tour=home')}>
                 Home Tour
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                if (isActuallyMobile) setOpenMobile(false);
+                navigate('/meetings?tour=meetings');
+              }}>
+                Meetings Tour
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleHelpMenuClick('tasks')}>
                 Tasks Tour
               </DropdownMenuItem>
