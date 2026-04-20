@@ -49,6 +49,7 @@ import { TaskListItem } from '@/components/TaskListItem';
 import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
+import RecordFAB from '@/components/RecordFAB';
 import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
@@ -1405,6 +1406,7 @@ const MeetingDetail = () => {
         navigate('/meetings');
       }}
     />
+    <RecordFAB compact />
     </>
   );
 };

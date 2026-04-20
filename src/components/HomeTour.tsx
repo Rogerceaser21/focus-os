@@ -69,6 +69,13 @@ const tourSteps: TourStep[] = [
       "Sign out of your account when you're done. Your data stays safe in the cloud and will be right here when you log back in.",
     position: 'top',
   },
+  {
+    target: '[data-tour-step="menu-fab"]',
+    title: 'Quick Return Home',
+    description:
+      "See this red record button? It follows you everywhere. From any screen — Projects, Today, Meetings — just double-tap it to jump straight back here.",
+    position: 'top',
+  },
 ];
 
 interface HomeTourProps {

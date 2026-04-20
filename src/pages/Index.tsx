@@ -2331,9 +2331,9 @@ https://www.skyscanner.com`,
           </div>
         </div>
 
-        {/* Radial FAB Menu - hidden when dialogs are open */}
+        {/* Radial FAB - compact (double-tap to return home) */}
         {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
-          <RecordFAB onBrainDump={() => setDialogOpen(true)} />
+          <RecordFAB compact />
         )}
       </div>
       
