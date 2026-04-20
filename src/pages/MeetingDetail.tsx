@@ -813,7 +813,7 @@ const MeetingDetail = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate('/meetings')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0" data-meetings-tour-step="title">
             {editingTitle ? (
               <Input
                 ref={titleInputRef}
@@ -829,7 +829,7 @@ const MeetingDetail = () => {
             ) : (
               <h1
                 className="text-xl font-bold truncate cursor-pointer hover:text-primary/80 transition-colors"
-                onClick={startEditingTitle}
+                onClick={isDemo ? () => demoBlocked('Renaming') : startEditingTitle}
                 title="Click to rename"
               >
                 {meeting.title}
@@ -930,7 +930,7 @@ const MeetingDetail = () => {
 
             {/* Overview */}
             {(summary.overview || editingSummary) && (
-              <Card>
+              <Card data-meetings-tour-step="overview">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -938,12 +938,12 @@ const MeetingDetail = () => {
                       Overview
                     </h2>
                     {!editingSummary && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" data-meetings-tour-step="overview-edit">
                         <Button
                           variant="outline"
                           size="sm"
                           className="gap-1.5 text-xs"
-                          onClick={startEditingSummary}
+                          onClick={isDemo ? () => demoBlocked('Editing') : startEditingSummary}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                           Edit
@@ -952,7 +952,7 @@ const MeetingDetail = () => {
                           variant="outline"
                           size="sm"
                           className="gap-1.5 text-xs"
-                          onClick={() => handleResummarize()}
+                          onClick={isDemo ? () => demoBlocked('Re-summarizing') : () => handleResummarize()}
                           disabled={resummarizing}
                         >
                           {resummarizing ? (
@@ -980,7 +980,7 @@ const MeetingDetail = () => {
 
             {/* Outline */}
             {(summary.outline.length > 0 || editingSummary) && (
-              <Card>
+              <Card data-meetings-tour-step="outline">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -988,12 +988,12 @@ const MeetingDetail = () => {
                       Outline
                     </h2>
                     {!editingSummary && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5" data-meetings-tour-step="outline-detail">
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-7 px-2 text-xs"
-                          onClick={() => handleDetailChange('less')}
+                          onClick={isDemo ? () => demoBlocked('Adjusting detail') : () => handleDetailChange('less')}
                           disabled={resummarizing || detailLevel === 'concise'}
                         >
                           <Minus className="h-3 w-3 mr-1" />
