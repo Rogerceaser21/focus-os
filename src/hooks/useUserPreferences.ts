@@ -133,7 +133,11 @@ export const useUserPreferences = (userId?: string | null) => {
   };
 
   const markMeetingsTourComplete = async () => {
-    if (!userId || !preferences) return;
+    if (!userId) return null;
+
+    const previousPreferences = preferences;
+    setPreferences(current => current ? { ...current, has_completed_meetings_tour: true } : current);
+
     try {
       const { data, error } = await (supabase as any)
         .from('focusos_user_preferences')
@@ -144,8 +148,11 @@ export const useUserPreferences = (userId?: string | null) => {
 
       if (error) throw error;
       setPreferences(data as UserPreferences);
+      return data as UserPreferences;
     } catch (error) {
+      if (previousPreferences) setPreferences(previousPreferences);
       console.error('Error marking meetings tour complete:', error);
+      return null;
     }
   };
 
