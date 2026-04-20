@@ -573,30 +573,23 @@ export const ProjectSidebar = ({
     };
   }, [launchingTourLabel]);
 
-  const handleHelpMenuClick = (tourType: 'menu-magic' | 'tasks' | 'projects') => {
+  const handleHelpMenuClick = (tourType: 'tasks' | 'projects') => {
     const labelMap = {
-      'menu-magic': 'Menu Magic Tour',
       'tasks': 'Tasks Tour',
       'projects': 'Projects Tour',
     } as const;
 
-    // Show loading overlay immediately so the user gets visual feedback
     setLaunchingTourLabel(labelMap[tourType]);
 
-    // Close the sidebar first so its backdrop/blur doesn't sit over the tour spotlight.
     if (isActuallyMobile) {
       setOpenMobile(false);
     } else {
       try { setSidebarOpen?.(false); } catch { /* no-op if context unavailable */ }
     }
 
-    // Wait for the Sheet/sidebar exit animation + backdrop unmount before starting
-    // the tour, otherwise the spotlight measures targets behind the blurred overlay.
     const startDelay = 280;
     setTimeout(() => {
-      if (tourType === 'menu-magic' && onStartTour) {
-        onStartTour();
-      } else if (tourType === 'tasks' && onStartTaskTour) {
+      if (tourType === 'tasks' && onStartTaskTour) {
         onStartTaskTour();
       } else if (tourType === 'projects' && onStartProjectsTour) {
         onStartProjectsTour();
@@ -604,7 +597,6 @@ export const ProjectSidebar = ({
         toast.info('Coming soon!', { description: 'This tour is under development.' });
         setLaunchingTourLabel(null);
       }
-      // Overlay is dismissed by the 'focusos:tour-ready' event (see effect above).
     }, startDelay);
   };
 
@@ -624,9 +616,6 @@ export const ProjectSidebar = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48 bg-popover">
-              <DropdownMenuItem onClick={() => handleHelpMenuClick('menu-magic')}>
-                Menu Magic Buttons
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleHelpMenuClick('tasks')}>
                 Tasks Tour
               </DropdownMenuItem>

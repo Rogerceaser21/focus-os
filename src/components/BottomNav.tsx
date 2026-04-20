@@ -66,6 +66,7 @@ const BottomNav = ({
         }}
       >
         <NavButton
+          dataTour="projects"
           icon={<FolderOpen className="w-5 h-5" />}
           label="Projects"
           onClick={() => {
@@ -78,18 +79,21 @@ const BottomNav = ({
           active={isActive('/app', 'projects')}
         />
         <NavButton
+          dataTour="meetings"
           icon={<Calendar className="w-5 h-5" />}
           label="Meetings"
           onClick={() => navigate('/meetings')}
           active={location.pathname.startsWith('/meetings')}
         />
         <NavButton
+          dataTour="today"
           icon={<ListTodo className="w-5 h-5" />}
           label="Today"
           onClick={() => navigate('/app?view=today')}
           active={isActive('/app', 'today') || (location.pathname === '/app' && !location.search)}
         />
         <NavButton
+          dataTour="past-due"
           icon={<AlertTriangle className="w-5 h-5" />}
           label="Past Due"
           onClick={() => navigate('/app?view=past-due')}
@@ -97,11 +101,13 @@ const BottomNav = ({
           accent
         />
         <NavButton
+          dataTour="settings"
           icon={<Settings className="w-5 h-5" />}
           label="Settings"
           onClick={() => setSettingsOpen(true)}
         />
         <NavButton
+          dataTour="logout"
           icon={<LogOut className="w-5 h-5" />}
           label="Log Out"
           onClick={handleSignOut}
@@ -126,15 +132,18 @@ const NavButton = ({
   onClick,
   accent,
   active,
+  dataTour,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   accent?: boolean;
   active?: boolean;
+  dataTour?: string;
 }) => (
   <button
     onClick={onClick}
+    data-home-tour-step={dataTour}
     className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${
       active
         ? accent

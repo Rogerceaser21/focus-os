@@ -45,7 +45,7 @@ import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences, type UserPreferences } from '@/hooks/useUserPreferences';
-import { OnboardingTour } from '@/components/OnboardingTour';
+// OnboardingTour removed — replaced by HomeTour on /home
 import { TaskTour } from '@/components/TaskTour';
 import { ProjectTour } from '@/components/ProjectTour';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -2361,7 +2361,7 @@ https://www.skyscanner.com`,
         onSettingsOpenChange={setSettingsOpen}
       />
 
-      <OnboardingTour isOpen={showTour} onComplete={handleTourComplete} onOpenMobileDock={() => setFabExpanded(true)} />
+      {/* OnboardingTour removed — HomeTour on /home replaces it */}
 
       {/* Mobile Add Task Dialog */}
       {isMobile && (
