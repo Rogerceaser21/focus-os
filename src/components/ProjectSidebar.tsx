@@ -1062,13 +1062,9 @@ export const ProjectSidebar = ({
       // Tour mode: Bypass Sheet entirely, use simple fixed positioning
       return (
         <>
-          {/* Backdrop */}
-          {openMobile && (
-            <div 
-              className="fixed inset-0 z-40 bg-black/80 pointer-events-none"
-              style={{ zIndex: 50 }}
-            />
-          )}
+          {/* No backdrop during tour — the tour's spotlight overlay handles dimming
+              and cuts a hole around the highlighted target. A second backdrop here
+              would dim the spotlighted element too. */}
           {/* Sidebar content */}
           <div 
             className={`
