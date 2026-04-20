@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface RecordFABProps {
-  onBrainDump: () => void;
+  onBrainDump?: () => void;
   /** If provided, called instead of navigating to /meetings?new=true */
   onMeeting?: () => void;
+  /** Compact mode: hide expand menu, only double-tap-to-home works. */
+  compact?: boolean;
 }
 
 const DOUBLE_TAP_DELAY = 300;
 
-const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting }) => {
+const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact = false }) => {
   const [fabExpanded, setFabExpanded] = useState(false);
   const navigate = useNavigate();
   const lastTapRef = useRef(0);
@@ -29,11 +31,16 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting }) => {
       return;
     }
 
+    if (compact) {
+      // No expand menu in compact mode — single tap is a no-op (double-tap only).
+      return;
+    }
+
     // Wait to see if a second tap comes
     tapTimerRef.current = setTimeout(() => {
       setFabExpanded(prev => !prev);
     }, DOUBLE_TAP_DELAY);
-  }, [navigate]);
+  }, [navigate, compact]);
 
   return (
     <>
