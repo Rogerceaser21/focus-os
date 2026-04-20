@@ -86,7 +86,16 @@ export function useTourSpotlight(
         measure();
       }
     });
-    mutationObs.observe(document.body, { childList: true, subtree: true });
+    // Watch for both new nodes AND attribute changes — tour data attributes
+    // (e.g. data-projects-tour-step="demo-project") are added to existing rows
+    // when a project becomes selected; without `attributes: true` the observer
+    // never fires and the spotlight rect stays null.
+    mutationObs.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-projects-tour-step', 'data-task-tour-step', 'data-tour-step'],
+    });
 
     return () => {
       cancelled = true;
