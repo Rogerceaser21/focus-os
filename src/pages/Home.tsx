@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Video, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +27,7 @@ function getGreeting(): string {
 
 const Home = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const [firstName, setFirstName] = useState<string>('');
   const [subtitleIndex, setSubtitleIndex] = useState(0);
@@ -56,13 +57,20 @@ const Home = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-launch the Home tour for first-time users
+  // Auto-launch the Home tour for first-time users, or when triggered via ?tour=home
   useEffect(() => {
+    if (searchParams.get('tour') === 'home') {
+      const t = setTimeout(() => setTourOpen(true), 400);
+      const next = new URLSearchParams(searchParams);
+      next.delete('tour');
+      setSearchParams(next, { replace: true });
+      return () => clearTimeout(t);
+    }
     if (preferences && !preferences.has_completed_home_tour) {
       const t = setTimeout(() => setTourOpen(true), 600);
       return () => clearTimeout(t);
     }
-  }, [preferences]);
+  }, [preferences, searchParams, setSearchParams]);
 
   const handleTourComplete = useCallback(() => {
     setTourOpen(false);
