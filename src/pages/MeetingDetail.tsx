@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,8 @@ import { ShareStatusPopover, SharedRecipient } from '@/components/ShareStatusPop
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { MeetingsTour } from '@/components/MeetingsTour';
+import { DEMO_MEETING_ID, DEMO_MEETING, DEMO_TRANSCRIPT } from '@/lib/demoMeeting';
 
 interface Participant {
   name: string;
@@ -89,9 +91,30 @@ interface StructuredSummary {
 const MeetingDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  const { preferences, loading: prefsLoading, updatePreferences } = useUserPreferences(user?.id);
+  const { preferences, loading: prefsLoading, updatePreferences, markMeetingsTourComplete } = useUserPreferences(user?.id);
   const isMobile = useIsMobile();
+
+  // Demo meeting interception — used by the Meetings tour
+  const isDemo = id === DEMO_MEETING_ID;
+  const tourPhase = searchParams.get('phase');
+  const tourActive = searchParams.get('tour') === 'meetings';
+  const [demoTourOpen, setDemoTourOpen] = useState(false);
+
+  useEffect(() => {
+    if (isDemo && tourActive && tourPhase === 'detail') {
+      // Small delay so the page paints first
+      const t = setTimeout(() => setDemoTourOpen(true), 400);
+      return () => clearTimeout(t);
+    }
+  }, [isDemo, tourActive, tourPhase]);
+
+  const demoBlocked = (action: string) => {
+    toast.info(`${action} is disabled during the tour`, {
+      description: 'This is a sample meeting — try it on a real one!',
+    });
+  };
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [project, setProject] = useState<Project | null>(null);
