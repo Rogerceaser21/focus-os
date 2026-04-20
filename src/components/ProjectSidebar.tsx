@@ -616,6 +616,9 @@ export const ProjectSidebar = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48 bg-popover">
+              <DropdownMenuItem onClick={() => navigate('/home?tour=home')}>
+                Home Tour
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleHelpMenuClick('tasks')}>
                 Tasks Tour
               </DropdownMenuItem>
