@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2, Pause, Play, RefreshCw, Share2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import RecordFAB from '@/components/RecordFAB';
+import { MeetingsTour } from '@/components/MeetingsTour';
+import { DEMO_MEETING_ID } from '@/lib/demoMeeting';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,8 +67,24 @@ const Meetings = () => {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('project');
   const shouldOpenNew = searchParams.get('new') === 'true';
+  const tourParam = searchParams.get('tour');
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
+  const { preferences, markMeetingsTourComplete } = useUserPreferences(user?.id);
+
+  // Tour state — open if explicitly requested OR auto-launch for first-time users once preferences load
+  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    if (tourParam === 'meetings') {
+      setTourOpen(true);
+      return;
+    }
+    if (preferences && !preferences.has_completed_meetings_tour) {
+      // Auto-launch once for new users — small delay so the page paints first
+      const t = setTimeout(() => setTourOpen(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, [tourParam, preferences]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
