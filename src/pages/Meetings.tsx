@@ -74,12 +74,15 @@ const Meetings = () => {
 
   // Tour state — open if explicitly requested OR auto-launch for first-time users once preferences load
   const [tourOpen, setTourOpen] = useState(false);
+  const hasAutoLaunchedMeetingsTourRef = useRef(false);
   useEffect(() => {
     if (tourParam === 'meetings') {
       setTourOpen(true);
       return;
     }
+    if (hasAutoLaunchedMeetingsTourRef.current) return;
     if (preferences && !preferences.has_completed_meetings_tour) {
+      hasAutoLaunchedMeetingsTourRef.current = true;
       // Auto-launch once for new users — small delay so the page paints first
       const t = setTimeout(() => setTourOpen(true), 600);
       return () => clearTimeout(t);
@@ -1162,9 +1165,10 @@ const Meetings = () => {
     <MeetingsTour
       isOpen={tourOpen}
       phase="list"
-      onComplete={() => {
+      onComplete={async () => {
         setTourOpen(false);
-        markMeetingsTourComplete();
+        hasAutoLaunchedMeetingsTourRef.current = true;
+        await markMeetingsTourComplete();
       }}
       onAdvanceToDetail={() => {
         navigate(`/meetings/${DEMO_MEETING_ID}?tour=meetings&phase=detail`);

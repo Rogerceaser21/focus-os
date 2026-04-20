@@ -1399,9 +1399,9 @@ const MeetingDetail = () => {
     <MeetingsTour
       isOpen={demoTourOpen}
       phase="detail"
-      onComplete={() => {
+      onComplete={async () => {
         setDemoTourOpen(false);
-        markMeetingsTourComplete();
+        await markMeetingsTourComplete();
         navigate('/meetings');
       }}
     />
