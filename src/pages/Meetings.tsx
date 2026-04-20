@@ -991,7 +991,7 @@ const Meetings = () => {
             ))}
           </div>
         ) : meetings.length === 0 && recordingState === 'idle' ? (
-          <div className="text-center py-20">
+          <div className="text-center py-20" data-meetings-tour-step="list">
             <Mic className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
             <h2 className="text-lg font-semibold mb-1">No meetings yet</h2>
             <p className="text-muted-foreground text-sm mb-6">
@@ -1159,6 +1159,17 @@ const Meetings = () => {
       onMeeting={() => setShowParticipants(true)}
     />
     <BottomNav />
+    <MeetingsTour
+      isOpen={tourOpen}
+      phase="list"
+      onComplete={() => {
+        setTourOpen(false);
+        markMeetingsTourComplete();
+      }}
+      onAdvanceToDetail={() => {
+        navigate(`/meetings/${DEMO_MEETING_ID}?tour=meetings&phase=detail`);
+      }}
+    />
     </>
   );
 };
