@@ -7,7 +7,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
-import RecordFAB from '@/components/RecordFAB';
 import { HomeTour } from '@/components/HomeTour';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import type { ProjectInfo } from '@/hooks/useBrainDumpLive';
@@ -169,8 +168,6 @@ const Home = () => {
       </button>
 
       <BottomNav projects={projects} />
-
-      <RecordFAB compact />
 
       <HomeTour isOpen={tourOpen} onComplete={handleTourComplete} />
 
