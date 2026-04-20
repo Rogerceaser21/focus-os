@@ -1095,7 +1095,8 @@ const MeetingDetail = () => {
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() => setShowSendSummaryDialog(true)}
+                    onClick={isDemo ? () => demoBlocked('Sending email') : () => setShowSendSummaryDialog(true)}
+                    data-meetings-tour-step="share-email"
                   >
                     <Mail className="h-4 w-4" />
                     Share Summary via Email
@@ -1104,7 +1105,8 @@ const MeetingDetail = () => {
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() => setShareMeetingDialogOpen(true)}
+                    onClick={isDemo ? () => demoBlocked('Sharing') : () => setShareMeetingDialogOpen(true)}
+                    data-meetings-tour-step="share-meeting"
                   >
                     <Share2 className="h-4 w-4" />
                     Share Meeting
@@ -1114,6 +1116,25 @@ const MeetingDetail = () => {
                   <ShareStatusPopover recipients={meetingSharedWith} itemType="Meeting" />
                 )}
               </div>
+            )}
+
+            {/* Demo action items (tour only) — real action items render below */}
+            {isDemo && (
+              <Card data-meetings-tour-step="action-items">
+                <CardContent className="p-5">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Action Items ({DEMO_MEETING.action_items.length})
+                  </h2>
+                  <ul className="space-y-2">
+                    {DEMO_MEETING.action_items.map((item: any, i: number) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <ClipboardList className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                        <span><strong>{item.title}</strong> — assigned to {item.assignee}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
             )}
 
             {/* Action Items */}
