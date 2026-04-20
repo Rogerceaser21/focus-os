@@ -27,6 +27,7 @@ function getGreeting(): string {
 
 const Home = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const [firstName, setFirstName] = useState<string>('');
   const [subtitleIndex, setSubtitleIndex] = useState(0);
