@@ -1675,14 +1675,12 @@ https://www.skyscanner.com`,
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="outline"
-                      className="gap-2 border-2 w-[70px] lg:w-auto h-10"
+                      aria-label={`View: ${globalCardView}`}
+                      className="gap-2 border-2 h-10 px-2 lg:px-3"
                     >
                       <Eye className="h-4 w-4" />
-                      <span className="hidden sm:inline">
+                      <span className="hidden lg:inline">
                         {globalCardView === 'full' ? 'Full' : globalCardView === 'compact' ? 'Compact' : 'Minimal'}
-                      </span>
-                      <span className="sm:hidden">
-                        {globalCardView === 'full' ? '+' : globalCardView === 'compact' ? '-' : '≡'}
                       </span>
                     </Button>
                   </DropdownMenuTrigger>
@@ -1702,10 +1700,14 @@ https://www.skyscanner.com`,
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              <Button className="gap-2 border-2 shadow-lg shadow-primary/20" data-task-tour-step="add-task-button" onClick={() => handleAddTaskDialogOpen(true)}>
+              <Button
+                aria-label="Add task"
+                className="gap-2 border-2 shadow-lg shadow-primary/20 px-2 lg:px-3"
+                data-task-tour-step="add-task-button"
+                onClick={() => handleAddTaskDialogOpen(true)}
+              >
                 <Plus className="h-4 w-4" />
-                <span className="hidden md:inline">Add Task</span>
-                <span className="md:hidden">Add</span>
+                <span className="hidden lg:inline">Add Task</span>
               </Button>
             </div>
           </div>
