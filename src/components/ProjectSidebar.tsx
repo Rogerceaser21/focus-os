@@ -1012,9 +1012,9 @@ export const ProjectSidebar = ({
                     enableArrowNavigation={false}
                     displayScrollbar={true}
                     className="w-full"
-                    getItemDataAttributes={(project) => 
-                      project.name.startsWith('Demo Project') 
-                        ? { 'data-projects-tour-step': 'demo-project' } 
+                    getItemDataAttributes={(project) =>
+                      selectedProjectId === project.id && project.name.startsWith('Demo Project')
+                        ? { 'data-projects-tour-step': 'demo-project' }
                         : {}
                     }
                     renderItem={(project, isSelected) => (
