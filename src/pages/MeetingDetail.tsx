@@ -186,14 +186,16 @@ const MeetingDetail = () => {
   useEffect(() => {
     if (user && id) {
       fetchMeeting();
-      fetchProjects();
-      fetchSharingInfo();
+      if (!isDemo) {
+        fetchProjects();
+        fetchSharingInfo();
+      }
     }
-  }, [user, id]);
+  }, [user, id, isDemo]);
 
   // Realtime subscription for task updates (e.g. external completion via email)
   useEffect(() => {
-    if (!user || !id) return;
+    if (!user || !id || isDemo) return;
     const channel = supabase
       .channel(`meeting-tasks-${id}`)
       .on(
