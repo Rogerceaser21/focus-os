@@ -57,13 +57,20 @@ const Home = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-launch the Home tour for first-time users
+  // Auto-launch the Home tour for first-time users, or when triggered via ?tour=home
   useEffect(() => {
+    if (searchParams.get('tour') === 'home') {
+      const t = setTimeout(() => setTourOpen(true), 400);
+      const next = new URLSearchParams(searchParams);
+      next.delete('tour');
+      setSearchParams(next, { replace: true });
+      return () => clearTimeout(t);
+    }
     if (preferences && !preferences.has_completed_home_tour) {
       const t = setTimeout(() => setTourOpen(true), 600);
       return () => clearTimeout(t);
     }
-  }, [preferences]);
+  }, [preferences, searchParams, setSearchParams]);
 
   const handleTourComplete = useCallback(() => {
     setTourOpen(false);
