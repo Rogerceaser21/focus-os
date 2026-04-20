@@ -1157,10 +1157,7 @@ const Meetings = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    <RecordFAB
-      onBrainDump={() => {}}
-      onMeeting={() => setShowParticipants(true)}
-    />
+    <RecordFAB compact />
     <BottomNav />
     <MeetingsTour
       isOpen={tourOpen}
