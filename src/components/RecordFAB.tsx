@@ -54,6 +54,7 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting }) => {
         className="fixed right-6 z-[100]"
         style={{ bottom: 'calc(80px + env(safe-area-inset-bottom))' }}
         data-tour-step="menu-fab"
+        data-meetings-tour-step="new-meeting"
       >
         {/* Brain Dump button - appears above */}
         <AnimatePresence>
