@@ -1139,7 +1139,7 @@ const MeetingDetail = () => {
 
             {/* Action Items */}
             {savedTasks.length > 0 && (
-              <Card>
+              <Card data-meetings-tour-step="action-items">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -1395,6 +1395,15 @@ const MeetingDetail = () => {
       preferences={preferences}
       prefsLoading={prefsLoading}
       onSavePreferences={updatePreferences}
+    />
+    <MeetingsTour
+      isOpen={demoTourOpen}
+      phase="detail"
+      onComplete={() => {
+        setDemoTourOpen(false);
+        markMeetingsTourComplete();
+        navigate('/meetings');
+      }}
     />
     </>
   );
