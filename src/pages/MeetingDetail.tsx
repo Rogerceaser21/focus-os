@@ -1357,6 +1357,7 @@ const MeetingDetail = () => {
               handleSavedTaskUpdate(updated);
               setEditingTask(null);
             }}
+            onDeleteTask={async (t) => { await handleSavedTaskDelete(t); setEditingTask(null); }}
             projects={allProjects}
             onAssigned={(taskId, email) => handleTaskAssigned(taskId, email)}
           />
