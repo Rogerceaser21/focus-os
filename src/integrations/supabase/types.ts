@@ -660,6 +660,8 @@ export type Database = {
       }
       focusos_user_preferences: {
         Row: {
+          ai_handoff_default_provider: string | null
+          ai_handoff_image_mode: string
           created_at: string | null
           default_display_mode: string
           default_task_card_view: string | null
@@ -680,6 +682,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_handoff_default_provider?: string | null
+          ai_handoff_image_mode?: string
           created_at?: string | null
           default_display_mode?: string
           default_task_card_view?: string | null
@@ -700,6 +704,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_handoff_default_provider?: string | null
+          ai_handoff_image_mode?: string
           created_at?: string | null
           default_display_mode?: string
           default_task_card_view?: string | null
