@@ -1216,6 +1216,7 @@ const MeetingDetail = () => {
                                   onUpdate={handleSavedTaskUpdate}
                                   onEditTask={setEditingTask}
                                   onAssignTask={(t) => handleAssignTask(t)}
+                                  onDeleteTask={handleSavedTaskDelete}
                                   globalViewMode={activeTaskCardView}
                                   isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                                   onTaskClick={() => toggleExpand(task.id)}
