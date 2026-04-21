@@ -373,6 +373,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               onClick={(e) => {
                 e.stopPropagation();
                 if (task.assignedToEmail) return;
+                pendingTitleCaretRef.current = getCaretOffsetFromClick(e, e.currentTarget);
                 setIsEditingTitle(true);
               }}
             >
