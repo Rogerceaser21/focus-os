@@ -309,6 +309,43 @@ export default function SettingsDialog({
                 </div>
               </RadioGroup>
             </div>
+
+            <Separator />
+
+            {/* AI Hand-off */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">AI Hand-off</Label>
+              <p className="text-sm text-muted-foreground">
+                Default AI assistant when handing off a task
+              </p>
+              <Select value={aiProvider} onValueChange={(v) => setAiProvider(v as AIProvider | 'none')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ask each time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Ask each time</SelectItem>
+                  {(Object.keys(PROVIDERS) as AIProvider[]).map((p) => (
+                    <SelectItem key={p} value={p}>{PROVIDERS[p].label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <p className="text-sm text-muted-foreground pt-2">How to send task images</p>
+              <RadioGroup value={aiImageMode} onValueChange={(v) => setAiImageMode(v as ImageMode)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="public_link" id="ai-img-link" />
+                  <Label htmlFor="ai-img-link" className="font-normal cursor-pointer">Embed image links in prompt</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="clipboard" id="ai-img-clip" />
+                  <Label htmlFor="ai-img-clip" className="font-normal cursor-pointer">Copy to clipboard one-by-one</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="skip" id="ai-img-skip" />
+                  <Label htmlFor="ai-img-skip" className="font-normal cursor-pointer">Skip images</Label>
+                </div>
+              </RadioGroup>
+            </div>
           </div>
         )}
 
