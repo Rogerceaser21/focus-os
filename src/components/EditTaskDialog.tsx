@@ -498,11 +498,17 @@ export const EditTaskDialog = ({
         projectName={taskProject?.name}
         defaultProvider={(preferences?.ai_handoff_default_provider as AIProvider | null | undefined) ?? null}
         defaultImageMode={(preferences?.ai_handoff_image_mode as ImageMode | undefined) ?? 'public_link'}
-        onPersistDefaults={({ provider, imageMode }) => {
-          const updates: Partial<typeof preferences> = {};
+        onPersistDefaults={async ({ provider, imageMode }) => {
+          if (!userId) return;
+          const updates: Record<string, any> = {};
           if (provider && provider !== preferences?.ai_handoff_default_provider) updates.ai_handoff_default_provider = provider;
           if (imageMode && imageMode !== preferences?.ai_handoff_image_mode) updates.ai_handoff_image_mode = imageMode;
-          if (Object.keys(updates).length) updatePreferences(updates as any);
+          if (Object.keys(updates).length === 0) return;
+          // Silent update — no toast (reuses table directly)
+          await (supabase as any)
+            .from('focusos_user_preferences')
+            .update(updates)
+            .eq('user_id', userId);
         }}
       />
     </>
