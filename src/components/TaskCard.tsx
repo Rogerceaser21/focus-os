@@ -298,6 +298,38 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
             >
               <Share2 className="h-3 w-3" />
             </Button>
+          {onDeleteTask && !task.assignedToEmail && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1 text-muted-foreground hover:text-destructive"
+                  title="Delete task"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => { e.stopPropagation(); onDeleteTask(task); }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Yes, Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           {task.assignedToEmail && (
             <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={`Shared by ${task.assignedToEmail}`}>
               Shared by {task.assignedToEmail}
