@@ -9,6 +9,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Play, Pause, Clock, Calendar, Share2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { ShareStatusPopover } from '@/components/ShareStatusPopover';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
@@ -23,6 +34,7 @@ interface TaskCardProps {
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
+  onDeleteTask?: (task: Task) => void | Promise<void>;
   projects?: Project[];
 }
 
@@ -39,7 +51,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, projects = [] }: TaskCardProps) => {
+export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, projects = [] }: TaskCardProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { preferences } = useUserPreferences();
   useTimerAlert({
@@ -286,6 +298,38 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
             >
               <Share2 className="h-3 w-3" />
             </Button>
+          {onDeleteTask && !task.assignedToEmail && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1 text-muted-foreground hover:text-destructive"
+                  title="Delete task"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => { e.stopPropagation(); onDeleteTask(task); }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Yes, Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           {task.assignedToEmail && (
             <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={`Shared by ${task.assignedToEmail}`}>
               Shared by {task.assignedToEmail}

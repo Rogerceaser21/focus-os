@@ -1394,6 +1394,67 @@ https://www.skyscanner.com`,
     setAllTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
   };
 
+  const handleDeleteTask = async (task: Task) => {
+    // Recipients cannot delete (they received a shared task clone)
+    if (task.assignedToEmail) {
+      toast.error("You can't delete a task that was shared with you");
+      return;
+    }
+    // Collaborators on shared projects cannot delete — only the project owner can
+    const taskProject = projects.find(p => p.id === task.projectId);
+    if (taskProject?.isShared && taskProject?.userId !== user?.id) {
+      toast.error('Only the project owner can delete tasks in a collaborative project');
+      return;
+    }
+
+    // Optimistic removal
+    const prevTasks = tasks;
+    const prevAllTasks = allTasks;
+    setTasks(prev => prev.filter(t => t.id !== task.id));
+    setAllTasks(prev => prev.filter(t => t.id !== task.id));
+
+    try {
+      // If this task was shared with recipients, delete recipient clones + shared_items rows first
+      const { data: sharedRows } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('id, recipient_task_id')
+        .eq('item_id', task.id)
+        .eq('item_type', 'task');
+
+      if (sharedRows && sharedRows.length > 0) {
+        const recipientTaskIds = sharedRows
+          .map((r: any) => r.recipient_task_id)
+          .filter(Boolean);
+        if (recipientTaskIds.length > 0) {
+          await (supabase as any)
+            .from('focusos_tasks')
+            .delete()
+            .in('id', recipientTaskIds);
+        }
+        const sharedIds = sharedRows.map((r: any) => r.id);
+        // Attempt shared_items cleanup (RLS may not allow DELETE — nulling recipient_task_id is a safe fallback)
+        await (supabase as any)
+          .from('focusos_shared_items')
+          .update({ recipient_task_id: null, status: 'declined' })
+          .in('id', sharedIds);
+      }
+
+      const { error } = await (supabase as any)
+        .from('focusos_tasks')
+        .delete()
+        .eq('id', task.id);
+
+      if (error) throw error;
+      toast.success('Task deleted');
+    } catch (err: any) {
+      console.error('Delete task error:', err);
+      // Roll back optimistic removal
+      setTasks(prevTasks);
+      setAllTasks(prevAllTasks);
+      toast.error('Failed to delete task');
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
@@ -2067,7 +2128,7 @@ https://www.skyscanner.com`,
                   onEditTask={setEditingTask}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
-                  onDismissChangeRequest={handleDismissChangeRequest}
+                  onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -2084,7 +2145,7 @@ https://www.skyscanner.com`,
                   onEditTask={setEditingTask}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
-                  onDismissChangeRequest={handleDismissChangeRequest}
+                  onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -2101,7 +2162,7 @@ https://www.skyscanner.com`,
                   onEditTask={setEditingTask}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
-                  onDismissChangeRequest={handleDismissChangeRequest}
+                  onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -2118,7 +2179,7 @@ https://www.skyscanner.com`,
                   onEditTask={setEditingTask}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
-                  onDismissChangeRequest={handleDismissChangeRequest}
+                  onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
                   globalViewMode={globalCardView}
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
@@ -2257,19 +2318,19 @@ https://www.skyscanner.com`,
               })()}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
               <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
             </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
               <GanttChart 
@@ -2314,6 +2375,7 @@ https://www.skyscanner.com`,
                   }}
                   projects={projects}
                   currentUserId={user?.id}
+                  onDeleteTask={handleDeleteTask}
                 />
               ) : (
                 <AddTaskDialog
@@ -2394,6 +2456,7 @@ https://www.skyscanner.com`,
           }}
           projects={projects}
           currentUserId={user?.id}
+                  onDeleteTask={handleDeleteTask}
         />
       )}
 

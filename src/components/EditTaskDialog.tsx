@@ -7,12 +7,23 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Mail } from 'lucide-react';
+import { CalendarIcon, Mail, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ImageViewer } from '@/components/ImageViewer';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
 import { SidePanel } from '@/components/SidePanel';
@@ -28,6 +39,7 @@ interface EditTaskDialogProps {
   onAssigned?: (taskId: string, email: string) => void;
   desktopDocked?: boolean;
   currentUserId?: string;
+  onDeleteTask?: (task: Task) => void | Promise<void>;
 }
 
 export const EditTaskDialog = ({
@@ -39,6 +51,7 @@ export const EditTaskDialog = ({
   onAssigned,
   desktopDocked = false,
   currentUserId,
+  onDeleteTask,
 }: EditTaskDialogProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
@@ -239,6 +252,40 @@ export const EditTaskDialog = ({
       >
         <Mail className="h-4 w-4" />
       </Button>
+      {onDeleteTask && !isReceivedSharedTask && !isCollaboratorOnProject && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              title="Delete task"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  await onDeleteTask(task);
+                  onOpenChange(false);
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Yes, Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 

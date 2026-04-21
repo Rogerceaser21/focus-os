@@ -6,6 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Play, Pause, Calendar, Clock, Image, Share2, CheckCircle2, Pencil, AlertTriangle, X } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { ShareStatusPopover } from '@/components/ShareStatusPopover';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
@@ -22,6 +33,7 @@ interface TaskListItemProps {
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
+  onDeleteTask?: (task: Task) => void | Promise<void>;
   globalViewMode: 'full' | 'compact' | 'minimal';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
@@ -41,7 +53,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { preferences } = useUserPreferences();
   useTimerAlert({
@@ -410,6 +422,38 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           )}
+          {onDeleteTask && !task.assignedToEmail && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  title="Delete task"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => { e.stopPropagation(); onDeleteTask(task); }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Yes, Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -484,6 +528,38 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
+            )}
+            {onDeleteTask && !task.assignedToEmail && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    title="Delete task"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => { e.stopPropagation(); onDeleteTask(task); }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Yes, Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
             <Button
               variant="ghost"
@@ -755,6 +831,38 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
+            )}
+            {onDeleteTask && !task.assignedToEmail && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    title="Delete task"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => { e.stopPropagation(); onDeleteTask(task); }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Yes, Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
             <Button
               variant="ghost"
