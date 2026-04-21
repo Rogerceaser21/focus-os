@@ -466,6 +466,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
+                  pendingTitleCaretRef.current = getCaretOffsetFromClick(e, e.currentTarget);
                   setIsTitleExpanded(true);
                   setIsEditingTitle(true);
                 }}
@@ -520,6 +521,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   if (!isIndividuallyExpanded) {
                     onTaskClick();
                   }
+                  pendingDescriptionCaretRef.current = getCaretOffsetFromClick(e, e.currentTarget);
                   setIsDescriptionExpanded(true);
                   setIsEditingDescription(true);
                 }}
