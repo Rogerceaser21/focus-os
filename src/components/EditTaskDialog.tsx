@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Task, TaskPriority, TaskStatus, Project } from '@/types/task';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -59,6 +59,7 @@ export const EditTaskDialog = ({
   const prevSidebarOpen = useRef<boolean | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
 
   // If the task has assignedToEmail, the current user is the recipient of a shared task
   const isReceivedSharedTask = !!task.assignedToEmail;
