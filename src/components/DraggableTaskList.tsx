@@ -131,6 +131,7 @@ export const DraggableTaskList = ({
   onAssignTask,
   onRequestChanges,
   onDismissChangeRequest,
+  onDeleteTask,
   globalViewMode,
   expandedTaskIds,
   onTaskClick,
