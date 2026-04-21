@@ -491,6 +491,20 @@ export const EditTaskDialog = ({
     <>
       {viewerOpen && <ImageViewer images={images.map(getImageDisplayUrl)} currentIndex={currentImageIndex} onClose={() => setViewerOpen(false)} onNavigate={setCurrentImageIndex} />}
       <ShareItemDialog itemType="task" itemId={task.id} itemTitle={task.title} open={shareDialogOpen} onOpenChange={setShareDialogOpen} onShared={() => onAssigned?.(task.id, '')} />
+      <HandoffToAIDialog
+        open={handoffOpen}
+        onOpenChange={setHandoffOpen}
+        task={task}
+        projectName={taskProject?.name}
+        defaultProvider={(preferences?.ai_handoff_default_provider as AIProvider | null | undefined) ?? null}
+        defaultImageMode={(preferences?.ai_handoff_image_mode as ImageMode | undefined) ?? 'public_link'}
+        onPersistDefaults={({ provider, imageMode }) => {
+          const updates: Partial<typeof preferences> = {};
+          if (provider && provider !== preferences?.ai_handoff_default_provider) updates.ai_handoff_default_provider = provider;
+          if (imageMode && imageMode !== preferences?.ai_handoff_image_mode) updates.ai_handoff_image_mode = imageMode;
+          if (Object.keys(updates).length) updatePreferences(updates as any);
+        }}
+      />
     </>
   );
 
