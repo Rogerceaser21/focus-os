@@ -82,6 +82,48 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
   const titleContainerRef = useRef<HTMLHeadingElement>(null);
   const titleDisplayRef = useRef<HTMLHeadingElement>(null);
   const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
+  const pendingTitleCaretRef = useRef<number | null>(null);
+  const pendingDescriptionCaretRef = useRef<number | null>(null);
+
+  // Compute the caret character offset within the clicked text element from the
+  // click coordinates. Used to place the caret in the textarea exactly where the
+  // user clicked when switching from display -> edit mode.
+  const getCaretOffsetFromClick = (
+    e: React.MouseEvent,
+    container: HTMLElement | null,
+  ): number | null => {
+    if (!container) return null;
+    const x = e.clientX;
+    const y = e.clientY;
+    let range: Range | null = null;
+    const docAny = document as any;
+    if (typeof docAny.caretRangeFromPoint === 'function') {
+      range = docAny.caretRangeFromPoint(x, y);
+    } else if (typeof docAny.caretPositionFromPoint === 'function') {
+      const pos = docAny.caretPositionFromPoint(x, y);
+      if (pos) {
+        range = document.createRange();
+        range.setStart(pos.offsetNode, pos.offset);
+        range.collapse(true);
+      }
+    }
+    if (!range) return null;
+    // Walk only text within the container; build offset by summing text lengths
+    // up to the range start.
+    if (!container.contains(range.startContainer)) return null;
+    let offset = 0;
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    let node: Node | null = walker.nextNode();
+    while (node) {
+      if (node === range.startContainer) {
+        offset += range.startOffset;
+        return offset;
+      }
+      offset += (node.textContent || '').length;
+      node = walker.nextNode();
+    }
+    return null;
+  };
 
 
   // Auto-expand title textarea (matches description behavior)
