@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Mail, Trash2 } from 'lucide-react';
+import { CalendarIcon, Mail, Trash2, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -29,6 +29,9 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { SidePanel } from '@/components/SidePanel';
 import { uploadTaskImage, getImageDisplayUrl } from '@/lib/taskImageStorage';
 import { supabase } from '@/integrations/supabase/client';
+import { HandoffToAIDialog } from '@/components/HandoffToAIDialog';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
+import type { AIProvider, ImageMode } from '@/lib/aiHandoff';
 
 interface EditTaskDialogProps {
   task: Task;

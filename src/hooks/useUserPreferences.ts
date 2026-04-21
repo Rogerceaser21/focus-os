@@ -20,6 +20,8 @@ export interface UserPreferences {
   notify_due_date: boolean;
   notify_timer: boolean;
   timer_alert_interval_minutes: number;
+  ai_handoff_default_provider: 'chatgpt' | 'claude' | 'gemini' | 'perplexity' | null;
+  ai_handoff_image_mode: 'public_link' | 'clipboard' | 'skip';
   created_at: string;
   updated_at: string;
 }
