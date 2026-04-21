@@ -649,6 +649,39 @@ const MeetingDetail = () => {
     );
   };
 
+  const handleSavedTaskDelete = async (task: Task) => {
+    if (task.assignedToEmail) {
+      toast.error("You can't delete a task that was shared with you");
+      return;
+    }
+    const prev = savedTasks;
+    setSavedTasks((cur) => cur.filter((t) => t.id !== task.id));
+    try {
+      const { data: sharedRows } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('id, recipient_task_id')
+        .eq('item_id', task.id)
+        .eq('item_type', 'task');
+      if (sharedRows && sharedRows.length > 0) {
+        const recipientTaskIds = sharedRows.map((r: any) => r.recipient_task_id).filter(Boolean);
+        if (recipientTaskIds.length > 0) {
+          await (supabase as any).from('focusos_tasks').delete().in('id', recipientTaskIds);
+        }
+        await (supabase as any)
+          .from('focusos_shared_items')
+          .update({ recipient_task_id: null, status: 'declined' })
+          .in('id', sharedRows.map((r: any) => r.id));
+      }
+      const { error } = await (supabase as any).from('focusos_tasks').delete().eq('id', task.id);
+      if (error) throw error;
+      toast.success('Task deleted');
+    } catch (err) {
+      console.error('Delete task error:', err);
+      setSavedTasks(prev);
+      toast.error('Failed to delete task');
+    }
+  };
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const hrs = Math.floor(mins / 60);
