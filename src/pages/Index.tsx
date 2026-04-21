@@ -2375,6 +2375,7 @@ https://www.skyscanner.com`,
                   }}
                   projects={projects}
                   currentUserId={user?.id}
+                  onDeleteTask={handleDeleteTask}
                 />
               ) : (
                 <AddTaskDialog
@@ -2455,6 +2456,7 @@ https://www.skyscanner.com`,
           }}
           projects={projects}
           currentUserId={user?.id}
+                  onDeleteTask={handleDeleteTask}
         />
       )}
 
