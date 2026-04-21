@@ -248,18 +248,14 @@ export const EditTaskDialog = ({
         <Label htmlFor="title">Title *{isReceivedSharedTask && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
         <Textarea
           id="title"
+          ref={titleRef}
           placeholder="Task title"
           value={title}
           onChange={(e) => !isReceivedSharedTask && setTitle(e.target.value)}
           rows={3}
           className={`text-sm resize-none min-h-0 h-auto overflow-hidden ${isReceivedSharedTask ? 'opacity-60 cursor-not-allowed' : ''}`}
-          style={{ height: 'auto', minHeight: '80px' }}
+          style={{ minHeight: '80px' }}
           readOnly={isReceivedSharedTask}
-          onInput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            target.style.height = 'auto';
-            target.style.height = `${target.scrollHeight}px`;
-          }}
         />
       </div>
 
