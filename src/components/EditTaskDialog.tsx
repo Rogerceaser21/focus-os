@@ -76,6 +76,8 @@ export const EditTaskDialog = ({
   const [userId, setUserId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const { preferences, updatePreferences } = useUserPreferences(userId);
 
   // If the task has assignedToEmail, the current user is the recipient of a shared task
   const isReceivedSharedTask = !!task.assignedToEmail;
