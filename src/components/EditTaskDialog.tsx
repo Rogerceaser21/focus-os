@@ -122,6 +122,13 @@ export const EditTaskDialog = ({
     return () => window.removeEventListener('resize', updateMaxHeight);
   }, []);
 
+  useLayoutEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [title, open]);
+
   const uploadImageFile = useCallback(async (file: File | Blob) => {
     if (!userId) {
       toast({ title: 'Not authenticated', variant: 'destructive' });
