@@ -148,6 +148,18 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
       titleRef.current = element;
       element.style.height = 'auto';
       element.style.height = element.scrollHeight + 'px';
+      const caret = pendingTitleCaretRef.current;
+      if (caret !== null) {
+        const pos = Math.min(caret, element.value.length);
+        // Defer one frame so autoFocus's default selection is overridden.
+        requestAnimationFrame(() => {
+          try {
+            element.focus();
+            element.setSelectionRange(pos, pos);
+          } catch {}
+        });
+        pendingTitleCaretRef.current = null;
+      }
     }
   };
 
@@ -156,6 +168,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
       descriptionRef.current = element;
       element.style.height = 'auto';
       element.style.height = element.scrollHeight + 'px';
+      const caret = pendingDescriptionCaretRef.current;
+      if (caret !== null) {
+        const pos = Math.min(caret, element.value.length);
+        requestAnimationFrame(() => {
+          try {
+            element.focus();
+            element.setSelectionRange(pos, pos);
+          } catch {}
+        });
+        pendingDescriptionCaretRef.current = null;
+      }
     }
   };
 
