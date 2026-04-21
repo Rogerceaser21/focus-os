@@ -251,6 +251,15 @@ export const EditTaskDialog = ({
       <Button
         variant="ghost"
         size="sm"
+        onClick={() => setHandoffOpen(true)}
+        className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+        title="Hand off to AI"
+      >
+        <Sparkles className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => setShareDialogOpen(true)}
         className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
         title="Assign & Email"
