@@ -112,6 +112,7 @@ const SortableTaskItem = ({
           onAssignTask={onAssignTask}
           onRequestChanges={onRequestChanges}
           onDismissChangeRequest={onDismissChangeRequest}
+          onDeleteTask={onDeleteTask}
           globalViewMode={globalViewMode}
           isIndividuallyExpanded={isIndividuallyExpanded}
           onTaskClick={onTaskClick}
