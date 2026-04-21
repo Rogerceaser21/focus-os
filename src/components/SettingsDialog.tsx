@@ -21,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { UserPreferences } from '@/hooks/useUserPreferences';
+import { PROVIDERS, AIProvider, ImageMode } from '@/lib/aiHandoff';
 
 interface Project {
   id: string;
@@ -53,6 +54,8 @@ export default function SettingsDialog({
   const [taskCardView, setTaskCardView] = useState<'full' | 'compact' | 'minimal'>('compact');
   const [taskCardViewMobile, setTaskCardViewMobile] = useState<'full' | 'compact' | 'minimal'>('compact');
   const [saving, setSaving] = useState(false);
+  const [aiProvider, setAiProvider] = useState<AIProvider | 'none'>('none');
+  const [aiImageMode, setAiImageMode] = useState<ImageMode>('public_link');
 
   // Initialize form with preferences when they load
   useEffect(() => {
@@ -63,6 +66,8 @@ export default function SettingsDialog({
       setTaskCardView(preferences.default_task_card_view || 'compact');
       setTaskCardViewMobile(preferences.default_task_card_view_mobile || 'compact');
       setSelectedTheme(preferences.theme || 'dark');
+      setAiProvider((preferences.ai_handoff_default_provider as AIProvider | null) ?? 'none');
+      setAiImageMode((preferences.ai_handoff_image_mode as ImageMode | undefined) ?? 'public_link');
     }
   }, [preferences]);
 
@@ -82,6 +87,8 @@ export default function SettingsDialog({
       default_task_card_view: taskCardView,
       default_task_card_view_mobile: taskCardViewMobile,
       theme: selectedTheme,
+      ai_handoff_default_provider: aiProvider === 'none' ? null : aiProvider,
+      ai_handoff_image_mode: aiImageMode,
     });
     setSaving(false);
     onOpenChange(false);
