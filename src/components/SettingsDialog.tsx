@@ -21,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { UserPreferences } from '@/hooks/useUserPreferences';
+import { PROVIDERS, AIProvider, ImageMode } from '@/lib/aiHandoff';
 
 interface Project {
   id: string;
@@ -53,6 +54,8 @@ export default function SettingsDialog({
   const [taskCardView, setTaskCardView] = useState<'full' | 'compact' | 'minimal'>('compact');
   const [taskCardViewMobile, setTaskCardViewMobile] = useState<'full' | 'compact' | 'minimal'>('compact');
   const [saving, setSaving] = useState(false);
+  const [aiProvider, setAiProvider] = useState<AIProvider | 'none'>('none');
+  const [aiImageMode, setAiImageMode] = useState<ImageMode>('public_link');
 
   // Initialize form with preferences when they load
   useEffect(() => {
@@ -63,6 +66,8 @@ export default function SettingsDialog({
       setTaskCardView(preferences.default_task_card_view || 'compact');
       setTaskCardViewMobile(preferences.default_task_card_view_mobile || 'compact');
       setSelectedTheme(preferences.theme || 'dark');
+      setAiProvider((preferences.ai_handoff_default_provider as AIProvider | null) ?? 'none');
+      setAiImageMode((preferences.ai_handoff_image_mode as ImageMode | undefined) ?? 'public_link');
     }
   }, [preferences]);
 
@@ -82,6 +87,8 @@ export default function SettingsDialog({
       default_task_card_view: taskCardView,
       default_task_card_view_mobile: taskCardViewMobile,
       theme: selectedTheme,
+      ai_handoff_default_provider: aiProvider === 'none' ? null : aiProvider,
+      ai_handoff_image_mode: aiImageMode,
     });
     setSaving(false);
     onOpenChange(false);
@@ -299,6 +306,43 @@ export default function SettingsDialog({
                   <Label htmlFor="desktop-minimal-view" className="font-normal cursor-pointer">
                     Minimal View (title + shared badge only)
                   </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            {/* AI Hand-off */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">AI Hand-off</Label>
+              <p className="text-sm text-muted-foreground">
+                Default AI assistant when handing off a task
+              </p>
+              <Select value={aiProvider} onValueChange={(v) => setAiProvider(v as AIProvider | 'none')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ask each time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Ask each time</SelectItem>
+                  {(Object.keys(PROVIDERS) as AIProvider[]).map((p) => (
+                    <SelectItem key={p} value={p}>{PROVIDERS[p].label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <p className="text-sm text-muted-foreground pt-2">How to send task images</p>
+              <RadioGroup value={aiImageMode} onValueChange={(v) => setAiImageMode(v as ImageMode)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="public_link" id="ai-img-link" />
+                  <Label htmlFor="ai-img-link" className="font-normal cursor-pointer">Embed image links in prompt</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="clipboard" id="ai-img-clip" />
+                  <Label htmlFor="ai-img-clip" className="font-normal cursor-pointer">Copy to clipboard one-by-one</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="skip" id="ai-img-skip" />
+                  <Label htmlFor="ai-img-skip" className="font-normal cursor-pointer">Skip images</Label>
                 </div>
               </RadioGroup>
             </div>

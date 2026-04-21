@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Mail, Trash2 } from 'lucide-react';
+import { CalendarIcon, Mail, Trash2, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -29,6 +29,9 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { SidePanel } from '@/components/SidePanel';
 import { uploadTaskImage, getImageDisplayUrl } from '@/lib/taskImageStorage';
 import { supabase } from '@/integrations/supabase/client';
+import { HandoffToAIDialog } from '@/components/HandoffToAIDialog';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
+import type { AIProvider, ImageMode } from '@/lib/aiHandoff';
 
 interface EditTaskDialogProps {
   task: Task;
@@ -73,6 +76,8 @@ export const EditTaskDialog = ({
   const [userId, setUserId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const { preferences, updatePreferences } = useUserPreferences(userId);
 
   // If the task has assignedToEmail, the current user is the recipient of a shared task
   const isReceivedSharedTask = !!task.assignedToEmail;
@@ -243,6 +248,15 @@ export const EditTaskDialog = ({
   const panelTitle = (
     <div className="flex items-center gap-2">
       <span>Edit Task</span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setHandoffOpen(true)}
+        className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+        title="Hand off to AI"
+      >
+        <Sparkles className="h-4 w-4" />
+      </Button>
       <Button
         variant="ghost"
         size="sm"
@@ -477,6 +491,26 @@ export const EditTaskDialog = ({
     <>
       {viewerOpen && <ImageViewer images={images.map(getImageDisplayUrl)} currentIndex={currentImageIndex} onClose={() => setViewerOpen(false)} onNavigate={setCurrentImageIndex} />}
       <ShareItemDialog itemType="task" itemId={task.id} itemTitle={task.title} open={shareDialogOpen} onOpenChange={setShareDialogOpen} onShared={() => onAssigned?.(task.id, '')} />
+      <HandoffToAIDialog
+        open={handoffOpen}
+        onOpenChange={setHandoffOpen}
+        task={task}
+        projectName={taskProject?.name}
+        defaultProvider={(preferences?.ai_handoff_default_provider as AIProvider | null | undefined) ?? null}
+        defaultImageMode={(preferences?.ai_handoff_image_mode as ImageMode | undefined) ?? 'public_link'}
+        onPersistDefaults={async ({ provider, imageMode }) => {
+          if (!userId) return;
+          const updates: Record<string, any> = {};
+          if (provider && provider !== preferences?.ai_handoff_default_provider) updates.ai_handoff_default_provider = provider;
+          if (imageMode && imageMode !== preferences?.ai_handoff_image_mode) updates.ai_handoff_image_mode = imageMode;
+          if (Object.keys(updates).length === 0) return;
+          // Silent update — no toast (reuses table directly)
+          await (supabase as any)
+            .from('focusos_user_preferences')
+            .update(updates)
+            .eq('user_id', userId);
+        }}
+      />
     </>
   );
 
