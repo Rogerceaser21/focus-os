@@ -1394,6 +1394,67 @@ https://www.skyscanner.com`,
     setAllTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
   };
 
+  const handleDeleteTask = async (task: Task) => {
+    // Recipients cannot delete (they received a shared task clone)
+    if (task.assignedToEmail) {
+      toast.error("You can't delete a task that was shared with you");
+      return;
+    }
+    // Collaborators on shared projects cannot delete — only the project owner can
+    const taskProject = projects.find(p => p.id === task.projectId);
+    if (taskProject?.isShared && taskProject?.userId !== user?.id) {
+      toast.error('Only the project owner can delete tasks in a collaborative project');
+      return;
+    }
+
+    // Optimistic removal
+    const prevTasks = tasks;
+    const prevAllTasks = allTasks;
+    setTasks(prev => prev.filter(t => t.id !== task.id));
+    setAllTasks(prev => prev.filter(t => t.id !== task.id));
+
+    try {
+      // If this task was shared with recipients, delete recipient clones + shared_items rows first
+      const { data: sharedRows } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('id, recipient_task_id')
+        .eq('item_id', task.id)
+        .eq('item_type', 'task');
+
+      if (sharedRows && sharedRows.length > 0) {
+        const recipientTaskIds = sharedRows
+          .map((r: any) => r.recipient_task_id)
+          .filter(Boolean);
+        if (recipientTaskIds.length > 0) {
+          await (supabase as any)
+            .from('focusos_tasks')
+            .delete()
+            .in('id', recipientTaskIds);
+        }
+        const sharedIds = sharedRows.map((r: any) => r.id);
+        // Attempt shared_items cleanup (RLS may not allow DELETE — nulling recipient_task_id is a safe fallback)
+        await (supabase as any)
+          .from('focusos_shared_items')
+          .update({ recipient_task_id: null, status: 'declined' })
+          .in('id', sharedIds);
+      }
+
+      const { error } = await (supabase as any)
+        .from('focusos_tasks')
+        .delete()
+        .eq('id', task.id);
+
+      if (error) throw error;
+      toast.success('Task deleted');
+    } catch (err: any) {
+      console.error('Delete task error:', err);
+      // Roll back optimistic removal
+      setTasks(prevTasks);
+      setAllTasks(prevAllTasks);
+      toast.error('Failed to delete task');
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
