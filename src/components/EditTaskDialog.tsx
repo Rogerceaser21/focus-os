@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Task, TaskPriority, TaskStatus, Project } from '@/types/task';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -59,6 +59,7 @@ export const EditTaskDialog = ({
   const prevSidebarOpen = useRef<boolean | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
 
   // If the task has assignedToEmail, the current user is the recipient of a shared task
   const isReceivedSharedTask = !!task.assignedToEmail;
@@ -120,6 +121,13 @@ export const EditTaskDialog = ({
     window.addEventListener('resize', updateMaxHeight);
     return () => window.removeEventListener('resize', updateMaxHeight);
   }, []);
+
+  useLayoutEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [title, open]);
 
   const uploadImageFile = useCallback(async (file: File | Blob) => {
     if (!userId) {
@@ -240,18 +248,14 @@ export const EditTaskDialog = ({
         <Label htmlFor="title">Title *{isReceivedSharedTask && <span className="text-muted-foreground text-[10px] ml-1">(locked)</span>}</Label>
         <Textarea
           id="title"
+          ref={titleRef}
           placeholder="Task title"
           value={title}
           onChange={(e) => !isReceivedSharedTask && setTitle(e.target.value)}
           rows={3}
           className={`text-sm resize-none min-h-0 h-auto overflow-hidden ${isReceivedSharedTask ? 'opacity-60 cursor-not-allowed' : ''}`}
-          style={{ height: 'auto', minHeight: '80px' }}
+          style={{ minHeight: '80px' }}
           readOnly={isReceivedSharedTask}
-          onInput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            target.style.height = 'auto';
-            target.style.height = `${target.scrollHeight}px`;
-          }}
         />
       </div>
 
