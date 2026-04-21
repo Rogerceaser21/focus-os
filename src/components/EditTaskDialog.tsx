@@ -7,12 +7,23 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Mail } from 'lucide-react';
+import { CalendarIcon, Mail, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ImageViewer } from '@/components/ImageViewer';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
 import { SidePanel } from '@/components/SidePanel';
@@ -28,6 +39,7 @@ interface EditTaskDialogProps {
   onAssigned?: (taskId: string, email: string) => void;
   desktopDocked?: boolean;
   currentUserId?: string;
+  onDeleteTask?: (task: Task) => void | Promise<void>;
 }
 
 export const EditTaskDialog = ({
@@ -39,6 +51,7 @@ export const EditTaskDialog = ({
   onAssigned,
   desktopDocked = false,
   currentUserId,
+  onDeleteTask,
 }: EditTaskDialogProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
