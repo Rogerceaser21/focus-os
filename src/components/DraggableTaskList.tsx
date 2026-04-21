@@ -30,6 +30,7 @@ interface DraggableTaskListProps {
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
+  onDeleteTask?: (task: Task) => void | Promise<void>;
   globalViewMode: 'full' | 'compact' | 'minimal';
   expandedTaskIds: Set<string>;
   onTaskClick: (taskId: string) => void;
@@ -53,6 +54,7 @@ interface SortableTaskItemProps {
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
+  onDeleteTask?: (task: Task) => void | Promise<void>;
   globalViewMode: 'full' | 'compact' | 'minimal';
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
@@ -67,6 +69,7 @@ const SortableTaskItem = ({
   onAssignTask,
   onRequestChanges,
   onDismissChangeRequest,
+  onDeleteTask,
   globalViewMode,
   isIndividuallyExpanded,
   onTaskClick,
