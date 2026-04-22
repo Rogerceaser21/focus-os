@@ -60,15 +60,22 @@ const statusColors = {
 export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { user } = useAuth();
-  const { preferences, updatePreferences } = useUserPreferences(user?.id);
-  const handlePersistAIDefaults = (updates: { provider?: AIProvider; imageMode?: ImageMode }) => {
+  const { preferences } = useUserPreferences(user?.id);
+  const handlePersistAIDefaults = async (updates: { provider?: AIProvider; imageMode?: ImageMode }) => {
     if (!user?.id) return;
     const dbUpdates: Record<string, string | null> = {};
     if (updates.provider !== undefined) dbUpdates.ai_handoff_default_provider = updates.provider;
     if (updates.imageMode !== undefined) dbUpdates.ai_handoff_image_mode = updates.imageMode;
     if (Object.keys(dbUpdates).length === 0) return;
-    // Fire-and-forget; useUserPreferences shows its own toast on save.
-    void updatePreferences(dbUpdates as never);
+    // Silent save (no toast) — this fires on every provider click.
+    try {
+      await (supabase as any)
+        .from('focusos_user_preferences')
+        .update(dbUpdates)
+        .eq('user_id', user.id);
+    } catch (e) {
+      console.error('Failed to persist AI handoff defaults', e);
+    }
   };
   useTimerAlert({
     isRunning: timer.isRunning,
