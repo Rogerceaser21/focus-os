@@ -19,7 +19,7 @@ export const HandToAI = ({ variant = 'full', className }: HandToAIProps) => {
     <span
       className={cn(
         'inline-flex items-center justify-center font-bold tracking-tight leading-none select-none',
-        'text-[0.7rem]',
+        'text-[0.95rem]',
         className,
       )}
       aria-label="Hand off to AI"
