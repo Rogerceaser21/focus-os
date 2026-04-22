@@ -448,7 +448,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                   title="Delete task"
                 >
-                  <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  <X className="h-3.5 w-3.5" strokeWidth={2.5} />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -574,7 +574,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     title="Delete task"
                   >
-                    <X className="h-4 w-4" strokeWidth={2.25} />
+                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -888,7 +888,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     title="Delete task"
                   >
-                    <X className="h-4 w-4" strokeWidth={2.25} />
+                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent onClick={(e) => e.stopPropagation()}>
