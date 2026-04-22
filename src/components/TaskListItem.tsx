@@ -364,7 +364,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         className={`group w-full glass-card rounded-lg px-1.5 py-1 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
         onClick={onTaskClick}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1 min-w-0">
           <Checkbox
             onClick={(e) => e.stopPropagation()}
             checked={isChecked}
@@ -419,6 +419,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
             <Button
               variant="ghost"
               size="sm"
+              onClick={(e) => { e.stopPropagation(); setHandoffOpen(true); }}
+              className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+              title="Hand off to AI"
+            >
+              <HandToAI variant="hand" className="h-3.5 w-3.5" strokeWidth={2} />
+            </Button>
+          )}
+          {onEditTask && (
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
               className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               title="Edit task"
@@ -436,7 +447,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                   title="Delete task"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" strokeWidth={2.25} />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent onClick={(e) => e.stopPropagation()}>
