@@ -418,8 +418,16 @@ export const HandoffToAIDialog = ({
                   type="button"
                   onClick={() => {
                     setProvider(p);
+                    // Auto-switch image mode to the recommended one for this
+                    // provider, unless the user has manually overridden it.
+                    const nextImageMode = imageModeUserOverride
+                      ? imageMode
+                      : RECOMMENDED_IMAGE_MODE[p];
+                    if (!imageModeUserOverride && nextImageMode !== imageMode) {
+                      setImageMode(nextImageMode);
+                    }
                     // Persist immediately so default is remembered even if user closes dialog.
-                    onPersistDefaults?.({ provider: p, imageMode });
+                    onPersistDefaults?.({ provider: p, imageMode: nextImageMode });
                   }}
                   className={cn(
                     'flex flex-col items-center justify-center gap-1 rounded-md border-2 p-3 transition text-sm',
