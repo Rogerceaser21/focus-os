@@ -345,7 +345,11 @@ export const HandoffToAIDialog = ({
                 <button
                   key={p}
                   type="button"
-                  onClick={() => setProvider(p)}
+                  onClick={() => {
+                    setProvider(p);
+                    // Persist immediately so default is remembered even if user closes dialog.
+                    onPersistDefaults?.({ provider: p, imageMode });
+                  }}
                   className={cn(
                     'flex flex-col items-center justify-center gap-1 rounded-md border-2 p-3 transition text-sm',
                     provider === p
