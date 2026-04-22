@@ -255,7 +255,7 @@ export const HandoffToAIDialog = ({
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <HandToAI variant="full" className="h-5 w-auto text-primary" strokeWidth={2} />
+            <HandToAI variant="hand" className="h-5 w-5 text-primary" strokeWidth={2} />
             Hand off to AI
           </DialogTitle>
           <DialogDescription>
