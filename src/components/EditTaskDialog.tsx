@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Mail, Trash2, Sparkles } from 'lucide-react';
+import { CalendarIcon, Mail, Trash2 } from 'lucide-react';
+import { HandToAI } from '@/components/icons/HandToAI';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -249,13 +250,13 @@ export const EditTaskDialog = ({
     <div className="flex items-center gap-2">
       <span>Edit Task</span>
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         onClick={() => setHandoffOpen(true)}
-        className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+        className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-primary border-primary/30 hover:border-primary"
         title="Hand off to AI"
       >
-        <Sparkles className="h-4 w-4" />
+        <HandToAI variant="full" className="h-4 w-auto" strokeWidth={2} />
       </Button>
       <Button
         variant="ghost"
