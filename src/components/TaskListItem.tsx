@@ -359,6 +359,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
     const sharedText = getCondensedSharedText();
     const allCompleted = task.sharedRecipients?.every(r => r.status === 'completed');
     return (
+      <>
       <div
         data-task-card
         className={`group w-full glass-card rounded-lg px-1.5 py-1 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
