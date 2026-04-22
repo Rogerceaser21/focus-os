@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Play, Pause, Calendar, Clock, Image, Share2, CheckCircle2, Pencil, AlertTriangle, X } from 'lucide-react';
+import { HandToAI } from '@/components/icons/HandToAI';
+import { HandoffToAIDialog } from '@/components/HandoffToAIDialog';
+import type { AIProvider, ImageMode } from '@/lib/aiHandoff';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +69,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
   const isMobile = useIsMobile();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [handoffOpen, setHandoffOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const recentlyBlurredRef = useRef(false);
