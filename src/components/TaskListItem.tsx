@@ -24,10 +24,12 @@ import { ShareStatusPopover } from '@/components/ShareStatusPopover';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
+import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { LinkifiedText } from '@/components/LinkifiedText';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TaskListItemProps {
   task: Task;
@@ -58,7 +60,24 @@ const statusColors = {
 
 export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
-  const { preferences } = useUserPreferences();
+  const { user } = useAuth();
+  const { preferences } = useUserPreferences(user?.id);
+  const handlePersistAIDefaults = async (updates: { provider?: AIProvider; imageMode?: ImageMode }) => {
+    if (!user?.id) return;
+    const dbUpdates: Record<string, string | null> = {};
+    if (updates.provider !== undefined) dbUpdates.ai_handoff_default_provider = updates.provider;
+    if (updates.imageMode !== undefined) dbUpdates.ai_handoff_image_mode = updates.imageMode;
+    if (Object.keys(dbUpdates).length === 0) return;
+    // Silent save (no toast) — this fires on every provider click.
+    try {
+      await (supabase as any)
+        .from('focusos_user_preferences')
+        .update(dbUpdates)
+        .eq('user_id', user.id);
+    } catch (e) {
+      console.error('Failed to persist AI handoff defaults', e);
+    }
+  };
   useTimerAlert({
     isRunning: timer.isRunning,
     displaySeconds,
@@ -490,6 +509,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         task={task}
         defaultProvider={(preferences?.ai_handoff_default_provider as AIProvider | null) ?? null}
         defaultImageMode={(preferences?.ai_handoff_image_mode as ImageMode) ?? 'public_link'}
+        onPersistDefaults={handlePersistAIDefaults}
       />
       </>
     );
@@ -1134,6 +1154,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         task={task}
         defaultProvider={(preferences?.ai_handoff_default_provider as AIProvider | null) ?? null}
         defaultImageMode={(preferences?.ai_handoff_image_mode as ImageMode) ?? 'public_link'}
+        onPersistDefaults={handlePersistAIDefaults}
       />
     </>
   );

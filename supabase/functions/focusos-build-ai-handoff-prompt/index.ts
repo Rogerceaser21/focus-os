@@ -21,15 +21,21 @@ interface RequestBody {
   targetProvider?: string;
 }
 
-const SYSTEM_PROMPT = `You convert a task + user context into a high-quality prompt for an AI assistant (ChatGPT, Claude, Gemini, or Perplexity).
+const SYSTEM_PROMPT = `You convert a TASK (the primary subject) plus optional user context into a high-quality prompt for an AI assistant (ChatGPT, Claude, Gemini, or Perplexity).
 
-Rules:
-- Output ONLY the final prompt text — no preamble, no commentary, no markdown code fences.
-- Structure the prompt with clear sections: Goal → Context → Task details → Specific request → Constraints.
-- Use Markdown headings and bullet points for readability.
-- If image URLs are provided, reference them inline and instruct the assistant to view them.
-- Be specific and actionable. Ask the assistant for concrete output.
-- Keep it under 1500 words.`;
+CRITICAL RULES:
+- The TASK TITLE and TASK DESCRIPTION are the PRIMARY subject. The receiving AI must clearly understand what the user is working on.
+- If a TASK DESCRIPTION is provided, you MUST quote it VERBATIM (every word, every bullet, every line) inside a "## Task description (verbatim)" section. Do NOT summarize, paraphrase, shorten, or omit any part of it. Preserve the original formatting (bullets, numbering, line breaks).
+- The USER CONTEXT is supplementary — it explains what the user wants help with regarding the task. Treat it as the user's request, not as the goal itself.
+- Output ONLY the final prompt text — no preamble, no commentary, no markdown code fences around the whole thing.
+- Structure with these Markdown headings in order:
+  ## Goal  (1–2 sentences derived from task title + user context)
+  ## Background  (task title, project, priority, due date)
+  ## Task description (verbatim)  (the full description, untouched — omit this section ONLY if no description was provided)
+  ## What I need from you  (concrete request, derived from user context if present, otherwise inferred from the task)
+  ## Images  (only if image URLs were provided — list them and tell the assistant to view them)
+  ## Constraints  (any constraints, plus: ask for concrete, actionable output)
+- Keep it under 2500 words total, but NEVER truncate the verbatim description to fit.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -57,23 +63,27 @@ serve(async (req) => {
       );
     }
 
+    const hasDescription = !!body.task.description?.trim();
     const userPayload = [
       `Target AI: ${body.targetProvider || "general assistant"}`,
       "",
-      "=== TASK ===",
+      "=== TASK (PRIMARY SUBJECT) ===",
       `Title: ${body.task.title}`,
-      body.task.description ? `Description:\n${body.task.description}` : null,
+      body.task.projectName ? `Project: ${body.task.projectName}` : null,
       body.task.priority ? `Priority: ${body.task.priority}` : null,
       body.task.dueDate ? `Due date: ${body.task.dueDate}` : null,
-      body.task.projectName ? `Project: ${body.task.projectName}` : null,
       "",
-      "=== USER CONTEXT (what they're trying to accomplish) ===",
-      body.userContext?.trim() || "(none provided — infer reasonable goal from the task)",
+      hasDescription
+        ? `=== TASK DESCRIPTION — QUOTE VERBATIM, DO NOT SUMMARIZE ===\n${body.task.description}\n=== END TASK DESCRIPTION ===`
+        : "(no description provided)",
+      "",
+      "=== USER CONTEXT (supplementary — what the user wants help with) ===",
+      body.userContext?.trim() || "(none provided — infer a reasonable request from the task)",
       body.imageUrls && body.imageUrls.length
         ? `\n=== IMAGE URLS (attached to task) ===\n${body.imageUrls.join("\n")}`
         : "",
       "",
-      "Now produce the optimized prompt.",
+      `Now produce the optimized prompt. Remember: include the task description VERBATIM under "## Task description (verbatim)"${hasDescription ? "" : " (skip this section since no description was provided)"}.`,
     ]
       .filter(Boolean)
       .join("\n");
