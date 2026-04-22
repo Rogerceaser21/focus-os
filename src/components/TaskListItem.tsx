@@ -1128,6 +1128,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
           )}
         </div>
       </div>
+      <HandoffToAIDialog
+        open={handoffOpen}
+        onOpenChange={setHandoffOpen}
+        task={task}
+        defaultProvider={(preferences?.ai_handoff_default_provider as AIProvider | null) ?? null}
+        defaultImageMode={(preferences?.ai_handoff_image_mode as ImageMode) ?? 'public_link'}
+      />
     </>
   );
 };
