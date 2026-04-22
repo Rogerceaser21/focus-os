@@ -22,6 +22,16 @@ import {
 import { cn } from '@/lib/utils';
 import { getImageDisplayUrl } from '@/lib/taskImageStorage';
 
+// Per-provider recommended image-handling mode.
+// ChatGPT/Gemini reliably fetch public URLs; Claude/Perplexity do not, so we
+// default those to clipboard so the actual image bytes get attached.
+const RECOMMENDED_IMAGE_MODE: Record<AIProvider, ImageMode> = {
+  chatgpt: 'public_link',
+  gemini: 'public_link',
+  claude: 'clipboard',
+  perplexity: 'clipboard',
+};
+
 interface HandoffToAIDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
