@@ -59,6 +59,11 @@ export const HandoffToAIDialog = ({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
   const [previewPrompt, setPreviewPrompt] = useState<string | null>(null);
+  // Track whether the user manually picked an image mode in this session.
+  // If they have, we respect their choice; if not, we auto-switch to the
+  // recommended mode whenever the provider changes.
+  const [imageModeUserOverride, setImageModeUserOverride] = useState(false);
+  const [showImageModeHelp, setShowImageModeHelp] = useState(false);
 
   const { isRecording, audioBlob, startRecording, stopRecording, reset } = useVoiceRecorder();
   const transcribedRef = useRef<Blob | null>(null);
@@ -75,6 +80,8 @@ export const HandoffToAIDialog = ({
       setIncludedImages(init);
       reset();
       transcribedRef.current = null;
+      setImageModeUserOverride(false);
+      setShowImageModeHelp(false);
     }
   }, [open, task.id, defaultProvider, defaultImageMode]);
 
