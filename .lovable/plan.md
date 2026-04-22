@@ -1,123 +1,70 @@
-# Hand off to AI — full plan
-
-## Goal
-
-A "Hand off to AI" button on tasks that builds a high-quality prompt from the task (title + description + images + user-supplied context), opens the user's chosen AI provider in a new tab with the prompt prefilled, and remembers their default provider.
-
-## User flow
-
-```text
-[Task open in EditTaskDialog]
-           |
-   click "Hand off to AI" (sparkle icon)
-           |
-[Hand-off modal opens]
-  - Shows preview of task title + description
-  - Field: "What are you trying to accomplish?" (textarea)
-  - 🎤 Speaker button → record voice → transcribe → AI cleans up → fills field
-  - Image strip: each task image with toggle (include / exclude)
-  - Provider picker (ChatGPT / Claude / Gemini / Perplexity)
-    - First-ever use → asks "Pick your default provider" → saved
-    - Subsequent uses → defaults to saved choice, still switchable
-  - Image delivery toggle: [● Public link  ○ Copy to clipboard]
-  - "Preview prompt" expandable section (read-only)
-           |
-   click "Hand off"
-           |
-[Open AI or Gemini builds final prompt (figure out a good cost effective AI model that will do this for us - DO NOT USE LOVABLE AI]
-  - Combines task data + user context into a clean, structured prompt
-  - Returns optimized prompt text
-           |
-[Open provider in new tab with ?q=<prompt>]
-  - If prompt > 6k chars → copy to clipboard, open blank chat, toast
-  - If images=clipboard mode → copy first image, chain toasts for rest
-```
-
-## Features
-
-### 1. Provider deep-links
-
-- ChatGPT: `https://chat.openai.com/?q=`
-- Claude: `https://claude.ai/new?q=`
-- Gemini: `https://gemini.google.com/app?q=`
-- Perplexity: `https://www.perplexity.ai/search?q=`
-
-### 2. Default provider memory
-
-- New column `ai_handoff_default_provider TEXT NULL` on `focusos_user_preferences`.
-- New column `ai_handoff_image_mode TEXT DEFAULT 'public_link'` (values: `public_link` | `clipboard` | `skip`).
-- First use → modal forces a provider pick before continuing, saves it.
-- Settings dialog gets a small "AI Hand-off" section to change defaults later.
-
-### 3. Voice → transcribe → cleanup → context field
-
-- Use the same button we are using for "brain dump" feature instead of the "mic" button on the "What are you trying to accomplish?" textarea.
-- Reuse existing `useVoiceRecorder` hook + `focusos-transcribe-audio` edge function.
-- After transcript returns, send through Lovable AI gateway with prompt: *"Clean up this dictation into clear written context. Keep the user's intent, fix grammar, remove filler."* Result lands in the textarea, editable.
-
-### 4. Prompt builder [Open AI or Gemini builds final prompt (figure out a good cost effective AI model that will do this for us - DO NOT USE LOVABLE AI]
-
-- New edge function `focusos-build-ai-handoff-prompt`.
-- Input: `{ task: {title, description, priority, dueDate, projectName}, userContext, imageUrls[] }`.
-- Uses `google/gemini-2.5-flash` via Lovable AI gateway (you can explain to me what this is otherwise don't use it).
-- System prompt: *"You convert a task + user context into a high-quality prompt for an AI assistant. Output the prompt only, no preamble. Structure: Goal → Context → Task details → Specific request → Constraints. Reference attached images by description if URLs provided."*
-- Returns optimized prompt string.
-
-### 5. Images — three modes (user-toggleable, default `public_link`)
-
-- **public_link**: Embed `focusos-task-images` public URLs directly in prompt. ChatGPT + Gemini will see them. Note in prompt: "Images attached as URLs above — please view them."
-- **clipboard**: Prompt mentions images exist; after opening provider tab, sequentially copy each image to clipboard via `ClipboardItem`, with toasts ("Image 1/3 copied — paste, then click here for next").
-- **skip**: No image references at all.
-
-### 6. URL length safety
-
-- If final URL > 6000 chars → copy full prompt to clipboard, open provider with short stub (`?q=See%20clipboard`), toast: *"Prompt copied — paste into the chat."*
-
-## Where the button lives
-
-- **Task title line** — primary location, next to Trash icon. Sparkle icon (`lucide/Sparkles`).
-- &nbsp;
-
-## Backend changes
-
-### Migration
-
-```sql
-ALTER TABLE focusos_user_preferences
-  ADD COLUMN ai_handoff_default_provider TEXT NULL,
-  ADD COLUMN ai_handoff_image_mode TEXT NOT NULL DEFAULT 'public_link';
-```
-
-### New edge function
-
-- `supabase/functions/focusos-build-ai-handoff-prompt/index.ts` — calls Lovable AI gateway, returns `{ prompt: string }`.
-
-### Reused
-
-- `focusos-transcribe-audio` for voice context input.
-- `focusos-task-images` bucket (already public) for image URLs.
-
-## Frontend changes
 
 
-| File                                   | Change                                                       |
-| -------------------------------------- | ------------------------------------------------------------ |
-| `src/components/HandoffToAIDialog.tsx` | NEW — the modal described above                              |
-| `src/lib/aiHandoff.ts`                 | NEW — providers map, prompt-length checks, clipboard helpers |
-| `src/components/EditTaskDialog.tsx`    | Add Sparkles button in header; opens HandoffToAIDialog       |
-| `src/hooks/useUserPreferences.ts`      | Surface new fields, save default on first pick               |
-| `src/components/SettingsDialog.tsx`    | Add "AI Hand-off" section (default provider + image mode)    |
+### Aesthetics-only pass — Hand-off to AI icon + row button polish
 
+**Scope: visual only. No functional/logic changes to the hand-off feature itself.**
 
-## Out of scope (explicit)
+---
 
-- No real OAuth into ChatGPT/Claude/Gemini — they don't offer it.
-- No syncing AI responses back into the task.
-- No row-action button on cards (v1 — can add later).
+#### 1. Build a custom "Hand → AI" SVG icon
 
-## Open questions before coding
+- Create `src/components/icons/HandToAI.tsx` — a React component that returns an inline SVG
+- Design: a horizontal **hand with the index finger extended pointing right**, and the letters **"AI"** to the right of the fingertip
+- Built as a single SVG with `currentColor` stroke so it inherits text color from parent (works in all themes — Cream, dark, etc.)
+- Accepts standard icon props (`className`, `size`, `strokeWidth`) so it behaves like a Lucide icon
+- Default `strokeWidth={2}` to match Lucide defaults
+- Two render modes via a prop:
+  - `variant="full"` → hand + "AI" text inside the SVG (used in Edit Task pane header)
+  - `variant="hand"` → hand only, no text (used in compact mobile row)
+  - `variant="text"` → just stylized "AI" letters (fallback for ultra-tight spots — optional)
 
-1. **Image mode default** — `public_link` (auto, image URLs in prompt) or `clipboard` (manual paste, more private)? fine
-2. **Voice cleanup model** — `gemini-2.5-flash` (fast/cheap, recommended) or `gemini-2.5-pro` (smarter)? Ill go with your reccomended option "flash"
-3. **Should the "What are you trying to accomplish?" field be required**, or skippable for tasks that already have rich descriptions? Skippable i guess
-4. **Provider list** — keep all 4 (ChatGPT, Claude, Gemini, Perplexity), or trim? I already said all 4
+#### 2. Replace Sparkles everywhere it was added for hand-off
+
+| Location | Current | New |
+|---|---|---|
+| `EditTaskDialog.tsx` header button | `<Sparkles>` | `<HandToAI variant="full">` (desktop) / `variant="hand"` (mobile) |
+| `HandoffToAIDialog.tsx` title icon | `<Sparkles>` | `<HandToAI variant="full">` |
+| Any other spot Sparkles was added for this feature | — | `<HandToAI>` |
+
+The dialog's internal "Sparkles" usage (only the hand-off-related ones) gets swapped. Other unrelated sparkles in the codebase (if any) stay.
+
+#### 3. Add the hand-off button to the **task row** (TaskListItem / TaskCard)
+
+- Place it **immediately to the left of the Edit (pencil) button** in the row's action cluster
+- Mobile: render `<HandToAI variant="hand">` only, same icon size as pencil/X/play
+- Desktop: same — keep it compact in row context (full variant lives in the Edit pane only)
+- Wire the click to open the existing `HandoffToAIDialog` with that row's task (this is the only "logic" touch — it's just hooking up the existing dialog, no new behavior)
+
+#### 4. Fix the row button spacing & stroke weight
+
+In `TaskListItem.tsx` (and `TaskCard.tsx` if it has the same row):
+- Reduce the gap between the action icons — change current `gap-2` / `gap-3` (whatever it is) down to `gap-0.5` or `gap-1`, and shrink each button's padding (e.g. `h-8 w-8` → `h-7 w-7`, or remove inner padding on the icon button so the icons sit close)
+- Audit the X button: confirm it uses the same `<X>` from `lucide-react` at the same size/strokeWidth as `<Pencil>` and `<Play>`. If it's currently a different icon (e.g. a thin `XIcon` from elsewhere), replace with `<X strokeWidth={2} className="h-4 w-4">` to match
+- Keep the visual order: **[HandToAI] [Edit ✏️] [X] [Play ▷]**
+
+#### 5. Files touched
+
+| File | Change |
+|---|---|
+| `src/components/icons/HandToAI.tsx` | NEW — custom SVG icon component |
+| `src/components/EditTaskDialog.tsx` | Swap Sparkles → HandToAI |
+| `src/components/HandoffToAIDialog.tsx` | Swap Sparkles → HandToAI in dialog title |
+| `src/components/TaskListItem.tsx` | Add HandToAI button left of Edit; tighten gap; normalize X stroke |
+| `src/components/TaskCard.tsx` | Same row treatment if it has the same action cluster |
+
+#### 6. Out of scope (per your instruction)
+- No changes to the hand-off **functionality**, prompt builder, voice flow, image flow, or settings — purely the icon swap and row aesthetics
+- We'll address functional issues in a follow-up once you list them
+
+---
+
+#### Open question before I touch anything
+
+**The custom Hand→AI icon — how literal do you want it?**
+
+a. **Pictographic & polished**: a clean line-drawn hand silhouette with index finger extended right, "AI" in a matching stroke weight to its right — feels like a custom Lucide icon
+b. **Minimalist/abstract**: a simple arrow-like hand glyph (just a finger shape, not a full hand) pointing at "AI" — more iconographic, less illustrative
+c. **Generated as a real SVG asset by an image gen** (transparent PNG) instead of hand-coded SVG — richer detail but won't recolor with theme
+
+I recommend **(a)** — hand-coded SVG, line-drawn, currentColor — because it themes correctly and stays crisp at any size. Confirm a/b/c and I'll start.
+
