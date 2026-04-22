@@ -99,18 +99,14 @@ export const HandoffToAIDialog = ({
         return;
       }
 
-      // Clean up via the same edge function (it can produce general text too via Gemini).
-      // We reuse build-ai-handoff-prompt is overkill; just append to existing context.
+      // Dedicated cleanup endpoint — never reuse the prompt builder for this.
       setIsCleaningUp(true);
-      const cleanupResp = await supabase.functions.invoke('focusos-build-ai-handoff-prompt', {
-        body: {
-          task: { title: '__cleanup__' },
-          userContext: `Clean up this dictation into clear, concise written context. Keep the user's intent, fix grammar, remove filler words. Output ONLY the cleaned text, nothing else.\n\nDictation:\n${raw}`,
-        },
+      const cleanupResp = await supabase.functions.invoke('focusos-clean-dictation', {
+        body: { text: raw },
       });
       setIsCleaningUp(false);
 
-      const cleaned = (cleanupResp.data as { prompt?: string } | null)?.prompt?.trim() || raw;
+      const cleaned = (cleanupResp.data as { cleaned?: string } | null)?.cleaned?.trim() || raw;
       setUserContext((prev) => (prev.trim() ? prev.trim() + '\n\n' + cleaned : cleaned));
     } catch (e) {
       console.error('transcribe error', e);
