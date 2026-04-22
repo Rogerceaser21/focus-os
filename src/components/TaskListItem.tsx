@@ -496,7 +496,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         {/* Mobile/Tablet Layout */}
         <div className="flex flex-col gap-1 lg:hidden">
           {/* Line 1: Checkbox + Title + Play/Pause */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Checkbox
               onClick={(e) => e.stopPropagation()}
               checked={isChecked}
@@ -537,6 +537,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={(e) => { e.stopPropagation(); setHandoffOpen(true); }}
+                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                title="Hand off to AI"
+              >
+                <HandToAI variant="hand" className="h-4 w-4" strokeWidth={2} />
+              </Button>
+            )}
+            {onEditTask && (
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
                 className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 title="Edit task"
@@ -554,7 +565,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     title="Delete task"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" strokeWidth={2.25} />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -799,7 +810,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         {/* Desktop Layout */}
         <div className="hidden lg:flex lg:flex-col gap-1">
           {/* Line 1: Checkbox + Title + Play/Pause */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Checkbox
               onClick={(e) => e.stopPropagation()}
               checked={isChecked}
@@ -840,6 +851,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={(e) => { e.stopPropagation(); setHandoffOpen(true); }}
+                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                title="Hand off to AI"
+              >
+                <HandToAI variant="hand" className="h-4 w-4" strokeWidth={2} />
+              </Button>
+            )}
+            {onEditTask && (
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
                 className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 title="Edit task"
@@ -857,7 +879,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     title="Delete task"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" strokeWidth={2.25} />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent onClick={(e) => e.stopPropagation()}>
