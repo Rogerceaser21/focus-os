@@ -334,7 +334,14 @@ export const HandoffToAIDialog = ({
                     );
                   })}
                 </div>
-                <RadioGroup value={imageMode} onValueChange={(v) => setImageMode(v as ImageMode)} className="grid grid-cols-1 gap-1 pt-1">
+                <RadioGroup
+                  value={imageMode}
+                  onValueChange={(v) => {
+                    setImageMode(v as ImageMode);
+                    setImageModeUserOverride(true);
+                  }}
+                  className="grid grid-cols-1 gap-1 pt-1"
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="public_link" id="img-public" />
                     <Label htmlFor="img-public" className="font-normal cursor-pointer text-xs">Embed image links in prompt (ChatGPT/Gemini will see them)</Label>
@@ -348,6 +355,53 @@ export const HandoffToAIDialog = ({
                     <Label htmlFor="img-skip" className="font-normal cursor-pointer text-xs">Skip images</Label>
                   </div>
                 </RadioGroup>
+
+                {/* Dynamic per-provider hint */}
+                {provider && imageMode !== 'skip' && (
+                  <div className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-md px-2 py-1.5 leading-snug">
+                    {(() => {
+                      const label = PROVIDERS[provider].label;
+                      if (imageMode === 'public_link') {
+                        if (provider === 'chatgpt' || provider === 'gemini') {
+                          return <>✅ {label} will fetch these URLs and view the images directly.</>;
+                        }
+                        return <>⚠️ {label} usually can't fetch external image URLs — it will only see the link as text. Switch to <strong>Copy to clipboard</strong> for it to actually see the images.</>;
+                      }
+                      // clipboard
+                      return <>ℹ️ You'll paste each image into the {label} chat after it opens (one-by-one).</>;
+                    })()}
+                  </div>
+                )}
+
+                {/* Collapsible "Why these options?" disclosure */}
+                <button
+                  type="button"
+                  onClick={() => setShowImageModeHelp((s) => !s)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 self-start"
+                >
+                  {showImageModeHelp ? 'Hide' : 'Why these options?'}
+                </button>
+                {showImageModeHelp && (
+                  <div className="text-[11px] text-muted-foreground border border-border rounded-md p-2 space-y-1">
+                    <div>Different AIs handle images differently:</div>
+                    <table className="w-full text-[11px]">
+                      <thead className="text-muted-foreground/80">
+                        <tr>
+                          <th className="text-left font-medium pr-2 py-0.5">AI</th>
+                          <th className="text-left font-medium pr-2 py-0.5">Embed link</th>
+                          <th className="text-left font-medium py-0.5">Clipboard</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr><td className="pr-2">ChatGPT</td><td className="pr-2">✅ Works</td><td>✅ Works</td></tr>
+                        <tr><td className="pr-2">Gemini</td><td className="pr-2">✅ Works</td><td>✅ Works</td></tr>
+                        <tr><td className="pr-2">Claude</td><td className="pr-2">❌ Ignores URLs</td><td>✅ Required</td></tr>
+                        <tr><td className="pr-2">Perplexity</td><td className="pr-2">⚠️ Unreliable</td><td>✅ Works</td></tr>
+                      </tbody>
+                    </table>
+                    <div className="pt-1">Private images (behind login) always require <strong>clipboard</strong>.</div>
+                  </div>
+                )}
               </div>
             </>
           )}
