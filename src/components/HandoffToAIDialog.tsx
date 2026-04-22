@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
-import { Sparkles, Mic, Square, Loader2, Image as ImageIcon, Copy, ExternalLink } from 'lucide-react';
+import { Mic, Square, Loader2, Image as ImageIcon, Copy, ExternalLink } from 'lucide-react';
+import { HandToAI } from '@/components/icons/HandToAI';
 import { Task } from '@/types/task';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { supabase } from '@/integrations/supabase/client';
@@ -241,7 +242,7 @@ export const HandoffToAIDialog = ({
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <HandToAI variant="full" className="h-5 w-auto text-primary" strokeWidth={2} />
             Hand off to AI
           </DialogTitle>
           <DialogDescription>

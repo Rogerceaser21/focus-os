@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Play, Pause, Calendar, Clock, Image, Share2, CheckCircle2, Pencil, AlertTriangle, X } from 'lucide-react';
+import { HandToAI } from '@/components/icons/HandToAI';
+import { HandoffToAIDialog } from '@/components/HandoffToAIDialog';
+import type { AIProvider, ImageMode } from '@/lib/aiHandoff';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +69,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
   const isMobile = useIsMobile();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [handoffOpen, setHandoffOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const recentlyBlurredRef = useRef(false);
@@ -355,12 +359,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
     const sharedText = getCondensedSharedText();
     const allCompleted = task.sharedRecipients?.every(r => r.status === 'completed');
     return (
+      <>
       <div
         data-task-card
         className={`group w-full glass-card rounded-lg px-1.5 py-1 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
         onClick={onTaskClick}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1 min-w-0">
           <Checkbox
             onClick={(e) => e.stopPropagation()}
             checked={isChecked}
@@ -415,6 +420,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
             <Button
               variant="ghost"
               size="sm"
+              onClick={(e) => { e.stopPropagation(); setHandoffOpen(true); }}
+              className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+              title="Hand off to AI"
+            >
+              <HandToAI variant="hand" className="h-3.5 w-3.5" strokeWidth={2} />
+            </Button>
+          )}
+          {onEditTask && (
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
               className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               title="Edit task"
@@ -432,7 +448,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                   title="Delete task"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" strokeWidth={2.25} />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -468,6 +484,14 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
           </Button>
         </div>
       </div>
+      <HandoffToAIDialog
+        open={handoffOpen}
+        onOpenChange={setHandoffOpen}
+        task={task}
+        defaultProvider={(preferences?.ai_handoff_default_provider as AIProvider | null) ?? null}
+        defaultImageMode={(preferences?.ai_handoff_image_mode as ImageMode) ?? 'public_link'}
+      />
+      </>
     );
   }
 
@@ -481,7 +505,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         {/* Mobile/Tablet Layout */}
         <div className="flex flex-col gap-1 lg:hidden">
           {/* Line 1: Checkbox + Title + Play/Pause */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Checkbox
               onClick={(e) => e.stopPropagation()}
               checked={isChecked}
@@ -522,6 +546,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={(e) => { e.stopPropagation(); setHandoffOpen(true); }}
+                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                title="Hand off to AI"
+              >
+                <HandToAI variant="hand" className="h-4 w-4" strokeWidth={2} />
+              </Button>
+            )}
+            {onEditTask && (
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
                 className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 title="Edit task"
@@ -539,7 +574,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     title="Delete task"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" strokeWidth={2.25} />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -784,7 +819,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
         {/* Desktop Layout */}
         <div className="hidden lg:flex lg:flex-col gap-1">
           {/* Line 1: Checkbox + Title + Play/Pause */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Checkbox
               onClick={(e) => e.stopPropagation()}
               checked={isChecked}
@@ -825,6 +860,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={(e) => { e.stopPropagation(); setHandoffOpen(true); }}
+                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                title="Hand off to AI"
+              >
+                <HandToAI variant="hand" className="h-4 w-4" strokeWidth={2} />
+              </Button>
+            )}
+            {onEditTask && (
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
                 className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 title="Edit task"
@@ -842,7 +888,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                     className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     title="Delete task"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" strokeWidth={2.25} />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -1082,6 +1128,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
           )}
         </div>
       </div>
+      <HandoffToAIDialog
+        open={handoffOpen}
+        onOpenChange={setHandoffOpen}
+        task={task}
+        defaultProvider={(preferences?.ai_handoff_default_provider as AIProvider | null) ?? null}
+        defaultImageMode={(preferences?.ai_handoff_image_mode as ImageMode) ?? 'public_link'}
+      />
     </>
   );
 };
