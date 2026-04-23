@@ -71,21 +71,39 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
   // Compute the character offset within an element's text from a pointer event.
   // Used so that when the user clicks on the display <h3>/<p>, we can place the
   // caret in the swapped-in <Input>/<Textarea> at exactly that character.
-  const getCaretOffsetFromPoint = (e: React.MouseEvent): number | null => {
+  const getCaretOffsetFromPoint = (e: React.MouseEvent<HTMLElement>): number | null => {
     const x = e.clientX;
     const y = e.clientY;
+    const container = e.currentTarget;
     const doc = document as Document & {
       caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
       caretRangeFromPoint?: (x: number, y: number) => Range | null;
     };
+    // Walk up from the caret's offsetNode to compute the absolute character
+    // offset within `container`'s full textContent. This matches the input's
+    // value (which equals container.textContent for our display elements).
+    const computeAbsoluteOffset = (node: Node, localOffset: number): number => {
+      let total = 0;
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      let current = walker.nextNode();
+      while (current) {
+        if (current === node) {
+          return total + localOffset;
+        }
+        total += (current.textContent || '').length;
+        current = walker.nextNode();
+      }
+      // Fallback: clicked node not inside container (e.g. clicked on padding)
+      return localOffset;
+    };
     try {
       if (typeof doc.caretPositionFromPoint === 'function') {
         const pos = doc.caretPositionFromPoint(x, y);
-        return pos ? pos.offset : null;
+        return pos ? computeAbsoluteOffset(pos.offsetNode, pos.offset) : null;
       }
       if (typeof doc.caretRangeFromPoint === 'function') {
         const range = doc.caretRangeFromPoint(x, y);
-        return range ? range.startOffset : null;
+        return range ? computeAbsoluteOffset(range.startContainer, range.startOffset) : null;
       }
     } catch {
       return null;
@@ -98,12 +116,23 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
   const focusWithPendingCaret = (el: HTMLInputElement | HTMLTextAreaElement | null) => {
     if (!el) return;
     const offset = pendingCaretRef.current;
-    el.focus();
-    if (offset != null) {
-      const safe = Math.max(0, Math.min(offset, el.value.length));
-      try { el.setSelectionRange(safe, safe); } catch { /* noop */ }
-    }
     pendingCaretRef.current = null;
+    // Defer to next frame so the controlled value is fully committed and
+    // the browser's default focus selection behavior has settled before we
+    // override the caret position.
+    requestAnimationFrame(() => {
+      try {
+        el.focus({ preventScroll: true });
+        if (offset != null) {
+          const safe = Math.max(0, Math.min(offset, el.value.length));
+          el.setSelectionRange(safe, safe);
+        } else {
+          // No captured offset → place caret at end (better than start).
+          const end = el.value.length;
+          el.setSelectionRange(end, end);
+        }
+      } catch { /* noop */ }
+    });
   };
 
   // Sync local state when task prop changes, skip briefly after blur to avoid realtime race
