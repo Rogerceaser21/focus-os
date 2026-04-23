@@ -257,15 +257,18 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
 
           {isEditingDescription ? (
             <Textarea
+              ref={focusWithPendingCaret as (el: HTMLTextAreaElement | null) => void}
               value={editedDescription}
               onChange={(e) => setEditedDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
-              autoFocus
               className="text-sm min-h-[60px] py-1 px-2 -mx-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
             />
           ) : (
             <p 
               className="text-sm text-muted-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-0.5 -mx-2 transition-colors"
+              onMouseDown={(e) => {
+                pendingCaretRef.current = getCaretOffsetFromPoint(e);
+              }}
               onClick={() => setIsEditingDescription(true)}
             >
               {editedDescription ? (
