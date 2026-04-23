@@ -1034,7 +1034,7 @@ export const ProjectSidebar = ({
             )}
           </>
         )}
-      </div>
+      </SidebarScrollArea>
     </>
   );
 
