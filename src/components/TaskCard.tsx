@@ -98,12 +98,23 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
   const focusWithPendingCaret = (el: HTMLInputElement | HTMLTextAreaElement | null) => {
     if (!el) return;
     const offset = pendingCaretRef.current;
-    el.focus();
-    if (offset != null) {
-      const safe = Math.max(0, Math.min(offset, el.value.length));
-      try { el.setSelectionRange(safe, safe); } catch { /* noop */ }
-    }
     pendingCaretRef.current = null;
+    // Defer to next frame so the controlled value is fully committed and
+    // the browser's default focus selection behavior has settled before we
+    // override the caret position.
+    requestAnimationFrame(() => {
+      try {
+        el.focus({ preventScroll: true });
+        if (offset != null) {
+          const safe = Math.max(0, Math.min(offset, el.value.length));
+          el.setSelectionRange(safe, safe);
+        } else {
+          // No captured offset → place caret at end (better than start).
+          const end = el.value.length;
+          el.setSelectionRange(end, end);
+        }
+      } catch { /* noop */ }
+    });
   };
 
   // Sync local state when task prop changes, skip briefly after blur to avoid realtime race
