@@ -6,7 +6,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { Mic, Square, Loader2, Image as ImageIcon, Copy, ExternalLink } from 'lucide-react';
-import { HandToAI } from '@/components/icons/HandToAI';
 import { Task } from '@/types/task';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { supabase } from '@/integrations/supabase/client';
@@ -73,7 +72,7 @@ export const HandoffToAIDialog = ({
     if (open) {
       setUserContext('');
       setProvider(defaultProvider ?? null);
-      setImageMode(defaultImageMode);
+      setImageMode(defaultProvider ? RECOMMENDED_IMAGE_MODE[defaultProvider] : defaultImageMode);
       setPreviewPrompt(null);
       const init: Record<string, boolean> = {};
       (task.images || []).forEach((img) => { init[img] = true; });
@@ -254,10 +253,7 @@ export const HandoffToAIDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <HandToAI variant="full" className="text-primary" />
-            Hand off to AI
-          </DialogTitle>
+          <DialogTitle>Hand off to AI</DialogTitle>
           <DialogDescription>
             Send this task as a high-quality prompt to your favorite AI assistant.
           </DialogDescription>
