@@ -443,7 +443,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
               title="Hand off to AI"
             >
-              <HandToAI variant="hand" className="h-3.5 w-3.5" strokeWidth={2} />
+              <HandToAI variant="full" className="h-3.5 w-auto" />
             </Button>
           )}
           {onEditTask && (
@@ -570,7 +570,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
                 title="Hand off to AI"
               >
-                <HandToAI variant="hand" className="h-4 w-4" strokeWidth={2} />
+                <HandToAI variant="full" className="h-4 w-auto" />
               </Button>
             )}
             {onEditTask && (
@@ -884,7 +884,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
                 title="Hand off to AI"
               >
-                <HandToAI variant="hand" className="h-4 w-4" strokeWidth={2} />
+                <HandToAI variant="full" className="h-4 w-auto" />
               </Button>
             )}
             {onEditTask && (
