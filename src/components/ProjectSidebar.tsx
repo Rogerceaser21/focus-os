@@ -14,6 +14,7 @@ import AnimatedList from './AnimatedList';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
 import Fuse from 'fuse.js';
+import { SidebarScrollArea } from './SidebarScrollArea';
 import {
   Sheet,
   SheetContent,
