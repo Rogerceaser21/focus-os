@@ -884,7 +884,6 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 onChange={(e) => setEditedTitle(e.target.value)}
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
-                autoFocus
                 rows={1}
                 className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
@@ -893,15 +892,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               <h3
                 ref={titleContainerRef}
                 className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  captureTitleCaret(e);
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (task.assignedToEmail) return;
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
-                  }
-                  pendingTitleCaretRef.current = getCaretOffsetFromClick(e, e.currentTarget);
-                  setIsTitleExpanded(true);
-                  setIsEditingTitle(true);
+                  openTitleEditor({ expand: true, openTask: true });
                 }}
               >
                 {editedTitle}
@@ -983,7 +980,6 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 value={editedDescription}
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
-                autoFocus
                 rows={1}
                 className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
@@ -992,14 +988,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               <p 
                 ref={descriptionContainerRef}
                 className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 whitespace-pre-wrap ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  captureDescriptionCaret(e);
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isIndividuallyExpanded) {
-                    onTaskClick();
-                  }
-                  pendingDescriptionCaretRef.current = getCaretOffsetFromClick(e, e.currentTarget);
-                  setIsDescriptionExpanded(true);
-                  setIsEditingDescription(true);
+                  openDescriptionEditor();
                 }}
               >
                 {editedDescription ? (
