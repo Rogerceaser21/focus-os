@@ -66,6 +66,45 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
   const recentlyBlurredRef = useRef(false);
+  const pendingCaretRef = useRef<number | null>(null);
+
+  // Compute the character offset within an element's text from a pointer event.
+  // Used so that when the user clicks on the display <h3>/<p>, we can place the
+  // caret in the swapped-in <Input>/<Textarea> at exactly that character.
+  const getCaretOffsetFromPoint = (e: React.MouseEvent): number | null => {
+    const x = e.clientX;
+    const y = e.clientY;
+    const doc = document as Document & {
+      caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+      caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    };
+    try {
+      if (typeof doc.caretPositionFromPoint === 'function') {
+        const pos = doc.caretPositionFromPoint(x, y);
+        return pos ? pos.offset : null;
+      }
+      if (typeof doc.caretRangeFromPoint === 'function') {
+        const range = doc.caretRangeFromPoint(x, y);
+        return range ? range.startOffset : null;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
+  // Ref callback that focuses the freshly-mounted input/textarea and restores
+  // the caret position captured on mousedown.
+  const focusWithPendingCaret = (el: HTMLInputElement | HTMLTextAreaElement | null) => {
+    if (!el) return;
+    const offset = pendingCaretRef.current;
+    el.focus();
+    if (offset != null) {
+      const safe = Math.max(0, Math.min(offset, el.value.length));
+      try { el.setSelectionRange(safe, safe); } catch { /* noop */ }
+    }
+    pendingCaretRef.current = null;
+  };
 
   // Sync local state when task prop changes, skip briefly after blur to avoid realtime race
   useEffect(() => {
@@ -159,16 +198,20 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               <div className="flex-1 min-w-0">
                 {isEditingTitle ? (
                   <Input
+                    ref={focusWithPendingCaret as (el: HTMLInputElement | null) => void}
                     value={editedTitle}
                     onChange={(e) => setEditedTitle(e.target.value)}
                     onBlur={handleTitleBlur}
                     onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
-                    autoFocus
                     className="font-semibold h-auto py-1 px-2 -mx-2"
                   />
                 ) : (
                   <h3 
                     className={`font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
+                    onMouseDown={(e) => {
+                      if (task.assignedToEmail) return;
+                      pendingCaretRef.current = getCaretOffsetFromPoint(e);
+                    }}
                     onClick={() => !task.assignedToEmail && setIsEditingTitle(true)}
                   >
                     {editedTitle}
@@ -214,15 +257,18 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
 
           {isEditingDescription ? (
             <Textarea
+              ref={focusWithPendingCaret as (el: HTMLTextAreaElement | null) => void}
               value={editedDescription}
               onChange={(e) => setEditedDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
-              autoFocus
               className="text-sm min-h-[60px] py-1 px-2 -mx-2 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none w-full"
             />
           ) : (
             <p 
               className="text-sm text-muted-foreground line-clamp-2 cursor-text hover:bg-accent/50 rounded px-2 py-0.5 -mx-2 transition-colors"
+              onMouseDown={(e) => {
+                pendingCaretRef.current = getCaretOffsetFromPoint(e);
+              }}
               onClick={() => setIsEditingDescription(true)}
             >
               {editedDescription ? (
