@@ -259,7 +259,7 @@ export const HandoffToAIDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 overflow-y-auto flex-1 pr-2 py-2">
+        <div className="space-y-4 overflow-y-auto flex-1 px-1 pr-2 py-2">
           {/* Task preview */}
           <div className="rounded-md border bg-muted/40 p-3">
             <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Task</div>
