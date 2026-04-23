@@ -315,18 +315,40 @@ export const HandoffToAIDialog = ({
                     const src = getImageDisplayUrl(img);
                     const included = includedImages[img] ?? true;
                     return (
-                      <button
-                        key={img}
-                        type="button"
-                        onClick={() => setIncludedImages((s) => ({ ...s, [img]: !included }))}
-                        className={cn(
-                          'relative h-16 w-16 flex-shrink-0 rounded-md overflow-hidden border-2 transition',
-                          included ? 'border-primary' : 'border-muted opacity-40'
+                      <div key={img} className="relative h-16 w-16 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setIncludedImages((s) => ({ ...s, [img]: !included }))}
+                          className={cn(
+                            'h-full w-full rounded-md overflow-hidden border-2 transition block',
+                            included ? 'border-primary' : 'border-muted opacity-40'
+                          )}
+                          title={included ? 'Click to exclude from prompt' : 'Click to include in prompt'}
+                          aria-label={included ? 'Exclude image from prompt' : 'Include image in prompt'}
+                        >
+                          <img src={src} alt="task" className="w-full h-full object-cover" />
+                        </button>
+                        {imageMode === 'clipboard' && (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await copyImageUrlToClipboard(src);
+                                toast({ title: 'Image copied', description: 'Paste it into the chat (Ctrl/Cmd+V).' });
+                              } catch (err) {
+                                console.error('manual image copy failed', err);
+                                toast({ title: 'Copy failed', description: 'Could not copy this image to clipboard.', variant: 'destructive' });
+                              }
+                            }}
+                            className="absolute top-0.5 right-0.5 h-5 w-5 rounded bg-background/90 hover:bg-background border border-border shadow-sm flex items-center justify-center text-foreground hover:text-primary transition"
+                            title="Copy image to clipboard"
+                            aria-label="Copy image to clipboard"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
                         )}
-                        title={included ? 'Click to exclude' : 'Click to include'}
-                      >
-                        <img src={src} alt="task" className="w-full h-full object-cover" />
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -364,7 +386,7 @@ export const HandoffToAIDialog = ({
                         return <>⚠️ {label} usually can't fetch external image URLs — it will only see the link as text. Switch to <strong>Copy to clipboard</strong> for it to actually see the images.</>;
                       }
                       // clipboard
-                      return <>ℹ️ You'll paste each image into the {label} chat after it opens (one-by-one).</>;
+                      return <>ℹ️ Click the copy icon on any image to copy it now, or we'll auto-copy them one-by-one after opening {label}.</>;
                     })()}
                   </div>
                 )}
