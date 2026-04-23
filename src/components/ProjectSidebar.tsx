@@ -668,7 +668,7 @@ export const ProjectSidebar = ({
       </div>
 
       <div
-        className="flex-1 min-h-0 flex flex-col overflow-y-auto"
+        className="flex-1 min-h-0 flex flex-col overflow-y-scroll [&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-background [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb]:rounded-[4px] hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/60"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 64px)' }}
       >
         {isSearching ? (
