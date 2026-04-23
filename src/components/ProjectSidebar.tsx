@@ -995,34 +995,28 @@ export const ProjectSidebar = ({
 
             {/* Projects with AnimatedList */}
             {projects.length > 0 && (
-              <div className="mt-4 flex-1 min-h-0 flex flex-col">
+              <div className="mt-4">
                 <div className="px-4 mb-2">
                   <h3 className="text-sm font-medium text-muted-foreground">My Projects ({projects.length})</h3>
                 </div>
-                <div className="px-2 flex-1 min-h-0 flex flex-col">
-                  <AnimatedList
-                    items={projects}
-                    onItemSelect={(project) => {
-                      handleSelectProject(project.id);
-                      if (isActuallyMobile) setOpenMobile(false);
-                    }}
-                    showGradients={false}
-                    enableArrowNavigation={false}
-                    displayScrollbar={true}
-                    className="w-full"
-                    getItemDataAttributes={(project) =>
+                <div className="px-2 space-y-1">
+                  {projects.map((project) => {
+                    const dataAttrs =
                       selectedProjectId === project.id && project.name.startsWith('Demo Project')
-                        ? { 'data-projects-tour-step': 'demo-project' }
-                        : {}
-                    }
-                    renderItem={(project, isSelected) => (
-                      <div className="w-full">
+                        ? { 'data-projects-tour-step': 'demo-project' as const }
+                        : {};
+                    return (
+                      <div key={project.id} className="w-full" {...dataAttrs}>
                         <Button
                           variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
                           className="w-full justify-start gap-2"
+                          onClick={() => {
+                            handleSelectProject(project.id);
+                            if (isActuallyMobile) setOpenMobile(false);
+                          }}
                         >
-                          <Folder 
-                            className="h-4 w-4" 
+                          <Folder
+                            className="h-4 w-4"
                             style={{ color: project.color }}
                           />
                           <span className="truncate">{project.name}</span>
@@ -1033,8 +1027,8 @@ export const ProjectSidebar = ({
                           </div>
                         )}
                       </div>
-                    )}
-                  />
+                    );
+                  })}
                 </div>
               </div>
             )}
