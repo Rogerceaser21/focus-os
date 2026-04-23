@@ -427,13 +427,12 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
             className="shrink-0"
           />
           {isEditingTitle ? (
-            <Textarea
+              <Textarea
               ref={handleTitleMount}
               value={editedTitle}
               onChange={(e) => setEditedTitle(e.target.value)}
               onBlur={handleTitleBlur}
               onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
-              autoFocus
               rows={1}
               className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 min-w-0 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
               onClick={(e) => e.stopPropagation()}
@@ -441,11 +440,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
           ) : (
             <span
               className={`font-semibold text-sm truncate flex-1 min-w-0 cursor-text rounded px-1.5 py-0.5 ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  captureTitleCaret(e);
+                }}
               onClick={(e) => {
                 e.stopPropagation();
-                if (task.assignedToEmail) return;
-                pendingTitleCaretRef.current = getCaretOffsetFromClick(e, e.currentTarget);
-                setIsEditingTitle(true);
+                  openTitleEditor();
               }}
             >
               {editedTitle}
