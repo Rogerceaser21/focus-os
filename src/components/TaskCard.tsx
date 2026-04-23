@@ -198,16 +198,20 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               <div className="flex-1 min-w-0">
                 {isEditingTitle ? (
                   <Input
+                    ref={focusWithPendingCaret as (el: HTMLInputElement | null) => void}
                     value={editedTitle}
                     onChange={(e) => setEditedTitle(e.target.value)}
                     onBlur={handleTitleBlur}
                     onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
-                    autoFocus
                     className="font-semibold h-auto py-1 px-2 -mx-2"
                   />
                 ) : (
                   <h3 
                     className={`font-semibold text-foreground truncate cursor-text hover:bg-accent/50 rounded px-2 py-1 -mx-2 transition-colors ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
+                    onMouseDown={(e) => {
+                      if (task.assignedToEmail) return;
+                      pendingCaretRef.current = getCaretOffsetFromPoint(e);
+                    }}
                     onClick={() => !task.assignedToEmail && setIsEditingTitle(true)}
                   >
                     {editedTitle}
