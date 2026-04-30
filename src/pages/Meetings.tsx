@@ -707,10 +707,14 @@ const Meetings = () => {
           return;
         }
 
-        // Update status to transcribing
+        // Reset status + retry counter so the new transcribe call gets a fresh budget.
         await (supabase as any)
           .from('focusos_meetings')
-          .update({ processing_status: 'transcribing', processing_error: null })
+          .update({
+            processing_status: 'transcribing',
+            processing_error: null,
+            gemini_transcribe_attempts: 0,
+          })
           .eq('id', meeting.id);
 
         setProcessingMeetingId(meeting.id);
