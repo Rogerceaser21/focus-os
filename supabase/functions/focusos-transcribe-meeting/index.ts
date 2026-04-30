@@ -208,6 +208,29 @@ async function generateSummary(apiKey: string, transcript: string, detailLevel: 
 
 /* ─── Main handler ──────────────────────────────────────────────── */
 
+/**
+ * Fire-and-forget invocation of the poller. We do NOT await the response —
+ * the poller chain runs independently in the background.
+ */
+function armPoller(supabaseUrl: string, serviceKey: string, chainCount = 0) {
+  try {
+    fetch(`${supabaseUrl}/functions/v1/focusos-poll-stuck-meetings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+      },
+      body: JSON.stringify({ chainCount }),
+    }).catch((e) => console.warn("armPoller fetch error:", e?.message));
+  } catch (e) {
+    console.warn("armPoller threw:", e);
+  }
+}
+
+// @ts-ignore — EdgeRuntime is provided by Supabase edge runtime
+declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void };
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -234,6 +257,106 @@ serve(async (req) => {
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+
+    // Mark as started + increment attempts atomically-ish
+    const { data: currentRow } = await supabase
+      .from("focusos_meetings")
+      .select("gemini_transcribe_attempts")
+      .eq("id", meetingId)
+      .single();
+    const newAttempts = ((currentRow as any)?.gemini_transcribe_attempts ?? 0) + 1;
+
+    await supabase
+      .from("focusos_meetings")
+      .update({
+        processing_status: "transcribing",
+        processing_error: null,
+        gemini_transcribe_started_at: new Date().toISOString(),
+        gemini_transcribe_attempts: newAttempts,
+      })
+      .eq("id", meetingId);
+
+    // Run the heavy work in the background. Return 202 to caller immediately
+    // so the HTTP request doesn't block on Gemini transcription (which can
+    // take several minutes for long meetings).
+    const work = doTranscription({
+      supabase,
+      meetingId: meetingId!,
+      geminiFileUri,
+      mimeType,
+      participantNames,
+      durationSeconds,
+      gcsBucket,
+      gcsFolder,
+      GEMINI_API_KEY,
+    }).then(() => {
+      // Arm poller after work completes (cleans up any other stuck rows + finishes summarization if needed)
+      armPoller(supabaseUrl, supabaseServiceKey, 0);
+    }).catch(async (err) => {
+      console.error("Background transcription error:", err);
+      try {
+        await supabase
+          .from("focusos_meetings")
+          .update({
+            // Don't mark failed yet — let the poller retry up to 3 times
+            processing_error: err instanceof Error ? err.message : String(err),
+          })
+          .eq("id", meetingId!);
+      } catch (dbErr) {
+        console.error("Failed to record background error:", dbErr);
+      }
+      // Arm poller so it can retry
+      armPoller(supabaseUrl, supabaseServiceKey, 0);
+    });
+
+    EdgeRuntime.waitUntil(work);
+    // Also arm the poller immediately so it monitors progress in parallel
+    armPoller(supabaseUrl, supabaseServiceKey, 0);
+
+    return new Response(
+      JSON.stringify({ success: true, accepted: true, meetingId, attempt: newAttempts }),
+      { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Transcribe-meeting handler error:", error);
+    if (meetingId) {
+      try {
+        await supabase
+          .from("focusos_meetings")
+          .update({
+            processing_error: error instanceof Error ? error.message : "Unknown error",
+          })
+          .eq("id", meetingId);
+      } catch (dbErr) {
+        console.error("Failed to update meeting error status:", dbErr);
+      }
+    }
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
+
+/* ─── Background transcription task ─────────────────────────────── */
+
+interface DoTranscriptionArgs {
+  supabase: ReturnType<typeof createClient>;
+  meetingId: string;
+  geminiFileUri: string;
+  mimeType: string;
+  participantNames: string[];
+  durationSeconds: number;
+  gcsBucket: string;
+  gcsFolder: string;
+  GEMINI_API_KEY: string;
+}
+
+async function doTranscription(args: DoTranscriptionArgs) {
+  const {
+    supabase, meetingId, geminiFileUri, mimeType, participantNames,
+    durationSeconds, gcsBucket, gcsFolder, GEMINI_API_KEY,
+  } = args;
 
     // Step 1: Poll Gemini file until ACTIVE
     console.log(`Polling Gemini file status for: ${geminiFileUri}`);
@@ -268,10 +391,6 @@ serve(async (req) => {
 
     // Step 2: Transcribe using file URI
     console.log("Transcribing with Gemini using file URI...");
-    await supabase
-      .from("focusos_meetings")
-      .update({ processing_status: "transcribing" })
-      .eq("id", meetingId);
 
     const transcribeBody = {
       contents: [
@@ -319,6 +438,13 @@ Format the output as a clean transcript with speaker labels and timestamps where
     if (!transcript) throw new Error("Empty transcript returned from Gemini");
     console.log("Transcript length:", transcript.length);
 
+    // Persist raw transcript immediately so the poller can finish summarization
+    // even if THIS background task gets killed before completing the next steps.
+    await supabase
+      .from("focusos_meetings")
+      .update({ transcription_text: transcript, processing_status: "summarizing" })
+      .eq("id", meetingId);
+
     // Step 3: Upload transcript to GCS
     const gcsKeyJson = Deno.env.get("GCS_SERVICE_ACCOUNT_JSON");
     if (!gcsKeyJson) throw new Error("GCS_SERVICE_ACCOUNT_JSON not configured");
@@ -331,11 +457,6 @@ Format the output as a clean transcript with speaker labels and timestamps where
 
     // Step 4: Summarize
     console.log("Generating summary...");
-    await supabase
-      .from("focusos_meetings")
-      .update({ processing_status: "summarizing" })
-      .eq("id", meetingId);
-
     const summary = await generateSummary(GEMINI_API_KEY, transcript, "concise", durationSeconds);
     console.log("Summary generated");
 
@@ -348,6 +469,7 @@ Format the output as a clean transcript with speaker labels and timestamps where
         processing_status: "done",
         processing_error: null,
         gemini_file_uri: null, // Clear it
+        transcription_text: null, // Clear staged transcript
       })
       .eq("id", meetingId);
 
@@ -364,35 +486,4 @@ Format the output as a clean transcript with speaker labels and timestamps where
     } catch (e) {
       console.warn("Failed to delete Gemini file (non-critical):", e);
     }
-
-    return new Response(
-      JSON.stringify({ success: true, meetingId }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Transcribe-meeting error:", error);
-
-    // Update meeting with error status
-    if (meetingId) {
-      try {
-        await supabase
-          .from("focusos_meetings")
-          .update({
-            processing_status: "error",
-            processing_error: error instanceof Error ? error.message : "Unknown error",
-          })
-          .eq("id", meetingId);
-      } catch (dbErr) {
-        console.error("Failed to update meeting error status:", dbErr);
-      }
-    }
-
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  }
-});
+}

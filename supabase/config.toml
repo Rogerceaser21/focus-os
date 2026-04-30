@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.focusos-accept-project-invite]
 verify_jwt = false
+
+[functions.focusos-poll-stuck-meetings]
+verify_jwt = false

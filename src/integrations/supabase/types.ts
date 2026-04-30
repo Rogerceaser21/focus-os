@@ -323,6 +323,8 @@ export type Database = {
           created_at: string
           duration_seconds: number | null
           gemini_file_uri: string | null
+          gemini_transcribe_attempts: number
+          gemini_transcribe_started_at: string | null
           id: string
           participants: Json | null
           processing_error: string | null
@@ -333,6 +335,7 @@ export type Database = {
           summary: string | null
           title: string
           transcript_gcs_path: string | null
+          transcription_text: string | null
           updated_at: string
           user_id: string
         }
@@ -341,6 +344,8 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           gemini_file_uri?: string | null
+          gemini_transcribe_attempts?: number
+          gemini_transcribe_started_at?: string | null
           id?: string
           participants?: Json | null
           processing_error?: string | null
@@ -351,6 +356,7 @@ export type Database = {
           summary?: string | null
           title?: string
           transcript_gcs_path?: string | null
+          transcription_text?: string | null
           updated_at?: string
           user_id: string
         }
@@ -359,6 +365,8 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           gemini_file_uri?: string | null
+          gemini_transcribe_attempts?: number
+          gemini_transcribe_started_at?: string | null
           id?: string
           participants?: Json | null
           processing_error?: string | null
@@ -369,6 +377,7 @@ export type Database = {
           summary?: string | null
           title?: string
           transcript_gcs_path?: string | null
+          transcription_text?: string | null
           updated_at?: string
           user_id?: string
         }
