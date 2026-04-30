@@ -116,17 +116,6 @@ serve(async (req) => {
 
   console.log(`[poller] tick chain=${chainCount}`);
 
-  // Single-flight via advisory lock so two pollers can't run at once.
-  // Lock key: arbitrary stable int unique to this worker.
-  const LOCK_KEY = 73_842_119;
-  const { data: lockData } = await supabase.rpc("pg_try_advisory_lock" as any, { key: LOCK_KEY }).catch(() => ({ data: null }));
-  // pg_try_advisory_lock isn't exposed via PostgREST by default, so fall back to a SELECT
-  // using a direct SQL query through the supabase-js .rpc fallback. If the RPC doesn't exist
-  // (it likely doesn't), we use a "manual lock" via a marker row instead — see below.
-  // For simplicity here we skip the pg lock and rely on the chainCount + idempotent updates
-  // (the work is naturally idempotent because we only act on rows in specific stuck states).
-  void lockData;
-
   try {
     const cutoff = new Date(Date.now() - STUCK_AFTER_SECONDS * 1000).toISOString();
 
