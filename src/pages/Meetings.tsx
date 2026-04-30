@@ -429,6 +429,17 @@ const Meetings = () => {
           processing_error: (m as any).processing_error || null,
         }))
       );
+
+      // Safety net: if any meetings are still in-flight, ping the poller
+      // so it picks back up if its chain ever died.
+      const inFlight = data.some((m: any) =>
+        m.processing_status === 'transcribing' || m.processing_status === 'summarizing'
+      );
+      if (inFlight) {
+        supabase.functions
+          .invoke('focusos-poll-stuck-meetings', { body: { chainCount: 0 } })
+          .catch((e) => console.warn('arm-on-load poller invoke failed:', e?.message));
+      }
     }
     setLoading(false);
   };
@@ -1010,9 +1021,22 @@ const Meetings = () => {
             {meetings.map(meeting => {
               const project = projects.find(p => p.id === meeting.project_id);
               const updatedAt = new Date(meeting.updated_at || meeting.created_at).getTime();
-              const isStale = (Date.now() - updatedAt) > 5 * 60 * 1000; // 5 minutes
-              const isProcessing = meeting.processing_status && meeting.processing_status !== 'done' && meeting.processing_status !== 'error' && !isStale;
-              const hasError = meeting.processing_status === 'error' || (isStale && meeting.processing_status !== 'done');
+              // Only mark "Failed" when the backend has explicitly set status to error.
+              // Stuck rows (no recent update) stay as "Processing" — the poller will retry
+              // up to 3 times before flipping the status to error.
+              const hasError = meeting.processing_status === 'error';
+              const isProcessing =
+                !!meeting.processing_status &&
+                meeting.processing_status !== 'done' &&
+                meeting.processing_status !== 'error';
+              const minutesSinceUpdate = Math.floor((Date.now() - updatedAt) / 60000);
+              const isLong = isProcessing && minutesSinceUpdate >= 2;
+              const processingLabel =
+                meeting.processing_status === 'summarizing'
+                  ? 'Summarizing'
+                  : meeting.processing_status === 'transcribing'
+                    ? (isLong ? `Transcribing (${minutesSinceUpdate}m)` : 'Transcribing')
+                    : 'Processing';
               return (
                 <Card
                   key={meeting.id}
@@ -1031,13 +1055,21 @@ const Meetings = () => {
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold truncate">{meeting.title}</h3>
                           {isProcessing && (
-                            <Badge variant="secondary" className="text-xs shrink-0 gap-1">
+                            <Badge
+                              variant="secondary"
+                              className={`text-xs shrink-0 gap-1 ${isLong ? 'bg-amber-500/15 text-amber-600 border-amber-500/30' : ''}`}
+                              title={isLong ? 'Transcription is taking longer than usual. Will auto-retry up to 3 times.' : undefined}
+                            >
                               <Loader2 className="h-3 w-3 animate-spin" />
-                              Processing
+                              {processingLabel}
                             </Badge>
                           )}
                           {hasError && (
-                            <Badge variant="destructive" className="text-xs shrink-0">
+                            <Badge
+                              variant="destructive"
+                              className="text-xs shrink-0"
+                              title={meeting.processing_error || 'Processing failed'}
+                            >
                               Failed
                             </Badge>
                           )}
