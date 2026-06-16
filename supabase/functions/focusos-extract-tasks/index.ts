@@ -103,7 +103,7 @@ Special rules:
         };
 
     const body = {
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-2.5-flash",
       contents: [
         { role: "user", parts: [{ text: systemPrompt + "\n\n" + transcription }] }
       ],
@@ -126,7 +126,7 @@ Special rules:
       }
     };
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
