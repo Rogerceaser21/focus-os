@@ -317,6 +317,42 @@ export type Database = {
         }
         Relationships: []
       }
+      focusos_google_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          focusos_calendar_id: string | null
+          id: string
+          refresh_token: string
+          scope: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          focusos_calendar_id?: string | null
+          id?: string
+          refresh_token: string
+          scope: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          focusos_calendar_id?: string | null
+          id?: string
+          refresh_token?: string
+          scope?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       focusos_meetings: {
         Row: {
           action_items: Json | null
@@ -325,6 +361,7 @@ export type Database = {
           gemini_file_uri: string | null
           gemini_transcribe_attempts: number
           gemini_transcribe_started_at: string | null
+          google_calendar_event_id: string | null
           id: string
           participants: Json | null
           processing_error: string | null
@@ -346,6 +383,7 @@ export type Database = {
           gemini_file_uri?: string | null
           gemini_transcribe_attempts?: number
           gemini_transcribe_started_at?: string | null
+          google_calendar_event_id?: string | null
           id?: string
           participants?: Json | null
           processing_error?: string | null
@@ -367,6 +405,7 @@ export type Database = {
           gemini_file_uri?: string | null
           gemini_transcribe_attempts?: number
           gemini_transcribe_started_at?: string | null
+          google_calendar_event_id?: string | null
           id?: string
           participants?: Json | null
           processing_error?: string | null
@@ -584,6 +623,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           end_date: string | null
+          google_calendar_event_id: string | null
           id: string
           images: Json | null
           meeting_id: string | null
@@ -609,6 +649,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           end_date?: string | null
+          google_calendar_event_id?: string | null
           id?: string
           images?: Json | null
           meeting_id?: string | null
@@ -634,6 +675,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           end_date?: string | null
+          google_calendar_event_id?: string | null
           id?: string
           images?: Json | null
           meeting_id?: string | null
