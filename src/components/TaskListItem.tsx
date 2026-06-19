@@ -21,6 +21,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ShareStatusPopover } from '@/components/ShareStatusPopover';
+import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -774,6 +775,14 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   <Share2 className="w-3 h-3" />
                 </button>
 
+              {!task.assignedToEmail && (
+                <GoogleCalendarButton
+                  taskId={task.id}
+                  synced={!!task.googleCalendarEventId}
+                  onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
+                />
+              )}
+
               {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
                 <ShareStatusPopover
                   recipients={task.sharedRecipients}
@@ -1080,6 +1089,14 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 >
                   <Share2 className="w-4 h-4" />
                 </button>
+
+              {!task.assignedToEmail && (
+                <GoogleCalendarButton
+                  taskId={task.id}
+                  synced={!!task.googleCalendarEventId}
+                  onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
+                />
+              )}
 
               {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
                 <ShareStatusPopover
