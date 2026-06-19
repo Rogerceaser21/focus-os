@@ -128,52 +128,36 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Authorization: caller is the target OR there's an accepted share relationship between them
+    // Resolve the calendar ID we'll query:
+    //   - self: "primary" via the caller's own token
+    //   - other: the target's email, queried with the CALLER's token so
+    //     Google Workspace sharing rules decide visibility (just like
+    //     calendar.google.com does).
+    let calendarId = "primary";
     if (tgt !== callerId) {
-      const { data: shared } = await admin
-        .from("focusos_shared_items")
-        .select("id")
-        .or(`and(sender_user_id.eq.${callerId},recipient_user_id.eq.${tgt}),and(sender_user_id.eq.${tgt},recipient_user_id.eq.${callerId})`)
-        .eq("status", "accepted")
-        .limit(1);
-      // Also allow if they share a collaborative project
-      let hasAccess = !!(shared && shared.length > 0);
-      if (!hasAccess) {
-        const { data: coMembers } = await admin
-          .from("focusos_project_members")
-          .select("project_id")
-          .eq("user_id", callerId)
-          .eq("status", "accepted");
-        const projectIds = (coMembers ?? []).map((r: any) => r.project_id);
-        if (projectIds.length) {
-          const { data: tgtMember } = await admin
-            .from("focusos_project_members")
-            .select("id")
-            .eq("user_id", tgt)
-            .eq("status", "accepted")
-            .in("project_id", projectIds)
-            .limit(1);
-          hasAccess = !!(tgtMember && tgtMember.length > 0);
-        }
-      }
-      if (!hasAccess) {
-        // Graceful: don't fail the whole UI — just report no visibility.
-        return new Response(JSON.stringify({ connected: false, reason: "no_access" }), {
+      const { data: targetProfile } = await admin
+        .from("focusos_profiles")
+        .select("user_email")
+        .eq("user_id", tgt)
+        .maybeSingle();
+      if (!targetProfile?.user_email) {
+        return new Response(JSON.stringify({ connected: false, reason: "no_email" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      calendarId = targetProfile.user_email;
     }
 
-    const { data: tokenRow } = await admin
+    // Always use the CALLER's Google token.
+    const { data: callerTokenRow } = await admin
       .from("focusos_google_tokens").select("*")
-      .eq("user_id", tgt).maybeSingle();
-    if (!tokenRow) {
-      return new Response(JSON.stringify({ connected: false }), {
+      .eq("user_id", callerId).maybeSingle();
+    if (!callerTokenRow) {
+      return new Response(JSON.stringify({ connected: false, reason: "caller_not_connected" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const accessToken = await refreshIfNeeded(admin, tokenRow as TokenRow);
+    const accessToken = await refreshIfNeeded(admin, callerTokenRow as TokenRow);
 
     // Build day window in target timezone. Use UTC instants spanning the day in tz.
     // Simpler: query the entire 36-hour span around the date and trim later in tz.
@@ -190,13 +174,21 @@ serve(async (req) => {
         timeMin,
         timeMax,
         timeZone,
-        items: [{ id: "primary" }],
+        items: [{ id: calendarId }],
       }),
     });
     const fbJson = await fbRes.json();
     if (!fbRes.ok) throw new Error(`freeBusy failed: ${JSON.stringify(fbJson)}`);
 
-    const rawBusy: { start: string; end: string }[] = fbJson.calendars?.primary?.busy ?? [];
+    const calBlock = fbJson.calendars?.[calendarId];
+    // Workspace sharing denial / unknown calendar surfaces in `errors`
+    if (calBlock?.errors?.length) {
+      const reason = calBlock.errors[0]?.reason || "not_visible";
+      return new Response(JSON.stringify({ connected: false, reason }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const rawBusy: { start: string; end: string }[] = calBlock?.busy ?? [];
 
     // Compute the working window in the target timezone for the requested date.
     // Use Intl to figure out the UTC offset for noon on that day in tz.
