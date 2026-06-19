@@ -136,9 +136,30 @@ serve(async (req) => {
         .or(`and(sender_user_id.eq.${callerId},recipient_user_id.eq.${tgt}),and(sender_user_id.eq.${tgt},recipient_user_id.eq.${callerId})`)
         .eq("status", "accepted")
         .limit(1);
-      if (!shared || shared.length === 0) {
-        return new Response(JSON.stringify({ error: "Not authorized to view this user's availability" }), {
-          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Also allow if they share a collaborative project
+      let hasAccess = !!(shared && shared.length > 0);
+      if (!hasAccess) {
+        const { data: coMembers } = await admin
+          .from("focusos_project_members")
+          .select("project_id")
+          .eq("user_id", callerId)
+          .eq("status", "accepted");
+        const projectIds = (coMembers ?? []).map((r: any) => r.project_id);
+        if (projectIds.length) {
+          const { data: tgtMember } = await admin
+            .from("focusos_project_members")
+            .select("id")
+            .eq("user_id", tgt)
+            .eq("status", "accepted")
+            .in("project_id", projectIds)
+            .limit(1);
+          hasAccess = !!(tgtMember && tgtMember.length > 0);
+        }
+      }
+      if (!hasAccess) {
+        // Graceful: don't fail the whole UI — just report no visibility.
+        return new Response(JSON.stringify({ connected: false, reason: "no_access" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
