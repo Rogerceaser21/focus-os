@@ -1,6 +1,9 @@
 import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
+import { CalendarPlus, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addMonths } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -20,6 +23,16 @@ interface GanttChartProps {
 }
 
 export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask, onOpenAddTask }: GanttChartProps) => {
+  const { isConnected, push, busy } = useGoogleCalendar();
+  const [syncingAll, setSyncingAll] = useState(false);
+
+  const syncAllToGCal = async () => {
+    const ids = tasks.filter(t => t.startDate || t.endDate || t.dueDate).map(t => t.id);
+    if (ids.length === 0) return;
+    setSyncingAll(true);
+    await push({ taskIds: ids, action: 'sync' });
+    setSyncingAll(false);
+  };
   const isMobile = useIsMobile();
   const [existingSheetOpen, setExistingSheetOpen] = useState(false);
 
