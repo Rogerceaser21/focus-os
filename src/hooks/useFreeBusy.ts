@@ -2,7 +2,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type FreeBusyResponse =
-  | { connected: false }
+  | { connected: false; reason?: string }
   | {
       connected: true;
       date: string;
