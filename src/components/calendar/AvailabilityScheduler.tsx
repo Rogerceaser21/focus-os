@@ -53,6 +53,20 @@ export function AvailabilityScheduler({
     scrollRef.current.scrollTop = Math.max(0, target);
   }, [dateStr, workdayStartHour, gridStartHour, data?.connected]);
 
+  // Day-grid math (full scrollable range) — must run before any early return to keep hook order stable
+  const totalHours = gridEndHour - gridStartHour;
+  const gridHeight = totalHours * HOUR_HEIGHT;
+
+  const gridAnchor = useMemo(() => {
+    if (data && data.connected) {
+      const ws = parseISO(data.windowStart);
+      return new Date(ws.getTime() - (workdayStartHour - gridStartHour) * 3_600_000);
+    }
+    const anchor = new Date(day);
+    anchor.setHours(gridStartHour, 0, 0, 0);
+    return anchor;
+  }, [data, day, gridStartHour, workdayStartHour]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">
@@ -79,22 +93,6 @@ export function AvailabilityScheduler({
       </div>
     );
   }
-
-  // Day-grid math (full scrollable range)
-  const totalHours = gridEndHour - gridStartHour;
-  const gridHeight = totalHours * HOUR_HEIGHT;
-
-  // Anchor of the grid (gridStartHour local time) for that day
-  const gridAnchor = useMemo(() => {
-    if (data?.connected) {
-      const ws = parseISO(data.windowStart);
-      // windowStart corresponds to workdayStartHour local; subtract diff to get gridStartHour
-      return new Date(ws.getTime() - (workdayStartHour - gridStartHour) * 3_600_000);
-    }
-    const anchor = new Date(day);
-    anchor.setHours(gridStartHour, 0, 0, 0);
-    return anchor;
-  }, [data, day, gridStartHour, workdayStartHour]);
 
   const busyBlocks = (data?.connected ? data.busy : []).map((b) => {
     const s = parseISO(b.start);
