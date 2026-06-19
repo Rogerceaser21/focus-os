@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, Mail, Trash2 } from 'lucide-react';
+import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { HandToAI } from '@/components/icons/HandToAI';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
