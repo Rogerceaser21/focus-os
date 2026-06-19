@@ -124,6 +124,18 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
                   <Plus className="h-3 w-3" />
                   New
                 </Button>
+                {isConnected && monthIndex === 0 && (
+                  <Button
+                    variant="outline" size="sm"
+                    className="gap-1 text-xs h-8"
+                    disabled={syncingAll || busy}
+                    onClick={syncAllToGCal}
+                    title="Sync all scheduled tasks to your Focus OS Google Calendar"
+                  >
+                    {syncingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <CalendarPlus className="h-3 w-3" />}
+                    Sync to Google
+                  </Button>
+                )}
                 {isMobile ? (
                   <>
                     <Button variant="outline" size="sm" className="gap-1 text-xs h-8 border-accent border-2" disabled={tasksWithoutDates.length === 0} onClick={() => setExistingSheetOpen(true)}>
