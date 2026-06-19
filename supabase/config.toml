@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.focusos-poll-stuck-meetings]
 verify_jwt = false
+
+[functions.focusos-google-oauth-callback]
+verify_jwt = false
