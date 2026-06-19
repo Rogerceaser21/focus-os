@@ -25,17 +25,33 @@ interface Props {
 const HOUR_HEIGHT = 44; // px per hour (touch-friendly)
 
 export function AvailabilityScheduler({
-  targetUserId, targetLabel = "this calendar", initialDate, durationMinutes, timeZone, onPick,
+  targetUserId, targetLabel = "this calendar", value, initialDate, durationMinutes, timeZone, onPick, onDateChange,
+  gridStartHour = 6, gridEndHour = 22, workdayStartHour = 7, workdayEndHour = 18,
 }: Props) {
   const tz = timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const [day, setDay] = useState<Date>(initialDate ?? new Date());
+  const [internalDay, setInternalDay] = useState<Date>(initialDate ?? new Date());
+  const day = value ?? internalDay;
+  const setDay = (d: Date) => {
+    if (!value) setInternalDay(d);
+    onDateChange?.(d);
+  };
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const dateStr = toLocalDateString(day, tz);
 
   const { data, isLoading, error, refetch, isFetching } = useFreeBusy({
     targetUserId, date: dateStr, timeZone: tz, durationMinutes,
+    workdayStartHour, workdayEndHour,
   });
 
   const isToday = sameLocalDay(day, new Date(), tz);
+
+  // Auto-scroll to working window start on mount/day change
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const target = (workdayStartHour - gridStartHour) * HOUR_HEIGHT - 8;
+    scrollRef.current.scrollTop = Math.max(0, target);
+  }, [dateStr, workdayStartHour, gridStartHour, data?.connected]);
 
   if (isLoading) {
     return (
