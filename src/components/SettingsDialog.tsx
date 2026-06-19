@@ -22,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { UserPreferences } from '@/hooks/useUserPreferences';
 import { PROVIDERS, AIProvider, ImageMode } from '@/lib/aiHandoff';
+import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 
 interface Project {
   id: string;
@@ -346,6 +347,11 @@ export default function SettingsDialog({
                 </div>
               </RadioGroup>
             </div>
+
+            <Separator />
+
+            {/* Integrations */}
+            <GoogleCalendarIntegration />
           </div>
         )}
 
