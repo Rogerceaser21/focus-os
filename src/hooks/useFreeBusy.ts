@@ -22,16 +22,18 @@ interface Args {
   timeZone: string;
   durationMinutes?: number;
   enabled?: boolean;
+  workdayStartHour?: number;
+  workdayEndHour?: number;
 }
 
-export function useFreeBusy({ targetUserId, date, timeZone, durationMinutes = 30, enabled = true }: Args) {
+export function useFreeBusy({ targetUserId, date, timeZone, durationMinutes = 30, enabled = true, workdayStartHour = 7, workdayEndHour = 18 }: Args) {
   return useQuery<FreeBusyResponse>({
-    queryKey: ["freebusy", targetUserId ?? "self", date, timeZone, durationMinutes],
+    queryKey: ["freebusy", targetUserId ?? "self", date, timeZone, durationMinutes, workdayStartHour, workdayEndHour],
     enabled: enabled && !!date && !!timeZone,
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("focusos-calendar-freebusy", {
-        body: { targetUserId, date, timeZone, durationMinutes },
+        body: { targetUserId, date, timeZone, durationMinutes, workdayStartHour, workdayEndHour },
       });
       if (error) throw error;
       return data as FreeBusyResponse;

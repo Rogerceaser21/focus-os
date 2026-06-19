@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { CalendarPlus, CalendarCheck, Loader2, CalendarIcon, Clock } from 'lucide-react';
+import { CalendarPlus, CalendarCheck, Loader2, Clock } from 'lucide-react';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { useState } from 'react';
 import { Task } from '@/types/task';
@@ -7,10 +7,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import { AvailabilityScheduler } from '@/components/calendar/AvailabilityScheduler';
 
 interface Props {
@@ -108,7 +104,7 @@ export function GoogleCalendarButton({
       </Button>
       {task && (
         <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-          <DialogContent onClick={(e) => e.stopPropagation()} className="sm:max-w-md">
+          <DialogContent onClick={(e) => e.stopPropagation()} className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add to Google Calendar</DialogTitle>
             </DialogHeader>
@@ -117,52 +113,52 @@ export function GoogleCalendarButton({
                 <Label>Task</Label>
                 <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium">{task.title}</div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn('w-full justify-start gap-2 text-left font-normal', !date && 'text-muted-foreground')}>
-                        <CalendarIcon className="h-4 w-4" />
-                        {date ? format(date, 'MMM d, yyyy') : 'Pick date'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={date} onSelect={setDate} initialFocus className="p-3 pointer-events-auto" />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="flex items-end gap-2 rounded-md border border-border px-3 py-2">
-                  <Switch checked={allDay} onCheckedChange={setAllDay} />
-                  <Label className="pb-0.5">All day</Label>
-                </div>
+              <div className="flex items-center justify-end gap-2 rounded-md border border-border px-3 py-2">
+                <Switch id="all-day" checked={allDay} onCheckedChange={setAllDay} />
+                <Label htmlFor="all-day" className="pb-0">All day</Label>
               </div>
-              {!allDay && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Start time</Label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="pl-9" />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Duration minutes</Label>
-                    <Input type="number" min="15" step="15" value={duration} onChange={(e) => setDuration(e.target.value)} />
-                  </div>
-                </div>
-              )}
               {!allDay && date && (
                 <div className="rounded-md border border-border p-3">
-                  <div className="text-xs font-medium mb-2">Your calendar — pick a free slot</div>
                   <AvailabilityScheduler
-                    initialDate={date}
+                    value={date}
+                    onDateChange={setDate}
                     durationMinutes={Math.max(15, Number(duration) || 30)}
                     onPick={(start) => {
                       setDate(start);
                       setStartTime(toTimeValue(start));
                     }}
                   />
+                </div>
+              )}
+              {!allDay && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Start time</Label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="pl-9" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Duration (min)</Label>
+                      <Input type="number" min="15" step="15" value={duration} onChange={(e) => setDuration(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[15, 30, 45, 60, 90].map((m) => (
+                      <Button
+                        key={m}
+                        type="button"
+                        size="sm"
+                        variant={String(m) === duration ? 'default' : 'outline'}
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setDuration(String(m))}
+                      >
+                        {m}m
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">
