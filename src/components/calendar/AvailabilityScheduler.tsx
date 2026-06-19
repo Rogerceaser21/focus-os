@@ -1,20 +1,28 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format, addDays, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Loader2, CalendarX } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, CalendarX, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useFreeBusy } from "@/hooks/useFreeBusy";
 import { cn } from "@/lib/utils";
 
 interface Props {
   targetUserId?: string;          // undefined = own calendar
-  targetLabel?: string;           // "your" or "Ava's"
+  targetLabel?: string;
+  value?: Date;                   // controlled current day (optional)
   initialDate?: Date;
   durationMinutes: number;
   timeZone?: string;
   onPick: (start: Date, end: Date) => void;
+  onDateChange?: (date: Date) => void;
+  gridStartHour?: number;         // scrollable range start
+  gridEndHour?: number;           // scrollable range end
+  workdayStartHour?: number;      // working window highlight
+  workdayEndHour?: number;
 }
 
-const HOUR_HEIGHT = 36; // px per hour
+const HOUR_HEIGHT = 44; // px per hour (touch-friendly)
 
 export function AvailabilityScheduler({
   targetUserId, targetLabel = "this calendar", initialDate, durationMinutes, timeZone, onPick,
