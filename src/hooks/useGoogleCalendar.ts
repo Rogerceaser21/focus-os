@@ -10,6 +10,15 @@ interface PushArgs {
   sendInvites?: boolean;
   recipientUserId?: string;
   silent?: boolean;
+  calendarPlacement?: {
+    allDay: boolean;
+    date?: string;
+    startDateTime?: string;
+    endDateTime?: string;
+    timeZone?: string;
+  };
+  title?: string;
+  description?: string;
 }
 
 export function useGoogleCalendar() {
