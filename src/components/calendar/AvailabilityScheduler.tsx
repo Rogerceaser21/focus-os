@@ -165,10 +165,22 @@ export function AvailabilityScheduler({
         </Button>
       </div>
 
-      {notConnected && (
+      {notConnected && !noAccess && (
         <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground">
           <CalendarX className="h-3.5 w-3.5" />
           <span>{targetLabel}'s Google Calendar isn't connected — pick a time manually; they'll get an email invite.</span>
+        </div>
+      )}
+      {noAccess && (
+        <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+          <CalendarX className="h-3.5 w-3.5" />
+          <span>You don't have access to {targetLabel}'s calendar — pick a time and they'll get an email invite.</span>
+        </div>
+      )}
+      {error && (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5 text-[11px] text-destructive">
+          <span>Could not load availability.</span>
+          <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={(e) => { stop(e); refetch(); }}>Retry</Button>
         </div>
       )}
 
@@ -178,6 +190,11 @@ export function AvailabilityScheduler({
         className="relative rounded-md border border-border bg-muted/10 overflow-y-auto"
         style={{ maxHeight: 360 }}
       >
+        {isLoading && !data && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/60 z-20 text-muted-foreground text-xs">
+            <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Loading availability…
+          </div>
+        )}
         <div
           className="relative cursor-pointer select-none"
           style={{ height: gridHeight }}
