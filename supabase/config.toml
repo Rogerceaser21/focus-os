@@ -41,6 +41,3 @@ verify_jwt = false
 
 [functions.focusos-mcp]
 verify_jwt = false
-
-[functions.focusos-api-tokens]
-verify_jwt = true
