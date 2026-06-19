@@ -290,6 +290,7 @@ const Index = () => {
     completedByEmail: dbTask.completed_by_email ?? undefined,
     assignedToEmail: dbTask.assigned_to_email ?? undefined,
     changeRequestMessage: dbTask.change_request_message ?? undefined,
+    googleCalendarEventId: dbTask.google_calendar_event_id ?? undefined,
   }), []);
 
   // Fetch projects (lightweight - just names for sidebar)
