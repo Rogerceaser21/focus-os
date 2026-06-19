@@ -6,6 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Where to send the user when the OAuth flow finishes.
+// Override with APP_BASE_URL secret if you need a different host (e.g. preview vs prod).
+const APP_BASE_URL = Deno.env.get("APP_BASE_URL") ?? "https://focusos.tech";
+
 async function verifyState(state: string, secret: string): Promise<string | null> {
   const [userId, sigB64] = state.split(".");
   if (!userId || !sigB64) return null;
@@ -20,22 +24,11 @@ async function verifyState(state: string, secret: string): Promise<string | null
   return ok ? userId : null;
 }
 
-function htmlResponse(body: string, status = 200) {
-  return new Response(body, { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
-}
-
-function closingPage(success: boolean, message: string, appUrl?: string) {
-  const safe = message.replace(/</g, "&lt;");
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Google Calendar</title>
-<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0e1117;color:#e5e7eb;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;}
-.card{max-width:420px;background:#1a1f2e;border:1px solid #2d3548;border-radius:12px;padding:32px;}
-h1{margin:0 0 12px;font-size:20px;color:${success ? "#10b981" : "#ef4444"};}
-p{margin:0 0 16px;font-size:14px;color:#9ca3af;line-height:1.5;}
-a{color:#60a5fa;text-decoration:none;}</style></head>
-<body><div class="card"><h1>${success ? "✓ Google Calendar Connected" : "Connection Failed"}</h1>
-<p>${safe}</p>${appUrl ? `<p><a href="${appUrl}">Return to Focus OS</a></p>` : ""}
-<p style="font-size:12px;">You can close this window.</p></div>
-<script>setTimeout(()=>{try{window.close();}catch(e){}},2500);</script></body></html>`;
+function redirectResponse(success: boolean, message?: string) {
+  const params = new URLSearchParams({ status: success ? "success" : "error" });
+  if (message) params.set("message", message);
+  const url = `${APP_BASE_URL}/google-connected?${params.toString()}`;
+  return new Response(null, { status: 302, headers: { Location: url } });
 }
 
 serve(async (req) => {
@@ -46,13 +39,13 @@ serve(async (req) => {
   const state = url.searchParams.get("state");
   const errParam = url.searchParams.get("error");
 
-  if (errParam) return htmlResponse(closingPage(false, `Google returned: ${errParam}`), 400);
-  if (!code || !state) return htmlResponse(closingPage(false, "Missing code or state."), 400);
+  if (errParam) return redirectResponse(false, `Google returned: ${errParam}`);
+  if (!code || !state) return redirectResponse(false, "Missing code or state.");
 
   try {
     const serviceSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const userId = await verifyState(state, serviceSecret);
-    if (!userId) return htmlResponse(closingPage(false, "Invalid state token."), 400);
+    if (!userId) return redirectResponse(false, "Invalid state token.");
 
     const clientId = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID")!;
     const clientSecret = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET")!;
@@ -73,7 +66,7 @@ serve(async (req) => {
     const tokenJson = await tokenRes.json();
     if (!tokenRes.ok) {
       console.error("token exchange failed", tokenJson);
-      return htmlResponse(closingPage(false, tokenJson.error_description || "Token exchange failed."), 400);
+      return redirectResponse(false, tokenJson.error_description || "Token exchange failed.");
     }
 
     const accessToken: string = tokenJson.access_token;
@@ -98,7 +91,7 @@ serve(async (req) => {
       finalRefreshToken = existing?.refresh_token;
     }
     if (!finalRefreshToken) {
-      return htmlResponse(closingPage(false, "No refresh token returned. Please revoke access in your Google account and try again."), 400);
+      return redirectResponse(false, "No refresh token returned. Revoke access in your Google account and try again.");
     }
 
     // Create or find dedicated "Focus OS" calendar
@@ -146,12 +139,12 @@ serve(async (req) => {
 
     if (upsertErr) {
       console.error("token upsert error", upsertErr);
-      return htmlResponse(closingPage(false, "Failed to save tokens."), 500);
+      return redirectResponse(false, "Failed to save tokens.");
     }
 
-    return htmlResponse(closingPage(true, "Your Google Calendar is now connected to Focus OS."));
+    return redirectResponse(true);
   } catch (e) {
     console.error("oauth-callback error", e);
-    return htmlResponse(closingPage(false, String(e)), 500);
+    return redirectResponse(false, String(e));
   }
 });
