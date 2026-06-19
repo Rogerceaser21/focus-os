@@ -55,6 +55,7 @@ import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
 import { ShareStatusPopover, SharedRecipient } from '@/components/ShareStatusPopover';
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
+import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MeetingsTour } from '@/components/MeetingsTour';
@@ -1145,6 +1146,17 @@ const MeetingDetail = () => {
                     <Share2 className="h-4 w-4" />
                     Share Meeting
                   </Button>
+                  {meeting && !isDemo && (
+                    <GoogleCalendarButton
+                      meetingId={meeting.id}
+                      synced={!!(meeting as any).google_calendar_event_id}
+                      variant="outline"
+                      showLabel
+                      onChange={(synced) =>
+                        setMeeting({ ...meeting, google_calendar_event_id: synced ? 'pending' : null } as any)
+                      }
+                    />
+                  )}
                 </div>
                 {meetingSharedWith.length > 0 && (
                   <ShareStatusPopover recipients={meetingSharedWith} itemType="Meeting" />

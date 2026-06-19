@@ -25,6 +25,7 @@ export interface Task {
   changeRequestMessage?: string;
   sharedWithName?: string;
   sharedRecipients?: Array<{ email: string; name: string; status: string; sharedItemId?: string }>;
+  googleCalendarEventId?: string;
 }
 
 export interface Project {

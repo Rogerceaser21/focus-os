@@ -21,6 +21,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ShareStatusPopover } from '@/components/ShareStatusPopover';
+import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -373,6 +374,17 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
             >
               <Share2 className="h-3 w-3" />
             </Button>
+          {!task.assignedToEmail && (
+            <GoogleCalendarButton
+              taskId={task.id}
+              synced={!!task.googleCalendarEventId}
+              onChange={(synced) => {
+                // Optimistic local update — parent fetches will reconcile
+                (task as any).googleCalendarEventId = synced ? 'pending' : undefined;
+                onUpdate({ ...task });
+              }}
+            />
+          )}
           {onDeleteTask && !task.assignedToEmail && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
