@@ -88,7 +88,9 @@ export function AvailabilityScheduler({
   }
 
   const notConnected = data && !data.connected;
-  const noAccess = notConnected && (data as any).reason === "no_access";
+  const reason = notConnected ? (data as any).reason : undefined;
+  const noAccess = reason && reason !== undefined && reason !== "caller_not_connected";
+  const callerNotConnected = reason === "caller_not_connected";
 
   const busyBlocks = (data && data.connected ? data.busy : []).map((b) => {
     const s = parseISO(b.start);
@@ -174,7 +176,13 @@ export function AvailabilityScheduler({
       {noAccess && (
         <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground">
           <CalendarX className="h-3.5 w-3.5" />
-          <span>You don't have access to {targetLabel}'s calendar — pick a time and they'll get an email invite.</span>
+          <span>Can't read {targetLabel}'s calendar (Workspace sharing may be restricted) — pick a time and they'll get an email invite.</span>
+        </div>
+      )}
+      {callerNotConnected && (
+        <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+          <CalendarX className="h-3.5 w-3.5" />
+          <span>Connect your Google Calendar in Settings to see availability.</span>
         </div>
       )}
       {error && (
