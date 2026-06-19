@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { CalendarPlus, CalendarCheck, Loader2, CalendarIcon, Clock } from 'lucide-react';
+import { CalendarPlus, CalendarCheck, Loader2, Clock } from 'lucide-react';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { useState } from 'react';
 import { Task } from '@/types/task';
@@ -7,10 +7,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import { AvailabilityScheduler } from '@/components/calendar/AvailabilityScheduler';
 
 interface Props {
