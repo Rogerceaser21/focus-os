@@ -85,11 +85,27 @@ export const ProjectSidebar = ({
   const setIsCreateOpen = onCreateDialogOpenChange || setIsCreateOpenInternal;
 
   useEffect(() => {
+    if (!userId) return;
     fetchProjects();
     fetchMeetings();
     fetchSharedItems();
     fetchProjectInvitations();
-  }, [projectRefreshTrigger]);
+  }, [projectRefreshTrigger, userId]);
+
+  // Recover from cold-start auth races (mobile Safari): refetch projects when
+  // Supabase finishes restoring/refreshing the session after initial mount.
+  useEffect(() => {
+    if (!userId) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+        fetchProjects();
+        fetchMeetings();
+        fetchSharedItems();
+        fetchProjectInvitations();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [userId]);
 
   // Supabase Realtime: live shared items for current user (as recipient)
   useEffect(() => {
@@ -224,12 +240,23 @@ export const ProjectSidebar = ({
   }, [sharedItems, userId]);
 
   const fetchProjects = async () => {
-    const { data, error } = await (supabase as any)
-      .from('focusos_projects')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Retry with backoff to survive cold-start auth races on mobile Safari
+    const delays = [0, 300, 800, 1500];
+    let data: any = null;
+    let error: any = null;
+    for (let i = 0; i < delays.length; i++) {
+      if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
+      const res = await (supabase as any)
+        .from('focusos_projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+      data = res.data;
+      error = res.error;
+      if (!error) break;
+    }
 
     if (error) {
+      console.error('[ProjectSidebar] fetchProjects failed after retries:', error);
       toast.error('Failed to load projects');
       return;
     }
