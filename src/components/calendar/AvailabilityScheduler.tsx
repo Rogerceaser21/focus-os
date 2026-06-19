@@ -84,23 +84,11 @@ export function AvailabilityScheduler({
   }, [data, day, gridStartHour, workdayStartHour]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">
-        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading availability…
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-2 py-6 text-center">
-        <p className="text-sm text-destructive">Could not load availability.</p>
-        <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
-      </div>
-    );
+    // First-time load only — keep card mounted, show inline spinner.
   }
 
   const notConnected = data && !data.connected;
+  const noAccess = notConnected && (data as any).reason === "no_access";
 
   const busyBlocks = (data && data.connected ? data.busy : []).map((b) => {
     const s = parseISO(b.start);
