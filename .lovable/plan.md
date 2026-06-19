@@ -60,3 +60,31 @@ Behavior:
 ---
 
 **Awaiting your explicit approval before I touch any code.**
+
+---
+
+## Calendar invite + availability requirement (saved reference)
+
+User expectation: calendar scheduling must not be a blind date/time picker. It should show the target person's Google Calendar availability directly in Focus OS before placement.
+
+Reference mockup from user: ASCII-style day view showing busy blocks, free slots, and an inline "Schedule task here →" affordance.
+
+### Required behavior
+
+- When adding a task, meeting, or shared project item to someone’s Google Calendar, the user should be able to see availability for the relevant calendar owner/recipient.
+- The UI should surface free windows such as `10:00–11:30`, `14:00–16:00`, etc., not force the sender to manually inspect Google Calendar.
+- The scheduling picker should include available-slot suggestions and make it obvious where the task/meeting/project invite will land.
+- For shared items, availability should be based on the recipient/assignee calendar when they have connected Google Calendar; otherwise use a clear fallback such as attendee invite / ICS / recipient not connected messaging.
+
+### Implementation direction to revisit
+
+1. Add backend support for Google Calendar FreeBusy lookup using per-user stored Google tokens.
+2. Add a scheduling dialog section that loads busy/free windows for the selected date and target recipient.
+3. Let the sender click a suggested free slot to populate start/end time.
+4. Keep manual date/time entry as fallback, but do not make it the only path.
+5. Apply this consistently to: task sharing, meeting sharing, project sharing, and direct task-to-calendar placement where relevant.
+
+### Not yet implemented
+
+This is a saved requirement/reference only. Do not code it without explicit user approval and a detailed implementation plan.
+
