@@ -377,6 +377,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
           {!task.assignedToEmail && (
             <GoogleCalendarButton
               taskId={task.id}
+              task={task}
               synced={!!task.googleCalendarEventId}
               onChange={(synced) => {
                 // Optimistic local update — parent fetches will reconcile
