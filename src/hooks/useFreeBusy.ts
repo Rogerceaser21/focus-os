@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type FreeBusyResponse =
@@ -31,6 +31,7 @@ export function useFreeBusy({ targetUserId, date, timeZone, durationMinutes = 30
     queryKey: ["freebusy", targetUserId ?? "self", date, timeZone, durationMinutes, workdayStartHour, workdayEndHour],
     enabled: enabled && !!date && !!timeZone,
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("focusos-calendar-freebusy", {
         body: { targetUserId, date, timeZone, durationMinutes, workdayStartHour, workdayEndHour },
