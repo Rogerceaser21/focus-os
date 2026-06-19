@@ -295,10 +295,21 @@ const Index = () => {
 
   // Fetch projects (lightweight - just names for sidebar)
   const fetchProjects = useCallback(async () => {
-    const { data, error } = await (supabase as any).from('focusos_projects').select('*').order('created_at', {
-      ascending: false
-    });
+    // Retry with backoff to survive cold-start auth races on mobile Safari
+    const delays = [0, 300, 800, 1500];
+    let data: any = null;
+    let error: any = null;
+    for (let i = 0; i < delays.length; i++) {
+      if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
+      const res = await (supabase as any).from('focusos_projects').select('*').order('created_at', {
+        ascending: false
+      });
+      data = res.data;
+      error = res.error;
+      if (!error) break;
+    }
     if (error) {
+      console.error('[Index] fetchProjects failed after retries:', error);
       toast.error('Failed to load projects');
       return;
     }
