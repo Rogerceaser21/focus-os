@@ -270,6 +270,7 @@ export const EditTaskDialog = ({
       </Button>
       <GoogleCalendarButton
         taskId={task.id}
+        task={{ ...task, title, description, priority, status, startDate, endDate, dueDate, projectId: selectedProjectId || undefined }}
         synced={!!task.googleCalendarEventId}
       />
       {onDeleteTask && !isReceivedSharedTask && !isCollaboratorOnProject && (

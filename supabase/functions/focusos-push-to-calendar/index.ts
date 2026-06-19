@@ -16,6 +16,14 @@ type TokenRow = {
   focusos_calendar_id: string | null;
 };
 
+type CalendarPlacement = {
+  allDay: boolean;
+  date?: string;
+  startDateTime?: string;
+  endDateTime?: string;
+  timeZone?: string;
+};
+
 async function refreshIfNeeded(admin: any, row: TokenRow): Promise<string> {
   const exp = new Date(row.expires_at).getTime();
   if (exp - Date.now() > 60_000) return row.access_token;
@@ -67,17 +75,41 @@ async function getOrCreateFocusosCalendar(admin: any, row: TokenRow, accessToken
   return calId!;
 }
 
-function taskToEvent(task: any, attendees?: string[]) {
+function taskToEvent(task: any, attendees?: string[], placement?: CalendarPlacement, overrides?: { title?: string; description?: string }) {
   const description = [
-    task.description ?? "",
+    overrides?.description ?? task.description ?? "",
     "",
     `— Open in Focus OS: ${APP_URL}/app`,
   ].join("\n");
 
+  if (placement) {
+    if (placement.allDay) {
+      if (!placement.date) throw new Error("Calendar date is required");
+      const [yyyy, mm, dd] = placement.date.split("-").map(Number);
+      const next = new Date(Date.UTC(yyyy, mm - 1, dd + 1));
+      const nextDate = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
+      return {
+        summary: overrides?.title ?? task.title,
+        description,
+        start: { date: placement.date },
+        end: { date: nextDate },
+        attendees: attendees?.map((email) => ({ email })),
+      };
+    }
+    if (!placement.startDateTime || !placement.endDateTime) throw new Error("Calendar start and end times are required");
+    return {
+      summary: overrides?.title ?? task.title,
+      description,
+      start: { dateTime: placement.startDateTime, timeZone: placement.timeZone },
+      end: { dateTime: placement.endDateTime, timeZone: placement.timeZone },
+      attendees: attendees?.map((email) => ({ email })),
+    };
+  }
+
   // Timed if start_date+end_date present, else all-day on due_date.
   if (task.start_date && task.end_date) {
     return {
-      summary: task.title,
+      summary: overrides?.title ?? task.title,
       description,
       start: { dateTime: new Date(task.start_date).toISOString() },
       end: { dateTime: new Date(task.end_date).toISOString() },
@@ -93,7 +125,7 @@ function taskToEvent(task: any, attendees?: string[]) {
   const nmm = String(next.getUTCMonth() + 1).padStart(2, "0");
   const ndd = String(next.getUTCDate()).padStart(2, "0");
   return {
-    summary: task.title,
+    summary: overrides?.title ?? task.title,
     description,
     start: { date: `${yyyy}-${mm}-${dd}` },
     end: { date: `${nyyyy}-${nmm}-${ndd}` },
@@ -165,6 +197,9 @@ serve(async (req) => {
       attendees = [],
       sendInvites = false,
       recipientUserId,
+      calendarPlacement,
+      title,
+      description,
     }: {
       taskIds?: string[];
       meetingIds?: string[];
@@ -172,12 +207,28 @@ serve(async (req) => {
       attendees?: string[];
       sendInvites?: boolean;
       recipientUserId?: string;
+      calendarPlacement?: CalendarPlacement;
+      title?: string;
+      description?: string;
     } = body ?? {};
 
     if (taskIds.length === 0 && meetingIds.length === 0) {
       return new Response(JSON.stringify({ error: "Provide taskIds or meetingIds" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    if (action === "sync" && taskIds.length === 1 && meetingIds.length === 0 && calendarPlacement) {
+      if (calendarPlacement.allDay && !calendarPlacement.date) {
+        return new Response(JSON.stringify({ error: "Calendar date is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!calendarPlacement.allDay && (!calendarPlacement.startDateTime || !calendarPlacement.endDateTime)) {
+        return new Response(JSON.stringify({ error: "Calendar start and end times are required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const admin = createClient(
@@ -238,7 +289,7 @@ serve(async (req) => {
             await admin.from("focusos_tasks").update({ google_calendar_event_id: null }).eq("id", t.id);
             results.push({ taskId: t.id, ok: true, action: "unsync" });
           } else {
-            const evt = taskToEvent(t, attendees);
+            const evt = taskToEvent(t, attendees, calendarPlacement, { title, description });
             if (t.google_calendar_event_id) {
               await gcalRequest("PATCH",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${t.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
