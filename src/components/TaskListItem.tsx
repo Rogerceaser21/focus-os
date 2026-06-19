@@ -487,6 +487,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
             <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               <GoogleCalendarButton
                 taskId={task.id}
+                task={task}
                 synced={!!task.googleCalendarEventId}
                 onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
               />
@@ -787,6 +788,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               {!task.assignedToEmail && (
                 <GoogleCalendarButton
                   taskId={task.id}
+                  task={task}
                   synced={!!task.googleCalendarEventId}
                   onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
                 />
@@ -1102,6 +1104,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               {!task.assignedToEmail && (
                 <GoogleCalendarButton
                   taskId={task.id}
+                  task={task}
                   synced={!!task.googleCalendarEventId}
                   onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
                 />
