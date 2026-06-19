@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.focusos-google-oauth-callback]
 verify_jwt = false
+
+[functions.focusos-mcp]
+verify_jwt = false
