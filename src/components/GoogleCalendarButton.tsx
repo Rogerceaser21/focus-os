@@ -149,7 +149,6 @@ export function GoogleCalendarButton({
                     </div>
                   )}
                   <AvailabilityScheduler
-                    key={targetUserId ?? 'self'}
                     targetUserId={targetUserId}
                     targetLabel={targetLabel}
                     value={date}
