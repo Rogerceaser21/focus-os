@@ -1,13 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { CalendarPlus, CalendarCheck, Loader2, Clock } from 'lucide-react';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Task } from '@/types/task';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { AvailabilityScheduler } from '@/components/calendar/AvailabilityScheduler';
+import { AttendeePicker, AttendeeChip } from '@/components/calendar/AttendeePicker';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Props {
   taskId?: string;
@@ -27,6 +29,7 @@ export function GoogleCalendarButton({
   onChange, variant = 'ghost', size = 'sm', showLabel = false,
 }: Props) {
   const { isConnected, push } = useGoogleCalendar();
+  const { user } = useAuth();
   const [working, setWorking] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const defaultDate = task?.startDate || task?.dueDate || new Date();
@@ -36,6 +39,14 @@ export function GoogleCalendarButton({
   const [startTime, setStartTime] = useState(toTimeValue(defaultStart));
   const [duration, setDuration] = useState(String(Math.max(15, Math.round((defaultEnd.getTime() - defaultStart.getTime()) / 60_000) || 30)));
   const [allDay, setAllDay] = useState(false);
+  const [chips, setChips] = useState<AttendeeChip[]>(() => (attendees ?? []).map((e) => ({ email: e })));
+  const [targetUserId, setTargetUserId] = useState<string | undefined>(undefined);
+  const [targetLabel, setTargetLabel] = useState<string>('this calendar');
+
+  // Keep chips in sync if attendees prop changes while dialog is closed
+  useEffect(() => {
+    if (!pickerOpen) setChips((attendees ?? []).map((e) => ({ email: e })));
+  }, [attendees, pickerOpen]);
 
   const handle = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -65,10 +76,11 @@ export function GoogleCalendarButton({
     const placement = allDay
       ? { allDay: true, date: toDateValue(date), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
       : { allDay: false, startDateTime: start.toISOString(), endDateTime: end.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+    const emailList = chips.map((c) => c.email).filter(Boolean);
     const res = await push({
       taskIds: [taskId],
       action: 'sync',
-      attendees,
+      attendees: emailList.length ? emailList : attendees,
       sendInvites,
       calendarPlacement: placement,
       title: task.title,
@@ -113,13 +125,33 @@ export function GoogleCalendarButton({
                 <Label>Task</Label>
                 <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium">{task.title}</div>
               </div>
+              <div className="space-y-1.5">
+                <Label>Meet with…</Label>
+                <AttendeePicker
+                  value={chips}
+                  onChange={setChips}
+                  excludeUserId={user?.id}
+                  onPrimaryTargetChange={(uid, name) => {
+                    setTargetUserId(uid);
+                    setTargetLabel(name || 'this calendar');
+                  }}
+                />
+              </div>
               <div className="flex items-center justify-end gap-2 rounded-md border border-border px-3 py-2">
                 <Switch id="all-day" checked={allDay} onCheckedChange={setAllDay} />
                 <Label htmlFor="all-day" className="pb-0">All day</Label>
               </div>
               {!allDay && date && (
                 <div className="rounded-md border border-border p-3">
+                  {targetUserId && (
+                    <div className="mb-2 text-[11px] text-muted-foreground">
+                      Viewing <span className="font-medium text-foreground">{targetLabel}</span>'s availability
+                    </div>
+                  )}
                   <AvailabilityScheduler
+                    key={targetUserId ?? 'self'}
+                    targetUserId={targetUserId}
+                    targetLabel={targetLabel}
                     value={date}
                     onDateChange={setDate}
                     durationMinutes={Math.max(15, Number(duration) || 30)}

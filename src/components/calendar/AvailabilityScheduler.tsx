@@ -46,11 +46,27 @@ export function AvailabilityScheduler({
 
   const isToday = sameLocalDay(day, new Date(), tz);
 
-  // Auto-scroll to working window start on mount/day change
+  // Live "now" tick (every minute) for the red current-time line
+  const [now, setNow] = useState<Date>(new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Auto-scroll: if today, center the red "now" line; else scroll to working-hours start.
   useEffect(() => {
     if (!scrollRef.current) return;
-    const target = (workdayStartHour - gridStartHour) * HOUR_HEIGHT - 8;
-    scrollRef.current.scrollTop = Math.max(0, target);
+    const el = scrollRef.current;
+    if (isToday) {
+      const nowHours = now.getHours() + now.getMinutes() / 60;
+      const nowTop = (nowHours - gridStartHour) * HOUR_HEIGHT;
+      el.scrollTop = Math.max(0, nowTop - el.clientHeight / 2);
+    } else {
+      const target = (workdayStartHour - gridStartHour) * HOUR_HEIGHT - 8;
+      el.scrollTop = Math.max(0, target);
+    }
+    // Only auto-center on day change / first load, not every minute tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateStr, workdayStartHour, gridStartHour, data?.connected]);
 
   // Day-grid math (full scrollable range) — must run before any early return to keep hook order stable
@@ -84,17 +100,9 @@ export function AvailabilityScheduler({
     );
   }
 
-  if (data && !data.connected) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
-        <CalendarX className="h-5 w-5" />
-        <p>{targetLabel === "this calendar" ? "This user has" : `${targetLabel} hasn't`} not connected Google Calendar.</p>
-        <p className="text-xs">Pick a time manually below — they'll receive an email invite.</p>
-      </div>
-    );
-  }
+  const notConnected = data && !data.connected;
 
-  const busyBlocks = (data?.connected ? data.busy : []).map((b) => {
+  const busyBlocks = (data && data.connected ? data.busy : []).map((b) => {
     const s = parseISO(b.start);
     const e = parseISO(b.end);
     const startOffset = Math.max(0, (s.getTime() - gridAnchor.getTime()) / 3_600_000);
@@ -126,22 +134,28 @@ export function AvailabilityScheduler({
   const workingTop = (workdayStartHour - gridStartHour) * HOUR_HEIGHT;
   const workingHeight = (workdayEndHour - workdayStartHour) * HOUR_HEIGHT;
 
+  const nowHours = now.getHours() + now.getMinutes() / 60;
+  const nowTop = (nowHours - gridStartHour) * HOUR_HEIGHT;
+  const showNowLine = isToday && nowHours >= gridStartHour && nowHours <= gridEndHour;
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
   return (
     <div className="space-y-3">
       {/* Day nav */}
       <div className="flex items-center justify-between gap-2">
-        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setDay(addDays(day, -1))}>
+        <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { stop(e); setDay(addDays(day, -1)); }}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex items-center gap-2 flex-1 justify-center">
           <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs sm:text-sm font-medium">
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs sm:text-sm font-medium" onClick={stop}>
                 <CalendarIcon className="h-3.5 w-3.5" />
                 {format(day, "EEE, MMM d")}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="center">
+            <PopoverContent className="w-auto p-0" align="center" onClick={stop}>
               <Calendar
                 mode="single"
                 selected={day}
@@ -152,16 +166,23 @@ export function AvailabilityScheduler({
             </PopoverContent>
           </Popover>
           {!isToday && (
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setDay(new Date())}>
+            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={(e) => { stop(e); setDay(new Date()); }}>
               Today
             </Button>
           )}
           {isFetching && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
         </div>
-        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setDay(addDays(day, 1))}>
+        <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { stop(e); setDay(addDays(day, 1)); }}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
+
+      {notConnected && (
+        <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+          <CalendarX className="h-3.5 w-3.5" />
+          <span>{targetLabel}'s Google Calendar isn't connected — pick a time manually; they'll get an email invite.</span>
+        </div>
+      )}
 
       {/* Day grid (scrollable) */}
       <div
@@ -215,42 +236,23 @@ export function AvailabilityScheduler({
               </span>
             </div>
           ))}
+          {/* Current time indicator */}
+          {showNowLine && (
+            <div
+              className="absolute left-10 right-0 pointer-events-none z-10"
+              style={{ top: nowTop }}
+            >
+              <div className="relative">
+                <div className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full bg-red-500 shadow" />
+                <div className="h-[2px] w-full bg-red-500" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <p className="text-[10px] text-muted-foreground -mt-1">
         Tap any empty time to schedule a {durationMinutes} min slot. Working hours {formatHourLabel(workdayStartHour)}–{formatHourLabel(workdayEndHour)}.
       </p>
-
-      {/* Suggested free slots */}
-      {data?.connected && (
-        <div>
-          <div className="text-xs font-medium text-muted-foreground mb-1">
-            Suggested free slots ≥ {durationMinutes} min
-          </div>
-          {data.suggested.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">No free windows that fit. Try another day or shorten the duration.</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {data.suggested.slice(0, 8).map((s, i) => {
-                const ss = parseISO(s.start);
-                const se = parseISO(s.end);
-                const pickEnd = new Date(ss.getTime() + durationMinutes * 60_000);
-                return (
-                  <Button
-                    key={i}
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => onPick(ss, pickEnd > se ? se : pickEnd)}
-                  >
-                    {formatInTZ(ss, tz)}–{formatInTZ(se, tz)}
-                  </Button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
