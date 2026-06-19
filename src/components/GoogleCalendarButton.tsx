@@ -163,17 +163,17 @@ export function GoogleCalendarButton({
               )}
               {!allDay && (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
+                  <div className="grid grid-cols-2 gap-3 items-end">
+                    <div className="space-y-1.5 min-w-0">
                       <Label>Start time</Label>
                       <div className="relative">
-                        <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="pl-9" />
+                        <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                        <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="pl-9 w-full h-10" />
                       </div>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 min-w-0">
                       <Label>Duration (min)</Label>
-                      <Input type="number" min="15" step="15" value={duration} onChange={(e) => setDuration(e.target.value)} />
+                      <Input type="number" inputMode="numeric" min="15" step="15" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full h-10" />
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
