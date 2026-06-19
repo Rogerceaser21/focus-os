@@ -275,8 +275,8 @@ function sameLocalDay(a: Date, b: Date, tz: string) {
 }
 
 function formatInTZ(d: Date, tz: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false,
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true,
   }).format(d);
 }
 
