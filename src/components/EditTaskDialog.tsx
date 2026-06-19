@@ -268,6 +268,10 @@ export const EditTaskDialog = ({
       >
         <Mail className="h-4 w-4" />
       </Button>
+      <GoogleCalendarButton
+        taskId={task.id}
+        synced={!!task.googleCalendarEventId}
+      />
       {onDeleteTask && !isReceivedSharedTask && !isCollaboratorOnProject && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
