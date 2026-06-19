@@ -1,70 +1,68 @@
+# Google Calendar Push — Scheduling Dialog
 
+## Understanding
+Right now, clicking the calendar icon on a task silently fires the task to Google Calendar with whatever (or no) date/time we have. You want a confirmation step where you decide **what date, what time, how long, and whose calendar** the event lands on — every time the field is missing or ambiguous. If everything is already filled in sensibly, it still shouldn't go without a quick visible confirmation step.
 
-### Aesthetics-only pass — Hand-off to AI icon + row button polish
+## Behavior
 
-**Scope: visual only. No functional/logic changes to the hand-off feature itself.**
+### Trigger
+Clicking the Google Calendar icon on a Task, Meeting, or Gantt bar (and the bulk "Sync to Google" button) opens a **Schedule on Google Calendar** dialog instead of immediately syncing.
 
----
+### Smart defaults pre-filled in the dialog
+- **Date**: task `dueDate` if set; else today.
+- **Start time**: task `time` if set; else next rounded half-hour from now.
+- **Duration**: task `estimatedMinutes` if set; else 30 min. (Toggle for All-day.)
+- **Title**: task title. **Notes**: task description.
+- **Calendar destination**: 
+  - If the task is assigned to / shared with another Focus OS user → default is **that person's calendar** (only if they have Google connected and granted permission); fallback radio options shown.
+  - Else → default is **My calendar** (Focus OS calendar).
+  - Radio options always visible: `Their calendar` · `My calendar` · `Invite as attendee (email)` · `Project calendar` (if a project-linked calendar exists).
+- **Attendees**: editable email chips, pre-filled from assignee/share recipients.
 
-#### 1. Build a custom "Hand → AI" SVG icon
+### Bulk (Gantt "Sync to Google")
+Opens a compact list dialog showing each task row with editable date/time/duration/destination, plus a "Apply to all" header row. One confirm syncs them all.
 
-- Create `src/components/icons/HandToAI.tsx` — a React component that returns an inline SVG
-- Design: a horizontal **hand with the index finger extended pointing right**, and the letters **"AI"** to the right of the fingertip
-- Built as a single SVG with `currentColor` stroke so it inherits text color from parent (works in all themes — Cream, dark, etc.)
-- Accepts standard icon props (`className`, `size`, `strokeWidth`) so it behaves like a Lucide icon
-- Default `strokeWidth={2}` to match Lucide defaults
-- Two render modes via a prop:
-  - `variant="full"` → hand + "AI" text inside the SVG (used in Edit Task pane header)
-  - `variant="hand"` → hand only, no text (used in compact mobile row)
-  - `variant="text"` → just stylized "AI" letters (fallback for ultra-tight spots — optional)
+### Edits after sync
+If an already-synced task is toggled off → delete event. Toggled on again → reopen the dialog.
 
-#### 2. Replace Sparkles everywhere it was added for hand-off
+## Technical Implementation
 
-| Location | Current | New |
-|---|---|---|
-| `EditTaskDialog.tsx` header button | `<Sparkles>` | `<HandToAI variant="full">` (desktop) / `variant="hand"` (mobile) |
-| `HandoffToAIDialog.tsx` title icon | `<Sparkles>` | `<HandToAI variant="full">` |
-| Any other spot Sparkles was added for this feature | — | `<HandToAI>` |
+### New component
+`src/components/ScheduleToCalendarDialog.tsx`
+- Props: `items: ScheduleItem[]`, `open`, `onOpenChange`, `onConfirm(scheduled: ScheduledItem[])`.
+- Uses existing shadcn `Calendar` (date picker), `Input type="time"`, `Select` (duration: 15/30/45/60/90/120/Custom + All-day toggle), `RadioGroup` (destination), email chip input (reuse the one from share dialog).
+- Resolves "recipient has Google connected" by querying `focusos_google_tokens` for the recipient `user_id` (RLS-safe public boolean read — see DB note).
 
-The dialog's internal "Sparkles" usage (only the hand-off-related ones) gets swapped. Other unrelated sparkles in the codebase (if any) stay.
+### Hook changes
+`src/hooks/useGoogleCalendar.ts`
+- `push()` no longer auto-sends. Replace with `openScheduler(items)` that lifts a single shared dialog state via a lightweight context (`CalendarSchedulerProvider`) mounted once in `App.tsx`. Confirming the dialog calls the existing edge function with full payload.
 
-#### 3. Add the hand-off button to the **task row** (TaskListItem / TaskCard)
+### Edge function
+`supabase/functions/focusos-push-to-calendar/index.ts`
+- Already accepts `recipientUserId`. Extend payload schema:
+  - `startDateTime`, `endDateTime` OR `allDay: true` + `date`
+  - `destination: "self" | "recipient" | "attendees" | "project"`
+  - `attendees: string[]`
+  - `calendarId?: string` (for project calendars)
+- When `destination === "recipient"`, look up recipient's token; if missing, return 409 → UI falls back to attendee invite.
 
-- Place it **immediately to the left of the Edit (pencil) button** in the row's action cluster
-- Mobile: render `<HandToAI variant="hand">` only, same icon size as pencil/X/play
-- Desktop: same — keep it compact in row context (full variant lives in the Edit pane only)
-- Wire the click to open the existing `HandoffToAIDialog` with that row's task (this is the only "logic" touch — it's just hooking up the existing dialog, no new behavior)
+### Integration points (replace direct `push` calls with `openScheduler`)
+- `src/components/TaskListItem.tsx` (compact / full / minimal rows)
+- `src/components/TaskCard.tsx`
+- `src/components/EditTaskDialog.tsx` header button
+- `src/components/GanttChart.tsx` (single + bulk)
+- `src/pages/MeetingDetail.tsx`
 
-#### 4. Fix the row button spacing & stroke weight
+### Database
+No schema change required for v1. Optional: a `public.focusos_google_connected(user_id)` SECURITY DEFINER function so the UI can check recipient connection status without exposing tokens. Will add if needed.
 
-In `TaskListItem.tsx` (and `TaskCard.tsx` if it has the same row):
-- Reduce the gap between the action icons — change current `gap-2` / `gap-3` (whatever it is) down to `gap-0.5` or `gap-1`, and shrink each button's padding (e.g. `h-8 w-8` → `h-7 w-7`, or remove inner padding on the icon button so the icons sit close)
-- Audit the X button: confirm it uses the same `<X>` from `lucide-react` at the same size/strokeWidth as `<Pencil>` and `<Play>`. If it's currently a different icon (e.g. a thin `XIcon` from elsewhere), replace with `<X strokeWidth={2} className="h-4 w-4">` to match
-- Keep the visual order: **[HandToAI] [Edit ✏️] [X] [Play ▷]**
+### Out of scope (this round)
+- Auto-sync on every edit (still manual via the dialog).
+- Voice-created tasks auto-pushing — they'll prompt the scheduler the first time the calendar icon is pressed.
+- Project-linked calendars: option will appear only when a project has a `calendarId` configured (UI to configure that comes later).
 
-#### 5. Files touched
+## Files to create / edit
+- **Create**: `src/components/ScheduleToCalendarDialog.tsx`, `src/components/CalendarSchedulerProvider.tsx`
+- **Edit**: `src/hooks/useGoogleCalendar.ts`, `src/components/GoogleCalendarButton.tsx`, `src/App.tsx`, `src/components/TaskListItem.tsx`, `src/components/TaskCard.tsx`, `src/components/EditTaskDialog.tsx`, `src/components/GanttChart.tsx`, `src/pages/MeetingDetail.tsx`, `supabase/functions/focusos-push-to-calendar/index.ts`
 
-| File | Change |
-|---|---|
-| `src/components/icons/HandToAI.tsx` | NEW — custom SVG icon component |
-| `src/components/EditTaskDialog.tsx` | Swap Sparkles → HandToAI |
-| `src/components/HandoffToAIDialog.tsx` | Swap Sparkles → HandToAI in dialog title |
-| `src/components/TaskListItem.tsx` | Add HandToAI button left of Edit; tighten gap; normalize X stroke |
-| `src/components/TaskCard.tsx` | Same row treatment if it has the same action cluster |
-
-#### 6. Out of scope (per your instruction)
-- No changes to the hand-off **functionality**, prompt builder, voice flow, image flow, or settings — purely the icon swap and row aesthetics
-- We'll address functional issues in a follow-up once you list them
-
----
-
-#### Open question before I touch anything
-
-**The custom Hand→AI icon — how literal do you want it?**
-
-a. **Pictographic & polished**: a clean line-drawn hand silhouette with index finger extended right, "AI" in a matching stroke weight to its right — feels like a custom Lucide icon
-b. **Minimalist/abstract**: a simple arrow-like hand glyph (just a finger shape, not a full hand) pointing at "AI" — more iconographic, less illustrative
-c. **Generated as a real SVG asset by an image gen** (transparent PNG) instead of hand-coded SVG — richer detail but won't recolor with theme
-
-I recommend **(a)** — hand-coded SVG, line-drawn, currentColor — because it themes correctly and stays crisp at any size. Confirm a/b/c and I'll start.
-
+Approve and I'll build it.
