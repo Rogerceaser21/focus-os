@@ -1,50 +1,52 @@
-# Calendar Slot Picker — v2 Plan
+## What I understand you want
 
-Make the in-dialog availability scheduler behave like Google Calendar's day view, with 12-hour times, click-to-schedule, scrollable grid, and a fast date jump.
+1. **Remove the "Suggested free slots" chip section** under the day grid — redundant now.
+2. **Add a Google-Calendar-style red "now" line** across the grid at the current time. On open, auto-scroll so the red line sits in the **middle** of the visible area (only when the displayed day is today; otherwise scroll to working-hours start as today).
+3. **Search-and-add attendees by name/email** — exactly like Google Calendar's "Add guests" box. Type a name → autocomplete suggestions from your org (Focus OS profiles) → pick → their availability overlays on the same day grid. Free-text emails outside the org are also accepted (they just get an invite, no busy data).
+4. **Bug fix**: Clicking the day-nav arrows (◀ / ▶) currently closes the "Add to Google Calendar" dialog. Keep the dialog open on day changes.
 
-## Confirmed decisions
-- A. Clicking a slot **fills the form fields** (date, start time, duration) — user can still tweak before confirming with "Add to calendar".
-- B. Default duration when clicking an empty slot = **30 min** (existing duration field still adjustable; quick chips 15 / 30 / 45 / 60 / 90).
-- C. Visible working window = **7:00 AM – 6:00 PM**, but the grid scrolls 6:00 AM – 10:00 PM so early/late slots are reachable.
-- D. All times shown in **12-hour format with AM/PM** (e.g. "2:30 PM"), never 14:30.
+## How I'll implement
 
-## 1. Scrollable day grid
-- Wrap the grid in a fixed-height scrollable container (≈ 420px desktop, ≈ 320px mobile) using `ScrollArea`.
-- Auto-scroll on open to the working-window start (7 AM) or to current time if today.
-- Hour rows render full 6 AM–10 PM range; busy blocks positioned absolutely as before.
+### A. Hide suggested slots
+- `AvailabilityScheduler.tsx`: delete the entire "Suggested free slots" block (the bottom section rendering `data.suggested`). Keep the day grid + helper text only.
 
-## 2. Date picker in the day-nav header
-- Replace static date label with a button → `Popover` containing the shadcn `Calendar`.
-- Keep `<` / `today` / `>` controls beside it.
-- Selecting a date in the popover updates the day and re-fetches availability.
+### B. Red "now" line + center-on-open
+- In `AvailabilityScheduler.tsx`:
+  - Add a `now` state that ticks every 60s via `setInterval` (cleared on unmount).
+  - If `sameLocalDay(now, day, tz)`, render a 2px red line absolutely positioned at `top = ((now.getHours()+now.getMinutes()/60) - gridStartHour) * HOUR_HEIGHT`, with a small red dot on the left.
+  - Replace current auto-scroll effect: if today, scroll so the red line is centered in the viewport (`scrollTop = nowTop - viewportHeight/2`); else keep scrolling to working-hours start.
 
-## 3. Click-to-schedule interaction
-- The grid becomes click/tap aware. Clicking any empty time → snaps to nearest 15 min, creates a tentative 30-min block visualized as a highlighted overlay.
-- On click: fills parent form's `date`, `startTime`, `duration` (only sets duration if user hasn't manually changed it from default).
-- Clicking an existing **suggested free slot chip** still works (one-tap → full slot fills form).
-- Tapping a busy block does nothing (with subtle shake / toast "busy").
+### C. Bug fix — dialog closing on arrow click
+- Root cause: the chevron `Button`s inside the scheduler don't stop propagation, and the parent `DialogContent` only stops clicks at its own boundary. The real issue is Radix `Dialog` interpreting some interaction as outside-close, OR the parent form re-rendering and unmounting the scheduler.
+- Fixes:
+  - Add `e.stopPropagation()` and `type="button"` to the prev/next/today buttons and the date-picker `PopoverTrigger`.
+  - In `GoogleCalendarButton.tsx`, ensure `setDate` from the scheduler doesn't trigger anything that closes the dialog (it currently only updates state, but I'll double-check by isolating `date` state and not re-deriving `defaultDate` on each render).
+  - Verify via Playwright after the change.
 
-## 4. 12-hour AM/PM formatting everywhere
-- Replace `Intl.DateTimeFormat("en-GB", hour12:false)` with `hour12:true`.
-- Hour-line labels: "7 AM", "8 AM", … "12 PM", "1 PM", … "10 PM".
-- Free-slot chips: "2:00 PM – 3:30 PM (1h30)".
-- Day header: "Friday, Jun 19".
-- Start time input stays as native `<input type="time">` (browser locale handles display) — no change needed for input.
+### D. Attendee search (Google-Calendar-style)
+New component `src/components/calendar/AttendeePicker.tsx`:
+- Combobox using shadcn `Command` + `Popover`.
+- As user types ≥2 chars, query `focusos_profiles` for `full_name` / `email` ILIKE matches (limit 8). Show avatar + name + email rows (matches your picture 2 styling).
+- On select: add a chip to a selected-attendees list (chips show avatar + name, with × to remove). The **first** internal attendee selected becomes the `targetUserId` whose calendar overlays on the grid (with a small "Viewing: <name>'s calendar" indicator + a "Switch" action if multiple). Plain-text emails (non-org) are also accepted on Enter; they're added as chips but don't overlay availability.
+- Selected attendee emails flow into the existing `attendees` array passed to `push()` so Google Calendar sends invites.
 
-## 5. Mobile + desktop responsiveness
-- Dialog: keep `sm:max-w-md` on desktop, switch to full-width sheet-like layout on mobile (`max-w-[95vw]`, `max-h-[90vh]`, internal scroll).
-- Grid hour-label gutter narrower on mobile (`w-10` vs `w-14`).
-- Touch targets ≥ 32px high per hour row.
-- Verify with Playwright at 390×844 (mobile) and 1280×900 (desktop) — screenshot grid scroll, date popover, click-to-fill, AM/PM labels.
+Wiring in `GoogleCalendarButton.tsx`:
+- Replace the current `attendees` prop pass-through with local `attendees` state initialized from prop.
+- Render `<AttendeePicker value={attendees} onChange={setAttendees} onPrimaryTargetChange={setTargetUserId} />` above the scheduler.
+- Pass `targetUserId` into `<AvailabilityScheduler targetUserId={targetUserId} ... />`. The freebusy edge function already accepts `targetUserId` and enforces auth.
 
-## 6. Files to edit
-- `src/components/calendar/AvailabilityScheduler.tsx` — scroll wrapper, header date-picker popover, click handler, 12h labels, click-overlay state.
-- `src/components/GoogleCalendarButton.tsx` — pass `onPick(start, end)` that fills date+startTime+duration; remove now-redundant date popover above the scheduler (date lives inside scheduler header); keep manual time/duration fields for fine-tuning.
-- No backend changes (function already returns ISO times).
+### E. Mobile + desktop verification
+- Playwright at 1280×1800 and 390×844:
+  - Open dialog, scroll grid, click arrow (dialog stays open), pick date, type a name, select attendee, see overlay, click empty slot, confirm form fields filled.
+  - Screenshot each.
 
-## 7. Out of scope (later)
-- Drag to resize the tentative block.
-- Multi-recipient overlay.
-- User-configurable working hours.
+### Files to touch
+- `src/components/calendar/AvailabilityScheduler.tsx` — remove suggested slots, add now-line + centered scroll, stopPropagation on nav buttons.
+- `src/components/calendar/AttendeePicker.tsx` — **new**.
+- `src/components/GoogleCalendarButton.tsx` — wire attendee picker + targetUserId, ensure dialog stays open.
+- No DB or edge-function changes (freebusy already supports targetUserId; profiles table already queryable).
 
-Awaiting your approval before I touch any code.
+### Open question
+- For the attendee search source: I'll query `focusos_profiles` (your existing org directory). Confirm OK, or should I also include people you've shared items with who don't have a profile row yet?
+
+Awaiting your approval before coding.
