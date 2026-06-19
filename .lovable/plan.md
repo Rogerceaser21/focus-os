@@ -1,112 +1,50 @@
-# Calendar Availability Scheduler — Implementation Plan
+# Calendar Slot Picker — v2 Plan
 
-Goal: when scheduling a task to a calendar (own or recipient's) or sharing a task/meeting/project, show the target person's actual Google Calendar day — busy blocks + free slots — so the sender clicks a free window instead of guessing.
+Make the in-dialog availability scheduler behave like Google Calendar's day view, with 12-hour times, click-to-schedule, scrollable grid, and a fast date jump.
 
-## 1. Backend: FreeBusy edge function
+## Confirmed decisions
+- A. Clicking a slot **fills the form fields** (date, start time, duration) — user can still tweak before confirming with "Add to calendar".
+- B. Default duration when clicking an empty slot = **30 min** (existing duration field still adjustable; quick chips 15 / 30 / 45 / 60 / 90).
+- C. Visible working window = **7:00 AM – 6:00 PM**, but the grid scrolls 6:00 AM – 10:00 PM so early/late slots are reachable.
+- D. All times shown in **12-hour format with AM/PM** (e.g. "2:30 PM"), never 14:30.
 
-New function: `focusos-calendar-freebusy`.
+## 1. Scrollable day grid
+- Wrap the grid in a fixed-height scrollable container (≈ 420px desktop, ≈ 320px mobile) using `ScrollArea`.
+- Auto-scroll on open to the working-window start (7 AM) or to current time if today.
+- Hour rows render full 6 AM–10 PM range; busy blocks positioned absolutely as before.
 
-Inputs:
-```ts
-{ targetUserId: string, date: string /* YYYY-MM-DD */, timeZone: string, durationMinutes?: number }
-```
+## 2. Date picker in the day-nav header
+- Replace static date label with a button → `Popover` containing the shadcn `Calendar`.
+- Keep `<` / `today` / `>` controls beside it.
+- Selecting a date in the popover updates the day and re-fetches availability.
 
-Logic:
-1. Verify caller JWT.
-2. Authorization: caller must be `targetUserId` OR share a project/share relationship with them (reuse existing share/membership checks). Otherwise 403.
-3. Load target user's stored Google tokens from `focusos_google_tokens` (service role). If missing → return `{ connected: false }`.
-4. Refresh token if expired.
-5. POST `https://www.googleapis.com/calendar/v3/freeBusy` with `timeMin`/`timeMax` = that date 00:00–24:00 in `timeZone`, `items: [{ id: 'primary' }]`.
-6. Compute free windows = inverse of busy within working hours (default 08:00–20:00, configurable later).
-7. Return:
-```ts
-{
-  connected: true,
-  date, timeZone,
-  busy:  [{ start, end, summary? }],   // summary only if same user (privacy)
-  free:  [{ start, end, durationMinutes }],
-  suggested: [{ start, end }]          // free slots >= durationMinutes
-}
-```
+## 3. Click-to-schedule interaction
+- The grid becomes click/tap aware. Clicking any empty time → snaps to nearest 15 min, creates a tentative 30-min block visualized as a highlighted overlay.
+- On click: fills parent form's `date`, `startTime`, `duration` (only sets duration if user hasn't manually changed it from default).
+- Clicking an existing **suggested free slot chip** still works (one-tap → full slot fills form).
+- Tapping a busy block does nothing (with subtle shake / toast "busy").
 
-Privacy: for cross-user lookups, never return event titles — only busy/free blocks.
+## 4. 12-hour AM/PM formatting everywhere
+- Replace `Intl.DateTimeFormat("en-GB", hour12:false)` with `hour12:true`.
+- Hour-line labels: "7 AM", "8 AM", … "12 PM", "1 PM", … "10 PM".
+- Free-slot chips: "2:00 PM – 3:30 PM (1h30)".
+- Day header: "Friday, Jun 19".
+- Start time input stays as native `<input type="time">` (browser locale handles display) — no change needed for input.
 
-## 2. Frontend: `<AvailabilityScheduler />` component
+## 5. Mobile + desktop responsiveness
+- Dialog: keep `sm:max-w-md` on desktop, switch to full-width sheet-like layout on mobile (`max-w-[95vw]`, `max-h-[90vh]`, internal scroll).
+- Grid hour-label gutter narrower on mobile (`w-10` vs `w-14`).
+- Touch targets ≥ 32px high per hour row.
+- Verify with Playwright at 390×844 (mobile) and 1280×900 (desktop) — screenshot grid scroll, date popover, click-to-fill, AM/PM labels.
 
-Reusable component replacing the current blind date/time picker.
+## 6. Files to edit
+- `src/components/calendar/AvailabilityScheduler.tsx` — scroll wrapper, header date-picker popover, click handler, 12h labels, click-overlay state.
+- `src/components/GoogleCalendarButton.tsx` — pass `onPick(start, end)` that fills date+startTime+duration; remove now-redundant date popover above the scheduler (date lives inside scheduler header); keep manual time/duration fields for fine-tuning.
+- No backend changes (function already returns ISO times).
 
-Layout (matches the ASCII mock):
-```text
-┌─────────────────────────────────────────┐
-│ [< prev]   Tuesday, Jun 16   [today][>] │
-├─────────────────────────────────────────┤
-│ 08:00  ░░ free                          │
-│ 09:00  ▓▓ Standup (30m)  ← from Google  │
-│ 10:00  ░░ free  ← 90 min gap            │
-│ 11:00  ░░ free                          │
-│ 12:00  ▓▓ Lunch w/ Sam                  │
-│ 13:00  ▓▓ ...                           │
-│ 14:00  ░░ free  ← 2 hr                  │
-│ ...                                      │
-├─────────────────────────────────────────┤
-│ Free slots today:                       │
-│  • 10:00–11:30 (1h30)   [pick]          │
-│  • 14:00–16:00 (2h)     [pick]          │
-│  • 17:00–18:00 (1h)     [pick]          │
-└─────────────────────────────────────────┘
-```
+## 7. Out of scope (later)
+- Drag to resize the tentative block.
+- Multi-recipient overlay.
+- User-configurable working hours.
 
-Behavior:
-- Loads via TanStack Query: `useFreeBusy(targetUserId, date, tz, duration)`.
-- Day grid: hour rows 06:00–22:00, busy blocks rendered as filled bars with title (own calendar) or "Busy" (others).
-- Free slots list below the grid — click "pick" → fills start/end in parent form.
-- Duration input controls suggested-slot filter.
-- Prev / Today / Next day navigation.
-- States: loading skeleton, `not_connected` (target hasn't linked Google), error with retry.
-
-## 3. Integration points
-
-Replace/augment the current pickers in:
-
-a) **`GoogleCalendarButton` dialog** (own calendar placement) — targetUserId = current user.
-b) **`ShareItemDialog`** — when "Add to recipient calendar" is on:
-   - If single recipient → show their availability.
-   - If multiple recipients → show each in tabs, OR overlay busy from all (mark slots free only if free for everyone).
-   - If recipient not Google-connected → fallback to manual picker + ICS in email.
-c) **Meeting create/edit** — optional: show own availability when picking meeting time.
-
-## 4. Data / schema
-
-No new tables required for availability itself (live API). Existing `focusos_google_tokens` reused.
-
-For share calendar placement, the previously-approved fields on `focusos_shared_items` still apply (`calendar_enabled`, `calendar_status`, `calendar_event_id`, `calendar_start_at`, `calendar_end_at`, `calendar_all_day`, `calendar_error`).
-
-## 5. Files to add / edit
-
-New:
-- `supabase/functions/focusos-calendar-freebusy/index.ts`
-- `src/components/calendar/AvailabilityScheduler.tsx`
-- `src/hooks/useFreeBusy.ts`
-
-Edit:
-- `src/components/GoogleCalendarButton.tsx` — swap picker for AvailabilityScheduler.
-- `src/components/ShareItemDialog.tsx` — add calendar section using AvailabilityScheduler.
-- `supabase/functions/focusos-share-item/index.ts` — accept calendarPlacement, create event on recipient calendar via service-role token lookup.
-- `supabase/functions/focusos-push-to-calendar/index.ts` — already consumes `calendarPlacement`; no change.
-
-## 6. Rollout order
-
-1. FreeBusy edge function + auth checks.
-2. `useFreeBusy` hook + `AvailabilityScheduler` component (wire to own calendar first).
-3. Integrate into `GoogleCalendarButton` (own calendar) — verify end-to-end.
-4. Integrate into `ShareItemDialog` for single recipient.
-5. Multi-recipient overlay.
-6. Meeting time-picker integration (optional, after sign-off).
-
-## 7. Open questions before I build
-
-1. Working-hours window default — 08:00–20:00 ok, or pull from a user setting?
-2. Multi-recipient: per-tab view OR intersected free slots (or both)?
-3. For recipients without Google connected — send ICS in email, or block "add to calendar" entirely?
-
-Awaiting approval before any code changes.
+Awaiting your approval before I touch any code.
