@@ -23,6 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { UserPreferences } from '@/hooks/useUserPreferences';
 import { PROVIDERS, AIProvider, ImageMode } from '@/lib/aiHandoff';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
+import ApiTokensSection from '@/components/ApiTokensSection';
 
 interface Project {
   id: string;
@@ -352,6 +353,10 @@ export default function SettingsDialog({
 
             {/* Integrations */}
             <GoogleCalendarIntegration />
+
+            <Separator />
+
+            <ApiTokensSection />
           </div>
         )}
 
