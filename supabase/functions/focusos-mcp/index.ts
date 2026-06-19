@@ -4,6 +4,7 @@
 
 import { Hono } from "hono";
 import { McpServer, StreamableHttpTransport } from "mcp-lite";
+import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -60,45 +61,47 @@ function err(message: string) {
 }
 
 // ───────── MCP server ─────────
-const mcp = new McpServer({ name: "focusos", version: "1.0.0" });
+const mcp = new McpServer({
+  name: "focusos",
+  version: "1.0.0",
+  schemaAdapter: (schema) => z.toJSONSchema(schema as z.ZodType),
+});
 
-// Helper: every handler receives the authenticated userId via context.
-type Ctx = { userId: string };
+function getUserId(ctx: any): string {
+  return ctx?.authInfo?.extra?.userId as string;
+}
 
 // ── READ TOOLS ────────────────────────────────────────────────────────────────
-mcp.tool({
-  name: "list_projects",
+mcp.tool("list_projects", {
   description: "List all projects owned by the authenticated Focus OS user.",
-  inputSchema: { type: "object", properties: {} },
-  handler: async (_args: unknown, ctx: Ctx) => {
+  inputSchema: z.object({}),
+  handler: async (_args, ctx) => {
+    const userId = getUserId(ctx);
     const { data, error } = await admin
       .from("focusos_projects")
       .select("id, name, color, created_at, updated_at")
-      .eq("user_id", ctx.userId)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (error) return err(error.message);
     return ok(data ?? []);
   },
 });
 
-mcp.tool({
-  name: "list_tasks",
+mcp.tool("list_tasks", {
   description:
-    "List tasks for the authenticated user. Optional filters: project_id, status (todo|in-progress|completed), due_today (boolean), limit (1-200).",
-  inputSchema: {
-    type: "object",
-    properties: {
-      project_id: { type: "string" },
-      status: { type: "string", enum: ["todo", "in-progress", "completed"] },
-      due_today: { type: "boolean" },
-      limit: { type: "number" },
-    },
-  },
-  handler: async (args: any, ctx: Ctx) => {
+    "List tasks for the authenticated user. Optional filters: project_id, status, due_today, limit.",
+  inputSchema: z.object({
+    project_id: z.string().optional(),
+    status: z.enum(["todo", "in-progress", "completed"]).optional(),
+    due_today: z.boolean().optional(),
+    limit: z.number().optional(),
+  }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
     let q = admin
       .from("focusos_tasks")
       .select("id, title, description, status, priority, due_date, project_id, created_at, completed_at")
-      .eq("user_id", ctx.userId);
+      .eq("user_id", userId);
     if (args?.project_id) q = q.eq("project_id", args.project_id);
     if (args?.status) q = q.eq("status", args.status);
     if (args?.due_today) q = q.eq("due_date", new Date().toISOString().slice(0, 10));
@@ -109,15 +112,15 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "get_task",
+mcp.tool("get_task", {
   description: "Get a single task by id (must belong to the authenticated user).",
-  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
-  handler: async (args: any, ctx: Ctx) => {
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
     const { data, error } = await admin
       .from("focusos_tasks")
       .select("*")
-      .eq("user_id", ctx.userId)
+      .eq("user_id", userId)
       .eq("id", args.id)
       .maybeSingle();
     if (error) return err(error.message);
@@ -126,15 +129,15 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "list_meetings",
+mcp.tool("list_meetings", {
   description: "List the user's meetings (most recent first). Optional limit (default 20, max 100).",
-  inputSchema: { type: "object", properties: { limit: { type: "number" } } },
-  handler: async (args: any, ctx: Ctx) => {
+  inputSchema: z.object({ limit: z.number().optional() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
     const { data, error } = await admin
       .from("focusos_meetings")
       .select("id, title, status, created_at, summary")
-      .eq("user_id", ctx.userId)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(Math.min(Math.max(args?.limit ?? 20, 1), 100));
     if (error) return err(error.message);
@@ -142,15 +145,15 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "get_meeting",
+mcp.tool("get_meeting", {
   description: "Get a single meeting by id (must belong to the authenticated user).",
-  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
-  handler: async (args: any, ctx: Ctx) => {
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
     const { data, error } = await admin
       .from("focusos_meetings")
       .select("*")
-      .eq("user_id", ctx.userId)
+      .eq("user_id", userId)
       .eq("id", args.id)
       .maybeSingle();
     if (error) return err(error.message);
@@ -159,27 +162,23 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "search",
+mcp.tool("search", {
   description: "Search the user's tasks and projects by case-insensitive substring on title/name.",
-  inputSchema: {
-    type: "object",
-    properties: { query: { type: "string" } },
-    required: ["query"],
-  },
-  handler: async (args: any, ctx: Ctx) => {
+  inputSchema: z.object({ query: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
     const like = `%${String(args.query).replace(/%/g, "")}%`;
     const [tasks, projects] = await Promise.all([
       admin
         .from("focusos_tasks")
         .select("id, title, status, project_id")
-        .eq("user_id", ctx.userId)
+        .eq("user_id", userId)
         .ilike("title", like)
         .limit(50),
       admin
         .from("focusos_projects")
         .select("id, name, color")
-        .eq("user_id", ctx.userId)
+        .eq("user_id", userId)
         .ilike("name", like)
         .limit(50),
     ]);
@@ -188,21 +187,17 @@ mcp.tool({
 });
 
 // ── WRITE TOOLS ───────────────────────────────────────────────────────────────
-mcp.tool({
-  name: "create_project",
+mcp.tool("create_project", {
   description: "Create a new project for the authenticated user.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      name: { type: "string" },
-      color: { type: "string", description: "Hex color like #3b82f6 (optional)" },
-    },
-    required: ["name"],
-  },
-  handler: async (args: any, ctx: Ctx) => {
+  inputSchema: z.object({
+    name: z.string(),
+    color: z.string().optional().describe("Hex color like #3b82f6"),
+  }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
     const { data, error } = await admin
       .from("focusos_projects")
-      .insert({ user_id: ctx.userId, name: args.name, color: args.color ?? "#3b82f6" })
+      .insert({ user_id: userId, name: args.name, color: args.color ?? "#3b82f6" })
       .select()
       .single();
     if (error) return err(error.message);
@@ -210,25 +205,20 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "create_task",
-  description:
-    "Create a task. Optional fields: project_id, description, priority (low|medium|high), due_date (YYYY-MM-DD), status (todo|in-progress|completed).",
-  inputSchema: {
-    type: "object",
-    properties: {
-      title: { type: "string" },
-      project_id: { type: "string" },
-      description: { type: "string" },
-      priority: { type: "string", enum: ["low", "medium", "high"] },
-      due_date: { type: "string" },
-      status: { type: "string", enum: ["todo", "in-progress", "completed"] },
-    },
-    required: ["title"],
-  },
-  handler: async (args: any, ctx: Ctx) => {
+mcp.tool("create_task", {
+  description: "Create a task. due_date format YYYY-MM-DD.",
+  inputSchema: z.object({
+    title: z.string(),
+    project_id: z.string().optional(),
+    description: z.string().optional(),
+    priority: z.enum(["low", "medium", "high"]).optional(),
+    due_date: z.string().optional(),
+    status: z.enum(["todo", "in-progress", "completed"]).optional(),
+  }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
     const row: Record<string, unknown> = {
-      user_id: ctx.userId,
+      user_id: userId,
       title: args.title,
       status: args.status ?? "todo",
       priority: args.priority ?? "medium",
@@ -242,24 +232,20 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "update_task",
+mcp.tool("update_task", {
   description: "Update fields on a task you own. Only provided fields are changed.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      id: { type: "string" },
-      title: { type: "string" },
-      description: { type: "string" },
-      priority: { type: "string", enum: ["low", "medium", "high"] },
-      due_date: { type: "string" },
-      status: { type: "string", enum: ["todo", "in-progress", "completed"] },
-      project_id: { type: "string" },
-    },
-    required: ["id"],
-  },
-  handler: async (args: any, ctx: Ctx) => {
-    const { id, ...rest } = args;
+  inputSchema: z.object({
+    id: z.string(),
+    title: z.string().optional(),
+    description: z.string().optional(),
+    priority: z.enum(["low", "medium", "high"]).optional(),
+    due_date: z.string().optional(),
+    status: z.enum(["todo", "in-progress", "completed"]).optional(),
+    project_id: z.string().optional(),
+  }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { id, ...rest } = args as any;
     const patch: Record<string, unknown> = {};
     for (const k of ["title", "description", "priority", "due_date", "status", "project_id"]) {
       if (rest[k] !== undefined) patch[k] = rest[k];
@@ -268,7 +254,7 @@ mcp.tool({
     const { data, error } = await admin
       .from("focusos_tasks")
       .update(patch)
-      .eq("user_id", ctx.userId)
+      .eq("user_id", userId)
       .eq("id", id)
       .select()
       .maybeSingle();
@@ -278,15 +264,15 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "complete_task",
+mcp.tool("complete_task", {
   description: "Mark a task as completed.",
-  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
-  handler: async (args: any, ctx: Ctx) => {
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
     const { data, error } = await admin
       .from("focusos_tasks")
       .update({ status: "completed" })
-      .eq("user_id", ctx.userId)
+      .eq("user_id", userId)
       .eq("id", args.id)
       .select()
       .maybeSingle();
@@ -296,15 +282,15 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "delete_task",
+mcp.tool("delete_task", {
   description: "Delete a task you own.",
-  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
-  handler: async (args: any, ctx: Ctx) => {
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
     const { error } = await admin
       .from("focusos_tasks")
       .delete()
-      .eq("user_id", ctx.userId)
+      .eq("user_id", userId)
       .eq("id", args.id);
     if (error) return err(error.message);
     return ok({ deleted: true, id: args.id });
@@ -313,6 +299,7 @@ mcp.tool({
 
 // ── HTTP wrapper ──────────────────────────────────────────────────────────────
 const transport = new StreamableHttpTransport();
+const httpHandler = transport.bind(mcp);
 const app = new Hono();
 
 app.use("*", async (c, next) => {
@@ -327,12 +314,15 @@ app.all("/*", async (c) => {
   if (!m) {
     return c.json({ error: "Missing bearer token" }, 401);
   }
-  const userId = await resolveUserIdFromToken(m[1].trim());
+  const token = m[1].trim();
+  const userId = await resolveUserIdFromToken(token);
   if (!userId) {
     return c.json({ error: "Invalid or revoked token" }, 401);
   }
-  // Pass userId to every tool handler via context.
-  return await transport.handleRequest(c.req.raw, mcp, { userId });
+  // Pass userId to every tool handler via authInfo.extra.
+  return await httpHandler(c.req.raw, {
+    authInfo: { token, scopes: [], extra: { userId } },
+  });
 });
 
 Deno.serve(app.fetch);
