@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { AvailabilityScheduler } from '@/components/calendar/AvailabilityScheduler';
 
 interface Props {
   taskId?: string;
@@ -149,6 +150,19 @@ export function GoogleCalendarButton({
                     <Label>Duration minutes</Label>
                     <Input type="number" min="15" step="15" value={duration} onChange={(e) => setDuration(e.target.value)} />
                   </div>
+                </div>
+              )}
+              {!allDay && date && (
+                <div className="rounded-md border border-border p-3">
+                  <div className="text-xs font-medium mb-2">Your calendar — pick a free slot</div>
+                  <AvailabilityScheduler
+                    initialDate={date}
+                    durationMinutes={Math.max(15, Number(duration) || 30)}
+                    onPick={(start) => {
+                      setDate(start);
+                      setStartTime(toTimeValue(start));
+                    }}
+                  />
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">
