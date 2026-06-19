@@ -197,6 +197,9 @@ serve(async (req) => {
       attendees = [],
       sendInvites = false,
       recipientUserId,
+      calendarPlacement,
+      title,
+      description,
     }: {
       taskIds?: string[];
       meetingIds?: string[];
@@ -204,12 +207,28 @@ serve(async (req) => {
       attendees?: string[];
       sendInvites?: boolean;
       recipientUserId?: string;
+      calendarPlacement?: CalendarPlacement;
+      title?: string;
+      description?: string;
     } = body ?? {};
 
     if (taskIds.length === 0 && meetingIds.length === 0) {
       return new Response(JSON.stringify({ error: "Provide taskIds or meetingIds" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    if (action === "sync" && taskIds.length === 1 && meetingIds.length === 0 && calendarPlacement) {
+      if (calendarPlacement.allDay && !calendarPlacement.date) {
+        return new Response(JSON.stringify({ error: "Calendar date is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!calendarPlacement.allDay && (!calendarPlacement.startDateTime || !calendarPlacement.endDateTime)) {
+        return new Response(JSON.stringify({ error: "Calendar start and end times are required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const admin = createClient(
@@ -270,7 +289,7 @@ serve(async (req) => {
             await admin.from("focusos_tasks").update({ google_calendar_event_id: null }).eq("id", t.id);
             results.push({ taskId: t.id, ok: true, action: "unsync" });
           } else {
-            const evt = taskToEvent(t, attendees);
+            const evt = taskToEvent(t, attendees, calendarPlacement, { title, description });
             if (t.google_calendar_event_id) {
               await gcalRequest("PATCH",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${t.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
