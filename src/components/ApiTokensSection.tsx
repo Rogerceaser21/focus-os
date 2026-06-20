@@ -106,7 +106,7 @@ export default function ApiTokensSection() {
   // If a token was just generated, drop it straight into the snippets so the
   // user doesn't have to hand-edit anything. Otherwise show the placeholder.
   const tokenForSnippet = justCreated ?? 'YOUR_TOKEN';
-  const claudeCodeCmd = `claude mcp add --transport http focusos ${MCP_URL} --header "Authorization: Bearer ${tokenForSnippet}"`;
+  const claudeCodeCmd = `claude mcp add --transport http -s user focusos ${MCP_URL} --header "Authorization: Bearer ${tokenForSnippet}"`;
   const desktopJson = JSON.stringify(
     {
       mcpServers: {
