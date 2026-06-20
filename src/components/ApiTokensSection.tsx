@@ -252,8 +252,8 @@ export default function ApiTokensSection() {
               <p className="font-medium">Claude Code (terminal)</p>
               <ol className="text-xs text-muted-foreground list-decimal ml-4 space-y-1">
                 <li>Open your terminal (anywhere — you don't need to be in a project).</li>
-                <li>Paste and run the command below.</li>
-                <li>That's it. Next time you run <code>claude</code>, Focus OS tools are available — ask things like "show my Focus OS tasks for today" or "add a task to project X". You will not need to reconnect.</li>
+                <li>Paste and run the command below. <em>This registers Focus OS globally so it's available in all directories.</em></li>
+                <li>That's it! Claude Code will remember this forever. Next time you run <code>claude</code>, Focus OS tools are available — ask things like "show my Focus OS tasks for today" or "add a task to project X".</li>
               </ol>
               <pre className="rounded bg-muted p-2 text-xs overflow-x-auto whitespace-pre-wrap break-all">{claudeCodeCmd}</pre>
               <Button size="sm" variant="outline" onClick={() => copy(claudeCodeCmd, 'Command copied')}>
