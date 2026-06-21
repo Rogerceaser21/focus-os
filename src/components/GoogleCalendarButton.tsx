@@ -11,6 +11,7 @@ import { AvailabilityScheduler } from '@/components/calendar/AvailabilitySchedul
 import { AttendeePicker, AttendeeChip } from '@/components/calendar/AttendeePicker';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   taskId?: string;
@@ -106,6 +107,25 @@ export function GoogleCalendarButton({
       setLocalSynced(true);
       setPickerOpen(false);
       onChange?.(true);
+      // Log a pending shared item per guest (no email — Google already sent the invite).
+      if (hasGuests) {
+        await Promise.all(
+          guestEmails.map(async (recipientEmail) => {
+            try {
+              await supabase.functions.invoke('focusos-share-item', {
+                body: {
+                  itemType: 'task',
+                  itemId: taskId,
+                  recipientEmail,
+                  sendEmail: false,
+                },
+              });
+            } catch (err) {
+              console.error('share-item log failed for', recipientEmail, err);
+            }
+          }),
+        );
+      }
       toast.success(
         hasGuests
           ? `Added to your calendar · invited ${guestEmails.length} guest${guestEmails.length === 1 ? '' : 's'}`

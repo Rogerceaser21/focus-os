@@ -124,7 +124,7 @@ serve(async (req) => {
     const senderId = user.id;
     const senderEmail = user.email as string;
 
-    const { itemType, itemId, recipientEmail } = await req.json();
+    const { itemType, itemId, recipientEmail, sendEmail = true } = await req.json();
 
     if (!itemType || !itemId || !recipientEmail) {
       return new Response(JSON.stringify({ error: "itemType, itemId, and recipientEmail required" }), {
@@ -230,25 +230,46 @@ serve(async (req) => {
       recipientUserId = recipientUser.user_id;
     }
 
-    // Insert shared item row
-    const { error: insertError } = await supabaseUser
-      .from("focusos_shared_items")
-      .insert({
-        sender_user_id: senderId,
-        sender_email: senderEmail,
-        sender_name: senderName,
-        recipient_email: recipientEmail.trim().toLowerCase(),
-        recipient_user_id: recipientUserId,
-        item_type: itemType,
-        item_id: itemId,
-        item_title: itemTitle,
-        project_name: projectName || null,
-        status: "pending",
-      });
+    const normalizedRecipient = recipientEmail.trim().toLowerCase();
 
-    if (insertError) {
-      console.error("Insert shared item error:", insertError);
-      throw new Error("Failed to create shared item");
+    // Idempotency: reuse existing shared item if one already exists for the
+    // same sender + recipient + item.
+    const { data: existing } = await supabaseUser
+      .from("focusos_shared_items")
+      .select("id")
+      .eq("sender_user_id", senderId)
+      .eq("recipient_email", normalizedRecipient)
+      .eq("item_type", itemType)
+      .eq("item_id", itemId)
+      .maybeSingle();
+
+    if (!existing) {
+      const { error: insertError } = await supabaseUser
+        .from("focusos_shared_items")
+        .insert({
+          sender_user_id: senderId,
+          sender_email: senderEmail,
+          sender_name: senderName,
+          recipient_email: normalizedRecipient,
+          recipient_user_id: recipientUserId,
+          item_type: itemType,
+          item_id: itemId,
+          item_title: itemTitle,
+          project_name: projectName || null,
+          status: "pending",
+        });
+
+      if (insertError) {
+        console.error("Insert shared item error:", insertError);
+        throw new Error("Failed to create shared item");
+      }
+    }
+
+    if (sendEmail === false) {
+      return new Response(JSON.stringify({ success: true, emailSkipped: true, reused: !!existing }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Send email via Resend
