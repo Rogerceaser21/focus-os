@@ -249,6 +249,12 @@ export function GoogleCalendarButton({
                   </div>
                 </div>
               )}
+              {chips.some((c) => !!c.email && c.email.toLowerCase() !== (user?.email ?? '').toLowerCase()) && (
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
+                  <Label htmlFor="email-guests" className="pb-0">Email guests the invite</Label>
+                  <Switch id="email-guests" checked={emailGuests} onCheckedChange={setEmailGuests} />
+                </div>
+              )}
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setPickerOpen(false)} disabled={working}>Cancel</Button>
                 <Button onClick={scheduleTask} disabled={working || !date}>
