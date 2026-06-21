@@ -183,12 +183,6 @@ export function GoogleCalendarButton({
                 <Switch id="all-day" checked={allDay} onCheckedChange={setAllDay} />
                 <Label htmlFor="all-day" className="pb-0">All day</Label>
               </div>
-              {chips.some((c) => !!c.email && c.email.toLowerCase() !== (user?.email ?? '').toLowerCase()) && (
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
-                  <Label htmlFor="email-guests" className="pb-0">Email guests the invite</Label>
-                  <Switch id="email-guests" checked={emailGuests} onCheckedChange={setEmailGuests} />
-                </div>
-              )}
               {!allDay && date && (
                 <div className="rounded-md border border-border p-3">
                   {targetUserId && (
