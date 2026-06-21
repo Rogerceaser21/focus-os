@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Mail, Trash2 } from 'lucide-react';
+import { CalendarIcon, Share2, Trash2 } from 'lucide-react';
 import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { HandToAI } from '@/components/icons/HandToAI';
 import { format } from 'date-fns';
@@ -264,9 +264,10 @@ export const EditTaskDialog = ({
         size="sm"
         onClick={() => setShareDialogOpen(true)}
         className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-        title="Assign & Email"
+        title="Share"
+        aria-label="Share"
       >
-        <Mail className="h-4 w-4" />
+        <Share2 className="h-4 w-4" />
       </Button>
       <GoogleCalendarButton
         taskId={task.id}
