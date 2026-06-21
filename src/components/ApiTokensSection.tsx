@@ -43,7 +43,7 @@ export default function ApiTokensSection() {
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState<string | null>(null);
   const [showDocs, setShowDocs] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<'code' | 'desktop' | 'web' | 'chatgpt'>('code');
+  const [selectedClient, setSelectedClient] = useState<'code' | 'desktop'>('code');
 
   const load = async () => {
     setLoading(true);
