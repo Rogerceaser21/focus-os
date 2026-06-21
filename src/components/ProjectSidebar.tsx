@@ -924,21 +924,21 @@ export const ProjectSidebar = ({
                           <p className="text-xs text-orange-300/80 italic px-1">"{changeMessage}"</p>
                         )}
                         {isPending && !isSender && (
-                          <div className="flex gap-1.5">
+                          <div className="flex flex-wrap gap-1.5 w-full">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 h-7 text-xs gap-1 border-success/30 text-success hover:bg-success/10"
+                              className="flex-1 min-w-[80px] h-7 text-xs gap-1 border-success/30 text-success hover:bg-success/10"
                               onClick={() => handleAcceptSharedItem(item.id)}
                               disabled={acceptingId === item.id}
                             >
-                              <CheckCircle2 className="h-3 w-3" />
+                              <CheckCircle2 className="h-3 w-3 animate-pulse" />
                               {acceptingId === item.id ? '...' : 'Accept'}
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                              className="flex-1 min-w-[80px] h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
                               onClick={() => handleDeclineSharedItem(item.id)}
                               disabled={decliningId === item.id}
                             >
@@ -948,41 +948,43 @@ export const ProjectSidebar = ({
                           </div>
                         )}
                         {isPending && isSender && (
-                          <div className="flex items-center gap-1.5">
-                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-1.5 w-full">
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0">
                               Pending acceptance
                             </Badge>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-[10px] gap-1 border-muted-foreground/30 text-muted-foreground hover:bg-muted/50"
-                              onClick={() => handleAcknowledgeSharedItem(item.id)}
-                            >
-                              <CheckCircle2 className="h-3 w-3" />
-                              Dismiss
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-[10px] gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
-                              onClick={() => handleCancelSharedItem(item.id)}
-                              disabled={cancellingId === item.id}
-                            >
-                              <XCircle className="h-3 w-3" />
-                              {cancellingId === item.id ? '...' : 'Cancel'}
-                            </Button>
+                            <div className="flex gap-1.5 flex-1 min-w-[120px]">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-6 px-2 text-[10px] gap-1 border-muted-foreground/30 text-muted-foreground hover:bg-muted/50"
+                                onClick={() => handleAcknowledgeSharedItem(item.id)}
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                                Dismiss
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-6 px-2 text-[10px] gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                                onClick={() => handleCancelSharedItem(item.id)}
+                                disabled={cancellingId === item.id}
+                              >
+                                <XCircle className="h-3 w-3" />
+                                {cancellingId === item.id ? '...' : 'Cancel'}
+                              </Button>
+                            </div>
                           </div>
                         )}
                         {isAccepted && (
-                          <div className="flex items-center gap-1.5">
-                            <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/20">
+                          <div className="flex flex-wrap items-center gap-1.5 w-full">
+                            <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/20 shrink-0">
                               Accepted
                             </Badge>
                             {isSender && !item.sender_acknowledged && (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-6 px-2 text-[10px] gap-1 border-success/30 text-success hover:bg-success/10"
+                                className="flex-1 min-w-[80px] h-6 px-2 text-[10px] gap-1 border-success/30 text-success hover:bg-success/10"
                                 onClick={() => handleAcknowledgeSharedItem(item.id)}
                               >
                                 <CheckCircle2 className="h-3 w-3" />
