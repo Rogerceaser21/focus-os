@@ -2,6 +2,68 @@ import { supabase } from '@/integrations/supabase/client';
 
 const BUCKET = 'focusos-task-images';
 
+const MAX_DIMENSION = 2000;
+const COMPRESSION_SKIP_BYTES = 300 * 1024;
+const WEBP_QUALITY = 0.85;
+
+/**
+ * Compress an image: downscale longest side to MAX_DIMENSION and re-encode as WebP.
+ * Throws if compression isn't supported or fails — callers should fall back to original.
+ */
+export const compressImage = async (file: File | Blob): Promise<Blob> => {
+  let bitmap: ImageBitmap | null = null;
+  let objectUrl: string | null = null;
+  let width = 0;
+  let height = 0;
+  let source: CanvasImageSource;
+
+  try {
+    if (typeof createImageBitmap === 'function') {
+      bitmap = await createImageBitmap(file);
+      width = bitmap.width;
+      height = bitmap.height;
+      source = bitmap;
+    } else {
+      objectUrl = URL.createObjectURL(file);
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error('Image decode failed'));
+        i.src = objectUrl!;
+      });
+      width = img.naturalWidth;
+      height = img.naturalHeight;
+      source = img;
+    }
+
+    if (!width || !height) throw new Error('Invalid image dimensions');
+
+    const longest = Math.max(width, height);
+    const scale = Math.min(1, MAX_DIMENSION / longest);
+    const targetW = Math.round(width * scale);
+    const targetH = Math.round(height * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D context unavailable');
+    ctx.drawImage(source, 0, 0, targetW, targetH);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/webp', WEBP_QUALITY);
+    });
+
+    if (!blob || blob.size === 0) throw new Error('Canvas toBlob returned empty');
+    if (blob.type !== 'image/webp') throw new Error('WebP not supported by browser');
+
+    return blob;
+  } finally {
+    if (bitmap) bitmap.close();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }
+};
+
 /**
  * Check if an image string is a legacy base64 data URL
  */
@@ -30,10 +92,30 @@ export const uploadTaskImage = async (
 ): Promise<string> => {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
-  const ext = file instanceof File && file.name ? file.name.split('.').pop() || 'jpg' : 'jpg';
+  const originalExt =
+    file instanceof File && file.name ? file.name.split('.').pop() || 'jpg' : 'jpg';
+  const mime = (file as File).type || '';
+
+  let uploadBlob: Blob = file;
+  let ext = originalExt;
+
+  const isGif = mime === 'image/gif';
+  const isSmall = file.size < COMPRESSION_SKIP_BYTES;
+
+  if (!isGif && !isSmall) {
+    try {
+      uploadBlob = await compressImage(file);
+      ext = 'webp';
+    } catch (err) {
+      console.warn('Image compression failed, uploading original:', err);
+      uploadBlob = file;
+      ext = originalExt;
+    }
+  }
+
   const path = `${userId}/${timestamp}-${random}.${ext}`;
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+  const { error } = await supabase.storage.from(BUCKET).upload(path, uploadBlob, {
     cacheControl: '3600',
     upsert: false,
   });
