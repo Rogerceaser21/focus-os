@@ -46,6 +46,7 @@ export function GoogleCalendarButton({
   const [chips, setChips] = useState<AttendeeChip[]>(() => (attendees ?? []).map((e) => ({ email: e })));
   const [targetUserId, setTargetUserId] = useState<string | undefined>(undefined);
   const [targetLabel, setTargetLabel] = useState<string>('this calendar');
+  const [emailGuests, setEmailGuests] = useState(true);
 
   // Keep chips in sync if attendees prop changes while dialog is closed
   useEffect(() => {
@@ -98,7 +99,7 @@ export function GoogleCalendarButton({
       title: task.title,
       description: task.description,
       attendees: hasGuests ? guestEmails : undefined,
-      sendInvites: hasGuests,
+      sendInvites: hasGuests && emailGuests,
       silent: true,
     });
 
@@ -182,6 +183,12 @@ export function GoogleCalendarButton({
                 <Switch id="all-day" checked={allDay} onCheckedChange={setAllDay} />
                 <Label htmlFor="all-day" className="pb-0">All day</Label>
               </div>
+              {chips.some((c) => !!c.email && c.email.toLowerCase() !== (user?.email ?? '').toLowerCase()) && (
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
+                  <Label htmlFor="email-guests" className="pb-0">Email guests the invite</Label>
+                  <Switch id="email-guests" checked={emailGuests} onCheckedChange={setEmailGuests} />
+                </div>
+              )}
               {!allDay && date && (
                 <div className="rounded-md border border-border p-3">
                   {targetUserId && (

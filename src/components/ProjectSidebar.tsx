@@ -309,6 +309,13 @@ export const ProjectSidebar = ({
   };
 
   const fetchSharedItems = async () => {
+    // Best-effort: sync Google RSVPs into sender's pending shared items
+    // before reading. Silent — never blocks UI on failure.
+    try {
+      await (supabase as any).functions.invoke('focusos-sync-shared-rsvp');
+    } catch (e) {
+      // ignore; we still render whatever is in the table
+    }
     const { data, error } = await (supabase as any)
       .from('focusos_shared_items')
       .select('*')
