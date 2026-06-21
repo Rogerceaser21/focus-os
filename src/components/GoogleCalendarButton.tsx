@@ -32,6 +32,8 @@ export function GoogleCalendarButton({
   const { user } = useAuth();
   const [working, setWorking] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [localSynced, setLocalSynced] = useState(synced);
+  useEffect(() => { setLocalSynced(synced); }, [synced]);
   const defaultDate = task?.startDate || task?.dueDate || new Date();
   const defaultStart = roundToNextHalfHour(task?.startDate || new Date());
   const defaultEnd = task?.endDate || new Date(defaultStart.getTime() + 30 * 60_000);
@@ -50,7 +52,7 @@ export function GoogleCalendarButton({
 
   const handle = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!synced && taskId && task) {
+    if (!localSynced && taskId && task) {
       setPickerOpen(true);
       return;
     }
@@ -58,13 +60,16 @@ export function GoogleCalendarButton({
     const args = {
       taskIds: taskId ? [taskId] : undefined,
       meetingIds: meetingId ? [meetingId] : undefined,
-      action: synced ? ('unsync' as const) : ('sync' as const),
+      action: localSynced ? ('unsync' as const) : ('sync' as const),
       attendees,
       sendInvites,
     };
     const res = await push(args);
     setWorking(false);
-    if (res.ok) onChange?.(!synced);
+    if (res.ok) {
+      setLocalSynced(!localSynced);
+      onChange?.(!localSynced);
+    }
   };
 
   const scheduleTask = async () => {
@@ -88,6 +93,7 @@ export function GoogleCalendarButton({
     });
     setWorking(false);
     if (res.ok) {
+      setLocalSynced(true);
       setPickerOpen(false);
       onChange?.(true);
     }
@@ -95,7 +101,7 @@ export function GoogleCalendarButton({
 
   if (isConnected === false) return null; // hide entirely if not connected
 
-  const title = synced ? 'Synced to Google Calendar — click to remove' : 'Send to Google Calendar';
+  const title = localSynced ? 'Synced to Google Calendar — click to remove' : 'Send to Google Calendar';
 
   return (
     <>
@@ -104,15 +110,15 @@ export function GoogleCalendarButton({
         variant={variant}
         onClick={handle}
         disabled={working}
-        className={`gap-1 ${synced ? 'text-emerald-500 hover:text-emerald-600' : 'text-muted-foreground hover:text-primary'}`}
+          className={`gap-1 ${localSynced ? 'text-emerald-500 hover:text-emerald-600' : 'text-muted-foreground hover:text-primary'}`}
         title={title}
       >
         {working
           ? <Loader2 className="h-3 w-3 animate-spin" />
-          : synced
+            : localSynced
             ? <CalendarCheck className="h-3 w-3" />
             : <CalendarPlus className="h-3 w-3" />}
-        {showLabel && <span className="text-xs">{synced ? 'Synced' : 'Google Calendar'}</span>}
+        {showLabel && <span className="text-xs">{localSynced ? 'Synced' : 'Google Calendar'}</span>}
       </Button>
       {task && (
         <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>

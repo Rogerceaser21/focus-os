@@ -483,16 +483,14 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
               <HandToAI variant="full" className="h-3.5 w-auto" />
             </Button>
           )}
-          {!task.assignedToEmail && (
-            <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-              <GoogleCalendarButton
-                taskId={task.id}
-                task={task}
-                synced={!!task.googleCalendarEventId}
-                onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
-              />
-            </div>
-          )}
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <GoogleCalendarButton
+              taskId={task.id}
+              task={task}
+              synced={!!task.googleCalendarEventId}
+              onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
+            />
+          </div>
           {onEditTask && (
             <Button
               variant="ghost"
@@ -785,14 +783,12 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   <Share2 className="w-3 h-3" />
                 </button>
 
-              {!task.assignedToEmail && (
-                <GoogleCalendarButton
-                  taskId={task.id}
-                  task={task}
-                  synced={!!task.googleCalendarEventId}
-                  onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
-                />
-              )}
+              <GoogleCalendarButton
+                taskId={task.id}
+                task={task}
+                synced={!!task.googleCalendarEventId}
+                onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
+              />
 
               {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
                 <ShareStatusPopover
@@ -1101,14 +1097,12 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                   <Share2 className="w-4 h-4" />
                 </button>
 
-              {!task.assignedToEmail && (
-                <GoogleCalendarButton
-                  taskId={task.id}
-                  task={task}
-                  synced={!!task.googleCalendarEventId}
-                  onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
-                />
-              )}
+              <GoogleCalendarButton
+                taskId={task.id}
+                task={task}
+                synced={!!task.googleCalendarEventId}
+                onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
+              />
 
               {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
                 <ShareStatusPopover
