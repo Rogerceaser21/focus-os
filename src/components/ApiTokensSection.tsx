@@ -111,20 +111,28 @@ export default function ApiTokensSection() {
     {
       mcpServers: {
         focusos: {
-          url: MCP_URL,
-          headers: { Authorization: `Bearer ${tokenForSnippet}` },
-        },
-      },
+          command: "npx",
+          args: [
+            "-y",
+            "mcp-remote",
+            MCP_URL,
+            "--header",
+            `Authorization: Bearer ${tokenForSnippet}`
+          ]
+        }
+      }
     },
     null,
     2,
   );
 
+  const activeTokens = tokens.filter((t) => !t.revoked_at);
+
   return (
     <div className="space-y-3">
       <Label className="text-base font-semibold">AI Access (MCP)</Label>
       <p className="text-sm text-muted-foreground">
-        Connect Claude Code, Claude Desktop, Claude Web, or ChatGPT to Focus OS so they can read and
+        Connect Claude Code or Claude Desktop to Focus OS so they can read and
         write your tasks and projects. You only do this once per device.
       </p>
 
@@ -134,16 +142,16 @@ export default function ApiTokensSection() {
         <p className="text-xs text-muted-foreground">
           Give it a name so you remember where you used it (e.g. "Claude Code – laptop").
         </p>
-      <div className="flex gap-2">
-        <Input
-          placeholder="Token name"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-        />
-        <Button onClick={handleCreate} disabled={creating || !newName.trim()}>
-          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate token'}
-        </Button>
-      </div>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Token name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+          <Button onClick={handleCreate} disabled={creating || !newName.trim()}>
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate token'}
+          </Button>
+        </div>
       </div>
 
       {/* Just-created token shown once */}
@@ -172,10 +180,10 @@ export default function ApiTokensSection() {
       <div className="space-y-1.5">
         {loading ? (
           <p className="text-xs text-muted-foreground">Loading…</p>
-        ) : tokens.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No tokens yet.</p>
+        ) : activeTokens.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No active tokens yet.</p>
         ) : (
-          tokens.map((t) => (
+          activeTokens.map((t) => (
             <div
               key={t.id}
               className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
@@ -183,9 +191,6 @@ export default function ApiTokensSection() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-medium truncate">{t.name}</span>
-                  {t.revoked_at && (
-                    <span className="text-xs text-destructive">revoked</span>
-                  )}
                 </div>
                 <div className="text-xs text-muted-foreground font-mono truncate">
                   {t.token_prefix}…
@@ -194,11 +199,9 @@ export default function ApiTokensSection() {
                   Last used: {t.last_used_at ? new Date(t.last_used_at).toLocaleString() : 'never'}
                 </div>
               </div>
-              {!t.revoked_at && (
-                <Button size="icon" variant="ghost" onClick={() => handleRevoke(t.id)} title="Revoke">
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              )}
+              <Button size="icon" variant="ghost" onClick={() => handleRevoke(t.id)} title="Revoke">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
             </div>
           ))
         )}
@@ -213,7 +216,7 @@ export default function ApiTokensSection() {
         onClick={() => setShowDocs((v) => !v)}
         className="w-full justify-between"
       >
-        <span>Step 2 — Connect your AI (Claude / ChatGPT)</span>
+        <span>Step 2 — Connect your AI (Claude Code / Desktop)</span>
         {showDocs ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </Button>
 
@@ -232,8 +235,6 @@ export default function ApiTokensSection() {
               {[
                 { id: 'code', label: 'Claude Code' },
                 { id: 'desktop', label: 'Claude Desktop' },
-                { id: 'web', label: 'Claude Web' },
-                { id: 'chatgpt', label: 'ChatGPT' },
               ].map((c) => (
                 <Button
                   key={c.id}
@@ -267,78 +268,14 @@ export default function ApiTokensSection() {
               <p className="font-medium">Claude Desktop (Mac / Windows app)</p>
               <ol className="text-xs text-muted-foreground list-decimal ml-4 space-y-1">
                 <li>Open Claude Desktop → <strong>Settings → Developer → Edit Config</strong>. A JSON file opens in your editor.</li>
-                <li>Replace its contents with the JSON below (or merge the <code>focusos</code> entry into your existing <code>mcpServers</code>).</li>
-                <li>Save the file and fully quit + reopen Claude Desktop. Focus OS will appear as a connected tool in any new chat. You will not need to reconnect.</li>
+                <li>Open the file. If it's empty, paste the JSON below. If it already has other MCP servers, just add the <code>focusos</code> entry inside your existing <code>mcpServers</code> object — do <strong>NOT</strong> replace the whole file.</li>
+                <li>Note: You must have Node.js installed on your machine for the <code>npx</code> proxy command to run.</li>
+                <li>Save the file and fully quit + reopen Claude Desktop. Focus OS will appear as a connected tool in any new chat.</li>
               </ol>
               <pre className="rounded bg-muted p-2 text-xs overflow-x-auto">{desktopJson}</pre>
               <Button size="sm" variant="outline" onClick={() => copy(desktopJson, 'Config copied')}>
                 <Copy className="h-3 w-3 mr-1" /> Copy config
               </Button>
-            </div>
-          )}
-
-          {selectedClient === 'web' && (
-            <div className="space-y-2">
-              <p className="font-medium">Claude Web (claude.ai)</p>
-              <p className="text-xs text-muted-foreground">
-                Requires a <strong>Pro, Max, Team, or Enterprise</strong> plan.
-              </p>
-              <ol className="text-xs text-muted-foreground list-decimal ml-4 space-y-1">
-                <li>Go to claude.ai → <strong>Settings → Connectors → Add custom connector</strong>.</li>
-                <li>Name: <code>Focus OS</code></li>
-                <li>
-                  URL — copy this:
-                  <div className="flex gap-2 mt-1">
-                    <Input readOnly value={MCP_URL} className="font-mono text-xs" />
-                    <Button size="sm" variant="outline" onClick={() => copy(MCP_URL, 'URL copied')}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </li>
-                <li>
-                  Auth: choose <em>Bearer token</em> and paste:
-                  <div className="flex gap-2 mt-1">
-                    <Input readOnly value={tokenForSnippet} className="font-mono text-xs" />
-                    <Button size="sm" variant="outline" onClick={() => copy(tokenForSnippet, 'Token copied')}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </li>
-                <li>Save. Focus OS will stay connected to your account — no reconnecting needed.</li>
-              </ol>
-            </div>
-          )}
-
-          {selectedClient === 'chatgpt' && (
-            <div className="space-y-2">
-              <p className="font-medium">ChatGPT</p>
-              <p className="text-xs text-muted-foreground">
-                Custom remote MCP connectors live in <strong>Developer mode</strong> on Pro, Business,
-                Enterprise, and Edu plans. Free and Plus users can't add arbitrary MCP servers yet.
-              </p>
-              <ol className="text-xs text-muted-foreground list-decimal ml-4 space-y-1">
-                <li>Open ChatGPT → <strong>Settings → Connectors → Advanced → Developer mode</strong> and turn it on.</li>
-                <li>Click <strong>Create</strong> and fill in:</li>
-                <li>
-                  URL:
-                  <div className="flex gap-2 mt-1">
-                    <Input readOnly value={MCP_URL} className="font-mono text-xs" />
-                    <Button size="sm" variant="outline" onClick={() => copy(MCP_URL, 'URL copied')}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </li>
-                <li>
-                  Auth — Bearer token:
-                  <div className="flex gap-2 mt-1">
-                    <Input readOnly value={tokenForSnippet} className="font-mono text-xs" />
-                    <Button size="sm" variant="outline" onClick={() => copy(tokenForSnippet, 'Token copied')}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </li>
-                <li>Save. The connector stays attached to your ChatGPT account — no reconnecting needed.</li>
-              </ol>
             </div>
           )}
 
@@ -351,4 +288,5 @@ export default function ApiTokensSection() {
       )}
     </div>
   );
+}
 }
