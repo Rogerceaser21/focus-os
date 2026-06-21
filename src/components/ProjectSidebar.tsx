@@ -925,74 +925,109 @@ export const ProjectSidebar = ({
                           <p className="text-xs text-orange-300/80 italic px-1">"{changeMessage}"</p>
                         )}
                         {isPending && !isSender && (
-                          <div className="flex flex-wrap gap-1.5 w-full">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1 min-w-[80px] h-7 text-xs gap-1 border-success/30 text-success hover:bg-success/10"
-                              onClick={() => handleAcceptSharedItem(item.id)}
-                              disabled={acceptingId === item.id}
-                            >
-                              <CheckCircle2 className="h-3 w-3 animate-pulse" />
-                              {acceptingId === item.id ? '...' : 'Accept'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1 min-w-[80px] h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDeclineSharedItem(item.id)}
-                              disabled={decliningId === item.id}
-                            >
-                              <XCircle className="h-3 w-3" />
-                              {decliningId === item.id ? '...' : 'Reject'}
-                            </Button>
-                          </div>
+                          <TooltipProvider delayDuration={200}>
+                            <div className="flex items-center gap-1 w-full">
+                              <Badge variant="outline" className="flex-1 min-w-0 inline-flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30">
+                                <Clock className="h-3 w-3 shrink-0" />
+                                <span className="truncate">Awaiting your response</span>
+                              </Badge>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    aria-label="Accept"
+                                    className="h-6 w-6 p-0 shrink-0 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10"
+                                    onClick={() => handleAcceptSharedItem(item.id)}
+                                    disabled={acceptingId === item.id}
+                                  >
+                                    <CheckCircle2 className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Accept</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    aria-label="Reject"
+                                    className="h-6 w-6 p-0 shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10"
+                                    onClick={() => handleDeclineSharedItem(item.id)}
+                                    disabled={decliningId === item.id}
+                                  >
+                                    <XCircle className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Reject</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TooltipProvider>
                         )}
                         {isPending && isSender && (
-                          <div className="flex flex-wrap items-center gap-1.5 w-full">
-                            <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0">
-                              Pending acceptance
-                            </Badge>
-                            <div className="flex gap-1.5 flex-1 min-w-[120px]">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 h-6 px-2 text-[10px] gap-1 border-muted-foreground/30 text-muted-foreground hover:bg-muted/50"
-                                onClick={() => handleAcknowledgeSharedItem(item.id)}
-                              >
-                                <CheckCircle2 className="h-3 w-3" />
-                                Dismiss
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 h-6 px-2 text-[10px] gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
-                                onClick={() => handleCancelSharedItem(item.id)}
-                                disabled={cancellingId === item.id}
-                              >
-                                <XCircle className="h-3 w-3" />
-                                {cancellingId === item.id ? '...' : 'Cancel'}
-                              </Button>
+                          <TooltipProvider delayDuration={200}>
+                            <div className="flex items-center gap-1 w-full">
+                              <Badge variant="outline" className="flex-1 min-w-0 inline-flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30">
+                                <Clock className="h-3 w-3 shrink-0" />
+                                <span className="truncate">Pending acceptance</span>
+                              </Badge>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    aria-label="Dismiss"
+                                    className="h-6 w-6 p-0 shrink-0 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10"
+                                    onClick={() => handleAcknowledgeSharedItem(item.id)}
+                                  >
+                                    <CheckCircle2 className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Dismiss</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    aria-label="Cancel"
+                                    className="h-6 w-6 p-0 shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10"
+                                    onClick={() => handleCancelSharedItem(item.id)}
+                                    disabled={cancellingId === item.id}
+                                  >
+                                    <XCircle className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Cancel</TooltipContent>
+                              </Tooltip>
                             </div>
-                          </div>
+                          </TooltipProvider>
                         )}
                         {isAccepted && (
-                          <div className="flex flex-wrap items-center gap-1.5 w-full">
-                            <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/20 shrink-0">
-                              Accepted
-                            </Badge>
-                            {isSender && !item.sender_acknowledged && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 min-w-[80px] h-6 px-2 text-[10px] gap-1 border-success/30 text-success hover:bg-success/10"
-                                onClick={() => handleAcknowledgeSharedItem(item.id)}
-                              >
-                                <CheckCircle2 className="h-3 w-3" />
-                                Dismiss
-                              </Button>
-                            )}
-                          </div>
+                          <TooltipProvider delayDuration={200}>
+                            <div className="flex items-center gap-1 w-full">
+                              <Badge variant="outline" className="flex-1 min-w-0 inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                <span className="truncate">Accepted</span>
+                              </Badge>
+                              {isSender && !item.sender_acknowledged && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      aria-label="Dismiss"
+                                      className="h-6 w-6 p-0 shrink-0 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10"
+                                      onClick={() => handleAcknowledgeSharedItem(item.id)}
+                                    >
+                                      <CheckCircle2 className="h-3 w-3" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Dismiss</TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </TooltipProvider>
                         )}
                       </div>
                     );
