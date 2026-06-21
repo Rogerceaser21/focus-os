@@ -513,6 +513,8 @@ export const ProjectSidebar = ({
   };
   const handleAcknowledgeSharedItem = async (sharedItemId: string) => {
     try {
+      // Dismiss the matching toast immediately to keep card and toast congruent
+      toast.dismiss(`accept-notify-${sharedItemId}`);
       await (supabase as any)
         .from('focusos_shared_items')
         .update({ sender_acknowledged: true })
