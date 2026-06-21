@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList, Users, Clock } from 'lucide-react';
+import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList, Users, Clock, EyeOff } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ShareStatusPopover, SharedRecipient } from './ShareStatusPopover';
 import { useNavigate } from 'react-router-dom';
@@ -977,10 +977,10 @@ export const ProjectSidebar = ({
                                     size="sm"
                                     variant="outline"
                                     aria-label="Dismiss"
-                                    className="h-6 w-6 p-0 shrink-0 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10"
+                                    className="h-6 w-6 p-0 shrink-0 text-muted-foreground border-muted-foreground/30 hover:bg-muted/50"
                                     onClick={() => handleAcknowledgeSharedItem(item.id)}
                                   >
-                                    <CheckCircle2 className="h-3 w-3" />
+                                    <EyeOff className="h-3 w-3" />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>Dismiss</TooltipContent>
@@ -1017,10 +1017,10 @@ export const ProjectSidebar = ({
                                       size="sm"
                                       variant="outline"
                                       aria-label="Dismiss"
-                                      className="h-6 w-6 p-0 shrink-0 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10"
+                                      className="h-6 w-6 p-0 shrink-0 text-muted-foreground border-muted-foreground/30 hover:bg-muted/50"
                                       onClick={() => handleAcknowledgeSharedItem(item.id)}
                                     >
-                                      <CheckCircle2 className="h-3 w-3" />
+                                      <EyeOff className="h-3 w-3" />
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>Dismiss</TooltipContent>
