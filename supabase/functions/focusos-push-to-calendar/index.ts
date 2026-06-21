@@ -194,8 +194,6 @@ serve(async (req) => {
       taskIds = [],
       meetingIds = [],
       action = "sync",
-      attendees = [],
-      sendInvites = false,
       recipientUserId,
       calendarPlacement,
       title,
@@ -204,13 +202,16 @@ serve(async (req) => {
       taskIds?: string[];
       meetingIds?: string[];
       action?: "sync" | "unsync";
-      attendees?: string[];
-      sendInvites?: boolean;
       recipientUserId?: string;
       calendarPlacement?: CalendarPlacement;
       title?: string;
       description?: string;
     } = body ?? {};
+    // Attendees and Google-native invites are intentionally not honored here.
+    // Recipient delivery is handled by per-user service-role pushes + the
+    // focusos-share-item pipeline so Google never sends its own invite email.
+    const attendees: string[] = [];
+    const sendInvites = false;
 
     if (taskIds.length === 0 && meetingIds.length === 0) {
       return new Response(JSON.stringify({ error: "Provide taskIds or meetingIds" }), {
@@ -251,14 +252,14 @@ serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // If pushing to a recipient, ensure caller has shared at least one of these items with them
+    // If pushing to a recipient, ensure caller has shared at least one item with them
+    // (any status — sharing happens immediately before the push, so the row may still be pending).
     if (recipientUserId && recipientUserId !== callerId) {
       const { data: shared } = await admin
         .from("focusos_shared_items")
         .select("id")
         .eq("sender_user_id", callerId)
         .eq("recipient_user_id", recipientUserId)
-        .eq("status", "accepted")
         .limit(1);
       if (!shared || shared.length === 0) {
         return new Response(JSON.stringify({ error: "Not authorized to push to this user" }), {
@@ -272,6 +273,7 @@ serve(async (req) => {
 
     const sendUpdates = sendInvites ? "all" : "none";
     const results: any[] = [];
+    const isRecipientPush = !!recipientUserId && recipientUserId !== callerId;
 
     // Tasks
     if (taskIds.length > 0) {
@@ -281,16 +283,16 @@ serve(async (req) => {
       for (const t of (tasks ?? [])) {
         try {
           if (action === "unsync") {
-            if (t.google_calendar_event_id) {
+            if (!isRecipientPush && t.google_calendar_event_id) {
               await gcalRequest("DELETE",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${t.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
                 accessToken);
+              await admin.from("focusos_tasks").update({ google_calendar_event_id: null }).eq("id", t.id);
             }
-            await admin.from("focusos_tasks").update({ google_calendar_event_id: null }).eq("id", t.id);
             results.push({ taskId: t.id, ok: true, action: "unsync" });
           } else {
             const evt = taskToEvent(t, attendees, calendarPlacement, { title, description });
-            if (t.google_calendar_event_id) {
+            if (!isRecipientPush && t.google_calendar_event_id) {
               await gcalRequest("PATCH",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${t.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
                 accessToken, evt);
@@ -299,7 +301,9 @@ serve(async (req) => {
               const created = await gcalRequest("POST",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=${sendUpdates}`,
                 accessToken, evt);
-              await admin.from("focusos_tasks").update({ google_calendar_event_id: created.id }).eq("id", t.id);
+              if (!isRecipientPush) {
+                await admin.from("focusos_tasks").update({ google_calendar_event_id: created.id }).eq("id", t.id);
+              }
               results.push({ taskId: t.id, ok: true, action: "insert", eventId: created.id });
             }
           }
