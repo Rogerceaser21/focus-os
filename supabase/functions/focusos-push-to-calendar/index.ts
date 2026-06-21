@@ -194,24 +194,21 @@ serve(async (req) => {
       taskIds = [],
       meetingIds = [],
       action = "sync",
-      recipientUserId,
       calendarPlacement,
       title,
       description,
+      attendees = [],
+      sendInvites = false,
     }: {
       taskIds?: string[];
       meetingIds?: string[];
       action?: "sync" | "unsync";
-      recipientUserId?: string;
       calendarPlacement?: CalendarPlacement;
       title?: string;
       description?: string;
+      attendees?: string[];
+      sendInvites?: boolean;
     } = body ?? {};
-    // Attendees and Google-native invites are intentionally not honored here.
-    // Recipient delivery is handled by per-user service-role pushes + the
-    // focusos-share-item pipeline so Google never sends its own invite email.
-    const attendees: string[] = [];
-    const sendInvites = false;
 
     if (taskIds.length === 0 && meetingIds.length === 0) {
       return new Response(JSON.stringify({ error: "Provide taskIds or meetingIds" }), {
@@ -237,35 +234,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Determine whose calendar we're targeting
-    const targetUserId = recipientUserId ?? callerId;
-
-    // Load tokens for target user
+    // Always push to the caller's own calendar. Guests are attached as native
+    // Google attendees; Google sends invites when sendInvites is true.
     const { data: tokenRow, error: tokErr } = await admin
       .from("focusos_google_tokens").select("*")
-      .eq("user_id", targetUserId).maybeSingle();
+      .eq("user_id", callerId).maybeSingle();
     if (tokErr || !tokenRow) {
       return new Response(JSON.stringify({
-        error: recipientUserId
-          ? "Recipient has not connected Google Calendar"
-          : "Connect Google Calendar in Settings first",
+        error: "Connect Google Calendar in Settings first",
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // If pushing to a recipient, ensure caller has shared at least one item with them
-    // (any status — sharing happens immediately before the push, so the row may still be pending).
-    if (recipientUserId && recipientUserId !== callerId) {
-      const { data: shared } = await admin
-        .from("focusos_shared_items")
-        .select("id")
-        .eq("sender_user_id", callerId)
-        .eq("recipient_user_id", recipientUserId)
-        .limit(1);
-      if (!shared || shared.length === 0) {
-        return new Response(JSON.stringify({ error: "Not authorized to push to this user" }), {
-          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
     }
 
     const accessToken = await refreshIfNeeded(admin, tokenRow as TokenRow);
@@ -273,7 +250,6 @@ serve(async (req) => {
 
     const sendUpdates = sendInvites ? "all" : "none";
     const results: any[] = [];
-    const isRecipientPush = !!recipientUserId && recipientUserId !== callerId;
 
     // Tasks
     if (taskIds.length > 0) {
@@ -283,7 +259,7 @@ serve(async (req) => {
       for (const t of (tasks ?? [])) {
         try {
           if (action === "unsync") {
-            if (!isRecipientPush && t.google_calendar_event_id) {
+            if (t.google_calendar_event_id) {
               await gcalRequest("DELETE",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${t.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
                 accessToken);
@@ -292,7 +268,7 @@ serve(async (req) => {
             results.push({ taskId: t.id, ok: true, action: "unsync" });
           } else {
             const evt = taskToEvent(t, attendees, calendarPlacement, { title, description });
-            if (!isRecipientPush && t.google_calendar_event_id) {
+            if (t.google_calendar_event_id) {
               await gcalRequest("PATCH",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${t.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
                 accessToken, evt);
@@ -301,9 +277,7 @@ serve(async (req) => {
               const created = await gcalRequest("POST",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=${sendUpdates}`,
                 accessToken, evt);
-              if (!isRecipientPush) {
-                await admin.from("focusos_tasks").update({ google_calendar_event_id: created.id }).eq("id", t.id);
-              }
+              await admin.from("focusos_tasks").update({ google_calendar_event_id: created.id }).eq("id", t.id);
               results.push({ taskId: t.id, ok: true, action: "insert", eventId: created.id });
             }
           }
