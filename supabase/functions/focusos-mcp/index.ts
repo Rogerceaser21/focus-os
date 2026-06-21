@@ -60,6 +60,48 @@ function err(message: string) {
   return { content: [{ type: "text" as const, text: `Error: ${message}` }], isError: true };
 }
 
+// ───────── Image helpers ─────────
+const BUCKET = "focusos-task-images";
+const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const MAX_BYTES = 10 * 1024 * 1024;
+
+function extFromMime(mime: string): string {
+  switch (mime) {
+    case "image/png": return "png";
+    case "image/jpeg": return "jpg";
+    case "image/webp": return "webp";
+    case "image/gif": return "gif";
+    default: return "bin";
+  }
+}
+
+function publicUrlFor(path: string): string {
+  return admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+function isBase64Entry(src: string): boolean {
+  return typeof src === "string" && src.startsWith("data:");
+}
+
+function base64ToBytes(dataUrl: string): { bytes: Uint8Array; mime: string } {
+  const [header, data] = dataUrl.split(",");
+  if (!header || data === undefined) throw new Error("Invalid base64 data URL");
+  const mime = header.match(/:(.*?);/)?.[1] ?? "application/octet-stream";
+  const bin = atob(data);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { bytes, mime };
+}
+
+function buildStoragePath(userId: string, ext: string): string {
+  const rand = Math.random().toString(36).substring(2, 8);
+  return `${userId}/${Date.now()}-${rand}.${ext}`;
+}
+
+function previewBase64Path(src: string): string {
+  return src.slice(0, 32) + "…";
+}
+
 // ───────── MCP server ─────────
 const mcp = new McpServer({
   name: "focusos",
@@ -125,7 +167,11 @@ mcp.tool("get_task", {
       .maybeSingle();
     if (error) return err(error.message);
     if (!data) return err("Task not found");
-    return ok(data);
+    const images: string[] = Array.isArray((data as any).images) ? (data as any).images : [];
+    const image_urls = images.map((entry) =>
+      isBase64Entry(entry) ? "[legacy-base64-image]" : publicUrlFor(entry),
+    );
+    return ok({ ...data, image_urls });
   },
 });
 
@@ -294,6 +340,151 @@ mcp.tool("delete_task", {
       .eq("id", args.id);
     if (error) return err(error.message);
     return ok({ deleted: true, id: args.id });
+  },
+});
+
+// ── IMAGE TOOLS ───────────────────────────────────────────────────────────────
+mcp.tool("get_task_images", {
+  description:
+    "List images attached to a task. Returns [{ path, url, legacy }]. Storage-backed entries include a public URL; legacy base64 entries return url=null and a truncated path preview.",
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data, error } = await admin
+      .from("focusos_tasks")
+      .select("id, images")
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Task not found");
+    const images: string[] = Array.isArray((data as any).images) ? (data as any).images : [];
+    const out = images.map((entry) =>
+      isBase64Entry(entry)
+        ? { path: previewBase64Path(entry), url: null, legacy: true }
+        : { path: entry, url: publicUrlFor(entry), legacy: false },
+    );
+    return ok(out);
+  },
+});
+
+mcp.tool("add_task_image", {
+  description:
+    "Attach an image to a task. Provide exactly one of image_url (https URL) or image_base64 (data URL). Max 10MB. Allowed mime: image/png, image/jpeg, image/webp, image/gif.",
+  inputSchema: z.object({
+    task_id: z.string(),
+    image_url: z.string().url().optional(),
+    image_base64: z.string().optional(),
+    filename: z.string().optional(),
+  }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const hasUrl = !!args.image_url;
+    const hasB64 = !!args.image_base64;
+    if (hasUrl === hasB64) {
+      return err("Provide exactly one of image_url or image_base64");
+    }
+
+    // Verify task ownership
+    const { data: task, error: taskErr } = await admin
+      .from("focusos_tasks")
+      .select("id, images")
+      .eq("user_id", userId)
+      .eq("id", args.task_id)
+      .maybeSingle();
+    if (taskErr) return err(taskErr.message);
+    if (!task) return err("Task not found");
+
+    // Resolve bytes + mime
+    let bytes: Uint8Array;
+    let mime: string;
+    try {
+      if (hasUrl) {
+        const resp = await fetch(args.image_url!);
+        if (!resp.ok) return err(`Fetch failed: HTTP ${resp.status}`);
+        mime = (resp.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+        const buf = await resp.arrayBuffer();
+        bytes = new Uint8Array(buf);
+      } else {
+        const decoded = base64ToBytes(args.image_base64!);
+        bytes = decoded.bytes;
+        mime = decoded.mime.toLowerCase();
+      }
+    } catch (e) {
+      return err(`Could not read image: ${(e as Error).message}`);
+    }
+
+    if (!ALLOWED_MIME.has(mime)) {
+      return err(`Unsupported mime type: ${mime || "unknown"}`);
+    }
+    if (bytes.byteLength === 0) return err("Empty image");
+    if (bytes.byteLength > MAX_BYTES) {
+      return err(`Image too large: ${bytes.byteLength} bytes (max ${MAX_BYTES})`);
+    }
+
+    const path = buildStoragePath(userId, extFromMime(mime));
+    const { error: upErr } = await admin.storage.from(BUCKET).upload(path, bytes, {
+      contentType: mime,
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (upErr) return err(`Upload failed: ${upErr.message}`);
+
+    const existing: string[] = Array.isArray((task as any).images) ? (task as any).images : [];
+    const next = [...existing, path];
+    const { error: updErr } = await admin
+      .from("focusos_tasks")
+      .update({ images: next })
+      .eq("user_id", userId)
+      .eq("id", args.task_id);
+    if (updErr) {
+      // Best-effort cleanup to avoid orphan
+      await admin.storage.from(BUCKET).remove([path]).catch(() => {});
+      return err(`Attach failed: ${updErr.message}`);
+    }
+
+    return ok({ path, url: publicUrlFor(path) });
+  },
+});
+
+mcp.tool("remove_task_image", {
+  description:
+    "Detach and delete an image from a task. The path must start with the authenticated user's id prefix.",
+  inputSchema: z.object({ task_id: z.string(), path: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    if (!args.path.startsWith(`${userId}/`)) {
+      return err("Path is outside your user folder");
+    }
+
+    const { data: task, error: taskErr } = await admin
+      .from("focusos_tasks")
+      .select("id, images")
+      .eq("user_id", userId)
+      .eq("id", args.task_id)
+      .maybeSingle();
+    if (taskErr) return err(taskErr.message);
+    if (!task) return err("Task not found");
+
+    const existing: string[] = Array.isArray((task as any).images) ? (task as any).images : [];
+    if (!existing.includes(args.path)) {
+      return err("Image is not attached to this task");
+    }
+
+    const { error: rmErr } = await admin.storage.from(BUCKET).remove([args.path]);
+    if (rmErr && !/not\s*found/i.test(rmErr.message)) {
+      return err(`Storage remove failed: ${rmErr.message}`);
+    }
+
+    const next = existing.filter((p) => p !== args.path);
+    const { error: updErr } = await admin
+      .from("focusos_tasks")
+      .update({ images: next })
+      .eq("user_id", userId)
+      .eq("id", args.task_id);
+    if (updErr) return err(`Detach failed: ${updErr.message}`);
+
+    return ok({ removed: true, path: args.path });
   },
 });
 
