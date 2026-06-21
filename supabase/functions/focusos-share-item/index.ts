@@ -124,7 +124,7 @@ serve(async (req) => {
     const senderId = user.id;
     const senderEmail = user.email as string;
 
-    const { itemType, itemId, recipientEmail, sendEmail = true } = await req.json();
+    const { itemType, itemId, recipientEmail, sendEmail } = await req.json();
 
     if (!itemType || !itemId || !recipientEmail) {
       return new Response(JSON.stringify({ error: "itemType, itemId, and recipientEmail required" }), {
@@ -265,7 +265,13 @@ serve(async (req) => {
       }
     }
 
-    if (sendEmail === false) {
+    // Auto-routing: if sendEmail is omitted, send the branded email ONLY when
+    // the recipient is NOT an existing Focus OS user. Existing users are
+    // notified via the in-app shared item instead. Explicit true/false wins.
+    const shouldSendEmail =
+      typeof sendEmail === "boolean" ? sendEmail : recipientUserId === null;
+
+    if (!shouldSendEmail) {
       return new Response(JSON.stringify({ success: true, emailSkipped: true, reused: !!existing }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

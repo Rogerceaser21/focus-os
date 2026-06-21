@@ -108,7 +108,10 @@ export function GoogleCalendarButton({
       setLocalSynced(true);
       setPickerOpen(false);
       onChange?.(true);
-      // Log a pending shared item per guest (no email — Google already sent the invite).
+      // Log a pending shared item per guest. focusos-share-item auto-routes:
+      // Focus OS user guests get the in-app item only; non-users get the
+      // branded email with the accept link. Google's native invite is
+      // controlled separately by the "Email guests the invite" toggle.
       if (hasGuests) {
         await Promise.all(
           guestEmails.map(async (recipientEmail) => {
@@ -118,7 +121,6 @@ export function GoogleCalendarButton({
                   itemType: 'task',
                   itemId: taskId,
                   recipientEmail,
-                  sendEmail: false,
                 },
               });
             } catch (err) {
