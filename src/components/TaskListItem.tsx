@@ -982,6 +982,14 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </AlertDialogContent>
               </AlertDialog>
             )}
+            <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              <GoogleCalendarButton
+                taskId={task.id}
+                task={task}
+                synced={!!task.googleCalendarEventId}
+                onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
+              />
+            </div>
             <Button
               variant="ghost"
               size="sm"
