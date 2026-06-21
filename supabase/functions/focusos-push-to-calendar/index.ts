@@ -273,6 +273,7 @@ serve(async (req) => {
 
     const sendUpdates = sendInvites ? "all" : "none";
     const results: any[] = [];
+    const isRecipientPush = !!recipientUserId && recipientUserId !== callerId;
 
     // Tasks
     if (taskIds.length > 0) {
@@ -282,16 +283,16 @@ serve(async (req) => {
       for (const t of (tasks ?? [])) {
         try {
           if (action === "unsync") {
-            if (t.google_calendar_event_id) {
+            if (!isRecipientPush && t.google_calendar_event_id) {
               await gcalRequest("DELETE",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${t.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
                 accessToken);
+              await admin.from("focusos_tasks").update({ google_calendar_event_id: null }).eq("id", t.id);
             }
-            await admin.from("focusos_tasks").update({ google_calendar_event_id: null }).eq("id", t.id);
             results.push({ taskId: t.id, ok: true, action: "unsync" });
           } else {
             const evt = taskToEvent(t, attendees, calendarPlacement, { title, description });
-            if (t.google_calendar_event_id) {
+            if (!isRecipientPush && t.google_calendar_event_id) {
               await gcalRequest("PATCH",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${t.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
                 accessToken, evt);
@@ -300,7 +301,9 @@ serve(async (req) => {
               const created = await gcalRequest("POST",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=${sendUpdates}`,
                 accessToken, evt);
-              await admin.from("focusos_tasks").update({ google_calendar_event_id: created.id }).eq("id", t.id);
+              if (!isRecipientPush) {
+                await admin.from("focusos_tasks").update({ google_calendar_event_id: created.id }).eq("id", t.id);
+              }
               results.push({ taskId: t.id, ok: true, action: "insert", eventId: created.id });
             }
           }
