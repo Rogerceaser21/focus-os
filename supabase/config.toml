@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.focusos-mcp]
 verify_jwt = false
+
+[functions.focusos-sync-shared-rsvp]
+verify_jwt = false
