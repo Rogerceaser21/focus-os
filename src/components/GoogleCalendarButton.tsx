@@ -10,7 +10,6 @@ import { Switch } from '@/components/ui/switch';
 import { AvailabilityScheduler } from '@/components/calendar/AvailabilityScheduler';
 import { AttendeePicker, AttendeeChip } from '@/components/calendar/AttendeePicker';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface Props {
@@ -84,67 +83,34 @@ export function GoogleCalendarButton({
       ? { allDay: true, date: toDateValue(date), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
       : { allDay: false, startDateTime: start.toISOString(), endDateTime: end.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
 
-    // 1. Always push to sender's own calendar (silent, no Google invites).
-    const senderRes = await push({
+    // Single push to the organiser's calendar with guests as native Google
+    // attendees. Google sends the invitation emails when there are guests.
+    const guestEmails = chips
+      .map((c) => c.email)
+      .filter((e): e is string => !!e && e.toLowerCase() !== (user?.email ?? '').toLowerCase());
+    const hasGuests = guestEmails.length > 0;
+
+    const res = await push({
       taskIds: [taskId],
       action: 'sync',
       calendarPlacement: placement,
       title: task.title,
       description: task.description,
+      attendees: hasGuests ? guestEmails : undefined,
+      sendInvites: hasGuests,
       silent: true,
     });
 
-    // 2. For each attendee: share via unified pipeline, then push to their calendar.
-    //    Wrap each chip independently so one failure doesn't abort the rest.
-    let shareCount = 0;
-    let recipientPushCount = 0;
-    for (const chip of chips) {
-      if (!chip.email) continue;
-      const isSelf = chip.userId && chip.userId === user?.id;
-      if (isSelf) continue;
-      try {
-        // a) Create shared_items row + branded email (works for internal & external).
-        try {
-          const { error: shareErr } = await supabase.functions.invoke('focusos-share-item', {
-            body: { itemType: 'task', itemId: taskId, recipientEmail: chip.email },
-          });
-          if (shareErr) throw shareErr;
-          shareCount += 1;
-        } catch (e: any) {
-          console.error('share-item failed for', chip.email, e);
-          toast.error(`Couldn't share with ${chip.email}`);
-        }
-        // b) If internal user, silently place event on their Google Calendar too.
-        if (chip.userId) {
-          try {
-            const recRes = await push({
-              taskIds: [taskId],
-              action: 'sync',
-              recipientUserId: chip.userId,
-              calendarPlacement: placement,
-              title: task.title,
-              description: task.description,
-              silent: true,
-            });
-            if (recRes.ok) recipientPushCount += 1;
-          } catch (e: any) {
-            console.error('recipient calendar push failed for', chip.email, e);
-          }
-        }
-      } catch (e: any) {
-        console.error('attendee handling failed for', chip.email, e);
-      }
-    }
-
     setWorking(false);
-    if (senderRes.ok) {
+    if (res.ok) {
       setLocalSynced(true);
       setPickerOpen(false);
       onChange?.(true);
-      const parts: string[] = ['Added to your calendar'];
-      if (shareCount) parts.push(`shared with ${shareCount}`);
-      if (recipientPushCount) parts.push(`placed on ${recipientPushCount} recipient calendar${recipientPushCount === 1 ? '' : 's'}`);
-      toast.success(parts.join(' · '));
+      toast.success(
+        hasGuests
+          ? `Added to your calendar · invited ${guestEmails.length} guest${guestEmails.length === 1 ? '' : 's'}`
+          : 'Added to your calendar',
+      );
     }
   };
 
