@@ -70,14 +70,27 @@ async function resolveUserIdFromWorkOSToken(token: string): Promise<string | nul
     let email: string | undefined =
       typeof (payload as any).email === "string" ? ((payload as any).email as string) : undefined;
     if (!email) {
-      const res = await fetch(WORKOS_USERINFO_URL, {
-        headers: { Authorization: `Bearer ${token}` },
+      const sub = typeof (payload as any).sub === "string" ? ((payload as any).sub as string) : null;
+      const workosKey = Deno.env.get("WORKOS_API_KEY");
+      if (!workosKey) {
+        console.error("[mcp-oauth] WORKOS_API_KEY is not set; cannot resolve email from sub");
+        return null;
+      }
+      if (!sub) {
+        console.error("[mcp-oauth] no sub in verified token; cannot resolve email");
+        return null;
+      }
+      const res = await fetch(`https://api.workos.com/user_management/users/${sub}`, {
+        headers: {
+          Authorization: `Bearer ${workosKey}`,
+          Accept: "application/json",
+        },
       });
-      console.log("[mcp-oauth] userinfo status=", res.status);
-      if (!res.ok) return null;
       const info = await res.json().catch(() => null);
-      console.log("[mcp-oauth] userinfo email=", info?.email ?? "(none)");
-      if (info && typeof info.email === "string") email = info.email;
+      const resolved = info && typeof info.email === "string" && info.email ? info.email : null;
+      console.log("[mcp-oauth] workos mgmt status=", res.status, "email=", resolved ?? "(none)");
+      if (!resolved) return null;
+      email = resolved;
     }
     if (!email) return null;
     console.log("[mcp-oauth] matching email=", email.toLowerCase());
