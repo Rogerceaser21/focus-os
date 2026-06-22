@@ -147,6 +147,10 @@ export const ProjectSidebar = ({
           if (updated.status === 'accepted' && old?.status === 'pending') {
             // Don't show toast here — we'll show queued notifications from state
           }
+          // Notify sender when recipient completes the shared item — queued via fetchSharedItems
+          if (updated.completed_at && !old?.completed_at) {
+            // Don't show toast here — queued from state
+          }
           fetchSharedItems();
         }
       )
