@@ -6,9 +6,21 @@ import { Hono } from "hono";
 import { McpServer, StreamableHttpTransport } from "mcp-lite";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// ───────── OAuth (WorkOS AuthKit) constants ─────────
+const WORKOS_ISSUER = "https://premier-lamb-33-staging.authkit.app";
+const WORKOS_JWKS_URL = `${WORKOS_ISSUER}/oauth2/jwks`;
+const WORKOS_USERINFO_URL = `${WORKOS_ISSUER}/oauth2/userinfo`;
+const RESOURCE_URL = "https://mshlbsgsyzzfxyxramjj.supabase.co/functions/v1/focusos-mcp";
+const AS_METADATA_URL = `${WORKOS_ISSUER}/.well-known/oauth-authorization-server`;
+const PROTECTED_RESOURCE_METADATA_URL = `${RESOURCE_URL}/.well-known/oauth-protected-resource`;
+const WWW_AUTHENTICATE = `Bearer resource_metadata="${PROTECTED_RESOURCE_METADATA_URL}"`;
+
+const JWKS = createRemoteJWKSet(new URL(WORKOS_JWKS_URL));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +58,35 @@ async function resolveUserIdFromToken(token: string): Promise<string | null> {
     .eq("id", data.id)
     .then(() => {});
   return data.user_id as string;
+}
+
+async function resolveUserIdFromWorkOSToken(token: string): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: WORKOS_ISSUER,
+      audience: RESOURCE_URL,
+    });
+    let email: string | undefined =
+      typeof (payload as any).email === "string" ? ((payload as any).email as string) : undefined;
+    if (!email) {
+      const res = await fetch(WORKOS_USERINFO_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      const info = await res.json().catch(() => null);
+      if (info && typeof info.email === "string") email = info.email;
+    }
+    if (!email) return null;
+    const { data, error } = await admin
+      .from("focusos_users")
+      .select("user_id")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+    if (error || !data) return null;
+    return data.user_id as string;
+  } catch {
+    return null;
+  }
 }
 
 function ok(text: unknown) {
@@ -499,16 +540,50 @@ app.use("*", async (c, next) => {
   for (const [k, v] of Object.entries(corsHeaders)) c.res.headers.set(k, v);
 });
 
+// ── Public OAuth discovery routes (must be registered BEFORE the catch-all) ──
+app.get("/.well-known/oauth-protected-resource", (c) => {
+  return c.json({
+    resource: RESOURCE_URL,
+    authorization_servers: [WORKOS_ISSUER],
+    bearer_methods_supported: ["header"],
+  });
+});
+
+app.get("/.well-known/oauth-authorization-server", async (c) => {
+  try {
+    const res = await fetch(AS_METADATA_URL);
+    const body = await res.text();
+    return new Response(body, {
+      status: res.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch {
+    return c.json({ error: "Failed to fetch authorization server metadata" }, 502);
+  }
+});
+
+function unauthorized(message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 401,
+    headers: {
+      "Content-Type": "application/json",
+      "WWW-Authenticate": WWW_AUTHENTICATE,
+    },
+  });
+}
+
 app.all("/*", async (c) => {
   const authHeader = c.req.header("authorization") ?? "";
   const m = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!m) {
-    return c.json({ error: "Missing bearer token" }, 401);
+    return unauthorized("Missing bearer token");
   }
   const token = m[1].trim();
-  const userId = await resolveUserIdFromToken(token);
+  // Try WorkOS JWT first; fall back to static focusos_api_tokens bearer.
+  let userId = await resolveUserIdFromWorkOSToken(token);
+  if (!userId) userId = await resolveUserIdFromToken(token);
   if (!userId) {
-    return c.json({ error: "Invalid or revoked token" }, 401);
+    return unauthorized("Invalid or revoked token");
   }
   // Pass userId to every tool handler via authInfo.extra.
   return await httpHandler(c.req.raw, {
