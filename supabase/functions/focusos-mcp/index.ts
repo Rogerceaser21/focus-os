@@ -540,28 +540,6 @@ app.use("*", async (c, next) => {
   for (const [k, v] of Object.entries(corsHeaders)) c.res.headers.set(k, v);
 });
 
-// ── Public OAuth discovery routes (must be registered BEFORE the catch-all) ──
-app.get("/.well-known/oauth-protected-resource", (c) => {
-  return c.json({
-    resource: RESOURCE_URL,
-    authorization_servers: [WORKOS_ISSUER],
-    bearer_methods_supported: ["header"],
-  });
-});
-
-app.get("/.well-known/oauth-authorization-server", async (c) => {
-  try {
-    const res = await fetch(AS_METADATA_URL);
-    const body = await res.text();
-    return new Response(body, {
-      status: res.status,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch {
-    return c.json({ error: "Failed to fetch authorization server metadata" }, 502);
-  }
-});
-
 function unauthorized(message: string): Response {
   return new Response(JSON.stringify({ error: message }), {
     status: 401,
@@ -573,6 +551,29 @@ function unauthorized(message: string): Response {
 }
 
 app.all("/*", async (c) => {
+  // Public OAuth discovery — matched by suffix because Supabase mounts this
+  // function under /functions/v1/focusos-mcp, so Hono sees the prefixed path.
+  const path = c.req.path;
+  if (path.endsWith("/.well-known/oauth-protected-resource")) {
+    return c.json({
+      resource: RESOURCE_URL,
+      authorization_servers: [WORKOS_ISSUER],
+      bearer_methods_supported: ["header"],
+    });
+  }
+  if (path.endsWith("/.well-known/oauth-authorization-server")) {
+    try {
+      const res = await fetch(AS_METADATA_URL);
+      const body = await res.text();
+      return new Response(body, {
+        status: res.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+      return c.json({ error: "Failed to fetch authorization server metadata" }, 502);
+    }
+  }
+
   const authHeader = c.req.header("authorization") ?? "";
   const m = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!m) {
