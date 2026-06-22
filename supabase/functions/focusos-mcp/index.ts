@@ -66,25 +66,31 @@ async function resolveUserIdFromWorkOSToken(token: string): Promise<string | nul
       issuer: WORKOS_ISSUER,
       audience: RESOURCE_URL,
     });
+    console.log("[mcp-oauth] jwt ok. iss=", (payload as any).iss, "aud=", JSON.stringify((payload as any).aud), "sub=", (payload as any).sub, "email_claim=", (payload as any).email);
     let email: string | undefined =
       typeof (payload as any).email === "string" ? ((payload as any).email as string) : undefined;
     if (!email) {
       const res = await fetch(WORKOS_USERINFO_URL, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log("[mcp-oauth] userinfo status=", res.status);
       if (!res.ok) return null;
       const info = await res.json().catch(() => null);
+      console.log("[mcp-oauth] userinfo email=", info?.email ?? "(none)");
       if (info && typeof info.email === "string") email = info.email;
     }
     if (!email) return null;
+    console.log("[mcp-oauth] matching email=", email.toLowerCase());
     const { data, error } = await admin
       .from("focusos_users")
       .select("user_id")
       .eq("email", email.toLowerCase())
       .maybeSingle();
+    console.log("[mcp-oauth] focusos_users match=", data?.user_id ?? "(none)", "error=", error?.message ?? "(none)");
     if (error || !data) return null;
     return data.user_id as string;
-  } catch {
+  } catch (e) {
+    console.error("[mcp-oauth] verify/resolve threw:", (e as any)?.message ?? e);
     return null;
   }
 }
