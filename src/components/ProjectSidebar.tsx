@@ -567,6 +567,19 @@ export const ProjectSidebar = ({
     }
   };
 
+  const handleAcknowledgeCompletion = async (sharedItemId: string) => {
+    try {
+      toast.dismiss(`complete-notify-${sharedItemId}`);
+      await (supabase as any)
+        .from('focusos_shared_items')
+        .update({ completion_acknowledged: true })
+        .eq('id', sharedItemId);
+      fetchSharedItems();
+    } catch (err) {
+      console.error('Acknowledge completion error:', err);
+    }
+  };
+
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const handleCancelSharedItem = async (sharedItemId: string) => {
     setCancellingId(sharedItemId);
