@@ -60,6 +60,35 @@ async function resolveUserIdFromToken(token: string): Promise<string | null> {
   return data.user_id as string;
 }
 
+async function resolveUserIdFromWorkOSToken(token: string): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: WORKOS_ISSUER,
+      audience: RESOURCE_URL,
+    });
+    let email: string | undefined =
+      typeof (payload as any).email === "string" ? ((payload as any).email as string) : undefined;
+    if (!email) {
+      const res = await fetch(WORKOS_USERINFO_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      const info = await res.json().catch(() => null);
+      if (info && typeof info.email === "string") email = info.email;
+    }
+    if (!email) return null;
+    const { data, error } = await admin
+      .from("focusos_users")
+      .select("user_id")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+    if (error || !data) return null;
+    return data.user_id as string;
+  } catch {
+    return null;
+  }
+}
+
 function ok(text: unknown) {
   return {
     content: [
