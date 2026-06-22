@@ -540,16 +540,50 @@ app.use("*", async (c, next) => {
   for (const [k, v] of Object.entries(corsHeaders)) c.res.headers.set(k, v);
 });
 
+// ── Public OAuth discovery routes (must be registered BEFORE the catch-all) ──
+app.get("/.well-known/oauth-protected-resource", (c) => {
+  return c.json({
+    resource: RESOURCE_URL,
+    authorization_servers: [WORKOS_ISSUER],
+    bearer_methods_supported: ["header"],
+  });
+});
+
+app.get("/.well-known/oauth-authorization-server", async (c) => {
+  try {
+    const res = await fetch(AS_METADATA_URL);
+    const body = await res.text();
+    return new Response(body, {
+      status: res.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch {
+    return c.json({ error: "Failed to fetch authorization server metadata" }, 502);
+  }
+});
+
+function unauthorized(message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 401,
+    headers: {
+      "Content-Type": "application/json",
+      "WWW-Authenticate": WWW_AUTHENTICATE,
+    },
+  });
+}
+
 app.all("/*", async (c) => {
   const authHeader = c.req.header("authorization") ?? "";
   const m = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!m) {
-    return c.json({ error: "Missing bearer token" }, 401);
+    return unauthorized("Missing bearer token");
   }
   const token = m[1].trim();
-  const userId = await resolveUserIdFromToken(token);
+  // Try WorkOS JWT first; fall back to static focusos_api_tokens bearer.
+  let userId = await resolveUserIdFromWorkOSToken(token);
+  if (!userId) userId = await resolveUserIdFromToken(token);
   if (!userId) {
-    return c.json({ error: "Invalid or revoked token" }, 401);
+    return unauthorized("Invalid or revoked token");
   }
   // Pass userId to every tool handler via authInfo.extra.
   return await httpHandler(c.req.raw, {
