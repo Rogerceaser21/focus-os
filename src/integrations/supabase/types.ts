@@ -597,6 +597,9 @@ export type Database = {
       }
       focusos_shared_items: {
         Row: {
+          completed_at: string | null
+          completed_by: string | null
+          completion_acknowledged: boolean
           created_at: string
           id: string
           item_id: string
@@ -614,6 +617,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_acknowledged?: boolean
           created_at?: string
           id?: string
           item_id: string
@@ -631,6 +637,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_acknowledged?: boolean
           created_at?: string
           id?: string
           item_id?: string

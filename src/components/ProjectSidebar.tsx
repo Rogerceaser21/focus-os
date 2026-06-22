@@ -147,6 +147,10 @@ export const ProjectSidebar = ({
           if (updated.status === 'accepted' && old?.status === 'pending') {
             // Don't show toast here — we'll show queued notifications from state
           }
+          // Notify sender when recipient completes the shared item — queued via fetchSharedItems
+          if (updated.completed_at && !old?.completed_at) {
+            // Don't show toast here — queued from state
+          }
           fetchSharedItems();
         }
       )
@@ -235,6 +239,44 @@ export const ProjectSidebar = ({
         action: {
           label: '✓ Dismiss',
           onClick: () => handleAcknowledgeSharedItem(first.id),
+        },
+      });
+    }
+  }, [sharedItems, userId]);
+
+  // Queued completion notification: show one unacknowledged completed item at a time for the sender
+  useEffect(() => {
+    if (!userId) return;
+    const completed = sharedItems.filter(
+      (item) => item.sender_user_id === userId && item.completed_at && !item.completion_acknowledged
+    );
+    if (completed.length > 0) {
+      const first = completed[0];
+      const recipientName = resolveDisplayName(
+        first.recipient_user_id,
+        first.completed_by || first.recipient_email
+      );
+      const when = (() => {
+        try {
+          const d = new Date(first.completed_at);
+          const diffMs = Date.now() - d.getTime();
+          const mins = Math.floor(diffMs / 60000);
+          if (mins < 1) return 'just now';
+          if (mins < 60) return `${mins} min ago`;
+          const hrs = Math.floor(mins / 60);
+          if (hrs < 24) return `${hrs}h ago`;
+          return d.toLocaleString();
+        } catch {
+          return '';
+        }
+      })();
+      toast.success(`✅ "${first.item_title}" completed`, {
+        id: `complete-notify-${first.id}`,
+        description: `${recipientName} completed your shared ${first.item_type}${when ? ` · ${when}` : ''}`,
+        duration: Infinity,
+        action: {
+          label: '✓ Dismiss',
+          onClick: () => handleAcknowledgeCompletion(first.id),
         },
       });
     }
@@ -522,6 +564,19 @@ export const ProjectSidebar = ({
       fetchSharedItems();
     } catch (err) {
       console.error('Acknowledge error:', err);
+    }
+  };
+
+  const handleAcknowledgeCompletion = async (sharedItemId: string) => {
+    try {
+      toast.dismiss(`complete-notify-${sharedItemId}`);
+      await (supabase as any)
+        .from('focusos_shared_items')
+        .update({ completion_acknowledged: true })
+        .eq('id', sharedItemId);
+      fetchSharedItems();
+    } catch (err) {
+      console.error('Acknowledge completion error:', err);
     }
   };
 

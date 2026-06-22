@@ -58,7 +58,7 @@ serve(async (req) => {
     // Only set completed_by_email, do NOT change status — let the other user "Move to Done" manually
     const { data: sharedItems } = await supabase
       .from("focusos_shared_items")
-      .select("recipient_task_id, item_id")
+      .select("id, recipient_task_id, item_id, completion_acknowledged, completed_at")
       .eq("item_id", task.id)
       .eq("item_type", "task")
       .eq("status", "accepted");
@@ -73,13 +73,25 @@ serve(async (req) => {
             })
             .eq("id", si.recipient_task_id);
         }
+        // Notify the original sender: stamp completion fields on the shared_items row.
+        // Idempotent: don't overwrite once already completed/acknowledged.
+        if (!si.completion_acknowledged && !si.completed_at) {
+          await supabase
+            .from("focusos_shared_items")
+            .update({
+              completed_by: completedByEmail,
+              completed_at: new Date().toISOString(),
+              completion_acknowledged: false,
+            })
+            .eq("id", si.id);
+        }
       }
     }
 
     // Also check if THIS task is a recipient's task — sync back to sender's original
     const { data: reverseSharedItems } = await supabase
       .from("focusos_shared_items")
-      .select("item_id")
+      .select("id, item_id, completion_acknowledged, completed_at")
       .eq("recipient_task_id", task.id)
       .eq("item_type", "task")
       .eq("status", "accepted");
@@ -92,6 +104,17 @@ serve(async (req) => {
             completed_by_email: completedByEmail,
           })
           .eq("id", si.item_id);
+        // Notify the original sender via the same shared_items row.
+        if (!si.completion_acknowledged && !si.completed_at) {
+          await supabase
+            .from("focusos_shared_items")
+            .update({
+              completed_by: completedByEmail,
+              completed_at: new Date().toISOString(),
+              completion_acknowledged: false,
+            })
+            .eq("id", si.id);
+        }
       }
     }
 
