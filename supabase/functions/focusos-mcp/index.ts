@@ -6,9 +6,21 @@ import { Hono } from "hono";
 import { McpServer, StreamableHttpTransport } from "mcp-lite";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// ───────── OAuth (WorkOS AuthKit) constants ─────────
+const WORKOS_ISSUER = "https://premier-lamb-33-staging.authkit.app";
+const WORKOS_JWKS_URL = `${WORKOS_ISSUER}/oauth2/jwks`;
+const WORKOS_USERINFO_URL = `${WORKOS_ISSUER}/oauth2/userinfo`;
+const RESOURCE_URL = "https://mshlbsgsyzzfxyxramjj.supabase.co/functions/v1/focusos-mcp";
+const AS_METADATA_URL = `${WORKOS_ISSUER}/.well-known/oauth-authorization-server`;
+const PROTECTED_RESOURCE_METADATA_URL = `${RESOURCE_URL}/.well-known/oauth-protected-resource`;
+const WWW_AUTHENTICATE = `Bearer resource_metadata="${PROTECTED_RESOURCE_METADATA_URL}"`;
+
+const JWKS = createRemoteJWKSet(new URL(WORKOS_JWKS_URL));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
