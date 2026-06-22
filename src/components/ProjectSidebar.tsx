@@ -244,6 +244,44 @@ export const ProjectSidebar = ({
     }
   }, [sharedItems, userId]);
 
+  // Queued completion notification: show one unacknowledged completed item at a time for the sender
+  useEffect(() => {
+    if (!userId) return;
+    const completed = sharedItems.filter(
+      (item) => item.sender_user_id === userId && item.completed_at && !item.completion_acknowledged
+    );
+    if (completed.length > 0) {
+      const first = completed[0];
+      const recipientName = resolveDisplayName(
+        first.recipient_user_id,
+        first.completed_by || first.recipient_email
+      );
+      const when = (() => {
+        try {
+          const d = new Date(first.completed_at);
+          const diffMs = Date.now() - d.getTime();
+          const mins = Math.floor(diffMs / 60000);
+          if (mins < 1) return 'just now';
+          if (mins < 60) return `${mins} min ago`;
+          const hrs = Math.floor(mins / 60);
+          if (hrs < 24) return `${hrs}h ago`;
+          return d.toLocaleString();
+        } catch {
+          return '';
+        }
+      })();
+      toast.success(`✅ "${first.item_title}" completed`, {
+        id: `complete-notify-${first.id}`,
+        description: `${recipientName} completed your shared ${first.item_type}${when ? ` · ${when}` : ''}`,
+        duration: Infinity,
+        action: {
+          label: '✓ Dismiss',
+          onClick: () => handleAcknowledgeCompletion(first.id),
+        },
+      });
+    }
+  }, [sharedItems, userId]);
+
   const fetchProjects = async () => {
     // Retry with backoff to survive cold-start auth races on mobile Safari
     const delays = [0, 300, 800, 1500];
