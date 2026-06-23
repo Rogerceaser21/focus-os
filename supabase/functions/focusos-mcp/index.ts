@@ -403,6 +403,101 @@ mcp.tool("delete_task", {
   },
 });
 
+// ── TIMER TOOLS ───────────────────────────────────────────────────────────────
+function withCurrentSeconds(row: any) {
+  const total = Number(row.timer_total_seconds ?? 0);
+  const running = !!row.timer_is_running;
+  const start = row.timer_start_time ? Number(row.timer_start_time) : null;
+  const current_seconds =
+    total + (running && start ? Math.floor((Date.now() - start) / 1000) : 0);
+  return { ...row, current_seconds };
+}
+
+async function fetchTask(userId: string, id: string) {
+  return await admin
+    .from("focusos_tasks")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", id)
+    .maybeSingle();
+}
+
+mcp.tool("start_task_timer", {
+  description:
+    "Start (or resume) the timer on a task you own. No-op if already running. Returns the task row with computed current_seconds.",
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data: task, error: selErr } = await fetchTask(userId, args.id);
+    if (selErr) return err(selErr.message);
+    if (!task) return err("Task not found");
+    if (task.timer_is_running) return ok(withCurrentSeconds(task));
+    const { data, error } = await admin
+      .from("focusos_tasks")
+      .update({ timer_is_running: true, timer_start_time: Date.now() })
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .select()
+      .maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Task not found");
+    return ok(withCurrentSeconds(data));
+  },
+});
+
+mcp.tool("stop_task_timer", {
+  description:
+    "Pause the timer on a task you own, preserving accumulated time. No-op if not running. Returns the task row with computed current_seconds.",
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data: task, error: selErr } = await fetchTask(userId, args.id);
+    if (selErr) return err(selErr.message);
+    if (!task) return err("Task not found");
+    if (!task.timer_is_running) return ok(withCurrentSeconds(task));
+    const start = task.timer_start_time ? Number(task.timer_start_time) : Date.now();
+    const elapsed = Math.floor((Date.now() - start) / 1000);
+    const newTotal = Number(task.timer_total_seconds ?? 0) + Math.max(0, elapsed);
+    const { data, error } = await admin
+      .from("focusos_tasks")
+      .update({
+        timer_total_seconds: newTotal,
+        timer_is_running: false,
+        timer_start_time: null,
+      })
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .select()
+      .maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Task not found");
+    return ok(withCurrentSeconds(data));
+  },
+});
+
+mcp.tool("reset_task_timer", {
+  description:
+    "Reset the timer on a task you own to zero and stopped. Returns the task row with computed current_seconds.",
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data, error } = await admin
+      .from("focusos_tasks")
+      .update({
+        timer_total_seconds: 0,
+        timer_is_running: false,
+        timer_start_time: null,
+      })
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .select()
+      .maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Task not found");
+    return ok(withCurrentSeconds(data));
+  },
+});
+
 // ── IMAGE TOOLS ───────────────────────────────────────────────────────────────
 mcp.tool("get_task_images", {
   description:
