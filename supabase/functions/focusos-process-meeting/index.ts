@@ -405,6 +405,7 @@ async function uploadToGeminiFileAPI(
 /* ─── Main handler ──────────────────────────────────────────────── */
 
 serve(async (req) => {
+  console.log("GEMINI suffix:", (Deno.env.get("GEMINI_API_KEY") || "").slice(-4));
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
