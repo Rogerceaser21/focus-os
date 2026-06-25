@@ -16,6 +16,21 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function fmtDate(d?: string | null): string | null {
+  if (!d) return null;
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return null;
+    return date.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return null;
+  }
+}
+
 function buildShareEmailHtml(p: {
   senderName: string;
   itemType: string;
@@ -24,18 +39,69 @@ function buildShareEmailHtml(p: {
   appUrl: string;
   shareToken?: string;
   supabaseUrl?: string;
+  logoUrl?: string;
+  description?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  dueDate?: string | null;
 }) {
   const typeLabel = p.itemType.charAt(0).toUpperCase() + p.itemType.slice(1);
   const projectLine = p.projectName
-    ? `<p style="margin:4px 0 0;font-size:13px;color:#9ca3af;">Project: ${escapeHtml(p.projectName)}</p>`
+    ? `<p style="margin:6px 0 0;font-size:13px;color:#6b5b4b;">Project: ${escapeHtml(p.projectName)}</p>`
     : "";
 
   const markCompletedButton = (p.itemType === "task" && p.shareToken && p.supabaseUrl)
     ? `<tr><td align="center" style="padding:12px 0 0;">
-        <a href="${p.supabaseUrl}/functions/v1/focusos-complete-shared-task?token=${p.shareToken}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;border-radius:8px;text-decoration:none;">
-          ✅ Mark Completed
+        <a href="${p.supabaseUrl}/functions/v1/focusos-complete-shared-task?token=${p.shareToken}" style="display:inline-block;padding:12px 32px;background:#67883A;color:#ffffff;font-size:14px;font-weight:600;border-radius:8px;text-decoration:none;">
+          Mark Completed
         </a>
-        <p style="margin:8px 0 0;font-size:11px;color:#6b7280;">No login required</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#6b5b4b;">No login required</p>
+      </td></tr>`
+    : "";
+
+  const dueLine = p.dueDate
+    ? `<p style="margin:6px 0 0;font-size:13px;color:#6b5b4b;">Due: ${escapeHtml(fmtDate(p.dueDate) || p.dueDate)}</p>`
+    : "";
+
+  const descriptionBlock = p.description
+    ? `<p style="margin:14px 0 0;font-size:14px;line-height:1.55;color:#292119;white-space:pre-wrap;">${escapeHtml(p.description)}</p>`
+    : "";
+
+  const chipStyle = (bg: string, fg: string) =>
+    `display:inline-block;padding:4px 10px;margin:0 6px 6px 0;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;background:${bg};color:${fg};`;
+
+  const priorityColors: Record<string, [string, string]> = {
+    urgent: ["#81313F", "#ffffff"],
+    high: ["#B8572E", "#ffffff"],
+    medium: ["#E0C26A", "#292119"],
+    low: ["#67883A", "#ffffff"],
+  };
+  const statusColors: Record<string, [string, string]> = {
+    todo: ["#E7DECF", "#292119"],
+    in_progress: ["#B8572E", "#ffffff"],
+    completed: ["#67883A", "#ffffff"],
+    blocked: ["#81313F", "#ffffff"],
+  };
+
+  const priorityChip = p.priority
+    ? (() => {
+        const [bg, fg] = priorityColors[p.priority.toLowerCase()] || ["#E7DECF", "#292119"];
+        return `<span style="${chipStyle(bg, fg)}">${escapeHtml(p.priority)}</span>`;
+      })()
+    : "";
+  const statusChip = p.status
+    ? (() => {
+        const [bg, fg] = statusColors[p.status.toLowerCase()] || ["#E7DECF", "#292119"];
+        return `<span style="${chipStyle(bg, fg)}">${escapeHtml(p.status.replace(/_/g, " "))}</span>`;
+      })()
+    : "";
+  const chipsBlock = (priorityChip || statusChip)
+    ? `<div style="margin-top:14px;">${priorityChip}${statusChip}</div>`
+    : "";
+
+  const logoHeader = p.logoUrl
+    ? `<tr><td align="center" style="padding-bottom:20px;">
+        <img src="${p.logoUrl}" alt="Focus OS" width="140" style="display:block;border:0;outline:none;text-decoration:none;height:auto;max-width:140px;" />
       </td></tr>`
     : "";
 
@@ -43,35 +109,38 @@ function buildShareEmailHtml(p: {
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#0e1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0e1117;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#E7DECF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#292119;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#E7DECF;padding:40px 20px;">
 <tr><td align="center">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+  ${logoHeader}
   <tr><td style="padding-bottom:24px;">
-    <h1 style="margin:0;font-size:20px;color:#f0f0f0;">📬 ${typeLabel} Shared With You</h1>
-    <p style="margin:6px 0 0;font-size:14px;color:#9ca3af;">${escapeHtml(p.senderName)} has shared a ${p.itemType} with you</p>
+    <h1 style="margin:0;font-size:22px;color:#292119;font-weight:700;letter-spacing:-0.01em;">${typeLabel} shared with you</h1>
+    <p style="margin:8px 0 0;font-size:14px;color:#6b5b4b;">${escapeHtml(p.senderName)} has shared a ${escapeHtml(p.itemType)} with you</p>
   </td></tr>
   <tr><td>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(30,35,50,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
-      <tr><td style="padding:20px;">
-        <p style="margin:0;font-size:15px;font-weight:600;color:#f0f0f0;">${escapeHtml(p.itemTitle)}</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FBF7F1;border:1px solid rgba(41,33,25,0.08);border-radius:12px;overflow:hidden;">
+      <tr><td style="padding:24px;">
+        <p style="margin:0;font-size:17px;font-weight:600;color:#292119;line-height:1.35;">${escapeHtml(p.itemTitle)}</p>
         ${projectLine}
-        <p style="margin:12px 0 0;font-size:12px;color:#6b7280;">Type: ${typeLabel}</p>
+        ${dueLine}
+        ${chipsBlock}
+        ${descriptionBlock}
       </td></tr>
     </table>
   </td></tr>
   <tr><td style="padding:24px 0;">
     <table cellpadding="0" cellspacing="0" width="100%">
     <tr><td align="center">
-      <a href="${p.appUrl}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-size:14px;font-weight:600;border-radius:8px;text-decoration:none;">
+      <a href="${p.appUrl}" style="display:inline-block;padding:12px 32px;background:#B8572E;color:#ffffff;font-size:14px;font-weight:600;border-radius:8px;text-decoration:none;">
         View in Focus OS
       </a>
     </td></tr>
     ${markCompletedButton}
     </table>
   </td></tr>
-  <tr><td style="padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);">
-    <p style="margin:0;font-size:11px;color:#6b7280;text-align:center;">
+  <tr><td style="padding-top:16px;border-top:1px solid rgba(41,33,25,0.1);">
+    <p style="margin:0;font-size:11px;color:#6b5b4b;text-align:center;">
       Sent via Focus OS
     </p>
   </td></tr>
@@ -156,11 +225,15 @@ serve(async (req) => {
     let projectName: string | undefined;
 
     let shareToken: string | undefined;
+    let description: string | null = null;
+    let priority: string | null = null;
+    let status: string | null = null;
+    let dueDate: string | null = null;
 
     if (itemType === "task") {
       const { data: task, error } = await supabaseUser
         .from("focusos_tasks")
-        .select("title, project_id, share_token, meeting_id")
+        .select("title, project_id, share_token, meeting_id, description, priority, status, due_date")
         .eq("id", itemId)
         .single();
       if (error || !task) {
@@ -170,6 +243,10 @@ serve(async (req) => {
       }
       itemTitle = task.title;
       shareToken = task.share_token;
+      description = task.description ?? null;
+      priority = task.priority ?? null;
+      status = task.status ?? null;
+      dueDate = task.due_date ?? null;
 
       if (task.meeting_id) {
         // Task originated from a meeting — use truncated meeting title as project name
@@ -295,6 +372,11 @@ serve(async (req) => {
         appUrl,
         shareToken,
         supabaseUrl: Deno.env.get("SUPABASE_URL"),
+        logoUrl: "https://focusos.tech/brand/focusos-email-logo.png",
+        description,
+        priority,
+        status,
+        dueDate,
       }),
     });
 
