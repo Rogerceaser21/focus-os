@@ -190,7 +190,7 @@ serve(async (req) => {
       from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
       to: [recipientEmail],
       subject: `Meeting Notes: ${meeting.title}`,
-      html: buildMeetingEmailHtml(meeting, summary, senderName, recordingUrl),
+      html: buildMeetingEmailHtml(meeting, summary, senderName, recordingUrl, "https://focusos.tech/brand/focusos-email-logo.png"),
     });
 
     if (emailError) {
