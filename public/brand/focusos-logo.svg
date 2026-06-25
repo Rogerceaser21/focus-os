@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="Focus OS">
+  <g fill="none" stroke="#B8572E" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M82.8,44.2 A34,34 0 1 1 64.4,22.2"/>
+    <path d="M34,54 L46,65 L77,33"/>
+  </g>
+  <path d="M90,20 L77.3,32.7 L69.5,24.9 Z" fill="#81313F"/>
+  <path d="M90,20 L77.3,32.7 L85.1,40.5 Z" fill="#B8572E"/>
+</svg>
