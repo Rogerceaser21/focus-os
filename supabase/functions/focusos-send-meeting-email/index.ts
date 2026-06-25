@@ -20,114 +20,72 @@ function buildMeetingEmailHtml(
   meeting: any,
   summary: { overview: string; outline: { heading: string; points: string[] }[] },
   senderName: string,
-  recordingUrl: string | null
+  recordingUrl: string | null,
+  logoUrl: string
 ) {
-  const date = new Date(meeting.created_at).toLocaleDateString("en-US", {
-    weekday: "short", month: "short", day: "numeric", year: "numeric",
-  });
-  const duration = meeting.duration_seconds
-    ? `${Math.floor(meeting.duration_seconds / 60)}m ${meeting.duration_seconds % 60}s`
-    : null;
+  const date = new Date(meeting.created_at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  const duration = meeting.duration_seconds ? `${Math.floor(meeting.duration_seconds / 60)}m ${meeting.duration_seconds % 60}s` : null;
 
-  const outlineSections = summary.outline
-    .map(
-      (s) => `
+  const outlineSections = summary.outline.map((s) => `
       <tr><td style="padding:0 0 12px;">
-        <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#f0f0f0;">${escapeHtml(s.heading)}</p>
+        <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#292119;">${escapeHtml(s.heading)}</p>
         <table cellpadding="0" cellspacing="0" width="100%">
-          ${s.points
-            .map(
-              (p) => `
-          <tr><td style="padding:2px 0 2px 0;">
+          ${s.points.map((p) => `
+          <tr><td style="padding:2px 0;">
             <table cellpadding="0" cellspacing="0"><tr>
-              <td style="vertical-align:top;padding-right:8px;padding-top:7px;">
-                <div style="width:6px;height:6px;border-radius:50%;background:#0ea5e9;"></div>
-              </td>
-              <td style="font-size:13px;color:#9ca3af;line-height:1.5;">${escapeHtml(p)}</td>
+              <td style="vertical-align:top;padding-right:8px;padding-top:7px;"><div style="width:6px;height:6px;border-radius:50%;background:#B8572E;"></div></td>
+              <td style="font-size:13px;color:#6E6256;line-height:1.5;">${escapeHtml(p)}</td>
             </tr></table>
-          </td></tr>`
-            )
-            .join("")}
+          </td></tr>`).join("")}
         </table>
-      </td></tr>`
-    )
-    .join("");
+      </td></tr>`).join("");
 
-  const recordingBlock = recordingUrl
-    ? `
-  <tr><td style="padding:20px 0 0;">
-    <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
-      <a href="${recordingUrl}" style="display:inline-block;padding:10px 24px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#9ca3af;font-size:13px;border-radius:8px;text-decoration:none;">
-        🎙️ Download Recording
-      </a>
-    </td></tr></table>
-  </td></tr>`
-    : "";
+  const recordingBlock = recordingUrl ? `
+  <tr><td style="padding:20px 30px 0;" align="center">
+    <a href="${recordingUrl}" style="display:inline-block;padding:11px 26px;background:#FBF7F1;border:1px solid #B8572E;color:#B8572E;font-size:13px;font-weight:600;border-radius:10px;text-decoration:none;">Download recording</a>
+  </td></tr>` : "";
 
   return `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#0e1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0e1117;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#E7DECF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#E7DECF;padding:40px 20px;">
 <tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-
-  <!-- Header -->
-  <tr><td style="padding-bottom:20px;">
-    <h1 style="margin:0;font-size:20px;color:#f0f0f0;">📋 Meeting Summary</h1>
-    <p style="margin:6px 0 0;font-size:14px;color:#9ca3af;">${escapeHtml(senderName)} shared meeting notes with you</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#FBF7F1;border:1px solid #E7DCCB;border-radius:16px;overflow:hidden;">
+  <tr><td style="padding:30px 30px 0;">
+    <table cellpadding="0" cellspacing="0" align="center"><tr>
+      <td style="vertical-align:middle;padding-right:9px;"><img src="${logoUrl}" width="28" height="28" alt="" style="display:block;border:0;"></td>
+      <td style="vertical-align:middle;font-size:16px;font-weight:600;color:#292119;">Focus<span style="color:#B8572E;"> OS</span></td>
+    </tr></table>
+    <div style="border-top:1px solid #ECE3D6;margin:18px 0 0;"></div>
   </td></tr>
-
-  <!-- Meeting Title Card -->
-  <tr><td>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(30,35,50,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
-      <tr><td style="padding:20px;">
-        <h2 style="margin:0 0 8px;font-size:17px;color:#f0f0f0;">${escapeHtml(meeting.title)}</h2>
-        <table cellpadding="0" cellspacing="0"><tr>
-          <td style="padding-right:16px;">
-            <span style="font-size:12px;color:#6b7280;">📅 ${date}</span>
-          </td>
-          ${duration ? `<td><span style="font-size:12px;color:#6b7280;">⏱️ ${duration}</span></td>` : ""}
-        </tr></table>
+  <tr><td style="padding:18px 30px 0;">
+    <div style="font-size:20px;font-weight:600;color:#292119;">Meeting notes shared with you</div>
+    <p style="margin:6px 0 0;font-size:14px;color:#6E6256;">${escapeHtml(senderName)} shared meeting notes with you</p>
+  </td></tr>
+  <tr><td style="padding:18px 30px 0;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#F3ECE0;border:1px solid #E7DCCB;border-radius:12px;">
+      <tr><td style="padding:16px 18px;">
+        <p style="margin:0 0 8px;font-size:17px;font-weight:600;color:#292119;">${escapeHtml(meeting.title)}</p>
+        <span style="font-size:12px;color:#9C9082;">${date}</span>${duration ? `<span style="font-size:12px;color:#9C9082;"> &nbsp;&middot;&nbsp; ${duration}</span>` : ""}
       </td></tr>
     </table>
   </td></tr>
-
-  <!-- Overview -->
   ${summary.overview ? `
-  <tr><td style="padding-top:20px;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(30,35,50,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:12px;">
-      <tr><td style="padding:20px;">
-        <p style="margin:0 0 10px;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Overview</p>
-        <p style="margin:0;font-size:14px;color:#d1d5db;line-height:1.6;">${escapeHtml(summary.overview)}</p>
-      </td></tr>
-    </table>
+  <tr><td style="padding:14px 30px 0;">
+    <p style="margin:0 0 8px;font-size:11px;font-weight:600;color:#9C9082;text-transform:uppercase;letter-spacing:0.5px;">Overview</p>
+    <p style="margin:0;font-size:14px;color:#4A4138;line-height:1.6;">${escapeHtml(summary.overview)}</p>
   </td></tr>` : ""}
-
-  <!-- Outline -->
   ${summary.outline.length > 0 ? `
-  <tr><td style="padding-top:20px;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(30,35,50,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:12px;">
-      <tr><td style="padding:20px;">
-        <p style="margin:0 0 14px;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Outline</p>
-        <table cellpadding="0" cellspacing="0" width="100%">
-          ${outlineSections}
-        </table>
-      </td></tr>
-    </table>
+  <tr><td style="padding:18px 30px 0;">
+    <p style="margin:0 0 12px;font-size:11px;font-weight:600;color:#9C9082;text-transform:uppercase;letter-spacing:0.5px;">Outline</p>
+    <table cellpadding="0" cellspacing="0" width="100%">${outlineSections}</table>
   </td></tr>` : ""}
-
-  <!-- Recording Link -->
   ${recordingBlock}
-
-  <!-- Footer -->
-  <tr><td style="padding-top:24px;border-top:1px solid rgba(255,255,255,0.06);margin-top:24px;">
-    <p style="margin:16px 0 0;font-size:11px;color:#6b7280;text-align:center;">
-      Sent via Focus OS
-    </p>
+  <tr><td style="padding:24px 30px;">
+    <div style="border-top:1px solid #ECE3D6;padding-top:14px;"><p style="margin:0;font-size:11px;color:#9C9082;text-align:center;">Sent via Focus OS</p></div>
   </td></tr>
-
 </table>
 </td></tr>
 </table>
@@ -232,7 +190,7 @@ serve(async (req) => {
       from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
       to: [recipientEmail],
       subject: `Meeting Notes: ${meeting.title}`,
-      html: buildMeetingEmailHtml(meeting, summary, senderName, recordingUrl),
+      html: buildMeetingEmailHtml(meeting, summary, senderName, recordingUrl, "https://focusos.tech/brand/focusos-email-logo.png"),
     });
 
     if (emailError) {
