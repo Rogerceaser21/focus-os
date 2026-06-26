@@ -345,8 +345,7 @@ serve(async (req) => {
     // Auto-routing: if sendEmail is omitted, send the branded email ONLY when
     // the recipient is NOT an existing Focus OS user. Existing users are
     // notified via the in-app shared item instead. Explicit true/false wins.
-    const shouldSendEmail =
-      typeof sendEmail === "boolean" ? sendEmail : recipientUserId === null;
+    const shouldSendEmail = recipientUserId === null ? true : (sendEmail !== false);
 
     if (!shouldSendEmail) {
       return new Response(JSON.stringify({ success: true, emailSkipped: true, reused: !!existing }), {
