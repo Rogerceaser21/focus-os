@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Share2, Send, X, UserCheck, Search } from 'lucide-react';
@@ -34,6 +35,7 @@ export const ShareItemDialog = ({ itemType, itemId, itemTitle, open, onOpenChang
   const [sendProgress, setSendProgress] = useState({ sent: 0, total: 0 });
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [alsoEmail, setAlsoEmail] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -97,6 +99,7 @@ export const ShareItemDialog = ({ itemType, itemId, itemTitle, open, onOpenChang
       setRecipients([]);
       setShowDropdown(false);
       setSendProgress({ sent: 0, total: 0 });
+      setAlsoEmail(true);
     }
   }, [open]);
 
@@ -171,7 +174,7 @@ export const ShareItemDialog = ({ itemType, itemId, itemTitle, open, onOpenChang
       for (const recipient of recipients) {
         try {
           const { error } = await supabase.functions.invoke('focusos-share-item', {
-            body: { itemType, itemId, recipientEmail: recipient.email },
+            body: { itemType, itemId, recipientEmail: recipient.email, sendEmail: alsoEmail },
           });
           if (!error) successCount++;
         } catch {
@@ -325,6 +328,23 @@ export const ShareItemDialog = ({ itemType, itemId, itemTitle, open, onOpenChang
             </div>
           </div>
         )}
+
+        <div className="flex items-start gap-2 pt-1">
+          <Checkbox
+            id="also-email"
+            checked={alsoEmail}
+            onCheckedChange={(c) => setAlsoEmail(c === true)}
+            className="mt-0.5"
+          />
+          <div className="flex-1">
+            <Label htmlFor="also-email" className="text-sm text-foreground cursor-pointer">
+              Also send an email
+            </Label>
+            <p className="text-xs text-muted-foreground leading-snug">
+              Focus OS users get an in-app notification by default; untick to skip emailing them. People without an account are always emailed.
+            </p>
+          </div>
+        </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
