@@ -597,6 +597,7 @@ export type Database = {
       }
       focusos_shared_items: {
         Row: {
+          action_token: string
           completed_at: string | null
           completed_by: string | null
           completion_acknowledged: boolean
@@ -617,6 +618,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          action_token?: string
           completed_at?: string | null
           completed_by?: string | null
           completion_acknowledged?: boolean
@@ -637,6 +639,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          action_token?: string
           completed_at?: string | null
           completed_by?: string | null
           completion_acknowledged?: boolean
