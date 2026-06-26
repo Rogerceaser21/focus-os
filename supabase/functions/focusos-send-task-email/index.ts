@@ -8,100 +8,94 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const priorityColors: Record<string, string> = {
-  low: "#6b7280",
-  medium: "#3b82f6",
-  high: "#f59e0b",
-  urgent: "#ef4444",
-};
+function buildTaskEmailHtml(
+  task: any,
+  completeUrl: string,
+  senderName: string,
+  logoUrl: string,
+  appUrl: string
+) {
+  const priorityColors: Record<string, [string, string]> = {
+    urgent: ["#81313F", "#ffffff"],
+    high: ["#B8572E", "#ffffff"],
+    medium: ["#E0C26A", "#292119"],
+    low: ["#67883A", "#ffffff"],
+  };
+  const statusColors: Record<string, [string, string]> = {
+    todo: ["#E7DECF", "#292119"],
+    in_progress: ["#B8572E", "#ffffff"],
+    completed: ["#67883A", "#ffffff"],
+    blocked: ["#81313F", "#ffffff"],
+  };
 
-const priorityLabels: Record<string, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  urgent: "🔥 Urgent",
-};
+  const chipStyle = (bg: string, fg: string) =>
+    `display:inline-block;padding:4px 10px;margin:0 6px 6px 0;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;background:${bg};color:${fg};`;
 
-function buildTaskEmailHtml(task: any, completeUrl: string, senderName: string) {
-  const priorityColor = priorityColors[task.priority] || "#3b82f6";
-  const priorityLabel = priorityLabels[task.priority] || task.priority;
+  const priorityChip = task.priority
+    ? (() => {
+        const [bg, fg] = priorityColors[task.priority.toLowerCase()] || ["#E7DECF", "#292119"];
+        return `<span style="${chipStyle(bg, fg)}">${escapeHtml(task.priority)}</span>`;
+      })()
+    : "";
+  const statusChip = task.status
+    ? (() => {
+        const [bg, fg] = statusColors[task.status.toLowerCase()] || ["#E7DECF", "#292119"];
+        return `<span style="${chipStyle(bg, fg)}">${escapeHtml(task.status.replace(/_/g, " "))}</span>`;
+      })()
+    : "";
+  const chipsBlock = (priorityChip || statusChip)
+    ? `<div style="margin-bottom:8px;">${priorityChip}${statusChip}</div>`
+    : "";
+
   const dueDate = task.due_date
-    ? new Date(task.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    ? new Date(task.due_date).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
     : null;
+
+  const descriptionBlock = task.description
+    ? `<p style="margin:0;font-size:14px;color:#4A4138;line-height:1.6;">${escapeHtml(task.description)}</p>`
+    : "";
 
   return `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#0e1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0e1117;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;padding:40px 20px;">
 <tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
-
-  <!-- Header -->
-  <tr><td style="padding-bottom:24px;">
-    <h1 style="margin:0;font-size:20px;color:#f0f0f0;">📋 Task Assigned to You</h1>
-    <p style="margin:6px 0 0;font-size:14px;color:#9ca3af;">${senderName} has assigned you a task</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#FBF7F1;border:1px solid #E7DCCB;border-radius:16px;overflow:hidden;">
+  <tr><td style="padding:30px 30px 0;">
+    <table cellpadding="0" cellspacing="0" align="center"><tr>
+      <td style="vertical-align:middle;padding-right:9px;"><img src="${logoUrl}" width="28" height="28" alt="" style="display:block;border:0;"></td>
+      <td style="vertical-align:middle;font-size:16px;font-weight:600;color:#292119;">Focus<span style="color:#B8572E;"> OS</span></td>
+    </tr></table>
+    <div style="border-top:1px solid #ECE3D6;margin:18px 0 0;"></div>
   </td></tr>
-
-  <!-- Task Card -->
-  <tr><td>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(30,35,50,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
-      
-      <!-- Task Title Row (mimics checkbox + title) -->
-      <tr><td style="padding:20px 20px 12px;">
-        <table cellpadding="0" cellspacing="0"><tr>
-          <!-- Circle (unchecked checkbox) -->
-          <td style="vertical-align:top;padding-right:12px;">
-            <a href="${completeUrl}" style="text-decoration:none;display:inline-block;">
-              <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${priorityColor};display:inline-block;"></div>
-            </a>
-          </td>
-          <!-- Title -->
-          <td style="vertical-align:top;">
-            <p style="margin:0;font-size:15px;font-weight:600;color:#f0f0f0;line-height:1.4;">${escapeHtml(task.title)}</p>
-          </td>
-        </tr></table>
+  <tr><td style="padding:18px 30px 0;">
+    <div style="font-size:20px;font-weight:600;color:#292119;">Task assigned to you</div>
+    <p style="margin:6px 0 0;font-size:14px;color:#6E6256;">${escapeHtml(senderName)} has assigned you a task</p>
+  </td></tr>
+  <tr><td style="padding:18px 30px 0;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#F3ECE0;border:1px solid #E7DCCB;border-radius:12px;">
+      <tr><td style="padding:16px 18px;">
+        <p style="margin:0 0 8px;font-size:17px;font-weight:600;color:#292119;">${escapeHtml(task.title)}</p>
+        ${dueDate ? `<span style="font-size:12px;color:#9C9082;">${dueDate}</span>` : ""}
       </td></tr>
-
-      <!-- Description -->
-      ${task.description ? `
-      <tr><td style="padding:0 20px 16px 54px;">
-        <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;">${escapeHtml(task.description)}</p>
-      </td></tr>` : ""}
-
-      <!-- Meta row: Priority + Due Date -->
-      <tr><td style="padding:0 20px 20px 54px;">
-        <table cellpadding="0" cellspacing="0"><tr>
-          <td style="padding-right:8px;">
-            <span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;color:#fff;background:${priorityColor};text-transform:uppercase;letter-spacing:0.5px;">${priorityLabel}</span>
-          </td>
-          ${dueDate ? `
-          <td>
-            <span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;color:#9ca3af;border:1px solid rgba(255,255,255,0.1);">📅 ${dueDate}</span>
-          </td>` : ""}
-        </tr></table>
-      </td></tr>
-
     </table>
   </td></tr>
-
-  <!-- CTA Button -->
-  <tr><td style="padding:24px 0;">
-    <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
-      <a href="${completeUrl}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-size:14px;font-weight:600;border-radius:8px;text-decoration:none;">
-        ✅ Mark as Complete
-      </a>
-    </td></tr></table>
+  ${(chipsBlock || descriptionBlock) ? `
+  <tr><td style="padding:18px 30px 0;">
+    ${chipsBlock}
+    ${descriptionBlock}
+  </td></tr>` : ""}
+  <tr><td style="padding:24px 30px;" align="center">
+    <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr>
+      <td style="padding:0 6px 0 0;"><a href="${completeUrl}" style="display:inline-block;padding:11px 26px;background:#B8572E;color:#ffffff;font-size:13px;font-weight:600;border-radius:10px;text-decoration:none;">Mark completed</a></td>
+      <td style="padding:0 0 0 6px;"><a href="${appUrl}" style="display:inline-block;padding:11px 26px;background:#FBF7F1;border:1px solid #B8572E;color:#B8572E;font-size:13px;font-weight:600;border-radius:10px;text-decoration:none;">View in Focus OS</a></td>
+    </tr></table>
   </td></tr>
-
-  <!-- Footer -->
-  <tr><td style="padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);">
-    <p style="margin:0;font-size:11px;color:#6b7280;text-align:center;">
-      Sent via Focus OS · Click the circle or button above to mark this task complete
-    </p>
+  <tr><td style="padding:0 30px 24px;">
+    <div style="border-top:1px solid #ECE3D6;padding-top:14px;"><p style="margin:0;font-size:11px;color:#9C9082;text-align:center;">Sent via Focus OS</p></div>
   </td></tr>
-
 </table>
 </td></tr>
 </table>
@@ -209,7 +203,7 @@ serve(async (req) => {
       from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
       to: [recipientEmail],
       subject: `Task assigned: ${task.title}`,
-      html: buildTaskEmailHtml(task, completeUrl, senderName),
+      html: buildTaskEmailHtml(task, completeUrl, senderName, "https://focusos.tech/brand/focusos-email-logo.png", "https://focusos2.lovable.app"),
     });
 
     if (emailError) {
