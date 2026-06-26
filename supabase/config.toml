@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.focusos-sync-shared-rsvp]
 verify_jwt = false
+
+[functions.focusos-shared-item-action]
+verify_jwt = false
