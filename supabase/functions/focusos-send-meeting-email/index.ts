@@ -49,8 +49,8 @@ function buildMeetingEmailHtml(
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#E7DECF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#E7DECF;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;padding:40px 20px;">
 <tr><td align="center">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#FBF7F1;border:1px solid #E7DCCB;border-radius:16px;overflow:hidden;">
   <tr><td style="padding:30px 30px 0;">
