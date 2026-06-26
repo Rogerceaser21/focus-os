@@ -44,19 +44,12 @@ function buildShareEmailHtml(p: {
   priority?: string | null;
   status?: string | null;
   dueDate?: string | null;
+  recipientUserId?: string | null;
+  actionToken?: string | null;
 }) {
   const typeLabel = p.itemType.charAt(0).toUpperCase() + p.itemType.slice(1);
   const projectLine = p.projectName
     ? `<p style="margin:6px 0 0;font-size:13px;color:#6b5b4b;">Project: ${escapeHtml(p.projectName)}</p>`
-    : "";
-
-  const markCompletedButton = (p.itemType === "task" && p.shareToken && p.supabaseUrl)
-    ? `<tr><td align="center" style="padding:12px 0 0;">
-        <a href="${p.supabaseUrl}/functions/v1/focusos-complete-shared-task?token=${p.shareToken}" style="display:inline-block;padding:12px 32px;background:#67883A;color:#ffffff;font-size:14px;font-weight:600;border-radius:8px;text-decoration:none;">
-          Mark Completed
-        </a>
-        <p style="margin:8px 0 0;font-size:11px;color:#6b5b4b;">No login required</p>
-      </td></tr>`
     : "";
 
   const dueLine = p.dueDate
@@ -105,12 +98,52 @@ function buildShareEmailHtml(p: {
       </td></tr>`
     : "";
 
+  // Action buttons
+  const isTask = p.itemType === "task";
+  const hasAccount = p.recipientUserId != null;
+  const acceptUrl = hasAccount
+    ? p.appUrl
+    : `${p.supabaseUrl}/functions/v1/focusos-shared-item-action?token=${p.actionToken}&action=accept`;
+  const rejectUrl = hasAccount
+    ? p.appUrl
+    : `${p.supabaseUrl}/functions/v1/focusos-shared-item-action?token=${p.actionToken}&action=reject`;
+  const completedUrl = (isTask && p.shareToken && p.supabaseUrl)
+    ? (hasAccount ? p.appUrl : `${p.supabaseUrl}/functions/v1/focusos-complete-shared-task?token=${p.shareToken}`)
+    : null;
+
+  const btnBase = `display:inline-block;padding:8px 14px;font-size:12px;font-weight:600;border-radius:6px;text-decoration:none;`;
+
+  let actionButtonsHtml = "";
+  if (hasAccount) {
+    actionButtonsHtml = `
+      <tr><td align="center" style="padding:16px 24px 20px;">
+        <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr>
+          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(acceptUrl)}" style="${btnBase}background:#67883A;color:#ffffff;">Accept</a></td>
+          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(rejectUrl)}" style="${btnBase}background:#81313F;color:#ffffff;">Reject</a></td>
+          ${completedUrl ? `<td style="padding:0 4px 4px 0;"><a href="${escapeHtml(completedUrl)}" style="${btnBase}background:#B8572E;color:#ffffff;">Completed</a></td>` : ""}
+          <td style="padding:0 0 4px 0;"><a href="${escapeHtml(p.appUrl)}" style="${btnBase}background:#2c2418;color:#ffffff;">View in Focus OS</a></td>
+        </tr></table>
+        <p style="margin:8px 0 0;font-size:11px;color:#6b5b4b;">Log in to Focus OS to action this.</p>
+      </td></tr>`;
+  } else {
+    actionButtonsHtml = `
+      <tr><td align="center" style="padding:16px 24px 20px;">
+        <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr>
+          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(acceptUrl)}" style="${btnBase}background:#67883A;color:#ffffff;">Accept</a></td>
+          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(rejectUrl)}" style="${btnBase}background:#81313F;color:#ffffff;">Reject</a></td>
+          ${completedUrl ? `<td style="padding:0 4px 4px 0;"><a href="${escapeHtml(completedUrl)}" style="${btnBase}background:#B8572E;color:#ffffff;">Completed</a></td>` : ""}
+          <td style="padding:0 0 4px 0;"><a href="${escapeHtml(p.appUrl)}" style="${btnBase}background:#2c2418;color:#ffffff;">View in Focus OS</a></td>
+        </tr></table>
+        <p style="margin:8px 0 0;font-size:11px;color:#6b5b4b;">No login required.</p>
+      </td></tr>`;
+  }
+
   return `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#E7DECF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#292119;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#E7DECF;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#292119;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:40px 20px;">
 <tr><td align="center">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
   ${logoHeader}
@@ -127,16 +160,7 @@ function buildShareEmailHtml(p: {
         ${chipsBlock}
         ${descriptionBlock}
       </td></tr>
-    </table>
-  </td></tr>
-  <tr><td style="padding:24px 0;">
-    <table cellpadding="0" cellspacing="0" width="100%">
-    <tr><td align="center">
-      <a href="${p.appUrl}" style="display:inline-block;padding:12px 32px;background:#B8572E;color:#ffffff;font-size:14px;font-weight:600;border-radius:8px;text-decoration:none;">
-        View in Focus OS
-      </a>
-    </td></tr>
-    ${markCompletedButton}
+      ${actionButtonsHtml}
     </table>
   </td></tr>
   <tr><td style="padding-top:16px;border-top:1px solid rgba(41,33,25,0.1);">
@@ -313,15 +337,17 @@ serve(async (req) => {
     // same sender + recipient + item.
     const { data: existing } = await supabaseUser
       .from("focusos_shared_items")
-      .select("id")
+      .select("id, action_token")
       .eq("sender_user_id", senderId)
       .eq("recipient_email", normalizedRecipient)
       .eq("item_type", itemType)
       .eq("item_id", itemId)
       .maybeSingle();
 
+    let actionToken: string | null = null;
+
     if (!existing) {
-      const { error: insertError } = await supabaseUser
+      const { data: inserted, error: insertError } = await supabaseUser
         .from("focusos_shared_items")
         .insert({
           sender_user_id: senderId,
@@ -334,12 +360,17 @@ serve(async (req) => {
           item_title: itemTitle,
           project_name: projectName || null,
           status: "pending",
-        });
+        })
+        .select("action_token")
+        .single();
 
       if (insertError) {
         console.error("Insert shared item error:", insertError);
         throw new Error("Failed to create shared item");
       }
+      actionToken = inserted?.action_token ?? null;
+    } else {
+      actionToken = existing.action_token;
     }
 
     // Auto-routing: if sendEmail is omitted, send the branded email ONLY when
@@ -376,6 +407,8 @@ serve(async (req) => {
         priority,
         status,
         dueDate,
+        recipientUserId,
+        actionToken,
       }),
     });
 
