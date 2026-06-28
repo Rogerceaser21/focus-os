@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Calendar, CheckCircle2, Image as ImageIcon, FileText, AlertCircle, Mail } from 'lucide-react';
+import { Clock, Calendar, CheckCircle2, Image as ImageIcon, FileText, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getImageDisplayUrl } from '@/lib/taskImageStorage';
 import { ImageViewer } from '@/components/ImageViewer';
@@ -106,6 +106,17 @@ export const RecipientWorkModal = ({ open, onOpenChange, sharedItemId, recipient
             <div className="flex items-center gap-2 py-8 text-destructive text-sm justify-center">
               <AlertCircle className="h-4 w-4" />
               {error}
+            </div>
+          )}
+
+          {externalData && !loading && (
+            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+              <CheckCircle2 className="h-10 w-10 text-success" />
+              <p className="text-sm font-medium">Completed via email</p>
+              <p className="text-xs text-muted-foreground">
+                This task was completed by <span className="font-medium text-foreground">{externalData.recipientName || externalData.recipientEmail}</span>
+                {externalData.completedAt ? ` on ${format(new Date(externalData.completedAt), 'MMM d, yyyy')}` : ''}.
+              </p>
             </div>
           )}
 
