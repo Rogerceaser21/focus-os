@@ -103,12 +103,12 @@ function buildShareEmailHtml(p: {
   const hasAccount = p.recipientUserId != null;
   const acceptUrl = hasAccount
     ? p.appUrl
-    : `${p.supabaseUrl}/functions/v1/focusos-shared-item-action?token=${p.actionToken}&action=accept`;
+    : `https://focusos.tech/respond?token=${p.actionToken}&action=accept`;
   const rejectUrl = hasAccount
     ? p.appUrl
-    : `${p.supabaseUrl}/functions/v1/focusos-shared-item-action?token=${p.actionToken}&action=reject`;
-  const completedUrl = (isTask && p.shareToken && p.supabaseUrl)
-    ? (hasAccount ? p.appUrl : `${p.supabaseUrl}/functions/v1/focusos-complete-shared-task?token=${p.shareToken}`)
+    : `https://focusos.tech/respond?token=${p.actionToken}&action=reject`;
+  const completedUrl = (isTask && p.shareToken)
+    ? (hasAccount ? p.appUrl : `https://focusos.tech/respond?token=${p.shareToken}&action=complete`)
     : null;
 
   const btnBase = `display:inline-block;padding:8px 14px;font-size:12px;font-weight:600;border-radius:6px;text-decoration:none;`;
