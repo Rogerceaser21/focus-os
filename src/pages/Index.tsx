@@ -606,8 +606,10 @@ const Index = () => {
 
   // Debounced resync safety net — refetches all tasks then re-applies the active filter.
   // Used to recover from missed realtime events after disconnects (tab backgrounded, network drop, etc.)
-  const resyncDebounceRef = useRef<number | null>(null);
+  const resyncDebounce agentRef = useRef<number | null>(null);
   const hasSubscribedOnceRef = useRef<boolean>(false);
+  const resyncTasksRef = useRef(resyncTasks);
+  useEffect(() => { resyncTasksRef.current = resyncTasks; }, [resyncTasks]);
   const resyncTasks = useCallback(() => {
     if (!user) return;
     if (!fullDataLoaded) return;
