@@ -742,7 +742,7 @@ const Index = () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(sharedItemsChannel);
     };
-  }, [user, transformDbTask, fetchSenderSharedItems, resyncTasks]);
+  }, [user, transformDbTask, fetchSenderSharedItems]);
 
   // Apply user preferences on load
   useEffect(() => {
