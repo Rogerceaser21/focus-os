@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Calendar, CheckCircle2, Image as ImageIcon, FileText, AlertCircle } from 'lucide-react';
+import { Clock, Calendar, CheckCircle2, Image as ImageIcon, FileText, AlertCircle, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getImageDisplayUrl } from '@/lib/taskImageStorage';
 import { ImageViewer } from '@/components/ImageViewer';
@@ -47,6 +47,7 @@ export const RecipientWorkModal = ({ open, onOpenChange, sharedItemId, recipient
   const [task, setTask] = useState<RecipientTaskData | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [externalData, setExternalData] = useState<{ recipientEmail: string; recipientName: string; completedAt: string | null } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -58,8 +59,16 @@ export const RecipientWorkModal = ({ open, onOpenChange, sharedItemId, recipient
     }).then(({ data, error: fnError }) => {
       if (fnError || data?.error) {
         setError(data?.error || fnError?.message || 'Failed to load');
+        setExternalData(null);
+        setTask(null);
+      } else if (data?.external) {
+        setExternalData(data);
+        setTask(null);
+        setError(null);
       } else {
         setTask(data.task);
+        setExternalData(null);
+        setError(null);
       }
       setLoading(false);
     });
