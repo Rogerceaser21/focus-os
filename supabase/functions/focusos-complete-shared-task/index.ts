@@ -33,7 +33,7 @@ serve(async (req) => {
     }
 
     if (task.status === "completed") {
-      return new Response(buildPage("Already Completed", "This task has already been marked as completed.", false, true), {
+      return new Response(buildPage("Already Completed", "This task has already been marked as completed.", true), {
         status: 200,
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
@@ -118,13 +118,13 @@ serve(async (req) => {
       }
     }
 
-    return new Response(buildPage("Task Completed!", `"${task.title}" has been marked as completed by ${completedByEmail}.`, true, true), {
+    return new Response(buildPage("Task completed", `"${task.title}" has been marked as completed.`, true), {
       status: 200,
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   } catch (error: any) {
     console.error("Error completing task:", error);
-    return new Response(buildPage("Something Went Wrong", "We couldn't complete this task right now. Please try again later."), {
+    return new Response(buildPage("Something went wrong", "We couldn't complete this task right now. Please try again later.", false), {
       status: 500,
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
@@ -135,106 +135,46 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function buildPage(title: string, message: string, isSuccess: boolean = false, redirect: boolean = false): string {
+function buildPage(title: string, message: string, isSuccess: boolean = false): string {
+  const t = escapeHtml(title);
+  const m = escapeHtml(message);
   const icon = isSuccess
-    ? `<div style="width:80px;height:80px;margin:0 auto 24px;border-radius:50%;background:linear-gradient(135deg,#4FD1C5,#3B82F6);display:flex;align-items:center;justify-content:center;">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-       </div>`
-    : title.includes('Already')
-      ? `<div style="width:80px;height:80px;margin:0 auto 24px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#6366F1);display:flex;align-items:center;justify-content:center;">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M9 12l2 2 4-4"/></svg>
-         </div>`
-      : `<div style="width:80px;height:80px;margin:0 auto 24px;border-radius:50%;background:linear-gradient(135deg,#EF4444,#F97316);display:flex;align-items:center;justify-content:center;">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-         </div>`;
-
-  const headingText = title.replace(/^[^\w]*/, '').trim();
-
-  return `<!DOCTYPE html>
+    ? `<div class="icon ok"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>`
+    : `<div class="icon err">!</div>`;
+  const autoClose = isSuccess
+    ? `<script>setTimeout(function(){try{window.close();}catch(e){}}, 1200);</script>`
+    : "";
+  return `<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${headingText} — Focus OS</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0a0b0f;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-    .bg-glow {
-      position: fixed;
-      width: 600px; height: 600px;
-      border-radius: 50%;
-      filter: blur(120px);
-      opacity: 0.15;
-      pointer-events: none;
-    }
-    .glow-1 { top: -200px; left: -100px; background: #4FD1C5; }
-    .glow-2 { bottom: -200px; right: -100px; background: #3B82F6; }
-    .card {
-      position: relative;
-      z-index: 1;
-      max-width: 420px;
-      width: 90%;
-      padding: 48px 36px;
-      text-align: center;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 24px;
-      backdrop-filter: blur(20px);
-      animation: fadeUp 0.5s ease-out;
-    }
-    @keyframes fadeUp {
-      from { opacity:0; transform:translateY(20px); }
-      to { opacity:1; transform:translateY(0); }
-    }
-    h1 {
-      font-size: 24px;
-      font-weight: 700;
-      color: #f0f2f5;
-      margin-bottom: 12px;
-      letter-spacing: -0.02em;
-    }
-    .message {
-      font-size: 15px;
-      color: #9ca3af;
-      line-height: 1.7;
-      margin-bottom: 32px;
-    }
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.25);
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .brand-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #4FD1C5, #3B82F6);
-    }
-  </style>
-  ${redirect ? `<script>setTimeout(function(){ window.location.href = "https://focusos2.lovable.app"; }, 3000);</script>` : ""}
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>${t} · Focus OS</title>
+<style>
+  body { margin:0; padding:40px 20px; background:#ffffff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color:#2c2418; min-height:100vh; }
+  .wrap { max-width: 440px; margin: 60px auto; text-align:center; }
+  .brand { margin-bottom:24px; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:#B8572E; font-weight:600; }
+  .card { background:#ffffff; border:1px solid #ece3d2; border-radius:16px; padding:36px 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
+  .icon { width:64px; height:64px; border-radius:50%; margin:0 auto 20px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:32px; color:#fff; }
+  .icon.ok { background:#5a8a4a; }
+  .icon.err { background:#B8572E; }
+  h1 { margin:0 0 10px; font-size:22px; color:#2c2418; font-weight:600; letter-spacing:-0.01em; }
+  p { margin:0 0 24px; font-size:15px; line-height:1.55; color:#5b4f3f; }
+  button { background:#B8572E; color:#fff; border:0; border-radius:8px; padding:10px 22px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; }
+  button:hover { background:#a04a25; }
+</style>
 </head>
 <body>
-  <div class="bg-glow glow-1"></div>
-  <div class="bg-glow glow-2"></div>
-  <div class="card">
-    ${icon}
-    <h1>${headingText}</h1>
-    <p class="message">${message}</p>
-    <div class="brand"><span class="brand-dot"></span>Focus OS</div>
+  <div class="wrap">
+    <div class="brand">Focus OS</div>
+    <div class="card">
+      ${icon}
+      <h1>${t}</h1>
+      <p>${m}</p>
+      <button onclick="try{window.close();}catch(e){}">Close</button>
+    </div>
   </div>
+  ${autoClose}
 </body>
 </html>`;
 }
