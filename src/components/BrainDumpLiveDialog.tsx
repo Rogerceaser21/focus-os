@@ -17,7 +17,7 @@ interface BrainDumpLiveDialogProps {
   userId: string;
   projects: ProjectInfo[];
   onProjectCreated?: (newProjectId: string) => void;
-  onTasksCreated: () => void;
+  onTasksCreated: (createdRows?: any[]) => void;
   onRecordingChange?: (isRecording: boolean) => void;
   initialTasks?: BrainDumpTask[];
   meetingId?: string;
@@ -200,7 +200,10 @@ export const BrainDumpLiveDialog = ({
         };
       });
 
-      const { error: tasksError } = await (supabase as any).from('focusos_tasks').insert(tasksToInsert);
+      const { data: insertedRows, error: tasksError } = await (supabase as any)
+        .from('focusos_tasks')
+        .insert(tasksToInsert)
+        .select();
       if (tasksError) throw tasksError;
 
       toast.success(`Added ${tasks.length} task${tasks.length > 1 ? 's' : ''}`);
@@ -211,7 +214,7 @@ export const BrainDumpLiveDialog = ({
       }
 
       handleClose();
-      onTasksCreated();
+      onTasksCreated(insertedRows ?? []);
     } catch (error: any) {
       toast.error('Failed to save tasks', { description: error.message });
     } finally {
