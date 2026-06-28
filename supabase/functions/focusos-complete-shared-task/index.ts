@@ -64,30 +64,24 @@ serve(async (req) => {
       .select("id, recipient_task_id, item_id, completion_acknowledged, completed_at")
       .eq("item_id", task.id)
       .eq("item_type", "task")
-      .eq("status", "accepted");
+      .in("status", ["accepted", "pending"]);
 
     if (sharedItems && sharedItems.length > 0) {
       for (const si of sharedItems) {
         if (si.recipient_task_id) {
           await supabase
             .from("focusos_tasks")
-            .update({
-              completed_by_email: completedByEmail,
-            })
+            .update({ completed_by_email: completedByEmail })
             .eq("id", si.recipient_task_id);
         }
-        // Notify the original sender: stamp completion fields on the shared_items row.
-        // Idempotent: don't overwrite once already completed/acknowledged.
+        // Advance the share to completed; stamp completion fields only the first time.
+        const update: Record<string, unknown> = { status: "completed" };
         if (!si.completion_acknowledged && !si.completed_at) {
-          await supabase
-            .from("focusos_shared_items")
-            .update({
-              completed_by: completedByEmail,
-              completed_at: new Date().toISOString(),
-              completion_acknowledged: false,
-            })
-            .eq("id", si.id);
+          update.completed_by = completedByEmail;
+          update.completed_at = new Date().toISOString();
+          update.completion_acknowledged = false;
         }
+        await supabase.from("focusos_shared_items").update(update).eq("id", si.id);
       }
     }
 
@@ -97,27 +91,21 @@ serve(async (req) => {
       .select("id, item_id, completion_acknowledged, completed_at")
       .eq("recipient_task_id", task.id)
       .eq("item_type", "task")
-      .eq("status", "accepted");
+      .in("status", ["accepted", "pending"]);
 
     if (reverseSharedItems && reverseSharedItems.length > 0) {
       for (const si of reverseSharedItems) {
         await supabase
           .from("focusos_tasks")
-          .update({
-            completed_by_email: completedByEmail,
-          })
+          .update({ completed_by_email: completedByEmail })
           .eq("id", si.item_id);
-        // Notify the original sender via the same shared_items row.
+        const update: Record<string, unknown> = { status: "completed" };
         if (!si.completion_acknowledged && !si.completed_at) {
-          await supabase
-            .from("focusos_shared_items")
-            .update({
-              completed_by: completedByEmail,
-              completed_at: new Date().toISOString(),
-              completion_acknowledged: false,
-            })
-            .eq("id", si.id);
+          update.completed_by = completedByEmail;
+          update.completed_at = new Date().toISOString();
+          update.completion_acknowledged = false;
         }
+        await supabase.from("focusos_shared_items").update(update).eq("id", si.id);
       }
     }
 
