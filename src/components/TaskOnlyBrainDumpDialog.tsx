@@ -11,7 +11,7 @@ import type { Task, TaskPriority } from '@/types/task';
 interface TaskOnlyBrainDumpDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onTasksCreated: () => void;
+  onTasksCreated: (createdRows?: any[]) => void;
   userId: string;
   selectedProjectId: string | null;
   selectedProjectName: string;
@@ -159,16 +159,17 @@ export const TaskOnlyBrainDumpDialog = ({
         timer_is_running: false,
       }));
 
-      const { error: tasksError } = await (supabase as any)
+      const { data: insertedRows, error: tasksError } = await (supabase as any)
         .from('focusos_tasks')
-        .insert(tasksToInsert);
+        .insert(tasksToInsert)
+        .select();
 
       if (tasksError) throw tasksError;
 
       toast.success(`Added ${editableTasks.length} task${editableTasks.length > 1 ? 's' : ''} to ${selectedProjectName}`);
 
       handleClose();
-      onTasksCreated();
+      onTasksCreated(insertedRows ?? []);
     } catch (error: any) {
       toast.error('Failed to save tasks', {
         description: error.message
