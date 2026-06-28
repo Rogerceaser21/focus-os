@@ -620,6 +620,8 @@ const Index = () => {
       filterTasksFromCache();
     }, 1000);
   }, [user, fullDataLoaded, fetchAllTasks, filterTasksFromCache]);
+  const resyncTasksRef = useRef(resyncTasks);
+  useEffect(() => { resyncTasksRef.current = resyncTasks; }, [resyncTasks]);
 
   // Wire up DOM events that signal a possible missed-event window
   useEffect(() => {
@@ -710,7 +712,7 @@ const Index = () => {
           console.log('Realtime connected');
           if (hasSubscribedOnceRef.current) {
             // Reconnect — refetch in case we missed events while disconnected
-            resyncTasks();
+            resyncTasksRef.current();
           } else {
             hasSubscribedOnceRef.current = true;
           }
@@ -740,7 +742,7 @@ const Index = () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(sharedItemsChannel);
     };
-  }, [user, transformDbTask, fetchSenderSharedItems, resyncTasks]);
+  }, [user, transformDbTask, fetchSenderSharedItems]);
 
   // Apply user preferences on load
   useEffect(() => {
