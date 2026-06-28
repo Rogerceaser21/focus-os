@@ -56,6 +56,16 @@ import { InviteProjectMemberDialog } from '@/components/InviteProjectMemberDialo
 import { ProjectMembersBar } from '@/components/ProjectMembersBar';
 import { addDays } from 'date-fns';
 import RecordFAB from '@/components/RecordFAB';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Inline skeleton for the task list area shown while initialLoadComplete is false.
+const TaskListSkeleton = () => (
+  <div className="mt-6 space-y-2">
+    {Array.from({ length: 6 }).map((_, i) => (
+      <Skeleton key={i} className="h-14 w-full rounded-md" />
+    ))}
+  </div>
+);
 
 // Projects FAB component for mobile - must be inside SidebarProvider
 const ProjectsFAB = () => {
@@ -1832,7 +1842,7 @@ https://www.skyscanner.com`,
           </div>
 
           {/* Main Content */}
-          {viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
+          {!initialLoadComplete ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
