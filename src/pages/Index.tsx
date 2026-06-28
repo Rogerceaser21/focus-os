@@ -604,6 +604,48 @@ const Index = () => {
     }
   }, [selectedProjectId, selectedSpecialList, initialLoadComplete, user, fullDataLoaded, filterTasksFromCache, fetchInitialTasks]);
 
+  // Debounced resync safety net — refetches all tasks then re-applies the active filter.
+  // Used to recover from missed realtime events after disconnects (tab backgrounded, network drop, etc.)
+  const resyncDebounceRef = useRef<number | null>(null);
+  const hasSubscribedOnceRef = useRef<boolean>(false);
+  const resyncTasks = useCallback(() => {
+    if (!user) return;
+    if (!fullDataLoaded) return;
+    if (resyncDebounceRef.current !== null) {
+      window.clearTimeout(resyncDebounceRef.current);
+    }
+    resyncDebounceRef.current = window.setTimeout(async () => {
+      resyncDebounceRef.current = null;
+      await fetchAllTasks();
+      filterTasksFromCache();
+    }, 1000);
+  }, [user, fullDataLoaded, fetchAllTasks, filterTasksFromCache]);
+
+  // Wire up DOM events that signal a possible missed-event window
+  useEffect(() => {
+    if (!user) return;
+
+    const onFocus = () => resyncTasks();
+    const onOnline = () => resyncTasks();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') resyncTasks();
+    };
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (resyncDebounceRef.current !== null) {
+        window.clearTimeout(resyncDebounceRef.current);
+        resyncDebounceRef.current = null;
+      }
+    };
+  }, [user, resyncTasks]);
+
   // Realtime subscription for tasks - keeps all sessions in sync
   useEffect(() => {
     if (!user) return;
