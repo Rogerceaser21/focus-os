@@ -666,6 +666,12 @@ const Index = () => {
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           console.log('Realtime connected');
+          if (hasSubscribedOnceRef.current) {
+            // Reconnect — refetch in case we missed events while disconnected
+            resyncTasks();
+          } else {
+            hasSubscribedOnceRef.current = true;
+          }
         } else if (status === 'CHANNEL_ERROR') {
           console.error('Realtime error:', err);
         }
