@@ -11,7 +11,7 @@ import { Task } from '@/types/task';
 interface TodayBrainDumpDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onTasksCreated: () => void;
+  onTasksCreated: (createdRows?: any[]) => void;
   userId: string;
   onRecordingChange?: (isRecording: boolean) => void;
 }
@@ -171,16 +171,17 @@ export const TodayBrainDumpDialog = ({
         timer_is_running: false,
       }));
 
-      const { error: tasksError } = await (supabase as any)
+      const { data: insertedRows, error: tasksError } = await (supabase as any)
         .from('focusos_tasks')
-        .insert(tasksToInsert);
+        .insert(tasksToInsert)
+        .select();
 
       if (tasksError) throw tasksError;
 
       toast.success(`Added ${editableTasks.length} task${editableTasks.length > 1 ? 's' : ''} to Today's To-Do`);
 
       handleClose();
-      onTasksCreated();
+      onTasksCreated(insertedRows ?? []);
     } catch (error: any) {
       toast.error('Failed to save tasks', {
         description: error.message
