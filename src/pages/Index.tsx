@@ -56,6 +56,16 @@ import { InviteProjectMemberDialog } from '@/components/InviteProjectMemberDialo
 import { ProjectMembersBar } from '@/components/ProjectMembersBar';
 import { addDays } from 'date-fns';
 import RecordFAB from '@/components/RecordFAB';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Inline skeleton for the task list area shown while initialLoadComplete is false.
+const TaskListSkeleton = () => (
+  <div className="mt-6 space-y-2">
+    {Array.from({ length: 6 }).map((_, i) => (
+      <Skeleton key={i} className="h-14 w-full rounded-md" />
+    ))}
+  </div>
+);
 
 // Projects FAB component for mobile - must be inside SidebarProvider
 const ProjectsFAB = () => {
@@ -363,7 +373,8 @@ const Index = () => {
       const { data, error } = await (supabase as any)
         .from('focusos_tasks')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1000);
       
       if (error) {
         console.error('Failed to load all tasks:', error);
@@ -1693,8 +1704,11 @@ https://www.skyscanner.com`,
     );
   }
 
-  // User exists but data still loading
-  if (prefsLoading || !preferences || !initialLoadComplete) {
+  // User exists but preferences still loading — keep full-screen spinner until
+  // preferences resolve (default_view drives initial view selection). Once
+  // preferences exist, render the shell immediately and skeleton the task area
+  // while initialLoadComplete is still false.
+  if (prefsLoading || !preferences) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -1828,7 +1842,7 @@ https://www.skyscanner.com`,
           </div>
 
           {/* Main Content */}
-          {viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
+          {!initialLoadComplete ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
