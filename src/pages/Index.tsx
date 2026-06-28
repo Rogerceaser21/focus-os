@@ -363,7 +363,8 @@ const Index = () => {
       const { data, error } = await (supabase as any)
         .from('focusos_tasks')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1000);
       
       if (error) {
         console.error('Failed to load all tasks:', error);
@@ -1693,8 +1694,11 @@ https://www.skyscanner.com`,
     );
   }
 
-  // User exists but data still loading
-  if (prefsLoading || !preferences || !initialLoadComplete) {
+  // User exists but preferences still loading — keep full-screen spinner until
+  // preferences resolve (default_view drives initial view selection). Once
+  // preferences exist, render the shell immediately and skeleton the task area
+  // while initialLoadComplete is still false.
+  if (prefsLoading || !preferences) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
