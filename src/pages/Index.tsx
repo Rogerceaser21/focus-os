@@ -712,7 +712,7 @@ const Index = () => {
           console.log('Realtime connected');
           if (hasSubscribedOnceRef.current) {
             // Reconnect — refetch in case we missed events while disconnected
-            resyncTasks();
+            resyncTasksRef.current();
           } else {
             hasSubscribedOnceRef.current = true;
           }
