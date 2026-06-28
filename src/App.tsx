@@ -14,6 +14,7 @@ import MeetingDetail from "./pages/MeetingDetail";
 import NotFound from "./pages/NotFound";
 import ImportTasks from "./pages/ImportTasks";
 import GoogleConnected from "./pages/GoogleConnected";
+import SharedAction from "./pages/SharedAction";
 
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
         <Route path="/meetings/:id" element={<MeetingDetail />} />
         <Route path="/import-tasks" element={<ImportTasks />} />
         <Route path="/google-connected" element={<GoogleConnected />} />
+        <Route path="/respond" element={<SharedAction />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
