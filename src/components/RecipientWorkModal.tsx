@@ -47,6 +47,7 @@ export const RecipientWorkModal = ({ open, onOpenChange, sharedItemId, recipient
   const [task, setTask] = useState<RecipientTaskData | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [externalData, setExternalData] = useState<{ recipientEmail: string; recipientName: string; completedAt: string | null } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -58,8 +59,16 @@ export const RecipientWorkModal = ({ open, onOpenChange, sharedItemId, recipient
     }).then(({ data, error: fnError }) => {
       if (fnError || data?.error) {
         setError(data?.error || fnError?.message || 'Failed to load');
+        setExternalData(null);
+        setTask(null);
+      } else if (data?.external) {
+        setExternalData(data);
+        setTask(null);
+        setError(null);
       } else {
         setTask(data.task);
+        setExternalData(null);
+        setError(null);
       }
       setLoading(false);
     });
@@ -97,6 +106,17 @@ export const RecipientWorkModal = ({ open, onOpenChange, sharedItemId, recipient
             <div className="flex items-center gap-2 py-8 text-destructive text-sm justify-center">
               <AlertCircle className="h-4 w-4" />
               {error}
+            </div>
+          )}
+
+          {externalData && !loading && (
+            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+              <CheckCircle2 className="h-10 w-10 text-success" />
+              <p className="text-sm font-medium">Completed via email</p>
+              <p className="text-xs text-muted-foreground">
+                This task was completed by <span className="font-medium text-foreground">{externalData.recipientName || externalData.recipientEmail}</span>
+                {externalData.completedAt ? ` on ${format(new Date(externalData.completedAt), 'MMM d, yyyy')}` : ''}.
+              </p>
             </div>
           )}
 

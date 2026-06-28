@@ -72,8 +72,13 @@ serve(async (req) => {
     }
 
     if (!sharedItem.recipient_task_id) {
-      return new Response(JSON.stringify({ error: "No recipient task found" }), {
-        status: 404,
+      return new Response(JSON.stringify({
+        external: true,
+        recipientEmail: sharedItem.recipient_email,
+        recipientName: sharedItem.recipient_name || sharedItem.recipient_email,
+        completedAt: sharedItem.completed_at,
+      }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
