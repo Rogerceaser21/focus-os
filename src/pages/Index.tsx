@@ -470,20 +470,12 @@ const Index = () => {
   }, [allTasks, selectedProjectId, selectedSpecialList]);
 
   // Legacy fetchTasks for specific use cases (task creation, etc.)
+  // Always load the full task set so newly-created tasks for any list/project
+  // land in `allTasks`; then re-apply the active view filter.
   const fetchTasks = useCallback(async () => {
-    if (fullDataLoaded) {
-      // Re-fetch all tasks and update cache
-      await fetchAllTasks();
-    } else {
-      // Fetch only current view
-      await fetchInitialTasks(
-        selectedProjectId || 
-        (selectedSpecialList === 'today' ? 'today' : 
-         selectedSpecialList === 'past-due' ? 'today' :
-         selectedSpecialList === 'unassigned' ? 'unassigned' : 'today')
-      );
-    }
-  }, [fullDataLoaded, fetchAllTasks, fetchInitialTasks, selectedProjectId, selectedSpecialList]);
+    await fetchAllTasks();
+    filterTasksFromCache();
+  }, [fetchAllTasks, filterTasksFromCache]);
 
   // Re-fetch projects whenever projectRefreshTrigger changes (after initial load)
   useEffect(() => {
@@ -2471,7 +2463,22 @@ https://www.skyscanner.com`,
           setSelectedProjectId(newProjectId);
           setSelectedSpecialList(null);
         }}
-        onTasksCreated={() => {
+        onTasksCreated={(createdRows) => {
+          if (createdRows && createdRows.length) {
+            const transformed = createdRows.map(transformDbTask);
+            setAllTasks(prev => {
+              const seen = new Set(prev.map(t => t.id));
+              const merged = [...prev];
+              for (const t of transformed) if (!seen.has(t.id)) merged.push(t);
+              return merged;
+            });
+            setTasks(prev => {
+              const seen = new Set(prev.map(t => t.id));
+              const merged = [...prev];
+              for (const t of transformed) if (!seen.has(t.id)) merged.push(t);
+              return merged;
+            });
+          }
           fetchTasks();
           setProjectRefreshTrigger(prev => prev + 1);
         }}
