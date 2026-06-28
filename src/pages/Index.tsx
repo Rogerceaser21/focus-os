@@ -620,6 +620,8 @@ const Index = () => {
       filterTasksFromCache();
     }, 1000);
   }, [user, fullDataLoaded, fetchAllTasks, filterTasksFromCache]);
+  const resyncTasksRef = useRef(resyncTasks);
+  useEffect(() => { resyncTasksRef.current = resyncTasks; }, [resyncTasks]);
 
   // Wire up DOM events that signal a possible missed-event window
   useEffect(() => {
