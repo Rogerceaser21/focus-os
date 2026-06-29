@@ -1287,6 +1287,20 @@ const MeetingDetail = () => {
                         <Plus className="h-3.5 w-3.5" />
                         Add Task
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={handleConvertToProject}
+                        disabled={converting}
+                      >
+                        {converting ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <FolderPlus className="h-3.5 w-3.5" />
+                        )}
+                        Convert to Project
+                      </Button>
                       {meeting.transcript_gcs_path && (
                         <Button
                           variant="outline"
