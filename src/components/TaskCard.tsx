@@ -63,6 +63,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
     enabled: preferences?.notify_timer ?? false,
     taskTitle: task.title,
   });
+  const isMobile = useIsMobile();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
