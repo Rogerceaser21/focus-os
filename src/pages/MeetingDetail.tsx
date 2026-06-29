@@ -1318,17 +1318,39 @@ const MeetingDetail = () => {
                   <p className="text-sm text-muted-foreground mb-3">
                     Extract action items from the transcript using AI
                   </p>
-                  <Button
-                    className="gap-2"
-                    onClick={handleExtractActionItems}
-                    disabled={extracting}
-                  >
-                    {extracting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ClipboardList className="h-4 w-4" />
-                    )}
-                    {extracting ? 'Extracting...' : 'Extract Action Items'}
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <Button
+                      className="gap-2"
+                      onClick={handleExtractActionItems}
+                      disabled={extracting}
+                    >
+                      {extracting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ClipboardList className="h-4 w-4" />
+                      )}
+                      {extracting ? 'Extracting...' : 'Extract Action Items'}
+                    </Button>
+                    <Button variant="outline" className="gap-2" onClick={() => setAddTaskOpen(true)}>
+                      <Plus className="h-4 w-4" />
+                      Add Task
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Empty state when no transcript: still allow manual add */}
+            {savedTasks.length === 0 && !meeting.transcript_gcs_path && (
+              <Card>
+                <CardContent className="p-5 text-center">
+                  <ClipboardList className="h-8 w-8 mx-auto mb-2 text-primary/60" />
+                  <p className="text-sm text-muted-foreground mb-3">
+                    No action items yet
+                  </p>
+                  <Button className="gap-2" onClick={() => setAddTaskOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add Task
                   </Button>
                 </CardContent>
               </Card>
