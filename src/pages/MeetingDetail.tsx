@@ -1443,6 +1443,14 @@ const MeetingDetail = () => {
         )}
 
         {/* Edit Task Dialog */}
+        <AddTaskDialog
+          open={addTaskOpen}
+          onOpenChange={setAddTaskOpen}
+          showTrigger={false}
+          projects={allProjects}
+          onAddTask={handleAddTask}
+        />
+
         {editingTask && (
           <EditTaskDialog
             task={editingTask}
