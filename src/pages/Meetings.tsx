@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2, Pause, Play, RefreshCw, Share2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import RecordFAB from '@/components/RecordFAB';
+import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import { MeetingsTour } from '@/components/MeetingsTour';
 import { DEMO_MEETING_ID } from '@/lib/demoMeeting';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
