@@ -244,7 +244,10 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
                       if (task.assignedToEmail) return;
                       pendingCaretRef.current = getCaretOffsetFromPoint(e);
                     }}
-                    onClick={() => !task.assignedToEmail && setIsEditingTitle(true)}
+                    onClick={() => {
+                      if (isMobile) { onEditTask?.(task); return; }
+                      if (!task.assignedToEmail) setIsEditingTitle(true);
+                    }}
                   >
                     {editedTitle}
                   </h3>
@@ -301,7 +304,10 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               onMouseDown={(e) => {
                 pendingCaretRef.current = getCaretOffsetFromPoint(e);
               }}
-              onClick={() => setIsEditingDescription(true)}
+              onClick={() => {
+                if (isMobile) { onEditTask?.(task); return; }
+                setIsEditingDescription(true);
+              }}
             >
               {editedDescription ? (
                 <LinkifiedText text={editedDescription} />
