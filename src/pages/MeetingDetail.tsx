@@ -625,6 +625,24 @@ const MeetingDetail = () => {
   };
 
   const handleSavedTaskUpdate = async (updatedTask: Task) => {
+    // If the task's project changed, put it at the TOP of the destination
+    // project's priority group (list is sorted by sort_order ASC).
+    const original = savedTasks.find((t) => t.id === updatedTask.id);
+    const projectChanged = !!updatedTask.projectId
+      && updatedTask.projectId !== original?.projectId;
+    let newSortOrder: number | undefined;
+    if (projectChanged) {
+      const { data: topRow } = await (supabase as any)
+        .from('focusos_tasks')
+        .select('sort_order')
+        .eq('project_id', updatedTask.projectId)
+        .eq('priority', updatedTask.priority)
+        .order('sort_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      newSortOrder = ((topRow?.sort_order ?? 0) as number) - 1;
+    }
+
     const { error } = await (supabase as any)
       .from('focusos_tasks')
       .update({
@@ -637,6 +655,7 @@ const MeetingDetail = () => {
         timer_total_seconds: updatedTask.timer.totalSeconds,
         timer_is_running: updatedTask.timer.isRunning,
         timer_start_time: updatedTask.timer.startTime || null,
+        ...(projectChanged ? { sort_order: newSortOrder } : {}),
       })
       .eq('id', updatedTask.id);
 
@@ -646,7 +665,9 @@ const MeetingDetail = () => {
     }
 
     setSavedTasks((prev) =>
-      prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+      prev.map((t) => (t.id === updatedTask.id
+        ? (projectChanged ? { ...updatedTask, sortOrder: newSortOrder! } : updatedTask)
+        : t))
     );
   };
 

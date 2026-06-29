@@ -1263,6 +1263,25 @@ https://www.skyscanner.com`,
       };
     }
 
+    // If the task's project changed, recalculate sort_order so it lands at the
+    // TOP of its priority group in the destination project (list is sorted asc).
+    const originalForMove = originalTask ?? allTasks.find(t => t.id === updatedTask.id);
+    const projectChanged = !!updatedTask.projectId
+      && updatedTask.projectId !== originalForMove?.projectId;
+    let nextSortOrder = updatedTask.sortOrder ?? 0;
+    if (projectChanged) {
+      const { data: topRow } = await (supabase as any)
+        .from('focusos_tasks')
+        .select('sort_order')
+        .eq('project_id', updatedTask.projectId)
+        .eq('priority', updatedTask.priority)
+        .order('sort_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      nextSortOrder = ((topRow?.sort_order ?? 0) as number) - 1;
+      updatedTask = { ...updatedTask, sortOrder: nextSortOrder };
+    }
+
     // Optimistic update: Update local state immediately to prevent list jumping
     setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
     setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
@@ -1283,7 +1302,7 @@ https://www.skyscanner.com`,
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime,
       project_id: updatedTask.projectId || null,
-      sort_order: updatedTask.sortOrder ?? 0,
+      sort_order: nextSortOrder,
       completed_by_email: updatedTask.completedByEmail || null,
     }).eq('id', updatedTask.id);
     if (error) {
