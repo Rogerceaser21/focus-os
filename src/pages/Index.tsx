@@ -760,6 +760,10 @@ const Index = () => {
       } else if (viewParam === 'projects') {
         // Just load default project view
         setSelectedSpecialList(null);
+      } else if (viewParam && projects.some(p => p.id === viewParam)) {
+        // Direct project id deep-link (e.g. from Convert-to-Project in MeetingDetail)
+        setSelectedProjectId(viewParam);
+        setSelectedSpecialList(null);
       } else if (preferences.default_view === 'today') {
         setSelectedSpecialList('today');
         setSelectedProjectId(null);
