@@ -1453,7 +1453,7 @@ const MeetingDetail = () => {
         navigate('/meetings');
       }}
     />
-    <RecordFAB compact />
+    <RecordFAB compact onBrainDump={() => setBrainDumpOpen(true)} />
     </>
   );
 };
