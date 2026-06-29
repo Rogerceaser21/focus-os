@@ -57,6 +57,7 @@ import { ShareStatusPopover, SharedRecipient } from '@/components/ShareStatusPop
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MeetingsTour } from '@/components/MeetingsTour';
 import { DEMO_MEETING_ID, DEMO_MEETING, DEMO_TRANSCRIPT } from '@/lib/demoMeeting';
