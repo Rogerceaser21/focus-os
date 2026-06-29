@@ -626,6 +626,33 @@ const MeetingDetail = () => {
     fetchSavedTasks();
   };
 
+  const handleAddTask = async (newTask: Task) => {
+    if (!user || !id) return;
+    const { data, error } = await (supabase as any).from('focusos_tasks').insert({
+      user_id: user.id,
+      meeting_id: id,
+      project_id: newTask.projectId || null,
+      title: newTask.title,
+      description: newTask.description,
+      priority: newTask.priority,
+      status: newTask.status,
+      start_date: newTask.startDate?.toISOString(),
+      end_date: newTask.endDate?.toISOString(),
+      due_date: newTask.dueDate?.toISOString(),
+      images: newTask.images || [],
+      timer_total_seconds: 0,
+      timer_is_running: false,
+    }).select().single();
+    if (error) {
+      toast.error('Failed to create task');
+      return;
+    }
+    if (data) {
+      const inserted = mapDbTaskToTask(data);
+      setSavedTasks(prev => prev.some(t => t.id === inserted.id) ? prev : [inserted, ...prev]);
+    }
+  };
+
   const handleSavedTaskUpdate = async (updatedTask: Task) => {
     // If the task's project changed, put it at the TOP of the destination
     // project's priority group (list is sorted by sort_order ASC).
