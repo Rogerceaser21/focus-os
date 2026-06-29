@@ -207,8 +207,16 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
       element.setSelectionRange(position, position);
     } catch {}
 
+    if (isMobile) {
+      requestAnimationFrame(() => {
+        try {
+          element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+        } catch {}
+      });
+    }
+
     pendingTitleCaretRef.current = null;
-  }, [isEditingTitle]);
+  }, [isEditingTitle, isMobile]);
 
   useLayoutEffect(() => {
     if (!isEditingDescription || !descriptionRef.current) return;
@@ -222,8 +230,16 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
       element.setSelectionRange(position, position);
     } catch {}
 
+    if (isMobile) {
+      requestAnimationFrame(() => {
+        try {
+          element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+        } catch {}
+      });
+    }
+
     pendingDescriptionCaretRef.current = null;
-  }, [isEditingDescription]);
+  }, [isEditingDescription, isMobile]);
 
   const captureTitleCaret = (e: React.MouseEvent<HTMLElement>) => {
     if (task.assignedToEmail) return;
