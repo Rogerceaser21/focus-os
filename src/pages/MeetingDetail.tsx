@@ -32,6 +32,7 @@ import {
   Check,
   X,
   Share2,
+  FolderPlus,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import {
