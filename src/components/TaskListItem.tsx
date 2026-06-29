@@ -207,16 +207,8 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
       element.setSelectionRange(position, position);
     } catch {}
 
-    if (isMobile) {
-      requestAnimationFrame(() => {
-        try {
-          element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
-        } catch {}
-      });
-    }
-
     pendingTitleCaretRef.current = null;
-  }, [isEditingTitle, isMobile]);
+  }, [isEditingTitle]);
 
   useLayoutEffect(() => {
     if (!isEditingDescription || !descriptionRef.current) return;
@@ -230,16 +222,8 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
       element.setSelectionRange(position, position);
     } catch {}
 
-    if (isMobile) {
-      requestAnimationFrame(() => {
-        try {
-          element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
-        } catch {}
-      });
-    }
-
     pendingDescriptionCaretRef.current = null;
-  }, [isEditingDescription, isMobile]);
+  }, [isEditingDescription]);
 
   const captureTitleCaret = (e: React.MouseEvent<HTMLElement>) => {
     if (task.assignedToEmail) return;
@@ -252,6 +236,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
 
   const openTitleEditor = ({ expand = false, openTask = false } = {}) => {
     if (task.assignedToEmail) return;
+    if (isMobile) { onEditTask?.(task); return; }
     if (openTask && !isIndividuallyExpanded) {
       onTaskClick();
     }
@@ -262,6 +247,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
   };
 
   const openDescriptionEditor = () => {
+    if (isMobile) { onEditTask?.(task); return; }
     if (!isIndividuallyExpanded) {
       onTaskClick();
     }
