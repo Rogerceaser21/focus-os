@@ -134,6 +134,7 @@ const MeetingDetail = () => {
 
   // Saved tasks from DB (linked by meeting_id)
   const [savedTasks, setSavedTasks] = useState<Task[]>([]);
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
 
   // Extraction state
   const [extracting, setExtracting] = useState(false);
