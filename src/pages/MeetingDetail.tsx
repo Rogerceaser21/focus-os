@@ -1241,22 +1241,33 @@ const MeetingDetail = () => {
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                       Action Items ({savedTasks.length})
                     </h2>
-                    {meeting.transcript_gcs_path && (
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         className="gap-1.5"
-                        onClick={handleExtractActionItems}
-                        disabled={extracting}
+                        onClick={() => setAddTaskOpen(true)}
                       >
-                        {extracting ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <ClipboardList className="h-3.5 w-3.5" />
-                        )}
-                        Re-extract
+                        <Plus className="h-3.5 w-3.5" />
+                        Add Task
                       </Button>
-                    )}
+                      {meeting.transcript_gcs_path && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={handleExtractActionItems}
+                          disabled={extracting}
+                        >
+                          {extracting ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ClipboardList className="h-3.5 w-3.5" />
+                          )}
+                          Re-extract
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <Tabs defaultValue="all" className="mb-3">
