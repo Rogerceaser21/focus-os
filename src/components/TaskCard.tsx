@@ -27,6 +27,7 @@ import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { format } from 'date-fns';
 import { LinkifiedText } from '@/components/LinkifiedText';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TaskCardProps {
   task: Task;
@@ -62,6 +63,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
     enabled: preferences?.notify_timer ?? false,
     taskTitle: task.title,
   });
+  const isMobile = useIsMobile();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
@@ -242,7 +244,10 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
                       if (task.assignedToEmail) return;
                       pendingCaretRef.current = getCaretOffsetFromPoint(e);
                     }}
-                    onClick={() => !task.assignedToEmail && setIsEditingTitle(true)}
+                    onClick={() => {
+                      if (isMobile) { onEditTask?.(task); return; }
+                      if (!task.assignedToEmail) setIsEditingTitle(true);
+                    }}
                   >
                     {editedTitle}
                   </h3>
@@ -299,7 +304,10 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               onMouseDown={(e) => {
                 pendingCaretRef.current = getCaretOffsetFromPoint(e);
               }}
-              onClick={() => setIsEditingDescription(true)}
+              onClick={() => {
+                if (isMobile) { onEditTask?.(task); return; }
+                setIsEditingDescription(true);
+              }}
             >
               {editedDescription ? (
                 <LinkifiedText text={editedDescription} />
