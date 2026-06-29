@@ -27,6 +27,7 @@ import { useTimerAlert } from '@/hooks/useTimerAlert';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { format } from 'date-fns';
 import { LinkifiedText } from '@/components/LinkifiedText';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TaskCardProps {
   task: Task;
