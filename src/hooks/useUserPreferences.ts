@@ -32,27 +32,29 @@ export const useUserPreferences = (userId?: string | null) => {
   const [loading, setLoading] = useState(true);
 
   const fetchPreferences = async (uid: string) => {
-    try {
-      const { data, error } = await (supabase as any)
+    const delays = [0, 300, 800, 1500];
+    let data: any = null;
+    let error: any = null;
+    for (let i = 0; i < delays.length; i++) {
+      if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
+      const res = await (supabase as any)
         .from('focusos_user_preferences')
         .select('*')
         .eq('user_id', uid)
         .maybeSingle();
-
-      if (error) throw error;
-
-      if (!data) {
-        await createDefaultPreferences(uid);
-      } else {
-        setPreferences(data as UserPreferences);
-        if (data.theme) setTheme(data.theme);
-      }
-    } catch (error) {
-      console.error('Error fetching preferences:', error);
-      toast.error('Failed to load preferences');
-    } finally {
-      setLoading(false);
+      data = res.data;
+      error = res.error;
+      if (!error) break;
     }
+    if (error) {
+      console.warn('Failed to load preferences after retries:', error);
+    } else if (!data) {
+      await createDefaultPreferences(uid);
+    } else {
+      setPreferences(data as UserPreferences);
+      if (data.theme) setTheme(data.theme);
+    }
+    setLoading(false);
   };
 
   const createDefaultPreferences = async (uid: string) => {
