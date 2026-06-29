@@ -2463,7 +2463,7 @@ https://www.skyscanner.com`,
 
         {/* Radial FAB - compact (double-tap to return home) */}
         {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
-          <RecordFAB compact />
+          <RecordFAB compact onBrainDump={() => setDialogOpen(true)} />
         )}
       </div>
       
