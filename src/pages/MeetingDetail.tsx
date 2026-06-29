@@ -628,6 +628,40 @@ const MeetingDetail = () => {
     fetchSavedTasks();
   };
 
+  const handleConvertToProject = async () => {
+    if (!user || !meeting || converting) return;
+    setConverting(true);
+    try {
+      const projectName = meeting.title?.trim() || 'Meeting';
+      const { data: newProject, error: projectError } = await (supabase as any)
+        .from('focusos_projects')
+        .insert({ name: projectName, color: '#3b82f6', user_id: user.id })
+        .select()
+        .single();
+
+      if (projectError || !newProject) {
+        toast.error('Failed to convert meeting');
+        return;
+      }
+
+      const { error: tasksError } = await (supabase as any)
+        .from('focusos_tasks')
+        .update({ project_id: newProject.id })
+        .eq('meeting_id', meeting.id)
+        .eq('user_id', user.id);
+
+      if (tasksError) {
+        toast.error('Project created but failed to move tasks');
+      } else {
+        toast.success('Project created from meeting');
+      }
+
+      navigate(`/app?view=${newProject.id}`);
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const handleAddTask = async (newTask: Task) => {
     if (!user || !id) return;
     const { data, error } = await (supabase as any).from('focusos_tasks').insert({
