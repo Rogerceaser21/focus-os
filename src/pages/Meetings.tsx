@@ -92,6 +92,7 @@ const Meetings = () => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [brainDumpOpen, setBrainDumpOpen] = useState(false);
 
   // Recording state
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
@@ -1194,7 +1195,19 @@ const Meetings = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    <RecordFAB compact />
+    <RecordFAB compact onBrainDump={() => setBrainDumpOpen(true)} />
+    {user && (
+      <BrainDumpLiveDialog
+        open={brainDumpOpen}
+        onOpenChange={setBrainDumpOpen}
+        userId={user.id}
+        projects={projects.map(p => ({ id: p.id, name: p.name }))}
+        onTasksCreated={(createdRows) => {
+          const n = createdRows?.length ?? 0;
+          toast.success(n > 0 ? `${n} task${n === 1 ? '' : 's'} added` : 'Tasks added');
+        }}
+      />
+    )}
     <BottomNav />
     <MeetingsTour
       isOpen={tourOpen}
