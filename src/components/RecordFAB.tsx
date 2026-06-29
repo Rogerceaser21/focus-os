@@ -32,7 +32,11 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
     }
 
     if (compact) {
-      // No expand menu in compact mode — single tap is a no-op (double-tap only).
+      // Compact mode: single tap → brain dump (debounced so a double-tap to home wins).
+      if (!onBrainDump) return;
+      tapTimerRef.current = setTimeout(() => {
+        onBrainDump();
+      }, DOUBLE_TAP_DELAY);
       return;
     }
 
