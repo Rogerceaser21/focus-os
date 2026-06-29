@@ -32,6 +32,7 @@ import {
   Check,
   X,
   Share2,
+  FolderPlus,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -135,6 +136,7 @@ const MeetingDetail = () => {
   // Saved tasks from DB (linked by meeting_id)
   const [savedTasks, setSavedTasks] = useState<Task[]>([]);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   // Extraction state
   const [extracting, setExtracting] = useState(false);
@@ -624,6 +626,40 @@ const MeetingDetail = () => {
 
   const handleBrainDumpTasksCreated = () => {
     fetchSavedTasks();
+  };
+
+  const handleConvertToProject = async () => {
+    if (!user || !meeting || converting) return;
+    setConverting(true);
+    try {
+      const projectName = meeting.title?.trim() || 'Meeting';
+      const { data: newProject, error: projectError } = await (supabase as any)
+        .from('focusos_projects')
+        .insert({ name: projectName, color: '#3b82f6', user_id: user.id })
+        .select()
+        .single();
+
+      if (projectError || !newProject) {
+        toast.error('Failed to convert meeting');
+        return;
+      }
+
+      const { error: tasksError } = await (supabase as any)
+        .from('focusos_tasks')
+        .update({ project_id: newProject.id })
+        .eq('meeting_id', meeting.id)
+        .eq('user_id', user.id);
+
+      if (tasksError) {
+        toast.error('Project created but failed to move tasks');
+      } else {
+        toast.success('Project created from meeting');
+      }
+
+      navigate(`/app?view=${newProject.id}`);
+    } finally {
+      setConverting(false);
+    }
   };
 
   const handleAddTask = async (newTask: Task) => {
@@ -1250,6 +1286,20 @@ const MeetingDetail = () => {
                       >
                         <Plus className="h-3.5 w-3.5" />
                         Add Task
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={handleConvertToProject}
+                        disabled={converting}
+                      >
+                        {converting ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <FolderPlus className="h-3.5 w-3.5" />
+                        )}
+                        Convert to Project
                       </Button>
                       {meeting.transcript_gcs_path && (
                         <Button
