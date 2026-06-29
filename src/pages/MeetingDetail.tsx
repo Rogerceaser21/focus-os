@@ -57,6 +57,7 @@ import { ShareStatusPopover, SharedRecipient } from '@/components/ShareStatusPop
 import { SendMeetingSummaryDialog } from '@/components/SendMeetingSummaryDialog';
 import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MeetingsTour } from '@/components/MeetingsTour';
 import { DEMO_MEETING_ID, DEMO_MEETING, DEMO_TRANSCRIPT } from '@/lib/demoMeeting';
@@ -133,6 +134,7 @@ const MeetingDetail = () => {
 
   // Saved tasks from DB (linked by meeting_id)
   const [savedTasks, setSavedTasks] = useState<Task[]>([]);
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
 
   // Extraction state
   const [extracting, setExtracting] = useState(false);
@@ -622,6 +624,33 @@ const MeetingDetail = () => {
 
   const handleBrainDumpTasksCreated = () => {
     fetchSavedTasks();
+  };
+
+  const handleAddTask = async (newTask: Task) => {
+    if (!user || !id) return;
+    const { data, error } = await (supabase as any).from('focusos_tasks').insert({
+      user_id: user.id,
+      meeting_id: id,
+      project_id: newTask.projectId || null,
+      title: newTask.title,
+      description: newTask.description,
+      priority: newTask.priority,
+      status: newTask.status,
+      start_date: newTask.startDate?.toISOString(),
+      end_date: newTask.endDate?.toISOString(),
+      due_date: newTask.dueDate?.toISOString(),
+      images: newTask.images || [],
+      timer_total_seconds: 0,
+      timer_is_running: false,
+    }).select().single();
+    if (error) {
+      toast.error('Failed to create task');
+      return;
+    }
+    if (data) {
+      const inserted = mapDbTaskToTask(data);
+      setSavedTasks(prev => prev.some(t => t.id === inserted.id) ? prev : [inserted, ...prev]);
+    }
   };
 
   const handleSavedTaskUpdate = async (updatedTask: Task) => {
@@ -1212,22 +1241,33 @@ const MeetingDetail = () => {
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                       Action Items ({savedTasks.length})
                     </h2>
-                    {meeting.transcript_gcs_path && (
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         className="gap-1.5"
-                        onClick={handleExtractActionItems}
-                        disabled={extracting}
+                        onClick={() => setAddTaskOpen(true)}
                       >
-                        {extracting ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <ClipboardList className="h-3.5 w-3.5" />
-                        )}
-                        Re-extract
+                        <Plus className="h-3.5 w-3.5" />
+                        Add Task
                       </Button>
-                    )}
+                      {meeting.transcript_gcs_path && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={handleExtractActionItems}
+                          disabled={extracting}
+                        >
+                          {extracting ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ClipboardList className="h-3.5 w-3.5" />
+                          )}
+                          Re-extract
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <Tabs defaultValue="all" className="mb-3">
@@ -1278,17 +1318,39 @@ const MeetingDetail = () => {
                   <p className="text-sm text-muted-foreground mb-3">
                     Extract action items from the transcript using AI
                   </p>
-                  <Button
-                    className="gap-2"
-                    onClick={handleExtractActionItems}
-                    disabled={extracting}
-                  >
-                    {extracting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ClipboardList className="h-4 w-4" />
-                    )}
-                    {extracting ? 'Extracting...' : 'Extract Action Items'}
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <Button
+                      className="gap-2"
+                      onClick={handleExtractActionItems}
+                      disabled={extracting}
+                    >
+                      {extracting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ClipboardList className="h-4 w-4" />
+                      )}
+                      {extracting ? 'Extracting...' : 'Extract Action Items'}
+                    </Button>
+                    <Button variant="outline" className="gap-2" onClick={() => setAddTaskOpen(true)}>
+                      <Plus className="h-4 w-4" />
+                      Add Task
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Empty state when no transcript: still allow manual add */}
+            {savedTasks.length === 0 && !meeting.transcript_gcs_path && (
+              <Card>
+                <CardContent className="p-5 text-center">
+                  <ClipboardList className="h-8 w-8 mx-auto mb-2 text-primary/60" />
+                  <p className="text-sm text-muted-foreground mb-3">
+                    No action items yet
+                  </p>
+                  <Button className="gap-2" onClick={() => setAddTaskOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add Task
                   </Button>
                 </CardContent>
               </Card>
@@ -1381,6 +1443,14 @@ const MeetingDetail = () => {
         )}
 
         {/* Edit Task Dialog */}
+        <AddTaskDialog
+          open={addTaskOpen}
+          onOpenChange={setAddTaskOpen}
+          showTrigger={false}
+          projects={allProjects}
+          onAddTask={handleAddTask}
+        />
+
         {editingTask && (
           <EditTaskDialog
             task={editingTask}
