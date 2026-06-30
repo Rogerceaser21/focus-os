@@ -17,6 +17,14 @@ interface Props {
   taskId?: string;
   meetingId?: string;
   task?: Task;
+  meeting?: {
+    id: string;
+    title?: string | null;
+    summary?: string | null;
+    duration_seconds?: number | null;
+    created_at?: string | null;
+    participants?: Array<{ name?: string; email?: string }> | null;
+  };
   synced: boolean;
   attendees?: string[];
   sendInvites?: boolean;
@@ -27,7 +35,7 @@ interface Props {
 }
 
 export function GoogleCalendarButton({
-  taskId, meetingId, task, synced, attendees, sendInvites,
+  taskId, meetingId, task, meeting, synced, attendees, sendInvites,
   onChange, variant = 'ghost', size = 'sm', showLabel = false,
 }: Props) {
   const { isConnected, push } = useGoogleCalendar();
@@ -36,26 +44,56 @@ export function GoogleCalendarButton({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [localSynced, setLocalSynced] = useState(synced);
   useEffect(() => { setLocalSynced(synced); }, [synced]);
-  const defaultDate = task?.startDate || task?.dueDate || new Date();
-  const defaultStart = roundToNextHalfHour(task?.startDate || new Date());
-  const defaultEnd = task?.endDate || new Date(defaultStart.getTime() + 30 * 60_000);
+  const mode: 'task' | 'meeting' | null = task ? 'task' : meeting ? 'meeting' : null;
+
+  // Compute pre-seed values based on mode.
+  let defaultDate: Date;
+  let defaultStart: Date;
+  let defaultEnd: Date;
+  let initialChips: AttendeeChip[];
+  if (mode === 'meeting' && meeting) {
+    const end = meeting.created_at ? new Date(meeting.created_at) : new Date();
+    const durationSec = meeting.duration_seconds ?? 30 * 60;
+    const start = new Date(end.getTime() - durationSec * 1000);
+    defaultDate = start;
+    defaultStart = start;
+    defaultEnd = end;
+    const callerEmail = (user?.email ?? '').toLowerCase();
+    const seen = new Set<string>();
+    initialChips = (meeting.participants ?? [])
+      .map((p) => ({ email: (p?.email ?? '').trim(), name: p?.name }))
+      .filter((p) => {
+        const e = p.email.toLowerCase();
+        if (!e || !e.includes('@')) return false;
+        if (e === callerEmail) return false;
+        if (seen.has(e)) return false;
+        seen.add(e);
+        return true;
+      })
+      .map((p) => ({ email: p.email, name: p.name }));
+  } else {
+    defaultDate = task?.startDate || task?.dueDate || new Date();
+    defaultStart = roundToNextHalfHour(task?.startDate || new Date());
+    defaultEnd = task?.endDate || new Date(defaultStart.getTime() + 30 * 60_000);
+    initialChips = (attendees ?? []).map((e) => ({ email: e }));
+  }
   const [date, setDate] = useState<Date | undefined>(defaultDate);
   const [startTime, setStartTime] = useState(toTimeValue(defaultStart));
   const [duration, setDuration] = useState(String(Math.max(15, Math.round((defaultEnd.getTime() - defaultStart.getTime()) / 60_000) || 30)));
   const [allDay, setAllDay] = useState(false);
-  const [chips, setChips] = useState<AttendeeChip[]>(() => (attendees ?? []).map((e) => ({ email: e })));
+  const [chips, setChips] = useState<AttendeeChip[]>(initialChips);
   const [targetUserId, setTargetUserId] = useState<string | undefined>(undefined);
   const [targetLabel, setTargetLabel] = useState<string>('this calendar');
   const [emailGuests, setEmailGuests] = useState(true);
 
   // Keep chips in sync if attendees prop changes while dialog is closed
   useEffect(() => {
-    if (!pickerOpen) setChips((attendees ?? []).map((e) => ({ email: e })));
+    if (!pickerOpen && mode === 'task') setChips((attendees ?? []).map((e) => ({ email: e })));
   }, [attendees, pickerOpen]);
 
   const handle = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!localSynced && taskId && task) {
+    if (!localSynced && ((taskId && task) || (meetingId && meeting))) {
       setPickerOpen(true);
       return;
     }
@@ -75,8 +113,10 @@ export function GoogleCalendarButton({
     }
   };
 
-  const scheduleTask = async () => {
-    if (!taskId || !task || !date) return;
+  const schedule = async () => {
+    if (!date) return;
+    if (mode === 'task' && !(taskId && task)) return;
+    if (mode === 'meeting' && !(meetingId && meeting)) return;
     setWorking(true);
     const start = combineDateAndTime(date, startTime);
     const mins = Math.max(15, Number(duration) || 30);
@@ -85,19 +125,21 @@ export function GoogleCalendarButton({
       ? { allDay: true, date: toDateValue(date), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
       : { allDay: false, startDateTime: start.toISOString(), endDateTime: end.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
 
-    // Single push to the organiser's calendar with guests as native Google
-    // attendees. Google sends the invitation emails when there are guests.
     const guestEmails = chips
       .map((c) => c.email)
       .filter((e): e is string => !!e && e.toLowerCase() !== (user?.email ?? '').toLowerCase());
     const hasGuests = guestEmails.length > 0;
 
+    const resolvedTitle = mode === 'task' ? task!.title : (meeting!.title ?? 'Meeting');
+    const resolvedDescription = mode === 'task' ? task!.description : (meeting!.summary ?? undefined);
+
     const res = await push({
-      taskIds: [taskId],
+      taskIds: mode === 'task' ? [taskId!] : undefined,
+      meetingIds: mode === 'meeting' ? [meetingId!] : undefined,
       action: 'sync',
       calendarPlacement: placement,
-      title: task.title,
-      description: task.description,
+      title: resolvedTitle,
+      description: resolvedDescription,
       attendees: hasGuests ? guestEmails : undefined,
       sendInvites: hasGuests && emailGuests,
       silent: true,
@@ -108,18 +150,18 @@ export function GoogleCalendarButton({
       setLocalSynced(true);
       setPickerOpen(false);
       onChange?.(true);
-      // Log a pending shared item per guest. focusos-share-item auto-routes:
-      // Focus OS user guests get the in-app item only; non-users get the
-      // branded email with the accept link. Google's native invite is
+      // Task-only: log a pending shared item per guest. focusos-share-item
+      // auto-routes: Focus OS user guests get the in-app item only; non-users
+      // get the branded email with the accept link. Google's native invite is
       // controlled separately by the "Email guests the invite" toggle.
-      if (hasGuests) {
+      if (mode === 'task' && hasGuests) {
         await Promise.all(
           guestEmails.map(async (recipientEmail) => {
             try {
               await supabase.functions.invoke('focusos-share-item', {
                 body: {
                   itemType: 'task',
-                  itemId: taskId,
+                  itemId: taskId!,
                   recipientEmail,
                 },
               });
@@ -158,7 +200,7 @@ export function GoogleCalendarButton({
             : <CalendarPlus className="h-3 w-3" />}
         {showLabel && <span className="text-xs">{localSynced ? 'Synced' : 'Google Calendar'}</span>}
       </Button>
-      {task && (
+      {(task || meeting) && (
         <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
           <DialogContent onClick={(e) => e.stopPropagation()} className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -166,8 +208,10 @@ export function GoogleCalendarButton({
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label>Task</Label>
-                <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium">{task.title}</div>
+                <Label>{mode === 'meeting' ? 'Meeting' : 'Task'}</Label>
+                <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium">
+                  {mode === 'meeting' ? (meeting?.title ?? 'Meeting') : task?.title}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Meet with…</Label>
@@ -259,7 +303,7 @@ export function GoogleCalendarButton({
               )}
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setPickerOpen(false)} disabled={working}>Cancel</Button>
-                <Button onClick={scheduleTask} disabled={working || !date}>
+                <Button onClick={schedule} disabled={working || !date}>
                   {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Add to calendar
                 </Button>
