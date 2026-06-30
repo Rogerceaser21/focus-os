@@ -144,7 +144,7 @@ serve(async (req) => {
       senderName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
     }
 
-    const { meetingId, recipientEmail, includeRecordingLink } = await req.json();
+    const { meetingId, recipientEmail, includeRecordingLink, userNote } = await req.json();
 
     if (!meetingId || !recipientEmail) {
       return new Response(JSON.stringify({ error: "meetingId and recipientEmail required" }), {
