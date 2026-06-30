@@ -31,7 +31,7 @@ import {
   Pencil,
   Check,
   X,
-  Share2,
+  
   FolderPlus,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
@@ -151,11 +151,8 @@ const MeetingDetail = () => {
   // Share dialog state
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
-  const [shareMeetingDialogOpen, setShareMeetingDialogOpen] = useState(false);
 
   // Sharing badge state
-  const [meetingSharedWith, setMeetingSharedWith] = useState<SharedRecipient[]>([]); // sender sees this
-  const [meetingSharedBy, setMeetingSharedBy] = useState<string | null>(null); // receiver sees this
   const [taskSharedWithMap, setTaskSharedWithMap] = useState<Record<string, SharedRecipient[]>>({}); // taskId -> recipients
 
   // Edit task dialog state
@@ -327,52 +324,6 @@ const MeetingDetail = () => {
   const fetchSharingInfo = async () => {
     if (!user || !id) return;
     try {
-      // Fetch meeting sharing records
-      const { data: meetingShares } = await (supabase as any)
-        .from('focusos_shared_items')
-        .select('*')
-        .eq('item_type', 'meeting')
-        .eq('item_id', id);
-
-      if (meetingShares && meetingShares.length > 0) {
-        // Separate sender shares from receiver shares
-        const senderShares = meetingShares.filter((s: any) => s.sender_user_id === user.id);
-        const receiverShare = meetingShares.find((s: any) => s.recipient_user_id === user.id);
-
-        if (senderShares.length > 0) {
-          // Sender view - resolve all recipient names
-          const recipientIds = [...new Set(senderShares.filter((s: any) => s.recipient_user_id).map((s: any) => s.recipient_user_id))] as string[];
-          const profileMap: Record<string, any> = {};
-          if (recipientIds.length > 0) {
-            const { data: profiles } = await (supabase as any)
-              .from('focusos_profiles')
-              .select('user_id, first_name, last_name, user_email')
-              .in('user_id', recipientIds);
-            if (profiles) {
-              profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
-            }
-          }
-          const recipients: SharedRecipient[] = senderShares.map((s: any) => ({
-            email: s.recipient_email,
-            name: s.recipient_user_id && profileMap[s.recipient_user_id]
-              ? resolveName(profileMap[s.recipient_user_id], s.recipient_email)
-              : s.recipient_email,
-            status: s.status,
-            sharedItemId: s.id,
-          }));
-          setMeetingSharedWith(recipients);
-        }
-
-        if (receiverShare) {
-          const { data: profile } = await (supabase as any)
-            .from('focusos_profiles')
-            .select('first_name, last_name, user_email')
-            .eq('user_id', receiverShare.sender_user_id)
-            .single();
-          setMeetingSharedBy(resolveName(profile, receiverShare.sender_email));
-        }
-      }
-
       // Fetch task sharing records for tasks in this meeting
       const { data: taskShares } = await (supabase as any)
         .from('focusos_shared_items')
@@ -974,12 +925,7 @@ const MeetingDetail = () => {
                 </span>
               )}
             </div>
-            {meetingSharedBy && (
-              <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit mt-1">
-                <Share2 className="h-3 w-3 shrink-0" />
-                <span className="break-words">Meeting shared by {meetingSharedBy}</span>
-              </Badge>
-            )}
+}
           </div>
           <Button
             variant="ghost"
@@ -1222,16 +1168,6 @@ const MeetingDetail = () => {
                     <Mail className="h-4 w-4" />
                     Share Summary via Email
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={isDemo ? () => demoBlocked('Sharing') : () => setShareMeetingDialogOpen(true)}
-                    data-meetings-tour-step="share-meeting"
-                  >
-                    <Share2 className="h-4 w-4" />
-                    Share Meeting
-                  </Button>
                   {meeting && !isDemo && (
                     <GoogleCalendarButton
                       meetingId={meeting.id}
@@ -1243,10 +1179,7 @@ const MeetingDetail = () => {
                       }
                     />
                   )}
-                </div>
-                {meetingSharedWith.length > 0 && (
-                  <ShareStatusPopover recipients={meetingSharedWith} itemType="Meeting" />
-                )}
+                </div>}
               </div>
             )}
 
@@ -1567,18 +1500,7 @@ const MeetingDetail = () => {
           onOpenChange={setShowSendSummaryDialog}
         />
       )}
-      {meeting && (
-        <ShareItemDialog
-          itemType="meeting"
-          itemId={meeting.id}
-          itemTitle={meeting.title}
-          open={shareMeetingDialogOpen}
-          onOpenChange={(open) => {
-            setShareMeetingDialogOpen(open);
-            if (!open) fetchSharingInfo();
-          }}
-        />
-      )}
+      </div>
     </div>
     <BottomNav
       preferences={preferences}
