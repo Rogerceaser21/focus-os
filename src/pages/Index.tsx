@@ -485,8 +485,7 @@ const Index = () => {
   // land in `allTasks`; then re-apply the active view filter.
   const fetchTasks = useCallback(async () => {
     await fetchAllTasks();
-    filterTasksFromCache();
-  }, [fetchAllTasks, filterTasksFromCache]);
+  }, [fetchAllTasks]);
 
   // Re-fetch projects whenever projectRefreshTrigger changes (after initial load)
   useEffect(() => {
@@ -620,7 +619,6 @@ const Index = () => {
     resyncDebounceRef.current = window.setTimeout(async () => {
       resyncDebounceRef.current = null;
       await fetchAllTasks();
-      filterTasksFromCache();
     }, 1000);
   }, [user, fullDataLoaded, fetchAllTasks, filterTasksFromCache]);
   const resyncTasksRef = useRef(resyncTasks);
