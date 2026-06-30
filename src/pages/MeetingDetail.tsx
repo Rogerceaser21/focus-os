@@ -925,7 +925,6 @@ const MeetingDetail = () => {
                 </span>
               )}
             </div>
-}
           </div>
           <Button
             variant="ghost"
