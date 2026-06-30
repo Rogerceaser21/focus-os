@@ -20,6 +20,7 @@ interface SendMeetingSummaryDialogProps {
 export const SendMeetingSummaryDialog = ({ meetingId, meetingTitle, hasRecording, open, onOpenChange }: SendMeetingSummaryDialogProps) => {
   const [email, setEmail] = useState('');
   const [includeRecording, setIncludeRecording] = useState(false);
+  const [userNote, setUserNote] = useState('');
   const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
