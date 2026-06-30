@@ -59,13 +59,25 @@ import RecordFAB from '@/components/RecordFAB';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Inline skeleton for the task list area shown while initialLoadComplete is false.
-const TaskListSkeleton = () => (
-  <div className="mt-6 space-y-2">
-    {Array.from({ length: 6 }).map((_, i) => (
-      <Skeleton key={i} className="h-14 w-full rounded-md" />
-    ))}
-  </div>
-);
+const TaskListSkeleton = () => {
+  const titleWidths = ['w-1/3', 'w-1/2', 'w-2/5', 'w-3/5', 'w-1/4'];
+  const subtitleWidths = ['w-2/3', 'w-3/4', 'w-1/2', 'w-4/5', 'w-1/3'];
+  return (
+    <div className="mt-6 space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="rounded-xl border border-border/60 bg-card/60 p-4">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-5 w-5 rounded-full bg-primary/10" />
+            <div className="flex-1 flex flex-col gap-2">
+              <Skeleton className={`h-4 ${titleWidths[i % titleWidths.length]} bg-primary/10`} />
+              <Skeleton className={`h-3 ${subtitleWidths[i % subtitleWidths.length]} bg-primary/10`} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // Projects FAB component for mobile - must be inside SidebarProvider
 const ProjectsFAB = () => {
