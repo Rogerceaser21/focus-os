@@ -73,6 +73,14 @@ function buildMeetingEmailHtml(
       </td></tr>
     </table>
   </td></tr>
+  ${userNote ? `
+  <tr><td style="padding:14px 30px 0;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF9F0;border:1px solid #E7DCCB;border-radius:12px;">
+      <tr><td style="padding:16px 18px;">
+        <p style="margin:0;font-size:14px;color:#4A4138;line-height:1.6;white-space:pre-wrap;">${escapeHtml(userNote)}</p>
+      </td></tr>
+    </table>
+  </td></tr>` : ""}
   ${summary.overview ? `
   <tr><td style="padding:14px 30px 0;">
     <p style="margin:0 0 8px;font-size:11px;font-weight:600;color:#9C9082;text-transform:uppercase;letter-spacing:0.5px;">Overview</p>
