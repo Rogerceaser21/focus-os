@@ -84,6 +84,17 @@ export const SendMeetingSummaryDialog = ({ meetingId, meetingTitle, hasRecording
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="meeting-user-note">Add a note (optional)</Label>
+            <Textarea
+              id="meeting-user-note"
+              placeholder="This note appears at the top of the email…"
+              value={userNote}
+              onChange={(e) => setUserNote(e.target.value)}
+              rows={3}
+            />
+          </div>
+
           {hasRecording && (
             <div className="flex items-center space-x-2">
               <Checkbox
