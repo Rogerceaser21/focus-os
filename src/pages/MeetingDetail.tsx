@@ -1178,7 +1178,7 @@ const MeetingDetail = () => {
                       }
                     />
                   )}
-                </div>}
+                </div>
               </div>
             )}
 
@@ -1500,7 +1500,6 @@ const MeetingDetail = () => {
         />
       )}
       </div>
-    </div>
     <BottomNav
       preferences={preferences}
       prefsLoading={prefsLoading}
