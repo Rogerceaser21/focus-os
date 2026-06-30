@@ -56,25 +56,32 @@ import { InviteProjectMemberDialog } from '@/components/InviteProjectMemberDialo
 import { ProjectMembersBar } from '@/components/ProjectMembersBar';
 import { addDays } from 'date-fns';
 import RecordFAB from '@/components/RecordFAB';
-import { Skeleton } from '@/components/ui/skeleton';
-
 // Inline skeleton for the task list area shown while initialLoadComplete is false.
 const TaskListSkeleton = () => {
-  const titleWidths = ['w-1/3', 'w-1/2', 'w-2/5', 'w-3/5', 'w-1/4'];
-  const subtitleWidths = ['w-2/3', 'w-3/4', 'w-1/2', 'w-4/5', 'w-1/3'];
+  const dots = [
+    { color: '#B8572E', delay: 0 },
+    { color: '#81313F', delay: 0.16 },
+    { color: '#67883A', delay: 0.32 },
+  ];
+
   return (
-    <div className="mt-6 space-y-3">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="rounded-xl border border-border/60 bg-card/60 p-4">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-5 w-5 rounded-full bg-primary/10" />
-            <div className="flex-1 flex flex-col gap-2">
-              <Skeleton className={`h-4 ${titleWidths[i % titleWidths.length]} bg-primary/10`} />
-              <Skeleton className={`h-3 ${subtitleWidths[i % subtitleWidths.length]} bg-primary/10`} />
-            </div>
-          </div>
-        </div>
-      ))}
+    <div className="mt-6 flex items-center justify-center py-20 min-h-[200px]">
+      <div className="flex items-center gap-[11px]">
+        {dots.map((dot, i) => (
+          <motion.span
+            key={i}
+            className="inline-block rounded-full"
+            style={{ width: 14, height: 14, backgroundColor: dot.color }}
+            animate={{ y: [0, -14, 0], opacity: [0.45, 1, 0.45] }}
+            transition={{
+              duration: 1.1,
+              ease: 'easeInOut',
+              repeat: Infinity,
+              delay: dot.delay,
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 };
