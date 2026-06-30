@@ -1170,6 +1170,7 @@ const MeetingDetail = () => {
                   {meeting && !isDemo && (
                     <GoogleCalendarButton
                       meetingId={meeting.id}
+                      meeting={meeting as any}
                       synced={!!(meeting as any).google_calendar_event_id}
                       variant="outline"
                       showLabel
