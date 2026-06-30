@@ -21,7 +21,8 @@ function buildMeetingEmailHtml(
   summary: { overview: string; outline: { heading: string; points: string[] }[] },
   senderName: string,
   recordingUrl: string | null,
-  logoUrl: string
+  logoUrl: string,
+  userNote?: string
 ) {
   const date = new Date(meeting.created_at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   const duration = meeting.duration_seconds ? `${Math.floor(meeting.duration_seconds / 60)}m ${meeting.duration_seconds % 60}s` : null;
