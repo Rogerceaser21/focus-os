@@ -133,20 +133,51 @@ function taskToEvent(task: any, attendees?: string[], placement?: CalendarPlacem
   };
 }
 
-function meetingToEvent(meeting: any, attendees?: string[]) {
+function meetingToEvent(
+  meeting: any,
+  attendees?: string[],
+  placement?: CalendarPlacement,
+  overrides?: { title?: string; description?: string },
+) {
+  const deepLink = `— Open in Focus OS: ${APP_URL}/meetings/${meeting.id}`;
+  const baseDescription = overrides?.description ?? meeting.summary ?? "";
+  const description = [baseDescription, "", deepLink].join("\n");
+  const summary = overrides?.title ?? meeting.title ?? "Meeting";
+  const attendeesArr = attendees?.map((email) => ({ email }));
+
+  if (placement) {
+    if (placement.allDay) {
+      if (!placement.date) throw new Error("Calendar date is required");
+      const [yyyy, mm, dd] = placement.date.split("-").map(Number);
+      const next = new Date(Date.UTC(yyyy, mm - 1, dd + 1));
+      const nextDate = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
+      return {
+        summary,
+        description,
+        start: { date: placement.date },
+        end: { date: nextDate },
+        attendees: attendeesArr,
+      };
+    }
+    if (!placement.startDateTime || !placement.endDateTime) throw new Error("Calendar start and end times are required");
+    return {
+      summary,
+      description,
+      start: { dateTime: placement.startDateTime, timeZone: placement.timeZone },
+      end: { dateTime: placement.endDateTime, timeZone: placement.timeZone },
+      attendees: attendeesArr,
+    };
+  }
+
   const durationSec = meeting.duration_seconds ?? 30 * 60;
   const end = new Date(meeting.created_at);
   const start = new Date(end.getTime() - durationSec * 1000);
   return {
-    summary: meeting.title || "Meeting",
-    description: [
-      meeting.summary ?? "",
-      "",
-      `— Open in Focus OS: ${APP_URL}/meetings/${meeting.id}`,
-    ].join("\n"),
+    summary,
+    description,
     start: { dateTime: start.toISOString() },
     end: { dateTime: end.toISOString() },
-    attendees: attendees?.map((email) => ({ email })),
+    attendees: attendeesArr,
   };
 }
 
@@ -304,7 +335,7 @@ serve(async (req) => {
             await admin.from("focusos_meetings").update({ google_calendar_event_id: null }).eq("id", m.id);
             results.push({ meetingId: m.id, ok: true, action: "unsync" });
           } else {
-            const evt = meetingToEvent(m, attendees);
+            const evt = meetingToEvent(m, attendees, calendarPlacement, { title, description });
             if (m.google_calendar_event_id) {
               await gcalRequest("PATCH",
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${m.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
