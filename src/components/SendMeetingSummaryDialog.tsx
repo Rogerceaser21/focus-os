@@ -47,6 +47,7 @@ export const SendMeetingSummaryDialog = ({ meetingId, meetingTitle, hasRecording
 
       toast.success(`Meeting summary sent to ${email.trim()}`);
       setEmail('');
+      setUserNote('');
       setIncludeRecording(false);
       onOpenChange(false);
     } catch (err: any) {
