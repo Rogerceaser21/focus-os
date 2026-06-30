@@ -1430,6 +1430,7 @@ const MeetingDetail = () => {
           open={addTaskOpen}
           onOpenChange={setAddTaskOpen}
           showTrigger={false}
+          desktopDocked
           projects={allProjects}
           onAddTask={handleAddTask}
         />
