@@ -21,7 +21,8 @@ function buildMeetingEmailHtml(
   summary: { overview: string; outline: { heading: string; points: string[] }[] },
   senderName: string,
   recordingUrl: string | null,
-  logoUrl: string
+  logoUrl: string,
+  userNote?: string
 ) {
   const date = new Date(meeting.created_at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   const duration = meeting.duration_seconds ? `${Math.floor(meeting.duration_seconds / 60)}m ${meeting.duration_seconds % 60}s` : null;
@@ -72,6 +73,14 @@ function buildMeetingEmailHtml(
       </td></tr>
     </table>
   </td></tr>
+  ${userNote ? `
+  <tr><td style="padding:14px 30px 0;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF9F0;border:1px solid #E7DCCB;border-radius:12px;">
+      <tr><td style="padding:16px 18px;">
+        <p style="margin:0;font-size:14px;color:#4A4138;line-height:1.6;white-space:pre-wrap;">${escapeHtml(userNote)}</p>
+      </td></tr>
+    </table>
+  </td></tr>` : ""}
   ${summary.overview ? `
   <tr><td style="padding:14px 30px 0;">
     <p style="margin:0 0 8px;font-size:11px;font-weight:600;color:#9C9082;text-transform:uppercase;letter-spacing:0.5px;">Overview</p>
@@ -135,7 +144,7 @@ serve(async (req) => {
       senderName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
     }
 
-    const { meetingId, recipientEmail, includeRecordingLink } = await req.json();
+    const { meetingId, recipientEmail, includeRecordingLink, userNote } = await req.json();
 
     if (!meetingId || !recipientEmail) {
       return new Response(JSON.stringify({ error: "meetingId and recipientEmail required" }), {
@@ -190,7 +199,7 @@ serve(async (req) => {
       from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
       to: [recipientEmail],
       subject: `Meeting Notes: ${meeting.title}`,
-      html: buildMeetingEmailHtml(meeting, summary, senderName, recordingUrl, "https://focusos.tech/brand/focusos-email-logo.png"),
+      html: buildMeetingEmailHtml(meeting, summary, senderName, recordingUrl, "https://focusos.tech/brand/focusos-email-logo.png", userNote),
     });
 
     if (emailError) {

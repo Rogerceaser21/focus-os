@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Mail, Send } from 'lucide-react';
@@ -19,6 +20,7 @@ interface SendMeetingSummaryDialogProps {
 export const SendMeetingSummaryDialog = ({ meetingId, meetingTitle, hasRecording, open, onOpenChange }: SendMeetingSummaryDialogProps) => {
   const [email, setEmail] = useState('');
   const [includeRecording, setIncludeRecording] = useState(false);
+  const [userNote, setUserNote] = useState('');
   const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
@@ -37,6 +39,7 @@ export const SendMeetingSummaryDialog = ({ meetingId, meetingTitle, hasRecording
           meetingId,
           recipientEmail: email.trim(),
           includeRecordingLink: includeRecording && hasRecording,
+          userNote: userNote.trim(),
         },
       });
 
@@ -44,6 +47,7 @@ export const SendMeetingSummaryDialog = ({ meetingId, meetingTitle, hasRecording
 
       toast.success(`Meeting summary sent to ${email.trim()}`);
       setEmail('');
+      setUserNote('');
       setIncludeRecording(false);
       onOpenChange(false);
     } catch (err: any) {
@@ -77,6 +81,17 @@ export const SendMeetingSummaryDialog = ({ meetingId, meetingTitle, hasRecording
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="meeting-user-note">Add a note (optional)</Label>
+            <Textarea
+              id="meeting-user-note"
+              placeholder="This note appears at the top of the email…"
+              value={userNote}
+              onChange={(e) => setUserNote(e.target.value)}
+              rows={3}
             />
           </div>
 
