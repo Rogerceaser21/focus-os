@@ -39,6 +39,7 @@ export const SendMeetingSummaryDialog = ({ meetingId, meetingTitle, hasRecording
           meetingId,
           recipientEmail: email.trim(),
           includeRecordingLink: includeRecording && hasRecording,
+          userNote: userNote.trim(),
         },
       });
 
