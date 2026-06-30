@@ -52,12 +52,10 @@ export function GoogleCalendarButton({
   let defaultEnd: Date;
   let initialChips: AttendeeChip[];
   if (mode === 'meeting' && meeting) {
-    const end = meeting.created_at ? new Date(meeting.created_at) : new Date();
     const durationSec = meeting.duration_seconds ?? 30 * 60;
-    const start = new Date(end.getTime() - durationSec * 1000);
-    defaultDate = start;
-    defaultStart = start;
-    defaultEnd = end;
+    defaultDate = new Date();
+    defaultStart = roundToNextHalfHour(new Date());
+    defaultEnd = new Date(defaultStart.getTime() + durationSec * 1000);
     const callerEmail = (user?.email ?? '').toLowerCase();
     const seen = new Set<string>();
     initialChips = (meeting.participants ?? [])
