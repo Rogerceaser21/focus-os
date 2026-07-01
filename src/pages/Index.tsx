@@ -242,6 +242,10 @@ const Index = () => {
   const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const allTasksRef = useRef<Task[]>([]);
+  useEffect(() => { allTasksRef.current = allTasks; }, [allTasks]);
+  const tasksRef = useRef<Task[]>([]);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
   const [senderSharedMap, setSenderSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
   const [senderProjectSharedMap, setSenderProjectSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
   const [assignerNameMap, setAssignerNameMap] = useState<Record<string, string>>({});
@@ -413,6 +417,10 @@ const Index = () => {
         return;
       }
       const transformedTasks = data.map(transformDbTask);
+      if (transformedTasks.length === 0 && (allTasksRef.current.length > 0 || tasksRef.current.length > 0)) {
+        console.warn('[Index] fetchAllTasks returned 0 rows while tasks exist — ignoring to avoid blanking the list (transient auth/RLS race)');
+        return;
+      }
       setAllTasks(transformedTasks);
       setTasks(transformedTasks);
     } catch (error) {
@@ -534,7 +542,7 @@ const Index = () => {
           const cachedTasks = queryClient.getQueryData(['focusos-all-tasks', user.id]) as any[] | undefined;
           const cachedProjects = queryClient.getQueryData(['focusos-projects', user.id]) as any[] | undefined;
 
-          if (cachedTasks && cachedProjects) {
+          if (cachedTasks && cachedTasks.length > 0 && cachedProjects) {
             // Warm cache hit — use prefetched data instantly (no network)
             const transformedTasks = cachedTasks.map(transformDbTask);
             setAllTasks(transformedTasks);
