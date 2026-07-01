@@ -614,11 +614,6 @@ const Index = () => {
         },
         (payload) => {
           const newTask = transformDbTask(payload.new);
-          setTasks(prev => {
-            if (prev.some(t => t.id === newTask.id)) return prev;
-            return [...prev, newTask];
-          });
-          // Also update allTasks cache if loaded
           setAllTasks(prev => {
             if (prev.length === 0 || prev.some(t => t.id === newTask.id)) return prev;
             return [...prev, newTask];
@@ -635,8 +630,6 @@ const Index = () => {
         },
         (payload) => {
           const updatedTask = transformDbTask(payload.new);
-          setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
-          // Also update allTasks cache
           setAllTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
           // Trigger sidebar refresh for shared project visibility
           setProjectRefreshTrigger(prev => prev + 1);
@@ -652,8 +645,6 @@ const Index = () => {
         },
         (payload) => {
           const deletedTaskId = (payload.old as any).id;
-          setTasks(prev => prev.filter(t => t.id !== deletedTaskId));
-          // Also update allTasks cache
           setAllTasks(prev => prev.filter(t => t.id !== deletedTaskId));
         }
       )
