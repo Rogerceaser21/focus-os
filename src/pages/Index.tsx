@@ -359,26 +359,31 @@ const Index = () => {
   const fetchInitialTasks = useCallback(async (defaultView: string) => {
     setTasksLoading(true);
     try {
-      let query = (supabase as any).from('focusos_tasks').select('*').order('created_at', {
-        ascending: false
-      });
-      
-      if (defaultView === 'today') {
-        const today = new Date();
-        query = query.lte('due_date', endOfDay(today).toISOString());
-      } else if (defaultView === 'unassigned') {
-        query = query.is('project_id', null);
-      } else {
-        // It's a project ID
-        query = query.eq('project_id', defaultView);
+      const delays = [0, 300, 800, 1500];
+      let data: any = null;
+      let error: any = null;
+      for (let i = 0; i < delays.length; i++) {
+        if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
+        let query = (supabase as any).from('focusos_tasks').select('*').order('created_at', {
+          ascending: false
+        });
+        if (defaultView === 'today') {
+          const today = new Date();
+          query = query.lte('due_date', endOfDay(today).toISOString());
+        } else if (defaultView === 'unassigned') {
+          query = query.is('project_id', null);
+        } else {
+          query = query.eq('project_id', defaultView);
+        }
+        const res = await query;
+        data = res.data;
+        error = res.error;
+        if (!error) break;
       }
-      
-      const { data, error } = await query;
       if (error) {
-        toast.error('Failed to load tasks');
+        console.warn('[Index] fetchInitialTasks failed after retries:', error);
         return;
       }
-      
       const transformedTasks = data.map(transformDbTask);
       setTasks(transformedTasks);
     } finally {
@@ -389,17 +394,24 @@ const Index = () => {
   // Phase 2: Fetch ALL tasks in background
   const fetchAllTasks = useCallback(async () => {
     try {
-      const { data, error } = await (supabase as any)
-        .from('focusos_tasks')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1000);
-      
+      const delays = [0, 300, 800, 1500];
+      let data: any = null;
+      let error: any = null;
+      for (let i = 0; i < delays.length; i++) {
+        if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
+        const res = await (supabase as any)
+          .from('focusos_tasks')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1000);
+        data = res.data;
+        error = res.error;
+        if (!error) break;
+      }
       if (error) {
-        console.error('Failed to load all tasks:', error);
+        console.warn('[Index] fetchAllTasks failed after retries:', error);
         return;
       }
-      
       const transformedTasks = data.map(transformDbTask);
       setAllTasks(transformedTasks);
       setTasks(transformedTasks);
