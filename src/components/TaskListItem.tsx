@@ -36,6 +36,7 @@ interface TaskListItemProps {
   task: Task;
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
+  onEditTaskImages?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
@@ -59,7 +60,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { user } = useAuth();
   const { preferences } = useUserPreferences(user?.id);
