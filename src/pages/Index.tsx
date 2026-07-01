@@ -227,6 +227,11 @@ const Index = () => {
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [highlightImages, setHighlightImages] = useState(false);
+  useEffect(() => { if (!editingTask) setHighlightImages(false); }, [editingTask]);
+  const handleEditTaskImages = (task: Task) => {
+    setHighlightImages(true);
+    setEditingTask(task);
+  };
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareProjectDialogOpen, setShareProjectDialogOpen] = useState(false);
