@@ -18,7 +18,7 @@ export const LinkifiedText = ({ text, className = '' }: LinkifiedTextProps) => {
               href={part.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 underline"
+              className="text-blue-400 hover:text-blue-300 underline break-all [overflow-wrap:anywhere]"
               onClick={(e) => e.stopPropagation()}
             >
               {part.content}
