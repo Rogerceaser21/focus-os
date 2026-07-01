@@ -1535,7 +1535,7 @@ https://www.skyscanner.com`,
 
       // Update local state
       setProjects(projects.filter(p => p.id !== selectedProjectId));
-      setTasks(tasks.filter(t => t.projectId !== selectedProjectId));
+      setAllTasks(prev => prev.filter(t => t.projectId !== selectedProjectId));
       
       // Reset selection to "Today" view
       setSelectedProjectId(null);
@@ -1562,12 +1562,12 @@ https://www.skyscanner.com`,
     return '';
   };
   // Fuse.js instance for fuzzy search across all tasks
-  const fuse = useMemo(() => new Fuse(allTasks.length > 0 ? allTasks : tasks, {
+  const fuse = useMemo(() => new Fuse(allTasks, {
     keys: ['title', 'description'],
     threshold: 0.4, // 0 = exact, 1 = match anything
     ignoreLocation: true,
     minMatchCharLength: 2,
-  }), [allTasks, tasks]);
+  }), [allTasks]);
 
   const filteredTasks = useMemo(() => {
     // If searching, fuzzy search across ALL tasks (ignore project filter)
@@ -1577,7 +1577,7 @@ https://www.skyscanner.com`,
     }
 
     // No search — filter by selected project or special list
-    return tasks.filter(task => {
+    return allTasks.filter(task => {
       // Hide tasks with pending change requests in shared projects (they need to be re-accepted first)
       if (task.changeRequestMessage) return false;
       
@@ -1602,7 +1602,7 @@ https://www.skyscanner.com`,
       }
       return true;
     });
-  }, [searchQuery, fuse, tasks, selectedProjectId, selectedSpecialList]);
+  }, [searchQuery, fuse, allTasks, selectedProjectId, selectedSpecialList]);
 
   // Priority order for sorting
   const priorityOrder = {
