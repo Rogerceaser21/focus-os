@@ -188,7 +188,6 @@ const Index = () => {
     loading: authLoading,
     signOut
   } = useAuth();
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -221,7 +220,6 @@ const Index = () => {
   const [openSidebarRequested, setOpenSidebarRequested] = useState(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
-  const [tasksLoading, setTasksLoading] = useState(false);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -244,8 +242,6 @@ const Index = () => {
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const allTasksRef = useRef<Task[]>([]);
   useEffect(() => { allTasksRef.current = allTasks; }, [allTasks]);
-  const tasksRef = useRef<Task[]>([]);
-  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
   const [senderSharedMap, setSenderSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
   const [senderProjectSharedMap, setSenderProjectSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
   const [assignerNameMap, setAssignerNameMap] = useState<Record<string, string>>({});
@@ -359,42 +355,6 @@ const Index = () => {
     })));
   }, []);
 
-  // Phase 1: Fetch only tasks for the initial/default view
-  const fetchInitialTasks = useCallback(async (defaultView: string) => {
-    setTasksLoading(true);
-    try {
-      const delays = [0, 300, 800, 1500];
-      let data: any = null;
-      let error: any = null;
-      for (let i = 0; i < delays.length; i++) {
-        if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
-        let query = (supabase as any).from('focusos_tasks').select('*').order('created_at', {
-          ascending: false
-        });
-        if (defaultView === 'today') {
-          const today = new Date();
-          query = query.lte('due_date', endOfDay(today).toISOString());
-        } else if (defaultView === 'unassigned') {
-          query = query.is('project_id', null);
-        } else {
-          query = query.eq('project_id', defaultView);
-        }
-        const res = await query;
-        data = res.data;
-        error = res.error;
-        if (!error) break;
-      }
-      if (error) {
-        console.warn('[Index] fetchInitialTasks failed after retries:', error);
-        return;
-      }
-      const transformedTasks = data.map(transformDbTask);
-      setTasks(transformedTasks);
-    } finally {
-      setTasksLoading(false);
-    }
-  }, [transformDbTask]);
-
   // Phase 2: Fetch ALL tasks in background
   const fetchAllTasks = useCallback(async () => {
     try {
@@ -417,12 +377,11 @@ const Index = () => {
         return;
       }
       const transformedTasks = data.map(transformDbTask);
-      if (transformedTasks.length === 0 && (allTasksRef.current.length > 0 || tasksRef.current.length > 0)) {
+      if (transformedTasks.length === 0 && allTasksRef.current.length > 0) {
         console.warn('[Index] fetchAllTasks returned 0 rows while tasks exist — ignoring to avoid blanking the list (transient auth/RLS race)');
         return;
       }
       setAllTasks(transformedTasks);
-      setTasks(transformedTasks);
     } catch (error) {
       console.error('Error fetching all tasks:', error);
     }
@@ -492,33 +451,6 @@ const Index = () => {
   }, [user, buildSharedMaps]);
 
 
-  const filterTasksFromCache = useCallback(() => {
-    if (allTasks.length === 0) return;
-    
-    let filtered = allTasks;
-    
-    if (selectedProjectId) {
-      filtered = allTasks.filter(t => t.projectId === selectedProjectId);
-    } else if (selectedSpecialList === 'unassigned') {
-      filtered = allTasks.filter(t => !t.projectId);
-    } else if (selectedSpecialList === 'today') {
-      const today = new Date();
-      const todayEnd = endOfDay(today);
-      filtered = allTasks.filter(t => t.dueDate && new Date(t.dueDate) <= todayEnd);
-    } else if (selectedSpecialList === 'past-due') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      filtered = allTasks.filter(t => {
-        if (!t.dueDate) return false;
-        const d = new Date(t.dueDate);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime() < today.getTime();
-      });
-    }
-    
-    setTasks(filtered);
-  }, [allTasks, selectedProjectId, selectedSpecialList]);
-
   // Legacy fetchTasks for specific use cases (task creation, etc.)
   // Always load the full task set so newly-created tasks for any list/project
   // land in `allTasks`; then re-apply the active view filter.
@@ -546,7 +478,6 @@ const Index = () => {
             // Warm cache hit — use prefetched data instantly (no network)
             const transformedTasks = cachedTasks.map(transformDbTask);
             setAllTasks(transformedTasks);
-            setTasks(transformedTasks);
             setFullDataLoaded(true);
 
             setProjects(cachedProjects.map((p: any) => ({
@@ -564,11 +495,8 @@ const Index = () => {
               buildSharedMaps(cachedShared);
             }
           } else {
-            // No cache — fetch as before
-            await Promise.all([
-              fetchInitialTasks(preferences.default_view),
-              fetchProjects()
-            ]);
+            // No cache — fetch projects; Phase 2 will populate tasks.
+            await fetchProjects();
           }
         } catch (err) {
           console.error('[Index] Initial data load failed:', err);
@@ -578,7 +506,7 @@ const Index = () => {
       }
     };
     loadInitialData();
-  }, [user, preferences, initialLoadComplete, fetchInitialTasks, fetchProjects, queryClient, transformDbTask]);
+  }, [user, preferences, initialLoadComplete, fetchProjects, queryClient, transformDbTask]);
 
   // Phase 2: Background load - all remaining tasks + sender shared items
   useEffect(() => {
@@ -627,24 +555,6 @@ const Index = () => {
 
   // Change request notifications are now handled via sidebar shared items, not toasts
 
-  // Re-fetch when view changes (use allTasks if available, otherwise fetch)
-  useEffect(() => {
-    if (initialLoadComplete && user) {
-      if (fullDataLoaded) {
-        // Use cached allTasks to filter
-        filterTasksFromCache();
-      } else {
-        // Still loading in background, fetch specific view
-        fetchInitialTasks(
-          selectedProjectId || 
-          (selectedSpecialList === 'today' ? 'today' : 
-           selectedSpecialList === 'past-due' ? 'today' :
-           selectedSpecialList === 'unassigned' ? 'unassigned' : 'today')
-        );
-      }
-    }
-  }, [selectedProjectId, selectedSpecialList, initialLoadComplete, user, fullDataLoaded, filterTasksFromCache, fetchInitialTasks]);
-
   // Debounced resync safety net — refetches all tasks then re-applies the active filter.
   // Used to recover from missed realtime events after disconnects (tab backgrounded, network drop, etc.)
   const resyncDebounceRef = useRef<number | null>(null);
@@ -659,7 +569,7 @@ const Index = () => {
       resyncDebounceRef.current = null;
       await fetchAllTasks();
     }, 1000);
-  }, [user, fullDataLoaded, fetchAllTasks, filterTasksFromCache]);
+  }, [user, fullDataLoaded, fetchAllTasks]);
   const resyncTasksRef = useRef(resyncTasks);
   useEffect(() => { resyncTasksRef.current = resyncTasks; }, [resyncTasks]);
 
@@ -704,11 +614,6 @@ const Index = () => {
         },
         (payload) => {
           const newTask = transformDbTask(payload.new);
-          setTasks(prev => {
-            if (prev.some(t => t.id === newTask.id)) return prev;
-            return [...prev, newTask];
-          });
-          // Also update allTasks cache if loaded
           setAllTasks(prev => {
             if (prev.length === 0 || prev.some(t => t.id === newTask.id)) return prev;
             return [...prev, newTask];
@@ -725,8 +630,6 @@ const Index = () => {
         },
         (payload) => {
           const updatedTask = transformDbTask(payload.new);
-          setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
-          // Also update allTasks cache
           setAllTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
           // Trigger sidebar refresh for shared project visibility
           setProjectRefreshTrigger(prev => prev + 1);
@@ -742,8 +645,6 @@ const Index = () => {
         },
         (payload) => {
           const deletedTaskId = (payload.old as any).id;
-          setTasks(prev => prev.filter(t => t.id !== deletedTaskId));
-          // Also update allTasks cache
           setAllTasks(prev => prev.filter(t => t.id !== deletedTaskId));
         }
       )
@@ -1034,7 +935,7 @@ https://www.skyscanner.com`,
     if (taskTourTask) {
       try {
         await (supabase as any).from('focusos_tasks').delete().eq('id', taskTourTask.id);
-        setTasks(prev => prev.filter(t => t.id !== taskTourTask.id));
+        setAllTasks(prev => prev.filter(t => t.id !== taskTourTask.id));
       } catch (error) {
         console.error('Failed to delete tour task:', error);
       }
@@ -1192,7 +1093,7 @@ https://www.skyscanner.com`,
       await fetchProjects();
       
       // Find the task in current tasks or use stored reference
-      const taskToEdit = tasks.find(t => t.id === projectsTourTask?.id) || projectsTourTask;
+      const taskToEdit = allTasks.find(t => t.id === projectsTourTask?.id) || projectsTourTask;
       if (taskToEdit) {
         console.log('[Tour] Setting editing task:', taskToEdit.id);
         setEditingTask(taskToEdit);
@@ -1279,7 +1180,6 @@ https://www.skyscanner.com`,
     // The realtime INSERT handler dedupes by id, so no duplicate row will appear.
     if (data) {
       const inserted = transformDbTask(data);
-      setTasks(prev => prev.some(t => t.id === inserted.id) ? prev : [...prev, inserted]);
       setAllTasks(prev => prev.length === 0 || prev.some(t => t.id === inserted.id) ? prev : [...prev, inserted]);
     }
     // Toast is fired by AddTaskDialog; do not duplicate it here.
@@ -1289,7 +1189,7 @@ https://www.skyscanner.com`,
     // If a collaborator (non-owner) tries to mark a task as 'completed' in a shared project,
     // instead set completedByEmail so the owner can acknowledge via "Move to Done"
     const taskProject = projects.find(p => p.id === updatedTask.projectId);
-    const originalTask = tasks.find(t => t.id === updatedTask.id);
+    const originalTask = allTasks.find(t => t.id === updatedTask.id);
     const isCollaboratorCompletion = taskProject?.isShared 
       && taskProject?.userId !== user?.id 
       && updatedTask.status === 'completed' 
@@ -1324,7 +1224,6 @@ https://www.skyscanner.com`,
     }
 
     // Optimistic update: Update local state immediately to prevent list jumping
-    setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
     setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
 
     // Update database in background
@@ -1416,10 +1315,6 @@ https://www.skyscanner.com`,
   // Batch update for drag-and-drop reordering
   const handleBatchUpdateTasks = async (updatedTasks: Task[]) => {
     // Optimistic update
-    setTasks(prevTasks => {
-      const updateMap = new Map(updatedTasks.map(t => [t.id, t]));
-      return prevTasks.map(task => updateMap.get(task.id) || task);
-    });
     setAllTasks(prevTasks => {
       const updateMap = new Map(updatedTasks.map(t => [t.id, t]));
       return prevTasks.map(task => updateMap.get(task.id) || task);
@@ -1476,7 +1371,6 @@ https://www.skyscanner.com`,
       // Optimistic: clear completedByEmail on sender's task and revert shared recipient status
       const recipientEmail = changesNeededTask.completedByEmail;
       const cleared = { ...changesNeededTask, completedByEmail: undefined, changeRequestMessage: undefined };
-      setTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
       setAllTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
       
       // Optimistic: revert the specific recipient's status in senderSharedMap
@@ -1515,7 +1409,6 @@ https://www.skyscanner.com`,
       return;
     }
     const updated = { ...task, changeRequestMessage: undefined };
-    setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
     setAllTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
   };
 
@@ -1533,9 +1426,7 @@ https://www.skyscanner.com`,
     }
 
     // Optimistic removal
-    const prevTasks = tasks;
     const prevAllTasks = allTasks;
-    setTasks(prev => prev.filter(t => t.id !== task.id));
     setAllTasks(prev => prev.filter(t => t.id !== task.id));
 
     try {
@@ -1574,7 +1465,6 @@ https://www.skyscanner.com`,
     } catch (err: any) {
       console.error('Delete task error:', err);
       // Roll back optimistic removal
-      setTasks(prevTasks);
       setAllTasks(prevAllTasks);
       toast.error('Failed to delete task');
     }
@@ -1645,7 +1535,7 @@ https://www.skyscanner.com`,
 
       // Update local state
       setProjects(projects.filter(p => p.id !== selectedProjectId));
-      setTasks(tasks.filter(t => t.projectId !== selectedProjectId));
+      setAllTasks(prev => prev.filter(t => t.projectId !== selectedProjectId));
       
       // Reset selection to "Today" view
       setSelectedProjectId(null);
@@ -1672,12 +1562,12 @@ https://www.skyscanner.com`,
     return '';
   };
   // Fuse.js instance for fuzzy search across all tasks
-  const fuse = useMemo(() => new Fuse(allTasks.length > 0 ? allTasks : tasks, {
+  const fuse = useMemo(() => new Fuse(allTasks, {
     keys: ['title', 'description'],
     threshold: 0.4, // 0 = exact, 1 = match anything
     ignoreLocation: true,
     minMatchCharLength: 2,
-  }), [allTasks, tasks]);
+  }), [allTasks]);
 
   const filteredTasks = useMemo(() => {
     // If searching, fuzzy search across ALL tasks (ignore project filter)
@@ -1687,7 +1577,7 @@ https://www.skyscanner.com`,
     }
 
     // No search — filter by selected project or special list
-    return tasks.filter(task => {
+    return allTasks.filter(task => {
       // Hide tasks with pending change requests in shared projects (they need to be re-accepted first)
       if (task.changeRequestMessage) return false;
       
@@ -1712,7 +1602,7 @@ https://www.skyscanner.com`,
       }
       return true;
     });
-  }, [searchQuery, fuse, tasks, selectedProjectId, selectedSpecialList]);
+  }, [searchQuery, fuse, allTasks, selectedProjectId, selectedSpecialList]);
 
   // Priority order for sorting
   const priorityOrder = {
@@ -1902,7 +1792,7 @@ https://www.skyscanner.com`,
           </div>
 
           {/* Main Content */}
-          {!initialLoadComplete ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
+          {!fullDataLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
@@ -1922,8 +1812,8 @@ https://www.skyscanner.com`,
                 const currentProject = projects.find(p => p.id === selectedProjectId);
                 const isCollaborator = (currentProject?.isShared && currentProject?.userId !== user?.id) ?? false;
                 const isSharedProject = currentProject?.isShared ?? false;
-                const assignedByEmail = isCollaborator ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-1 flex-wrap">
                       <span className="hidden sm:inline" style={{ color: currentProject?.color }}>📁</span>
@@ -2335,8 +2225,8 @@ https://www.skyscanner.com`,
                 const currentProject2 = projects.find(p => p.id === selectedProjectId);
                 const isCollaborator2 = (currentProject2?.isShared && currentProject2?.userId !== user?.id) ?? false;
                 const isSharedProject2 = currentProject2?.isShared ?? false;
-                const assignedByEmail2 = isCollaborator2 ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                const assignedByEmail2 = isCollaborator2 ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 px-3 py-2">
                     <div className="flex flex-col gap-0.5 flex-1">
                       <div className="flex items-center gap-2">
@@ -2541,12 +2431,6 @@ https://www.skyscanner.com`,
           if (createdRows && createdRows.length) {
             const transformed = createdRows.map(transformDbTask);
             setAllTasks(prev => {
-              const seen = new Set(prev.map(t => t.id));
-              const merged = [...prev];
-              for (const t of transformed) if (!seen.has(t.id)) merged.push(t);
-              return merged;
-            });
-            setTasks(prev => {
               const seen = new Set(prev.map(t => t.id));
               const merged = [...prev];
               for (const t of transformed) if (!seen.has(t.id)) merged.push(t);
