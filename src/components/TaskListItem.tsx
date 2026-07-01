@@ -799,7 +799,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
 
               <button
                 data-description-safe-zone="true"
-                onClick={(e) => { e.stopPropagation(); onEditTask?.(task); }}
+                onClick={(e) => { e.stopPropagation(); (onEditTaskImages ?? onEditTask)?.(task); }}
                 className={`p-1 rounded transition-colors relative ${
                   task.images && task.images.length > 0
                     ? 'text-primary border border-primary bg-primary/15'
@@ -1145,7 +1145,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
 
               <button
                 data-description-safe-zone="true"
-                onClick={() => onEditTask?.(task)}
+                onClick={(e) => { e.stopPropagation(); (onEditTaskImages ?? onEditTask)?.(task); }}
                 className={`p-1.5 rounded transition-colors relative ${
                   task.images && task.images.length > 0
                     ? 'text-primary border border-primary bg-primary/15'
