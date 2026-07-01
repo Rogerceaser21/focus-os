@@ -226,6 +226,12 @@ const Index = () => {
   const [showTaskTour, setShowTaskTour] = useState(false);
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [highlightImages, setHighlightImages] = useState(false);
+  useEffect(() => { if (!editingTask) setHighlightImages(false); }, [editingTask]);
+  const handleEditTaskImages = (task: Task) => {
+    setHighlightImages(true);
+    setEditingTask(task);
+  };
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareProjectDialogOpen, setShareProjectDialogOpen] = useState(false);
@@ -2149,6 +2155,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onEditTaskImages={handleEditTaskImages}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2166,6 +2173,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onEditTaskImages={handleEditTaskImages}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2183,6 +2191,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onEditTaskImages={handleEditTaskImages}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2200,6 +2209,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onEditTaskImages={handleEditTaskImages}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2387,6 +2397,7 @@ https://www.skyscanner.com`,
                   task={editingTask}
                   open={!!editingTask}
                   desktopDocked
+                  highlightImages={highlightImages}
                   onOpenChange={(open) => {
                     if (!open && !showTaskTour && !showProjectsTour) {
                       setEditingTask(null);
@@ -2477,6 +2488,7 @@ https://www.skyscanner.com`,
         <EditTaskDialog
           task={editingTask}
           open={!!editingTask}
+          highlightImages={highlightImages}
           onOpenChange={(open) => {
             if (!open && !showTaskTour && !showProjectsTour) {
               setEditingTask(null);

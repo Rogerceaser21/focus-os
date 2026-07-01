@@ -36,6 +36,7 @@ interface TaskListItemProps {
   task: Task;
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
+  onEditTaskImages?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
@@ -59,7 +60,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { user } = useAuth();
   const { preferences } = useUserPreferences(user?.id);
@@ -798,7 +799,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
 
               <button
                 data-description-safe-zone="true"
-                onClick={(e) => { e.stopPropagation(); onEditTask?.(task); }}
+                onClick={(e) => { e.stopPropagation(); (onEditTaskImages ?? onEditTask)?.(task); }}
                 className={`p-1 rounded transition-colors relative ${
                   task.images && task.images.length > 0
                     ? 'text-primary border border-primary bg-primary/15'
@@ -1144,7 +1145,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
 
               <button
                 data-description-safe-zone="true"
-                onClick={() => onEditTask?.(task)}
+                onClick={(e) => { e.stopPropagation(); (onEditTaskImages ?? onEditTask)?.(task); }}
                 className={`p-1.5 rounded transition-colors relative ${
                   task.images && task.images.length > 0
                     ? 'text-primary border border-primary bg-primary/15'

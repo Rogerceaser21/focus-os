@@ -27,6 +27,7 @@ interface DraggableTaskListProps {
   onUpdate: (task: Task) => void;
   onBatchUpdate?: (tasks: Task[]) => void;
   onEditTask?: (task: Task) => void;
+  onEditTaskImages?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
@@ -51,6 +52,7 @@ interface SortableTaskItemProps {
   task: Task;
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
+  onEditTaskImages?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
@@ -66,6 +68,7 @@ const SortableTaskItem = ({
   task,
   onUpdate,
   onEditTask,
+  onEditTaskImages,
   onAssignTask,
   onRequestChanges,
   onDismissChangeRequest,
@@ -109,6 +112,7 @@ const SortableTaskItem = ({
           task={task}
           onUpdate={onUpdate}
           onEditTask={onEditTask}
+          onEditTaskImages={onEditTaskImages}
           onAssignTask={onAssignTask}
           onRequestChanges={onRequestChanges}
           onDismissChangeRequest={onDismissChangeRequest}
@@ -128,6 +132,7 @@ export const DraggableTaskList = ({
   onUpdate,
   onBatchUpdate,
   onEditTask,
+  onEditTaskImages,
   onAssignTask,
   onRequestChanges,
   onDismissChangeRequest,
@@ -285,6 +290,7 @@ export const DraggableTaskList = ({
                       task={task}
                       onUpdate={onUpdate}
                       onEditTask={onEditTask}
+                      onEditTaskImages={onEditTaskImages}
                       onAssignTask={onAssignTask}
                       onRequestChanges={onRequestChanges}
                       onDismissChangeRequest={onDismissChangeRequest}
