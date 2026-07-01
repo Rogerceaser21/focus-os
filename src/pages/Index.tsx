@@ -287,9 +287,10 @@ const Index = () => {
                              target.closest('[data-radix-popper-content-wrapper]') ||
                              target.closest('[data-radix-dropdown-menu-content]') ||
                              target.closest('[role="dialog"]') ||
-                             target.closest('[role="alertdialog"]');
+                             target.closest('[role="alertdialog"]') ||
+                             target.closest('[data-side-panel]');
       
-      const isAnyDialogOpen = !!document.querySelector('[role="dialog"], [role="alertdialog"]');
+      const isAnyDialogOpen = !!document.querySelector('[role="dialog"], [role="alertdialog"], [data-side-panel]');
       
       if (isOutsideTaskCard && !isThirdRowClick && !isDropdownClick && !isAnyDialogOpen && expandedTaskIds.size > 0) {
         setExpandedTaskIds(new Set());
