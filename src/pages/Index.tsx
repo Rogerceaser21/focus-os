@@ -451,33 +451,6 @@ const Index = () => {
   }, [user, buildSharedMaps]);
 
 
-  const filterTasksFromCache = useCallback(() => {
-    if (allTasks.length === 0) return;
-    
-    let filtered = allTasks;
-    
-    if (selectedProjectId) {
-      filtered = allTasks.filter(t => t.projectId === selectedProjectId);
-    } else if (selectedSpecialList === 'unassigned') {
-      filtered = allTasks.filter(t => !t.projectId);
-    } else if (selectedSpecialList === 'today') {
-      const today = new Date();
-      const todayEnd = endOfDay(today);
-      filtered = allTasks.filter(t => t.dueDate && new Date(t.dueDate) <= todayEnd);
-    } else if (selectedSpecialList === 'past-due') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      filtered = allTasks.filter(t => {
-        if (!t.dueDate) return false;
-        const d = new Date(t.dueDate);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime() < today.getTime();
-      });
-    }
-    
-    setTasks(filtered);
-  }, [allTasks, selectedProjectId, selectedSpecialList]);
-
   // Legacy fetchTasks for specific use cases (task creation, etc.)
   // Always load the full task set so newly-created tasks for any list/project
   // land in `allTasks`; then re-apply the active view filter.
