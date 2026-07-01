@@ -935,7 +935,7 @@ https://www.skyscanner.com`,
     if (taskTourTask) {
       try {
         await (supabase as any).from('focusos_tasks').delete().eq('id', taskTourTask.id);
-        setTasks(prev => prev.filter(t => t.id !== taskTourTask.id));
+        setAllTasks(prev => prev.filter(t => t.id !== taskTourTask.id));
       } catch (error) {
         console.error('Failed to delete tour task:', error);
       }
@@ -1093,7 +1093,7 @@ https://www.skyscanner.com`,
       await fetchProjects();
       
       // Find the task in current tasks or use stored reference
-      const taskToEdit = tasks.find(t => t.id === projectsTourTask?.id) || projectsTourTask;
+      const taskToEdit = allTasks.find(t => t.id === projectsTourTask?.id) || projectsTourTask;
       if (taskToEdit) {
         console.log('[Tour] Setting editing task:', taskToEdit.id);
         setEditingTask(taskToEdit);
@@ -1180,7 +1180,6 @@ https://www.skyscanner.com`,
     // The realtime INSERT handler dedupes by id, so no duplicate row will appear.
     if (data) {
       const inserted = transformDbTask(data);
-      setTasks(prev => prev.some(t => t.id === inserted.id) ? prev : [...prev, inserted]);
       setAllTasks(prev => prev.length === 0 || prev.some(t => t.id === inserted.id) ? prev : [...prev, inserted]);
     }
     // Toast is fired by AddTaskDialog; do not duplicate it here.
@@ -1190,7 +1189,7 @@ https://www.skyscanner.com`,
     // If a collaborator (non-owner) tries to mark a task as 'completed' in a shared project,
     // instead set completedByEmail so the owner can acknowledge via "Move to Done"
     const taskProject = projects.find(p => p.id === updatedTask.projectId);
-    const originalTask = tasks.find(t => t.id === updatedTask.id);
+    const originalTask = allTasks.find(t => t.id === updatedTask.id);
     const isCollaboratorCompletion = taskProject?.isShared 
       && taskProject?.userId !== user?.id 
       && updatedTask.status === 'completed' 
@@ -1225,7 +1224,6 @@ https://www.skyscanner.com`,
     }
 
     // Optimistic update: Update local state immediately to prevent list jumping
-    setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
     setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
 
     // Update database in background
@@ -1317,10 +1315,6 @@ https://www.skyscanner.com`,
   // Batch update for drag-and-drop reordering
   const handleBatchUpdateTasks = async (updatedTasks: Task[]) => {
     // Optimistic update
-    setTasks(prevTasks => {
-      const updateMap = new Map(updatedTasks.map(t => [t.id, t]));
-      return prevTasks.map(task => updateMap.get(task.id) || task);
-    });
     setAllTasks(prevTasks => {
       const updateMap = new Map(updatedTasks.map(t => [t.id, t]));
       return prevTasks.map(task => updateMap.get(task.id) || task);
@@ -1377,7 +1371,6 @@ https://www.skyscanner.com`,
       // Optimistic: clear completedByEmail on sender's task and revert shared recipient status
       const recipientEmail = changesNeededTask.completedByEmail;
       const cleared = { ...changesNeededTask, completedByEmail: undefined, changeRequestMessage: undefined };
-      setTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
       setAllTasks(prev => prev.map(t => t.id === cleared.id ? cleared : t));
       
       // Optimistic: revert the specific recipient's status in senderSharedMap
@@ -1416,7 +1409,6 @@ https://www.skyscanner.com`,
       return;
     }
     const updated = { ...task, changeRequestMessage: undefined };
-    setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
     setAllTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
   };
 
@@ -1434,9 +1426,7 @@ https://www.skyscanner.com`,
     }
 
     // Optimistic removal
-    const prevTasks = tasks;
     const prevAllTasks = allTasks;
-    setTasks(prev => prev.filter(t => t.id !== task.id));
     setAllTasks(prev => prev.filter(t => t.id !== task.id));
 
     try {
@@ -1475,7 +1465,6 @@ https://www.skyscanner.com`,
     } catch (err: any) {
       console.error('Delete task error:', err);
       // Roll back optimistic removal
-      setTasks(prevTasks);
       setAllTasks(prevAllTasks);
       toast.error('Failed to delete task');
     }
