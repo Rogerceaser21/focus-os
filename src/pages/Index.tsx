@@ -188,7 +188,6 @@ const Index = () => {
     loading: authLoading,
     signOut
   } = useAuth();
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -221,7 +220,6 @@ const Index = () => {
   const [openSidebarRequested, setOpenSidebarRequested] = useState(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
-  const [tasksLoading, setTasksLoading] = useState(false);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -244,8 +242,6 @@ const Index = () => {
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const allTasksRef = useRef<Task[]>([]);
   useEffect(() => { allTasksRef.current = allTasks; }, [allTasks]);
-  const tasksRef = useRef<Task[]>([]);
-  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
   const [senderSharedMap, setSenderSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
   const [senderProjectSharedMap, setSenderProjectSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
   const [assignerNameMap, setAssignerNameMap] = useState<Record<string, string>>({});
