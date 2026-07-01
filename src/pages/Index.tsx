@@ -478,7 +478,6 @@ const Index = () => {
             // Warm cache hit — use prefetched data instantly (no network)
             const transformedTasks = cachedTasks.map(transformDbTask);
             setAllTasks(transformedTasks);
-            setTasks(transformedTasks);
             setFullDataLoaded(true);
 
             setProjects(cachedProjects.map((p: any) => ({
@@ -496,11 +495,8 @@ const Index = () => {
               buildSharedMaps(cachedShared);
             }
           } else {
-            // No cache — fetch as before
-            await Promise.all([
-              fetchInitialTasks(preferences.default_view),
-              fetchProjects()
-            ]);
+            // No cache — fetch projects; Phase 2 will populate tasks.
+            await fetchProjects();
           }
         } catch (err) {
           console.error('[Index] Initial data load failed:', err);
@@ -510,7 +506,7 @@ const Index = () => {
       }
     };
     loadInitialData();
-  }, [user, preferences, initialLoadComplete, fetchInitialTasks, fetchProjects, queryClient, transformDbTask]);
+  }, [user, preferences, initialLoadComplete, fetchProjects, queryClient, transformDbTask]);
 
   // Phase 2: Background load - all remaining tasks + sender shared items
   useEffect(() => {
@@ -559,24 +555,6 @@ const Index = () => {
 
   // Change request notifications are now handled via sidebar shared items, not toasts
 
-  // Re-fetch when view changes (use allTasks if available, otherwise fetch)
-  useEffect(() => {
-    if (initialLoadComplete && user) {
-      if (fullDataLoaded) {
-        // Use cached allTasks to filter
-        filterTasksFromCache();
-      } else {
-        // Still loading in background, fetch specific view
-        fetchInitialTasks(
-          selectedProjectId || 
-          (selectedSpecialList === 'today' ? 'today' : 
-           selectedSpecialList === 'past-due' ? 'today' :
-           selectedSpecialList === 'unassigned' ? 'unassigned' : 'today')
-        );
-      }
-    }
-  }, [selectedProjectId, selectedSpecialList, initialLoadComplete, user, fullDataLoaded, filterTasksFromCache, fetchInitialTasks]);
-
   // Debounced resync safety net — refetches all tasks then re-applies the active filter.
   // Used to recover from missed realtime events after disconnects (tab backgrounded, network drop, etc.)
   const resyncDebounceRef = useRef<number | null>(null);
@@ -591,7 +569,7 @@ const Index = () => {
       resyncDebounceRef.current = null;
       await fetchAllTasks();
     }, 1000);
-  }, [user, fullDataLoaded, fetchAllTasks, filterTasksFromCache]);
+  }, [user, fullDataLoaded, fetchAllTasks]);
   const resyncTasksRef = useRef(resyncTasks);
   useEffect(() => { resyncTasksRef.current = resyncTasks; }, [resyncTasks]);
 
