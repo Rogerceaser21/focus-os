@@ -18,7 +18,7 @@ export const SidePanel = ({ open, onClose, title, children, className }: SidePan
     <div className={cn(
       "h-full w-[420px] flex-shrink-0 border-l border-border/50 bg-card relative z-10 flex flex-col",
       className
-    )}>
+    )} data-side-panel="true">
       <div className="flex items-center justify-between p-4 pb-2 flex-shrink-0">
         <h2 className="text-lg font-semibold text-foreground">{title}</h2>
         <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
