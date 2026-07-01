@@ -1792,7 +1792,7 @@ https://www.skyscanner.com`,
           </div>
 
           {/* Main Content */}
-          {!initialLoadComplete ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
+          {!fullDataLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
               <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
