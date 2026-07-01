@@ -1098,6 +1098,33 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
             )}
           </div>
 
+          {(isExpanded || isDescriptionExpanded) && (() => {
+            const links = parseLinks(editedDescription).filter((p) => p.type === 'link');
+            if (links.length === 0) return null;
+            return (
+              <div className="flex flex-wrap gap-1.5 mt-1" data-description-safe-zone="true" onClick={(e) => e.stopPropagation()}>
+                {links.map((l, i) => {
+                  let label = l.content;
+                  try { label = new URL(l.href).hostname.replace(/^www\./, ''); } catch { /* keep raw */ }
+                  return (
+                    <a
+                      key={i}
+                      href={l.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 max-w-[220px] rounded-full bg-primary/10 text-primary border border-primary/30 px-2 py-0.5 text-xs hover:bg-primary/20 transition-colors"
+                      title={l.href}
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{label}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
           {/* Line 3: Priority + Status + Due Date + Timer + Photo */}
           {isExpanded && (
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
