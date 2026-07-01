@@ -1812,8 +1812,8 @@ https://www.skyscanner.com`,
                 const currentProject = projects.find(p => p.id === selectedProjectId);
                 const isCollaborator = (currentProject?.isShared && currentProject?.userId !== user?.id) ?? false;
                 const isSharedProject = currentProject?.isShared ?? false;
-                const assignedByEmail = isCollaborator ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-1 flex-wrap">
                       <span className="hidden sm:inline" style={{ color: currentProject?.color }}>📁</span>
@@ -2225,8 +2225,8 @@ https://www.skyscanner.com`,
                 const currentProject2 = projects.find(p => p.id === selectedProjectId);
                 const isCollaborator2 = (currentProject2?.isShared && currentProject2?.userId !== user?.id) ?? false;
                 const isSharedProject2 = currentProject2?.isShared ?? false;
-                const assignedByEmail2 = isCollaborator2 ? tasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${tasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                const assignedByEmail2 = isCollaborator2 ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 px-3 py-2">
                     <div className="flex flex-col gap-0.5 flex-1">
                       <div className="flex items-center gap-2">
@@ -2431,12 +2431,6 @@ https://www.skyscanner.com`,
           if (createdRows && createdRows.length) {
             const transformed = createdRows.map(transformDbTask);
             setAllTasks(prev => {
-              const seen = new Set(prev.map(t => t.id));
-              const merged = [...prev];
-              for (const t of transformed) if (!seen.has(t.id)) merged.push(t);
-              return merged;
-            });
-            setTasks(prev => {
               const seen = new Set(prev.map(t => t.id));
               const merged = [...prev];
               for (const t of transformed) if (!seen.has(t.id)) merged.push(t);
