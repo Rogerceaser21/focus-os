@@ -1100,9 +1100,33 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
                 </DropdownMenu>
               </div>
               
-              <Badge className={statusColors[task.status]}>
-                {task.status}
-              </Badge>
+              <div data-description-safe-zone="true">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="inline-flex"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Badge className={`${statusColors[task.status]} cursor-pointer hover:opacity-80 text-xs`}>
+                        {task.status}
+                      </Badge>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-40 p-1 bg-card border-border" data-description-safe-zone="true" onClick={(e) => e.stopPropagation()}>
+                    {(['todo', 'in-progress', 'completed'] as const).map((status) => (
+                      <DropdownMenuItem
+                        key={status}
+                        onClick={() => onUpdate({ ...task, status })}
+                        className="cursor-pointer"
+                      >
+                        <Badge className={`${statusColors[status]} w-full justify-center`}>
+                          {status}
+                        </Badge>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               
               <button 
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
