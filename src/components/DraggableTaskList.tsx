@@ -290,6 +290,7 @@ export const DraggableTaskList = ({
                       task={task}
                       onUpdate={onUpdate}
                       onEditTask={onEditTask}
+                      onEditTaskImages={onEditTaskImages}
                       onAssignTask={onAssignTask}
                       onRequestChanges={onRequestChanges}
                       onDismissChangeRequest={onDismissChangeRequest}
