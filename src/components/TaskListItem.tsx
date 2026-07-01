@@ -288,8 +288,8 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
       // Keep the description expanded while interacting anywhere inside a task card
       if (
         target.closest('[data-task-card]') ||
-        target.closest('[role="dialog"], [role="alertdialog"], [role="menu"], [data-radix-popper-content-wrapper]') ||
-        document.querySelector('[role="dialog"], [role="alertdialog"]')
+        target.closest('[role="dialog"], [role="alertdialog"], [role="menu"], [data-radix-popper-content-wrapper], [data-side-panel]') ||
+        document.querySelector('[role="dialog"], [role="alertdialog"], [data-side-panel]')
       ) return;
 
       // Check if currently editing description
@@ -318,8 +318,8 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
       // Keep the title expanded while interacting anywhere inside a task card
       if (
         target.closest('[data-task-card]') ||
-        target.closest('[role="dialog"], [role="alertdialog"], [role="menu"], [data-radix-popper-content-wrapper]') ||
-        document.querySelector('[role="dialog"], [role="alertdialog"]')
+        target.closest('[role="dialog"], [role="alertdialog"], [role="menu"], [data-radix-popper-content-wrapper], [data-side-panel]') ||
+        document.querySelector('[role="dialog"], [role="alertdialog"], [data-side-panel]')
       ) return;
 
       // Check if currently editing title
