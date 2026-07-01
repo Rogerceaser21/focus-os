@@ -226,6 +226,7 @@ const Index = () => {
   const [showTaskTour, setShowTaskTour] = useState(false);
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [highlightImages, setHighlightImages] = useState(false);
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareProjectDialogOpen, setShareProjectDialogOpen] = useState(false);
