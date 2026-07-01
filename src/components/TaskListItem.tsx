@@ -251,7 +251,12 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
     if (!isIndividuallyExpanded) {
       onTaskClick();
     }
-    setIsDescriptionExpanded(true);
+    if (!isDescriptionExpanded) {
+      // First tap: expand the card into read view (links clickable + wrapped). Do NOT enter edit yet.
+      setIsDescriptionExpanded(true);
+      return;
+    }
+    // Already expanded: second tap on the text starts inline editing.
     setIsEditingDescription(true);
   };
 
@@ -265,23 +270,23 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
     setIsChecked(task.status === 'completed');
   }, [task.status]);
 
+  // Reset description state when the card collapses
+  useEffect(() => {
+    if (!isExpanded) {
+      setIsDescriptionExpanded(false);
+      setIsEditingDescription(false);
+    }
+  }, [isExpanded]);
+
   // Click-outside detection to auto-collapse description
   useEffect(() => {
     if (!isDescriptionExpanded) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      
-      // Check if click is inside description container
-      if (descriptionContainerRef.current?.contains(target)) {
-        return;
-      }
 
-      // Check if click is on a safe zone (priority dropdown, date button, photo button)
-      const isSafeZone = target.closest('[data-description-safe-zone="true"]');
-      if (isSafeZone) {
-        return;
-      }
+      // Keep the description expanded while interacting anywhere inside a task card
+      if (target.closest('[data-task-card]')) return;
 
       // Check if currently editing description
       if (isEditingDescription) {
@@ -305,17 +310,9 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onAssignTask, onReque
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      
-      // Check if click is inside title container
-      if (titleContainerRef.current?.contains(target)) {
-        return;
-      }
 
-      // Check if click is on a safe zone (priority dropdown, date button, photo button)
-      const isSafeZone = target.closest('[data-description-safe-zone="true"]');
-      if (isSafeZone) {
-        return;
-      }
+      // Keep the title expanded while interacting anywhere inside a task card
+      if (target.closest('[data-task-card]')) return;
 
       // Check if currently editing title
       if (isEditingTitle) {
