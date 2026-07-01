@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
