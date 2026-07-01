@@ -355,42 +355,6 @@ const Index = () => {
     })));
   }, []);
 
-  // Phase 1: Fetch only tasks for the initial/default view
-  const fetchInitialTasks = useCallback(async (defaultView: string) => {
-    setTasksLoading(true);
-    try {
-      const delays = [0, 300, 800, 1500];
-      let data: any = null;
-      let error: any = null;
-      for (let i = 0; i < delays.length; i++) {
-        if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
-        let query = (supabase as any).from('focusos_tasks').select('*').order('created_at', {
-          ascending: false
-        });
-        if (defaultView === 'today') {
-          const today = new Date();
-          query = query.lte('due_date', endOfDay(today).toISOString());
-        } else if (defaultView === 'unassigned') {
-          query = query.is('project_id', null);
-        } else {
-          query = query.eq('project_id', defaultView);
-        }
-        const res = await query;
-        data = res.data;
-        error = res.error;
-        if (!error) break;
-      }
-      if (error) {
-        console.warn('[Index] fetchInitialTasks failed after retries:', error);
-        return;
-      }
-      const transformedTasks = data.map(transformDbTask);
-      setTasks(transformedTasks);
-    } finally {
-      setTasksLoading(false);
-    }
-  }, [transformDbTask]);
-
   // Phase 2: Fetch ALL tasks in background
   const fetchAllTasks = useCallback(async () => {
     try {
@@ -413,12 +377,11 @@ const Index = () => {
         return;
       }
       const transformedTasks = data.map(transformDbTask);
-      if (transformedTasks.length === 0 && (allTasksRef.current.length > 0 || tasksRef.current.length > 0)) {
+      if (transformedTasks.length === 0 && allTasksRef.current.length > 0) {
         console.warn('[Index] fetchAllTasks returned 0 rows while tasks exist — ignoring to avoid blanking the list (transient auth/RLS race)');
         return;
       }
       setAllTasks(transformedTasks);
-      setTasks(transformedTasks);
     } catch (error) {
       console.error('Error fetching all tasks:', error);
     }
