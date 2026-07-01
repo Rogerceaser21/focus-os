@@ -2155,6 +2155,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onEditTaskImages={handleEditTaskImages}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2172,6 +2173,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onEditTaskImages={handleEditTaskImages}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2189,6 +2191,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onEditTaskImages={handleEditTaskImages}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2206,6 +2209,7 @@ https://www.skyscanner.com`,
                   onUpdate={handleUpdateTask}
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
+                  onEditTaskImages={handleEditTaskImages}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
