@@ -2488,6 +2488,7 @@ https://www.skyscanner.com`,
         <EditTaskDialog
           task={editingTask}
           open={!!editingTask}
+          highlightImages={highlightImages}
           onOpenChange={(open) => {
             if (!open && !showTaskTour && !showProjectsTour) {
               setEditingTask(null);
