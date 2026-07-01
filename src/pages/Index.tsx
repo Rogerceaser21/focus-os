@@ -285,9 +285,13 @@ const Index = () => {
       const isDropdownClick = target.closest('[role="menu"]') || 
                              target.closest('[role="menuitem"]') || 
                              target.closest('[data-radix-popper-content-wrapper]') ||
-                             target.closest('[data-radix-dropdown-menu-content]');
+                             target.closest('[data-radix-dropdown-menu-content]') ||
+                             target.closest('[role="dialog"]') ||
+                             target.closest('[role="alertdialog"]');
       
-      if (isOutsideTaskCard && !isThirdRowClick && !isDropdownClick && expandedTaskIds.size > 0) {
+      const isAnyDialogOpen = !!document.querySelector('[role="dialog"], [role="alertdialog"]');
+      
+      if (isOutsideTaskCard && !isThirdRowClick && !isDropdownClick && !isAnyDialogOpen && expandedTaskIds.size > 0) {
         setExpandedTaskIds(new Set());
       }
     };
