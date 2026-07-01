@@ -2397,6 +2397,7 @@ https://www.skyscanner.com`,
                   task={editingTask}
                   open={!!editingTask}
                   desktopDocked
+                  highlightImages={highlightImages}
                   onOpenChange={(open) => {
                     if (!open && !showTaskTour && !showProjectsTour) {
                       setEditingTask(null);
