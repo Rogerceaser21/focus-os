@@ -201,12 +201,20 @@ export const useUserPreferences = (userId?: string | null) => {
 
   useEffect(() => {
     if (userId) {
-      setLoading(true);
-      fetchPreferences(userId);
+      const cached = queryClient.getQueryData(['focusos-preferences', userId]);
+      if (cached) {
+        setPreferences(cached as UserPreferences);
+        if ((cached as any).theme) setTheme((cached as any).theme);
+        setLoading(false);
+        fetchPreferences(userId);
+      } else {
+        setLoading(true);
+        fetchPreferences(userId);
+      }
     } else {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, queryClient]);
 
   return { preferences, loading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete, markHomeTourComplete, markMeetingsTourComplete };
 };
