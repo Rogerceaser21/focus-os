@@ -30,6 +30,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { format } from 'date-fns';
 import { LinkifiedText } from '@/components/LinkifiedText';
+import { parseLinks } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TaskListItemProps {
