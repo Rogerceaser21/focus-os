@@ -38,6 +38,7 @@ interface TaskListItemProps {
   onUpdate: (task: Task) => void;
   onEditTask?: (task: Task) => void;
   onEditTaskImages?: (task: Task) => void;
+  onEditTaskDates?: (task: Task) => void;
   onAssignTask?: (task: Task) => void;
   onRequestChanges?: (task: Task) => void;
   onDismissChangeRequest?: (task: Task) => void;
@@ -61,7 +62,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onEditTaskDates, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { user } = useAuth();
   const { preferences } = useUserPreferences(user?.id);
@@ -807,7 +808,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
               <button
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
                 data-description-safe-zone="true"
-                onClick={(e) => { e.stopPropagation(); onEditTask?.(task); }}
+                onClick={(e) => { e.stopPropagation(); (onEditTaskDates ?? onEditTask)?.(task); }}
               >
                 <Calendar className="w-3 h-3" />
                 <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
@@ -1179,7 +1180,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
               <button 
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-1"
                 data-description-safe-zone="true"
-                onClick={() => onEditTask?.(task)}
+                onClick={() => (onEditTaskDates ?? onEditTask)?.(task)}
               >
                 <Calendar className="w-4 h-4" />
                 <span>{task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'no date'}</span>
