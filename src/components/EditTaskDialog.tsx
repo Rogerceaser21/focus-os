@@ -45,7 +45,7 @@ interface EditTaskDialogProps {
   desktopDocked?: boolean;
   currentUserId?: string;
   onDeleteTask?: (task: Task) => void | Promise<void>;
-  highlightImages?: boolean;
+  highlight?: { target: 'images' | 'dates'; nonce: number } | null;
 }
 
 export const EditTaskDialog = ({
@@ -58,7 +58,7 @@ export const EditTaskDialog = ({
   desktopDocked = false,
   currentUserId,
   onDeleteTask,
-  highlightImages = false,
+  highlight = null,
 }: EditTaskDialogProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
@@ -77,43 +77,35 @@ export const EditTaskDialog = ({
   const isMobile = useIsMobile();
   const imagesSectionRef = useRef<HTMLDivElement>(null);
   const [boxSweep, setBoxSweep] = useState(false);
-  const [boxTint, setBoxTint] = useState(false);
   const [hintGlow, setHintGlow] = useState(false);
+  const [datesSweep, setDatesSweep] = useState(false);
 
   useEffect(() => {
-    if (!(open && highlightImages)) {
+    if (!(open && highlight)) {
       setBoxSweep(false);
-      setBoxTint(false);
       setHintGlow(false);
+      setDatesSweep(false);
       return;
     }
-    const t0 = setTimeout(() => {
-      imagesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 50);
-    setBoxSweep(true);
-    setBoxTint(false);
-    setHintGlow(false);
-    const t1 = setTimeout(() => {
-      setBoxSweep(false);
-      setBoxTint(true);
-    }, 900);
-    const t2 = setTimeout(() => {
-      setBoxTint(false);
-    }, 1500);
-    const t3 = setTimeout(() => {
-      setHintGlow(true);
-    }, 1600);
-    const t4 = setTimeout(() => {
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    if (highlight.target === 'images') {
+      timeouts.push(setTimeout(() => {
+        imagesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50));
+      setBoxSweep(true);
       setHintGlow(false);
-    }, 3400);
-    return () => {
-      clearTimeout(t0);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-    };
-  }, [open, highlightImages]);
+      setDatesSweep(false);
+      timeouts.push(setTimeout(() => setBoxSweep(false), 900));
+      timeouts.push(setTimeout(() => setHintGlow(true), 900));
+      timeouts.push(setTimeout(() => setHintGlow(false), 2700));
+    } else if (highlight.target === 'dates') {
+      setDatesSweep(true);
+      setBoxSweep(false);
+      setHintGlow(false);
+      timeouts.push(setTimeout(() => setDatesSweep(false), 900));
+    }
+    return () => { timeouts.forEach(clearTimeout); };
+  }, [open, highlight?.nonce, highlight?.target]);
   const sidebar = useSidebar();
   const prevSidebarOpen = useRef<boolean | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -436,7 +428,7 @@ export const EditTaskDialog = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+      <div className={cn('grid grid-cols-3 gap-2 sm:gap-4 rounded-lg', datesSweep && 'sweep-highlight')}>
         <div className="space-y-1 sm:space-y-2" data-task-tour-step="start-date">
           <Label className="text-xs sm:text-sm">Start</Label>
           <Popover>
@@ -496,11 +488,7 @@ export const EditTaskDialog = ({
       <div
         data-task-tour-step="images"
         ref={imagesSectionRef}
-        className={cn(
-          'rounded-lg transition-colors duration-1000',
-          boxSweep && 'sweep-highlight',
-          boxTint && 'bg-amber-200/50 dark:bg-amber-400/15',
-        )}
+        className={cn('rounded-lg', boxSweep && 'sweep-highlight')}
       >
         <Label htmlFor="edit-image">Images (Optional - Max 8)</Label>
         <div className="space-y-2">
@@ -529,7 +517,7 @@ export const EditTaskDialog = ({
           <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full" disabled={images.length >= MAX_IMAGES || uploading}>
             📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
           </Button>
-          <p className={cn('text-xs transition-colors duration-500', hintGlow ? 'sweep-highlight text-amber-600 dark:text-amber-400 font-semibold' : 'text-muted-foreground')}>Desktop: You can also paste images with Ctrl+V</p>
+          <p className={cn('text-xs transition-colors duration-500', hintGlow ? 'sweep-highlight text-yellow-500 dark:text-yellow-400 font-semibold' : 'text-muted-foreground')}>Desktop: You can also paste images with Ctrl+V</p>
         </div>
       </div>
 
