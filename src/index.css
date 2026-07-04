@@ -320,3 +320,17 @@ All colors MUST be HSL.
     -webkit-backdrop-filter: blur(8px);
   }
 }
+
+@keyframes highlight-sweep {
+  from { left: -40%; }
+  to { left: 110%; }
+}
+.sweep-highlight { position: relative; overflow: hidden; }
+.sweep-highlight::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: -40%; width: 35%;
+  background: linear-gradient(105deg, transparent, hsl(var(--primary) / 0.25), transparent);
+  animation: highlight-sweep 0.9s ease-out forwards;
+  pointer-events: none;
+}
