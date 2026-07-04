@@ -486,13 +486,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
               variant="ghost"
               size="sm"
               onClick={(e) => { e.stopPropagation(); setHandoffOpen(true); }}
-              className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+              className="h-7 w-7 p-0 shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
               title="Hand off to AI"
             >
               <HandToAI variant="full" className="h-3.5 w-auto" />
             </Button>
           )}
-          <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <GoogleCalendarButton
               taskId={task.id}
               task={task}
@@ -505,7 +505,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
               variant="ghost"
               size="sm"
               onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
-              className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+              className="h-7 w-7 p-0 shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               title="Edit task"
             >
               <Pencil className="h-3.5 w-3.5" />
@@ -518,7 +518,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
                   variant="ghost"
                   size="sm"
                   onClick={(e) => e.stopPropagation()}
-                  className="h-7 w-7 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  className="h-7 w-7 p-0 shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                   title="Delete task"
                 >
                   <X className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -618,7 +618,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
                 variant="ghost"
                 size="sm"
                 onClick={(e) => { e.stopPropagation(); setHandoffOpen(true); }}
-                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
                 title="Hand off to AI"
               >
                 <HandToAI variant="full" className="h-4 w-auto" />
@@ -629,7 +629,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
                 variant="ghost"
                 size="sm"
                 onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
-                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 title="Edit task"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -642,7 +642,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
                     variant="ghost"
                     size="sm"
                     onClick={(e) => e.stopPropagation()}
-                    className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    className="h-8 w-8 p-0 shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     title="Delete task"
                   >
                     <X className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -667,7 +667,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
                 </AlertDialogContent>
               </AlertDialog>
             )}
-            <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               <GoogleCalendarButton
                 taskId={task.id}
                 task={task}
@@ -993,7 +993,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
                 variant="ghost"
                 size="sm"
                 onClick={(e) => { e.stopPropagation(); setHandoffOpen(true); }}
-                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
                 title="Hand off to AI"
               >
                 <HandToAI variant="full" className="h-4 w-auto" />
@@ -1004,7 +1004,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
                 variant="ghost"
                 size="sm"
                 onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
-                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                className="h-8 w-8 p-0 shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 title="Edit task"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -1017,7 +1017,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
                     variant="ghost"
                     size="sm"
                     onClick={(e) => e.stopPropagation()}
-                    className="h-8 w-8 p-0 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    className="h-8 w-8 p-0 shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     title="Delete task"
                   >
                     <X className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -1042,7 +1042,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
                 </AlertDialogContent>
               </AlertDialog>
             )}
-            <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               <GoogleCalendarButton
                 taskId={task.id}
                 task={task}
