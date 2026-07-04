@@ -76,31 +76,42 @@ export const EditTaskDialog = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
   const imagesSectionRef = useRef<HTMLDivElement>(null);
-  const [imagesGlow, setImagesGlow] = useState(false);
-  const [ctrlVGlow, setCtrlVGlow] = useState(false);
+  const [boxSweep, setBoxSweep] = useState(false);
+  const [boxTint, setBoxTint] = useState(false);
+  const [hintGlow, setHintGlow] = useState(false);
 
   useEffect(() => {
     if (!(open && highlightImages)) {
-      setImagesGlow(false);
-      setCtrlVGlow(false);
+      setBoxSweep(false);
+      setBoxTint(false);
+      setHintGlow(false);
       return;
     }
     const t0 = setTimeout(() => {
       imagesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 50);
-    setImagesGlow(true);
-    setCtrlVGlow(false);
+    setBoxSweep(true);
+    setBoxTint(false);
+    setHintGlow(false);
     const t1 = setTimeout(() => {
-      setImagesGlow(false);
-      setCtrlVGlow(true);
-    }, 1600);
+      setBoxSweep(false);
+      setBoxTint(true);
+    }, 900);
     const t2 = setTimeout(() => {
-      setCtrlVGlow(false);
-    }, 1600 + 2200);
+      setBoxTint(false);
+    }, 1500);
+    const t3 = setTimeout(() => {
+      setHintGlow(true);
+    }, 1600);
+    const t4 = setTimeout(() => {
+      setHintGlow(false);
+    }, 3400);
     return () => {
       clearTimeout(t0);
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
     };
   }, [open, highlightImages]);
   const sidebar = useSidebar();
@@ -486,8 +497,9 @@ export const EditTaskDialog = ({
         data-task-tour-step="images"
         ref={imagesSectionRef}
         className={cn(
-          'rounded-lg transition-all duration-500',
-          imagesGlow && 'ring-2 ring-primary ring-offset-2 ring-offset-background animate-pulse',
+          'rounded-lg transition-colors duration-1000',
+          boxSweep && 'sweep-highlight',
+          boxTint && 'bg-amber-200/50 dark:bg-amber-400/15',
         )}
       >
         <Label htmlFor="edit-image">Images (Optional - Max 8)</Label>
@@ -517,7 +529,7 @@ export const EditTaskDialog = ({
           <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full" disabled={images.length >= MAX_IMAGES || uploading}>
             📁 Choose from Gallery ({images.length}/{MAX_IMAGES})
           </Button>
-          <p className={cn('transition-colors', ctrlVGlow ? 'text-sm text-primary font-semibold' : 'text-xs text-muted-foreground')}>Desktop: You can also paste images with Ctrl+V</p>
+          <p className={cn('text-xs transition-colors duration-500', hintGlow ? 'sweep-highlight text-amber-600 dark:text-amber-400 font-semibold' : 'text-muted-foreground')}>Desktop: You can also paste images with Ctrl+V</p>
         </div>
       </div>
 
