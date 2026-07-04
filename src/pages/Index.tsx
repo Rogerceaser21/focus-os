@@ -2160,6 +2160,7 @@ https://www.skyscanner.com`,
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   onEditTaskImages={handleEditTaskImages}
+                  onEditTaskDates={handleEditTaskDates}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2178,6 +2179,7 @@ https://www.skyscanner.com`,
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   onEditTaskImages={handleEditTaskImages}
+                  onEditTaskDates={handleEditTaskDates}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2196,6 +2198,7 @@ https://www.skyscanner.com`,
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   onEditTaskImages={handleEditTaskImages}
+                  onEditTaskDates={handleEditTaskDates}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2214,6 +2217,7 @@ https://www.skyscanner.com`,
                   onBatchUpdate={handleBatchUpdateTasks}
                   onEditTask={setEditingTask}
                   onEditTaskImages={handleEditTaskImages}
+                  onEditTaskDates={handleEditTaskDates}
                   onAssignTask={handleAssignTask}
                   onRequestChanges={handleRequestChanges}
                   onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask}
@@ -2401,7 +2405,7 @@ https://www.skyscanner.com`,
                   task={editingTask}
                   open={!!editingTask}
                   desktopDocked
-                  highlightImages={highlightImages}
+                  highlight={editHighlight}
                   onOpenChange={(open) => {
                     if (!open && !showTaskTour && !showProjectsTour) {
                       setEditingTask(null);
@@ -2492,7 +2496,7 @@ https://www.skyscanner.com`,
         <EditTaskDialog
           task={editingTask}
           open={!!editingTask}
-          highlightImages={highlightImages}
+          highlight={editHighlight}
           onOpenChange={(open) => {
             if (!open && !showTaskTour && !showProjectsTour) {
               setEditingTask(null);
