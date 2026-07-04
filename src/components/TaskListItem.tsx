@@ -120,6 +120,8 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
   const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
   const pendingTitleCaretRef = useRef<number | null>(null);
   const pendingDescriptionCaretRef = useRef<number | null>(null);
+  const taskRef = useRef(task);
+  useEffect(() => { taskRef.current = task; }, [task]);
 
   // Compute the caret character offset within the clicked text element from the
   // click coordinates. Used to place the caret in the textarea exactly where the
@@ -367,7 +369,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
       
       setTimeout(() => {
         onUpdate({
-          ...task,
+          ...taskRef.current,
           status: 'completed'
         });
         setIsFading(false);
