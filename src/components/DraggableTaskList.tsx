@@ -71,6 +71,7 @@ const SortableTaskItem = ({
   onUpdate,
   onEditTask,
   onEditTaskImages,
+  onEditTaskDates,
   onAssignTask,
   onRequestChanges,
   onDismissChangeRequest,
@@ -115,6 +116,7 @@ const SortableTaskItem = ({
           onUpdate={onUpdate}
           onEditTask={onEditTask}
           onEditTaskImages={onEditTaskImages}
+          onEditTaskDates={onEditTaskDates}
           onAssignTask={onAssignTask}
           onRequestChanges={onRequestChanges}
           onDismissChangeRequest={onDismissChangeRequest}
@@ -135,6 +137,7 @@ export const DraggableTaskList = ({
   onBatchUpdate,
   onEditTask,
   onEditTaskImages,
+  onEditTaskDates,
   onAssignTask,
   onRequestChanges,
   onDismissChangeRequest,
@@ -293,6 +296,7 @@ export const DraggableTaskList = ({
                       onUpdate={onUpdate}
                       onEditTask={onEditTask}
                       onEditTaskImages={onEditTaskImages}
+                      onEditTaskDates={onEditTaskDates}
                       onAssignTask={onAssignTask}
                       onRequestChanges={onRequestChanges}
                       onDismissChangeRequest={onDismissChangeRequest}
