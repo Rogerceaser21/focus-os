@@ -278,7 +278,7 @@ const Index = () => {
 
   // Handle clicking outside task cards to collapse them
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: PointerEvent) => {
       const target = event.target as HTMLElement;
       
       // Check if click is outside all task cards
@@ -303,8 +303,8 @@ const Index = () => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
   }, [expandedTaskIds]);
 
   // Auth redirect is now handled in the render gate below
