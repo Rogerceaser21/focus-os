@@ -226,10 +226,14 @@ const Index = () => {
   const [showTaskTour, setShowTaskTour] = useState(false);
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [highlightImages, setHighlightImages] = useState(false);
-  useEffect(() => { if (!editingTask) setHighlightImages(false); }, [editingTask]);
+  const [editHighlight, setEditHighlight] = useState<{ target: 'images' | 'dates'; nonce: number } | null>(null);
+  useEffect(() => { if (!editingTask) setEditHighlight(null); }, [editingTask]);
   const handleEditTaskImages = (task: Task) => {
-    setHighlightImages(true);
+    setEditHighlight(prev => ({ target: 'images', nonce: (prev?.nonce ?? 0) + 1 }));
+    setEditingTask(task);
+  };
+  const handleEditTaskDates = (task: Task) => {
+    setEditHighlight(prev => ({ target: 'dates', nonce: (prev?.nonce ?? 0) + 1 }));
     setEditingTask(task);
   };
   const [taskToShare, setTaskToShare] = useState<Task | null>(null);
