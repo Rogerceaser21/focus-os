@@ -1078,7 +1078,6 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
               />
             ) : (
               <p 
-                ref={descriptionContainerRef}
                 className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 whitespace-pre-wrap min-w-0 break-words [overflow-wrap:anywhere] ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
                 onMouseDown={(e) => {
                   e.stopPropagation();
