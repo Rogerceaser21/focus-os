@@ -284,7 +284,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
   useEffect(() => {
     if (!isDescriptionExpanded) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: PointerEvent) => {
       const target = event.target as HTMLElement;
 
       // Keep the description expanded while interacting anywhere inside a task card
@@ -304,9 +304,9 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
       setIsEditingDescription(false);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside);
     };
   }, [isDescriptionExpanded, isEditingDescription]);
 
@@ -314,7 +314,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
   useEffect(() => {
     if (!isTitleExpanded) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: PointerEvent) => {
       const target = event.target as HTMLElement;
 
       // Keep the title expanded while interacting anywhere inside a task card
@@ -334,9 +334,9 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
       setIsEditingTitle(false);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside);
     };
   }, [isTitleExpanded, isEditingTitle]);
 
