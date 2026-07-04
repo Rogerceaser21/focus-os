@@ -116,12 +116,12 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
   const isExpanded = isIndividuallyExpanded || globalViewMode === 'full';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const descriptionContainerRef = useRef<HTMLParagraphElement>(null);
-  const titleContainerRef = useRef<HTMLHeadingElement>(null);
   const titleDisplayRef = useRef<HTMLHeadingElement>(null);
   const descriptionDisplayRef = useRef<HTMLParagraphElement>(null);
   const pendingTitleCaretRef = useRef<number | null>(null);
   const pendingDescriptionCaretRef = useRef<number | null>(null);
+  const taskRef = useRef(task);
+  useEffect(() => { taskRef.current = task; }, [task]);
 
   // Compute the caret character offset within the clicked text element from the
   // click coordinates. Used to place the caret in the textarea exactly where the
@@ -262,10 +262,6 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
     setIsEditingDescription(true);
   };
 
-  const isTruncated = (element: HTMLElement | null): boolean => {
-    if (!element) return false;
-    return element.scrollHeight > element.clientHeight;
-  };
 
   // Sync checkbox with task status
   useEffect(() => {
@@ -373,7 +369,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
       
       setTimeout(() => {
         onUpdate({
-          ...task,
+          ...taskRef.current,
           status: 'completed'
         });
         setIsFading(false);
@@ -599,7 +595,6 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
               />
             ) : (
               <h3
-                ref={titleContainerRef}
                 className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
                 onMouseDown={(e) => {
                   e.stopPropagation();
@@ -703,7 +698,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
               />
             ) : (
               <p 
-                ref={descriptionContainerRef}
+                
                 className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 whitespace-pre-wrap min-w-0 break-words [overflow-wrap:anywhere] ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
                 onMouseDown={(e) => {
                   e.stopPropagation();
@@ -974,7 +969,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
               />
             ) : (
               <h3
-                ref={titleContainerRef}
+                
                 className={`font-semibold text-sm text-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 ${!isTitleExpanded ? 'line-clamp-2' : ''} ${task.status === 'completed' || isFading || (task.completedByEmail && (!task.sharedRecipients || task.sharedRecipients.length === 0)) ? 'line-through opacity-50' : ''}`}
                 onMouseDown={(e) => {
                   e.stopPropagation();
@@ -1078,7 +1073,6 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onA
               />
             ) : (
               <p 
-                ref={descriptionContainerRef}
                 className={`text-sm text-muted-foreground cursor-text rounded px-1.5 py-0.5 transition-colors flex-1 whitespace-pre-wrap min-w-0 break-words [overflow-wrap:anywhere] ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}
                 onMouseDown={(e) => {
                   e.stopPropagation();
