@@ -127,6 +127,7 @@ export const BASE_CSS = `
 .pw-switch-row button {
   min-width: 26px; height: 26px; border-radius: 999px; border: none; cursor: pointer;
   background: transparent; color: rgba(255,255,255,.6); font-size: 12px; font-weight: 600; padding: 0 10px;
+  white-space: nowrap;
 }
 .pw-switch-row button.on { background: #fff; color: #111; }
 .pw-switch-row .name { padding: 0 8px 0 6px; white-space: nowrap; }
