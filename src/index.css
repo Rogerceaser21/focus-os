@@ -170,6 +170,159 @@ All colors MUST be HSL.
     --glass-blur: 16px;
     --glass-glow: 18 60% 45% / 0.15;
   }
+
+  /* Liquid Glass theme — wallpaper-adaptive materials (see src/lib/wallpaper.tsx).
+     Default token set = frost (bright art wallpapers: Monet, Hokusai).
+     [data-wallpaper] variants switch the material to smoke (dark art) or solid (plain). */
+  .liquid-glass {
+    --background: 205 25% 94%;
+    --foreground: 203 19% 18%;
+
+    --card: 0 0% 100% / 0.62;
+    --card-foreground: 203 19% 18%;
+
+    --popover: 0 0% 100% / 0.9;
+    --popover-foreground: 203 19% 18%;
+
+    --primary: 211 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 100% / 0.45;
+    --secondary-foreground: 203 19% 22%;
+
+    --muted: 0 0% 100% / 0.4;
+    --muted-foreground: 203 12% 36%;
+
+    --accent: 211 100% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 358 75% 59%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 100% / 0.62;
+    --input: 0 0% 100% / 0.55;
+    --ring: 211 100% 50%;
+
+    --success: 135 63% 49%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --info: 199 89% 48%;
+
+    --sidebar-background: 0 0% 100% / 0.55;
+    --sidebar-foreground: 203 19% 20%;
+    --sidebar-primary: 211 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 100% / 0.5;
+    --sidebar-accent-foreground: 203 19% 20%;
+    --sidebar-border: 0 0% 100% / 0.55;
+    --sidebar-ring: 211 100% 50%;
+
+    --dock-background: 0 0% 100% / 0.6;
+
+    --glass-background: 0 0% 100% / 0.55;
+    --glass-border: 0 0% 100% / 0.62;
+    --glass-shadow: 203 42% 10% / 0.16;
+    --glass-blur: 26px;
+    --glass-glow: 211 100% 50% / 0.2;
+
+    --wallpaper-veil: linear-gradient(180deg, hsl(0 0% 100% / 0.08), hsl(0 0% 0% / 0.14));
+  }
+
+  /* Hokusai keeps frost but takes a deep-teal accent */
+  .liquid-glass[data-wallpaper='wave'] {
+    --primary: 193 81% 31%;
+    --accent: 193 81% 31%;
+    --ring: 193 81% 31%;
+    --sidebar-primary: 193 81% 31%;
+    --sidebar-ring: 193 81% 31%;
+    --glass-glow: 193 81% 31% / 0.2;
+  }
+
+  /* smoke — dark art (Van Gogh) */
+  .liquid-glass[data-wallpaper='starry'] {
+    --background: 228 32% 10%;
+    --foreground: 220 60% 97%;
+    --card: 227 28% 22% / 0.45;
+    --card-foreground: 220 60% 97%;
+    --popover: 227 28% 16% / 0.94;
+    --popover-foreground: 220 60% 97%;
+    --primary: 199 89% 74%;
+    --primary-foreground: 220 40% 10%;
+    --secondary: 227 28% 30% / 0.4;
+    --secondary-foreground: 220 50% 92%;
+    --muted: 227 28% 30% / 0.35;
+    --muted-foreground: 222 45% 78%;
+    --accent: 199 89% 74%;
+    --accent-foreground: 220 40% 10%;
+    --border: 0 0% 100% / 0.16;
+    --input: 0 0% 100% / 0.12;
+    --ring: 199 89% 74%;
+    --sidebar-background: 227 28% 18% / 0.5;
+    --sidebar-foreground: 220 60% 95%;
+    --sidebar-primary: 199 89% 74%;
+    --sidebar-primary-foreground: 220 40% 10%;
+    --sidebar-accent: 227 28% 30% / 0.4;
+    --sidebar-accent-foreground: 220 50% 92%;
+    --sidebar-border: 0 0% 100% / 0.14;
+    --sidebar-ring: 199 89% 74%;
+    --dock-background: 227 28% 16% / 0.6;
+    --glass-background: 227 28% 18% / 0.45;
+    --glass-border: 0 0% 100% / 0.16;
+    --glass-shadow: 0 0% 0% / 0.5;
+    --glass-blur: 34px;
+    --glass-glow: 199 89% 74% / 0.25;
+    --wallpaper-veil: radial-gradient(120% 90% at 50% 0%, hsl(228 60% 6% / 0.32), hsl(228 55% 4% / 0.64) 80%);
+  }
+
+  /* solid — no art (Plain) */
+  .liquid-glass[data-wallpaper='plain'] {
+    --background: 220 14% 96%;
+    --foreground: 214 14% 12%;
+    --card: 0 0% 100% / 0.78;
+    --card-foreground: 214 14% 12%;
+    --popover: 0 0% 100% / 0.97;
+    --popover-foreground: 214 14% 12%;
+    --primary: 214 14% 10%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 33% 12% / 0.05;
+    --secondary-foreground: 214 14% 16%;
+    --muted: 222 33% 12% / 0.04;
+    --muted-foreground: 214 10% 40%;
+    --accent: 214 14% 10%;
+    --accent-foreground: 0 0% 100%;
+    --border: 222 33% 12% / 0.08;
+    --input: 222 33% 12% / 0.07;
+    --ring: 214 14% 10%;
+    --sidebar-background: 0 0% 100% / 0.78;
+    --sidebar-foreground: 214 14% 14%;
+    --sidebar-primary: 214 14% 10%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 33% 12% / 0.05;
+    --sidebar-accent-foreground: 214 14% 14%;
+    --sidebar-border: 222 33% 12% / 0.08;
+    --sidebar-ring: 214 14% 10%;
+    --dock-background: 0 0% 100% / 0.8;
+    --glass-background: 0 0% 100% / 0.78;
+    --glass-border: 222 33% 12% / 0.08;
+    --glass-shadow: 222 33% 12% / 0.07;
+    --glass-blur: 18px;
+    --glass-glow: 214 14% 10% / 0.1;
+    --wallpaper-veil: none;
+  }
+
+  /* the wallpaper itself, painted on <body>; --wallpaper-url set by WallpaperController */
+  html.liquid-glass body {
+    background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
+    background-size: cover, cover;
+    background-position: center, center;
+    background-attachment: fixed, fixed;
+  }
+  html.liquid-glass[data-wallpaper='plain'] body {
+    background-image:
+      radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
+      radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
+    background-attachment: fixed;
+  }
 }
 
 @layer base {
@@ -334,3 +487,9 @@ All colors MUST be HSL.
   animation: highlight-sweep 0.9s ease-out forwards;
   pointer-events: none;
 }
+
+/* Liquid Glass: page shells become translucent veils so the body wallpaper
+   shows through. Unlayered on purpose — must beat the Tailwind utility. */
+.liquid-glass .bg-background { background-color: hsl(var(--background) / 0.25); }
+.liquid-glass[data-wallpaper='starry'] .bg-background { background-color: hsl(var(--background) / 0.35); }
+.liquid-glass[data-wallpaper='plain'] .bg-background { background-color: hsl(var(--background)); }

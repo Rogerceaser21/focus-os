@@ -22,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { UserPreferences } from '@/hooks/useUserPreferences';
 import { PROVIDERS, AIProvider, ImageMode } from '@/lib/aiHandoff';
+import { WALLPAPERS, useWallpaper, type WallpaperId } from '@/lib/wallpaper';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 import ApiTokensSection from '@/components/ApiTokensSection';
 
@@ -49,7 +50,8 @@ export default function SettingsDialog({
   onSave,
 }: SettingsDialogProps) {
   const { setTheme } = useTheme();
-  const [selectedTheme, setSelectedTheme] = useState<'dark' | 'light' | 'cream'>('dark');
+  const [selectedTheme, setSelectedTheme] = useState<'dark' | 'light' | 'cream' | 'liquid-glass'>('dark');
+  const [wallpaper, setWallpaperChoice] = useWallpaper();
   const [defaultView, setDefaultView] = useState<string>('today');
   const [displayMode, setDisplayMode] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -75,7 +77,7 @@ export default function SettingsDialog({
 
   // Apply theme immediately when changed
   const handleThemeChange = (value: string) => {
-    const newTheme = value as 'dark' | 'light' | 'cream';
+    const newTheme = value as 'dark' | 'light' | 'cream' | 'liquid-glass';
     setSelectedTheme(newTheme);
     setTheme(newTheme);
   };
@@ -139,7 +141,34 @@ export default function SettingsDialog({
                     Cream
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="liquid-glass" id="theme-liquid-glass" />
+                  <Label htmlFor="theme-liquid-glass" className="font-normal cursor-pointer">
+                    Liquid Glass
+                  </Label>
+                </div>
               </RadioGroup>
+              {selectedTheme === 'liquid-glass' && (
+                <div className="pl-6 pt-1 space-y-2">
+                  <p className="text-sm text-muted-foreground">Wallpaper</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(WALLPAPERS) as WallpaperId[]).map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setWallpaperChoice(id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          wallpaper === id
+                            ? 'bg-primary text-primary-foreground border-transparent'
+                            : 'bg-secondary/50 text-muted-foreground border-border hover:bg-secondary'
+                        }`}
+                      >
+                        {WALLPAPERS[id].name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <Separator />

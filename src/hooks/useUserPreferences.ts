@@ -12,7 +12,7 @@ export interface UserPreferences {
   default_task_filter: 'all' | 'todo' | 'in-progress' | 'completed';
   default_task_card_view: 'full' | 'compact' | 'minimal';
   default_task_card_view_mobile: 'full' | 'compact' | 'minimal';
-  theme: 'dark' | 'light' | 'cream';
+  theme: 'dark' | 'light' | 'cream' | 'liquid-glass';
   has_completed_onboarding: boolean;
   has_completed_task_tour: boolean;
   has_completed_projects_tour: boolean;
