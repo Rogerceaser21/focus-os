@@ -8,7 +8,8 @@
  * Switch styles with the pill at the top, or ?take=a|b|c|d.
  * Delete together with Preview.tsx once tokens are locked.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BASE_CSS, WALLPAPERS, WallpaperBar, useWallpaper } from './previewTheme';
 import {
   Plus, Search, HelpCircle, Mic, Video, ListTodo, AlertTriangle, Inbox,
@@ -212,7 +213,7 @@ const CSS = `
 .pw-choice.on { background: var(--pw-ac); border-color: transparent; color: #fff; }
 
 /* ---------- record FAB ---------- */
-.pw-fab { position: fixed; right: 22px; bottom: 92px; z-index: 42; }
+.pw-fab { position: fixed; right: 20px; bottom: 14px; z-index: 42; }
 .pw-fab-veil { display: none; }
 .pw-fab-veil.open { display: block; position: fixed; inset: 0; z-index: 41; background: rgba(0,0,0,.18); }
 .pw-fab-main {
@@ -303,6 +304,7 @@ const CSS = `
   .pw-projbar .pw-btn span { display: none; }
   .pw-projbar .pw-btn { padding: 6px 8px; }
   .pw-main { padding-bottom: 78px; }
+  .pw-fab { right: 16px; bottom: 90px; }
   .pw-addpanel { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 76vh; }
   .pw-dock { left: 10px; right: 10px; transform: none; justify-content: space-between; }
   .pw-dock button { min-width: 0; flex: 1; }
@@ -367,6 +369,24 @@ const PreviewApp = () => {
   const [fabOpen, setFabOpen] = useState(false);
   const [brainOpen, setBrainOpen] = useState(false);
   const [brainCount, setBrainCount] = useState(0);
+  const navigate = useNavigate();
+  const lastTapRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // same interaction as the real RecordFAB: single tap toggles the menu
+  // (debounced), double tap goes to the home screen
+  const handleFabMain = () => {
+    const now = Date.now();
+    const isDouble = now - lastTapRef.current < 300;
+    lastTapRef.current = now;
+    if (isDouble) {
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      setFabOpen(false);
+      navigate('/preview');
+      return;
+    }
+    tapTimerRef.current = setTimeout(() => setFabOpen((o) => !o), 300);
+  };
 
   // simulate tasks arriving live while "listening"
   useEffect(() => {
@@ -585,7 +605,7 @@ const PreviewApp = () => {
           <Video size={19} />
         </button>
         <span className="pw-fab-hint">Brain Dump ↑ · Record Meeting ←</span>
-        <button className={`pw-fab-main ${fabOpen ? 'open' : ''}`} onClick={() => setFabOpen((o) => !o)}>
+        <button className={`pw-fab-main ${fabOpen ? 'open' : ''}`} onClick={handleFabMain} title="Tap: menu · Double-tap: home">
           <span className="dot" />
         </button>
       </div>
