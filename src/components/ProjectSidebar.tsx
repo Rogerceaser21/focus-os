@@ -1224,7 +1224,7 @@ export const ProjectSidebar = ({
   return (
     <div 
       className={`
-        border-r bg-background flex flex-col h-screen
+        border-r bg-background flex flex-col h-screen lg-side
         transition-all duration-300 ease-in-out relative z-20
         ${sidebarOpen ? 'w-[280px] opacity-100' : 'w-0 opacity-0 overflow-hidden'}
       `}

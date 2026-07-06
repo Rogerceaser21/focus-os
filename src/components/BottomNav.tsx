@@ -58,7 +58,7 @@ const BottomNav = ({
   return (
     <>
       <div
-        className="fixed bottom-0 left-0 right-0 grid grid-cols-6 z-20 border-t border-border/30"
+        className="fixed bottom-0 left-0 right-0 grid grid-cols-6 z-20 border-t border-border/30 lg-dock"
         style={{
           background: 'hsl(var(--dock-background))',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',

@@ -543,3 +543,118 @@ All colors MUST be HSL.
 /* text that sits directly on the wallpaper (greetings, hero labels) */
 .liquid-glass .lg-onbg { color: #fff; text-shadow: 0 2px 24px rgba(0, 20, 30, 0.5), 0 1px 2px rgba(0, 20, 30, 0.3); }
 .liquid-glass[data-wallpaper='plain'] .lg-onbg { color: hsl(var(--foreground)); text-shadow: none; }
+
+/* ---------------------------------------------------------------------------
+   Structural: the mock architecture. Every region floats as its own glass
+   piece — sidebar panel, control pills, one big content panel, capsule dock.
+   -------------------------------------------------------------------------- */
+
+/* sidebar floats as a rounded glass panel (desktop rail and mobile sheet) */
+.liquid-glass [data-sidebar='sidebar'] {
+  border-radius: 26px;
+  border: 1px solid hsl(var(--glass-border));
+  overflow: hidden;
+}
+.liquid-glass .lg-side {
+  background-color: hsl(var(--card) / 0.72);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: 1px solid hsl(var(--glass-border));
+  border-radius: 26px;
+  margin: 14px 0 14px 14px;
+  height: calc(100vh - 28px);
+  overflow: hidden;
+}
+.liquid-glass[data-wallpaper='starry'] .lg-side { background-color: hsl(var(--card) / 0.6); }
+
+/* search / view switcher / add-task row becomes a glass pill */
+.liquid-glass .lg-row1 {
+  background-color: hsl(var(--card) / 0.72);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: 1px solid hsl(var(--glass-border));
+  border-radius: 999px;
+  padding: 8px 10px;
+}
+.liquid-glass .lg-row1 input { background-color: transparent; border-color: transparent; box-shadow: none; }
+.liquid-glass[data-wallpaper='starry'] .lg-row1 { background-color: hsl(var(--card) / 0.6); }
+
+/* status tabs pill */
+.liquid-glass .lg-tabs {
+  background-color: hsl(var(--card) / 0.72);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: 1px solid hsl(var(--glass-border));
+  border-radius: 999px;
+  padding: 5px;
+}
+.liquid-glass .lg-tabs [data-state='active'] { background-color: hsl(var(--card) / 0.95); border-radius: 999px; }
+.liquid-glass[data-wallpaper='starry'] .lg-tabs { background-color: hsl(var(--card) / 0.6); }
+.liquid-glass[data-wallpaper='starry'] .lg-tabs [data-state='active'] { background-color: hsl(var(--secondary)); }
+
+/* project action bar pill (component paints bg-muted) */
+.liquid-glass .lg-projbar {
+  background-color: hsl(var(--card) / 0.72);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: 1px solid hsl(var(--glass-border));
+  border-radius: 24px;
+  padding: 2px 8px;
+}
+.liquid-glass[data-wallpaper='starry'] .lg-projbar { background-color: hsl(var(--card) / 0.6); }
+
+/* one big content panel wrapping the task groups / grid / gantt / time */
+.liquid-glass .lg-content {
+  background-color: hsl(var(--card) / 0.55);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: 1px solid hsl(var(--glass-border));
+  border-radius: 26px;
+  padding: 12px 14px 16px;
+  min-height: 200px;
+}
+.liquid-glass[data-wallpaper='starry'] .lg-content { background-color: hsl(var(--card) / 0.42); }
+/* rows/cards inside the panel: light fills, no nested blur (perf + mock look) */
+.liquid-glass .lg-content .bg-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: hsl(var(--card) / 0.55);
+}
+.liquid-glass[data-wallpaper='starry'] .lg-content .bg-card { background-color: hsl(var(--card) / 0.55); }
+
+/* bottom nav becomes the floating capsule dock (inline styles need !important) */
+.liquid-glass .lg-dock {
+  left: 50% !important;
+  right: auto !important;
+  bottom: 16px !important;
+  transform: translateX(-50%);
+  display: flex !important;
+  gap: 4px;
+  width: auto;
+  padding: 6px 12px !important;
+  margin: 0 !important;
+  border: 1px solid hsl(var(--glass-border)) !important;
+  border-radius: 999px;
+  background: hsl(var(--card) / 0.72) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  box-shadow: 0 12px 40px hsl(var(--glass-shadow));
+}
+.liquid-glass .lg-dock > button { min-width: 62px; }
+.liquid-glass[data-wallpaper='starry'] .lg-dock { background: hsl(var(--card) / 0.65) !important; }
+@media (max-width: 639px) {
+  .liquid-glass .lg-dock {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    transform: none;
+    justify-content: space-between;
+  }
+  .liquid-glass .lg-dock > button { min-width: 0; flex: 1; }
+}
+
+/* record FAB rides the dock line on wide screens, sits above the dock on phones */
+.liquid-glass [data-tour-step='menu-fab'] { bottom: 20px !important; right: 20px !important; }
+@media (max-width: 639px) {
+  .liquid-glass [data-tour-step='menu-fab'] { bottom: 92px !important; }
+}

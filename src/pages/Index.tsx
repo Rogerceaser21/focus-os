@@ -390,7 +390,7 @@ const Index = () => {
         if (!error) break;
       }
       if (error) {
-        console.warn('[Index] fetchAllTasks failed after retries:', error);
+        console.warn('[Index] fetchAllTasks failed after retries:', JSON.stringify(error), 'code:', error?.code, 'status:', error?.status);
         return;
       }
       const transformedTasks = data.map(transformDbTask);
@@ -1706,7 +1706,7 @@ https://www.skyscanner.com`,
               >
 
           {/* Actions Bar */}
-          <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6">
+          <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6 lg-row1">
             <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px] hidden md:flex shrink-0" />
             <div className="relative flex-[2] md:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hidden lg:block" />
@@ -1810,7 +1810,7 @@ https://www.skyscanner.com`,
 
           {/* Main Content */}
           {!fullDataLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto">
+              <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
@@ -1830,7 +1830,7 @@ https://www.skyscanner.com`,
                 const isCollaborator = (currentProject?.isShared && currentProject?.userId !== user?.id) ?? false;
                 const isSharedProject = currentProject?.isShared ?? false;
                 const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-1 flex-wrap">
                       <span className="hidden sm:inline" style={{ color: currentProject?.color }}>📁</span>
@@ -2155,7 +2155,7 @@ https://www.skyscanner.com`,
                 </div>
               )}
 
-              <TabsContent value="all" className="mt-6">
+              <TabsContent value="all" className="mt-6 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status !== 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2174,7 +2174,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="todo" className="mt-6">
+              <TabsContent value="todo" className="mt-6 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'todo')}
                   onUpdate={handleUpdateTask}
@@ -2193,7 +2193,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="in-progress" className="mt-6">
+              <TabsContent value="in-progress" className="mt-6 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'in-progress')}
                   onUpdate={handleUpdateTask}
@@ -2212,7 +2212,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="completed" className="mt-6">
+              <TabsContent value="completed" className="mt-6 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2251,7 +2251,7 @@ https://www.skyscanner.com`,
                 const isCollaborator2 = (currentProject2?.isShared && currentProject2?.userId !== user?.id) ?? false;
                 const isSharedProject2 = currentProject2?.isShared ?? false;
                 const assignedByEmail2 = isCollaborator2 ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 px-3 py-2">
                     <div className="flex flex-col gap-0.5 flex-1">
                       <div className="flex items-center gap-2">
@@ -2360,22 +2360,22 @@ https://www.skyscanner.com`,
                 </div>;
               })()}
 
-              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6 lg-content">
                 {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6 lg-content">
                 {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6 lg-content">
                 {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6 lg-content">
                 {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
-            </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
+            </Tabs> : viewMode === 'gantt' ? <div className="mt-6 lg-content">
               <GanttChart 
                 tasks={sortedTasks}
                 allTasks={sortedTasks}
@@ -2394,7 +2394,7 @@ https://www.skyscanner.com`,
                 onAddTask={handleAddTask}
                 onOpenAddTask={() => handleAddTaskDialogOpen(true)}
               />
-            </div> : <div className="mt-6">
+            </div> : <div className="mt-6 lg-content">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
             </div>}
               </div>
