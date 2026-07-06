@@ -901,6 +901,75 @@ export type Database = {
         }
         Relationships: []
       }
+      sfa_handshakes: {
+        Row: {
+          created_at: string
+          handshake_enc: string
+          handshake_hash: string
+          school: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          handshake_enc: string
+          handshake_hash: string
+          school: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          handshake_enc?: string
+          handshake_hash?: string
+          school?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      sfa_login_attempts: {
+        Row: {
+          fail_count: number
+          last_fail: string | null
+          locked_until: string | null
+          username: string
+        }
+        Insert: {
+          fail_count?: number
+          last_fail?: string | null
+          locked_until?: string | null
+          username: string
+        }
+        Update: {
+          fail_count?: number
+          last_fail?: string | null
+          locked_until?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
+      sfa_subject_dictionary: {
+        Row: {
+          confirmed: boolean
+          label: string
+          mnemonic: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          confirmed?: boolean
+          label?: string
+          mnemonic: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          confirmed?: boolean
+          label?: string
+          mnemonic?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       student_access_tokens: {
         Row: {
           access_token: string
