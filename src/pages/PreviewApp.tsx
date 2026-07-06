@@ -9,7 +9,7 @@
  * Delete together with Preview.tsx once tokens are locked.
  */
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { BASE_CSS, WALLPAPERS, WallpaperBar, useWallpaper } from './previewTheme';
 import {
   Plus, Search, HelpCircle, Mic, Video, ListTodo, AlertTriangle, Inbox,
   FolderOpen, Calendar, Settings, LogOut, Play, Pause, Check, Share2,
@@ -17,25 +17,7 @@ import {
   GanttChartSquare, Clock3, Menu, X, Paperclip,
 } from 'lucide-react';
 
-/* ------------------------------------------------------------ config */
-
-type Material = 'frost' | 'smoke' | 'solid';
-type TakeId = 'a' | 'b' | 'c' | 'd';
-type BgId = 'lilies' | 'wave' | 'starry' | 'plain';
-
-const BGS: Record<BgId, { src: string | null; material: Material; accent: string; name: string }> = {
-  lilies: { src: '/preview-art/water-lilies.jpg', material: 'frost', accent: '#0a84ff', name: 'Monet' },
-  wave:   { src: '/preview-art/great-wave.jpg',   material: 'frost', accent: '#0f7490', name: 'Hokusai' },
-  starry: { src: '/preview-art/starry-night.jpg', material: 'smoke', accent: '#7dd3fc', name: 'Van Gogh' },
-  plain:  { src: null,                            material: 'solid', accent: '#16191d', name: 'Plain' },
-};
-
-const TAKES: Record<TakeId, { label: string; bg: BgId }> = {
-  a: { label: 'A · Gallery Glass', bg: 'lilies' },
-  b: { label: 'B · visionOS Night', bg: 'starry' },
-  c: { label: 'C · Porcelain', bg: 'plain' },
-  d: { label: 'D · Adaptive', bg: 'wave' },
-};
+/* config + tokens live in previewTheme.tsx */
 
 /* ------------------------------------------------------------ mock data */
 
@@ -74,88 +56,6 @@ const PRIORITY_ORDER = ['urgent', 'high', 'medium', 'low'] as const;
 /* ------------------------------------------------------------ styles */
 
 const CSS = `
-.pw-root {
-  min-height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  position: relative;
-  overflow: hidden;
-}
-.pw-bg { position: fixed; inset: 0; background-size: cover; background-position: center; z-index: 0; }
-
-/* ---------- material tokens ---------- */
-.pw-frost {
-  --t1: #22303a; --t2: rgba(34,48,58,.55); --t3: rgba(34,48,58,.35);
-  --gbg: linear-gradient(135deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,.36) 100%);
-  --gbg-strong: linear-gradient(135deg, rgba(255,255,255,.72) 0%, rgba(255,255,255,.5) 100%);
-  --gbrd: rgba(255,255,255,.62);
-  --gshadow: 0 8px 32px rgba(10,30,40,.16), inset 0 1px 1px rgba(255,255,255,.85);
-  --blur: 26px; --sat: 180%;
-  --row-line: rgba(34,48,58,.1);
-  --hover: rgba(255,255,255,.45);
-  --chip: rgba(255,255,255,.55); --chip-brd: rgba(255,255,255,.7);
-}
-.pw-smoke {
-  --t1: rgba(238,244,255,.95); --t2: rgba(214,226,255,.55); --t3: rgba(214,226,255,.35);
-  --gbg: linear-gradient(135deg, rgba(44,52,78,.46) 0%, rgba(16,20,36,.42) 100%);
-  --gbg-strong: linear-gradient(135deg, rgba(54,64,94,.6) 0%, rgba(20,24,42,.55) 100%);
-  --gbrd: rgba(255,255,255,.16);
-  --gshadow: 0 16px 48px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.26);
-  --blur: 34px; --sat: 160%;
-  --row-line: rgba(214,226,255,.1);
-  --hover: rgba(255,255,255,.06);
-  --chip: rgba(125,211,252,.12); --chip-brd: rgba(125,211,252,.28);
-}
-.pw-solid {
-  --t1: #1b1f24; --t2: rgba(27,31,36,.5); --t3: rgba(27,31,36,.32);
-  --gbg: rgba(255,255,255,.78);
-  --gbg-strong: rgba(255,255,255,.92);
-  --gbrd: rgba(20,24,40,.08);
-  --gshadow: 0 2px 16px rgba(20,24,40,.07), inset 0 1px 0 rgba(255,255,255,.95);
-  --blur: 18px; --sat: 120%;
-  --row-line: rgba(20,24,40,.07);
-  --hover: rgba(20,24,40,.04);
-  --chip: rgba(20,24,40,.05); --chip-brd: rgba(20,24,40,.07);
-}
-.pw-solid .pw-bg {
-  background:
-    radial-gradient(90% 60% at 12% 6%, rgba(46,196,201,.09) 0%, transparent 60%),
-    radial-gradient(80% 55% at 92% 92%, rgba(255,150,110,.09) 0%, transparent 60%),
-    #f3f4f6;
-}
-.pw-frost .pw-bg::after, .pw-smoke .pw-bg::after {
-  content: ''; position: absolute; inset: 0;
-}
-.pw-frost .pw-bg::after { background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.14)); }
-.pw-smoke .pw-bg::after { background: radial-gradient(120% 90% at 50% 0%, rgba(6,10,26,.32), rgba(4,6,16,.64) 80%); }
-
-.pw-glass {
-  background: var(--gbg);
-  backdrop-filter: blur(var(--blur)) saturate(var(--sat));
-  -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
-  border: 1px solid var(--gbrd);
-  box-shadow: var(--gshadow);
-}
-
-/* ---------- switcher (dev control) ---------- */
-.pw-switch {
-  position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-  z-index: 60; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px;
-  max-width: 96vw;
-}
-.pw-switch-row {
-  display: flex; gap: 4px; align-items: center;
-  background: rgba(10,12,18,.75); backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
-  padding: 4px 6px; font-size: 11px; color: rgba(255,255,255,.65);
-}
-.pw-switch-row button {
-  min-width: 26px; height: 26px; border-radius: 999px; border: none; cursor: pointer;
-  background: transparent; color: rgba(255,255,255,.6); font-size: 12px; font-weight: 600; padding: 0 8px;
-}
-.pw-switch-row button.on { background: #fff; color: #111; }
-.pw-switch-row .name { padding: 0 8px 0 4px; white-space: nowrap; }
-
 /* ---------- shell ---------- */
 .pw-shell { position: relative; z-index: 1; display: flex; height: 100vh; padding: 58px 14px 14px; gap: 14px; }
 
@@ -166,19 +66,7 @@ const CSS = `
 }
 .pw-side-head { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 8px; }
 .pw-side-title { font-size: 19px; font-weight: 700; color: var(--t1); letter-spacing: -0.02em; }
-.pw-iconbtn {
-  width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--gbrd);
-  background: var(--chip); color: var(--t2); display: flex; align-items: center; justify-content: center; cursor: pointer;
-}
 .pw-side-cta { display: flex; gap: 8px; padding: 0 4px 10px; }
-.pw-btn {
-  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-  border-radius: 999px; border: 1px solid var(--gbrd);
-  background: var(--chip); color: var(--t1);
-  font-size: 12.5px; font-weight: 600; padding: 8px 12px;
-}
-.pw-btn.acc { background: var(--pw-ac); border-color: transparent; color: #fff; box-shadow: 0 4px 16px color-mix(in srgb, var(--pw-ac) 40%, transparent); }
-.pw-solid .pw-btn.acc { color: #fff; }
 .pw-search {
   display: flex; align-items: center; gap: 8px; margin: 0 4px 10px;
   border-radius: 999px; border: 1px solid var(--gbrd); background: var(--chip);
@@ -195,7 +83,6 @@ const CSS = `
 .pw-navitem .cnt { margin-left: auto; font-size: 11.5px; color: var(--t3); font-weight: 600; }
 .pw-navitem .pastdue { color: #e5484d; }
 .pw-sec { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; color: var(--t3); padding: 12px 10px 4px; }
-.pw-dot { width: 9px; height: 9px; border-radius: 999px; flex: none; }
 
 /* ---------- main column ---------- */
 .pw-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding-bottom: 84px; }
@@ -300,6 +187,30 @@ const CSS = `
 .pw-dock button.danger { color: #e5484d; }
 .pw-dock button span { font-size: 9.5px; font-weight: 700; }
 
+/* ---------- add-task panel ---------- */
+.pw-addpanel {
+  position: fixed; top: 58px; right: 14px; bottom: 14px; width: 360px; z-index: 45;
+  border-radius: 26px; padding: 18px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+}
+.pw-addpanel h3 {
+  font-size: 16px; font-weight: 700; color: var(--t1); margin: 0;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.pw-field label { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--t3); display: block; margin-bottom: 6px; }
+.pw-input, .pw-textarea {
+  width: 100%; border-radius: 14px; border: 1px solid var(--gbrd); background: var(--chip);
+  color: var(--t1); font-size: 13.5px; padding: 10px 12px; outline: none; font-family: inherit; box-sizing: border-box;
+}
+.pw-input::placeholder, .pw-textarea::placeholder { color: var(--t3); }
+.pw-textarea { min-height: 72px; resize: none; }
+.pw-chiprow { display: flex; flex-wrap: wrap; gap: 6px; }
+.pw-choice {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--gbrd); background: var(--chip);
+  color: var(--t1); font-size: 12px; font-weight: 600; padding: 6px 11px;
+}
+.pw-choice.on { background: var(--pw-ac); border-color: transparent; color: #fff; }
+
 /* ---------- responsive ---------- */
 .pw-sideveil { display: none; }
 @media (max-width: 999px) {
@@ -317,6 +228,7 @@ const CSS = `
   .pw-projbar .pw-btn span { display: none; }
   .pw-projbar .pw-btn { padding: 6px 8px; }
   .pw-main { padding-bottom: 78px; }
+  .pw-addpanel { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 76vh; }
   .pw-dock { left: 10px; right: 10px; transform: none; justify-content: space-between; }
   .pw-dock button { min-width: 0; flex: 1; }
   .pw-gantt-row .nm { width: 90px; }
@@ -375,10 +287,8 @@ function TaskRow({ t, density }: { t: Task; density: 'full' | 'compact' | 'minim
 /* ------------------------------------------------------------ page */
 
 const PreviewApp = () => {
-  const [params, setParams] = useSearchParams();
-  const raw = params.get('take');
-  const take: TakeId = raw === 'b' || raw === 'c' || raw === 'd' ? raw : 'a';
-  const [dBg, setDBg] = useState<BgId>('wave');
+  const [wp, setWp] = useWallpaper();
+  const [addOpen, setAddOpen] = useState(false);
   const [view, setView] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [density, setDensity] = useState<'full' | 'compact' | 'minimal'>('compact');
   const [tab, setTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -386,8 +296,7 @@ const PreviewApp = () => {
   const [selList, setSelList] = useState<string | null>(null);
   const [sideOpen, setSideOpen] = useState(false);
 
-  const bgId = take === 'd' ? dBg : TAKES[take].bg;
-  const bg = BGS[bgId];
+  const bg = WALLPAPERS[wp];
   const material = bg.material;
 
   const shown = useMemo(() => {
@@ -423,25 +332,11 @@ const PreviewApp = () => {
 
   return (
     <div className={`pw-root pw-${material}`} style={{ ['--pw-ac' as string]: bg.accent }}>
+      <style>{BASE_CSS}</style>
       <style>{CSS}</style>
       <div className="pw-bg" style={bg.src ? { backgroundImage: `url('${bg.src}')` } : undefined} />
 
-      {/* switcher */}
-      <div className="pw-switch">
-        <div className="pw-switch-row">
-          {(['a', 'b', 'c', 'd'] as TakeId[]).map((id) => (
-            <button key={id} className={take === id ? 'on' : ''} onClick={() => setParams({ take: id }, { replace: true })}>{id.toUpperCase()}</button>
-          ))}
-          <span className="name">{TAKES[take].label}</span>
-        </div>
-        {take === 'd' && (
-          <div className="pw-switch-row">
-            {(Object.keys(BGS) as BgId[]).map((id) => (
-              <button key={id} className={dBg === id ? 'on' : ''} onClick={() => setDBg(id)}>{BGS[id].name}</button>
-            ))}
-          </div>
-        )}
-      </div>
+      <WallpaperBar value={wp} onChange={setWp} />
 
       <div className="pw-shell">
         {/* sidebar */}
@@ -501,7 +396,7 @@ const PreviewApp = () => {
                 <button className={density === 'minimal' ? 'on' : ''} onClick={() => setDensity('minimal')}><span>Minimal</span></button>
               </div>
             )}
-            <button className="pw-btn acc" style={{ flex: 'none' }}><Plus size={14} />Add Task</button>
+            <button className="pw-btn acc" style={{ flex: 'none' }} onClick={() => setAddOpen(true)}><Plus size={14} />Add Task</button>
           </div>
 
           <div className="pw-tabs pw-glass">
@@ -592,6 +487,42 @@ const PreviewApp = () => {
           </div>
         </main>
       </div>
+
+      {/* add-task panel (docked on desktop, sheet on mobile) */}
+      {addOpen && (
+        <div className="pw-addpanel pw-glass">
+          <h3>New Task <button className="pw-iconbtn" onClick={() => setAddOpen(false)}><X size={15} /></button></h3>
+          <div className="pw-field"><label>TITLE</label><input className="pw-input" placeholder="What needs doing?" /></div>
+          <div className="pw-field"><label>DESCRIPTION</label><textarea className="pw-textarea" placeholder="Details, links…" /></div>
+          <div className="pw-field"><label>PRIORITY</label>
+            <div className="pw-chiprow">
+              {['Low', 'Medium', 'High', 'Urgent'].map((p) => (
+                <button key={p} className={`pw-choice ${p === 'Medium' ? 'on' : ''}`}>{p}</button>
+              ))}
+            </div>
+          </div>
+          <div className="pw-field"><label>PROJECT</label>
+            <div className="pw-chiprow">
+              {PROJECTS.map((p) => (
+                <button key={p.id} className={`pw-choice ${p.id === 'fos' ? 'on' : ''}`}>
+                  <span className="pw-dot" style={{ background: p.color }} />{p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="pw-field"><label>DUE</label>
+            <div className="pw-chiprow">
+              <button className="pw-choice on">Today</button>
+              <button className="pw-choice">Tomorrow</button>
+              <button className="pw-choice">Pick date…</button>
+            </div>
+          </div>
+          <div style={{ marginTop: 'auto', display: 'flex', gap: 8 }}>
+            <button className="pw-btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setAddOpen(false)}>Cancel</button>
+            <button className="pw-btn acc" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setAddOpen(false)}><Plus size={14} />Add Task</button>
+          </div>
+        </div>
+      )}
 
       {/* dock */}
       <nav className="pw-dock pw-glass">
