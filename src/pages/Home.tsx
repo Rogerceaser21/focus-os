@@ -100,7 +100,7 @@ const Home = () => {
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
         {/* Greeting */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground">
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground lg-onbg">
             {getGreeting()}{firstName ? `, ${firstName}` : ''}
           </h1>
           <div className="h-8 mt-3 relative">
@@ -111,9 +111,8 @@ const Home = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35 }}
-                className="text-base sm:text-lg absolute inset-0 flex items-center justify-center"
-                style={{ color: 'hsl(var(--muted-foreground))' }}>
-                
+                className="text-base sm:text-lg absolute inset-0 flex items-center justify-center text-muted-foreground lg-onbg">
+
                 {SUBTITLES[subtitleIndex]}
               </motion.p>
             </AnimatePresence>
@@ -141,7 +140,7 @@ const Home = () => {
               }} />
             
           </motion.button>
-          <span className="text-sm font-medium text-center text-muted-foreground">
+          <span className="text-sm font-medium text-center text-muted-foreground lg-onbg">
             Tap to capture your thoughts into tasks
           </span>
         </div>
