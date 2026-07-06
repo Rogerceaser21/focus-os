@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import ImportTasks from "./pages/ImportTasks";
 import GoogleConnected from "./pages/GoogleConnected";
 import SharedAction from "./pages/SharedAction";
+import Preview from "./pages/Preview";
 
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
         <Route path="/import-tasks" element={<ImportTasks />} />
         <Route path="/google-connected" element={<GoogleConnected />} />
         <Route path="/respond" element={<SharedAction />} />
+        <Route path="/preview" element={<Preview />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
