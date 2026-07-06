@@ -8,13 +8,13 @@
  * Switch styles with the pill at the top, or ?take=a|b|c|d.
  * Delete together with Preview.tsx once tokens are locked.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BASE_CSS, WALLPAPERS, WallpaperBar, useWallpaper } from './previewTheme';
 import {
   Plus, Search, HelpCircle, Mic, Video, ListTodo, AlertTriangle, Inbox,
   FolderOpen, Calendar, Settings, LogOut, Play, Pause, Check, Share2,
   CalendarPlus, Trash2, UserPlus, MoveVertical, LayoutGrid, List,
-  GanttChartSquare, Clock3, Menu, X, Paperclip,
+  GanttChartSquare, Clock3, Menu, X, Paperclip, Brain, Square,
 } from 'lucide-react';
 
 /* config + tokens live in previewTheme.tsx */
@@ -211,6 +211,81 @@ const CSS = `
 }
 .pw-choice.on { background: var(--pw-ac); border-color: transparent; color: #fff; }
 
+/* ---------- record FAB ---------- */
+.pw-fab { position: fixed; right: 22px; bottom: 92px; z-index: 42; }
+.pw-fab-veil { display: none; }
+.pw-fab-veil.open { display: block; position: fixed; inset: 0; z-index: 41; background: rgba(0,0,0,.18); }
+.pw-fab-main {
+  position: relative; z-index: 43;
+  width: 56px; height: 56px; border-radius: 999px; cursor: pointer;
+  background: var(--gbg-strong); border: 3px solid var(--t2);
+  backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+  box-shadow: var(--gshadow), 0 10px 30px rgba(0,0,0,.2);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .2s ease;
+}
+.pw-fab-main.open { transform: rotate(45deg); }
+.pw-fab-main .dot { width: 15px; height: 15px; border-radius: 999px; background: radial-gradient(circle at 38% 32%, #ff5a52, #c81e1e 70%); box-shadow: 0 2px 10px rgba(200,30,30,.5); }
+.pw-fab-sat {
+  position: absolute; z-index: 43; width: 46px; height: 46px; right: 5px; bottom: 5px;
+  border-radius: 999px; cursor: pointer; border: 1px solid var(--gbrd);
+  background: var(--gbg-strong); color: var(--pw-ac);
+  backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
+  box-shadow: var(--gshadow); display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: transform .22s ease, opacity .18s ease;
+}
+.pw-fab.open .pw-fab-sat { opacity: 1; pointer-events: auto; }
+.pw-fab.open .pw-fab-sat.up { transform: translateY(-64px); }
+.pw-fab.open .pw-fab-sat.left { transform: translateX(-64px); transition-delay: .04s; }
+.pw-fab-hint {
+  position: absolute; right: 122px; bottom: 16px; white-space: nowrap;
+  font-size: 11px; font-weight: 600; color: var(--onbg); text-shadow: var(--onbg-shadow);
+  opacity: 0; transition: opacity .2s ease .1s;
+}
+.pw-fab.open .pw-fab-hint { opacity: .85; }
+
+/* ---------- brain dump dialog ---------- */
+.pw-brain-veil {
+  position: fixed; inset: 0; z-index: 70; background: rgba(4,8,16,.5);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.pw-brain {
+  width: 100%; max-width: 560px; max-height: 86vh; border-radius: 28px;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.pw-brain-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 6px; }
+.pw-brain-head h3 { margin: 0; font-size: 18px; font-weight: 700; color: var(--t1); }
+.pw-brain-listen {
+  display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+  margin: 8px 16px; border-radius: 20px; background: var(--chip); border: 1px solid var(--chip-brd);
+}
+.pw-mic {
+  width: 48px; height: 48px; border-radius: 999px; flex: none;
+  background: var(--pw-ac); color: #fff; display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.pw-mic::before, .pw-mic::after {
+  content: ''; position: absolute; inset: 0; border-radius: 999px;
+  border: 2px solid var(--pw-ac); animation: pw-ping 1.8s ease-out infinite;
+}
+.pw-mic::after { animation-delay: .9s; }
+@keyframes pw-ping { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(1.9); opacity: 0; } }
+.pw-brain-listen .lbl { font-size: 14px; font-weight: 600; color: var(--t1); }
+.pw-brain-listen .sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.pw-brain-body { overflow-y: auto; padding: 6px 16px 12px; }
+.pw-brain-group { margin-top: 12px; }
+.pw-brain-glabel { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--t2); padding: 4px 6px; display: flex; align-items: center; gap: 6px; }
+.pw-brain-task {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-top: 6px;
+  border-radius: 14px; background: var(--gbg); border: 1px solid var(--gbrd);
+  animation: pw-rise .35s ease both;
+}
+@keyframes pw-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.pw-brain-task .tt { font-size: 14px; font-weight: 500; color: var(--t1); flex: 1; }
+.pw-brain-foot { display: flex; gap: 8px; padding: 12px 20px 18px; border-top: 1px solid var(--row-line); }
+
 /* ---------- responsive ---------- */
 .pw-sideveil { display: none; }
 @media (max-width: 999px) {
@@ -289,6 +364,17 @@ function TaskRow({ t, density }: { t: Task; density: 'full' | 'compact' | 'minim
 const PreviewApp = () => {
   const [wp, setWp] = useWallpaper();
   const [addOpen, setAddOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
+  const [brainOpen, setBrainOpen] = useState(false);
+  const [brainCount, setBrainCount] = useState(0);
+
+  // simulate tasks arriving live while "listening"
+  useEffect(() => {
+    if (!brainOpen) return;
+    setBrainCount(0);
+    const ts = [700, 1600, 2600, 3400].map((ms, i) => setTimeout(() => setBrainCount(i + 1), ms));
+    return () => ts.forEach(clearTimeout);
+  }, [brainOpen]);
   const [view, setView] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [density, setDensity] = useState<'full' | 'compact' | 'minimal'>('compact');
   const [tab, setTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -487,6 +573,88 @@ const PreviewApp = () => {
           </div>
         </main>
       </div>
+
+      {/* record FAB — single tap expands, brain-dump satellite opens the dialog */}
+      <div className={`pw-fab-veil ${fabOpen ? 'open' : ''}`} onClick={() => setFabOpen(false)} />
+      <div className={`pw-fab ${fabOpen ? 'open' : ''}`}>
+        <button className="pw-fab-sat up" aria-label="Brain dump"
+          onClick={() => { setFabOpen(false); setBrainOpen(true); }}>
+          <Brain size={20} />
+        </button>
+        <button className="pw-fab-sat left" aria-label="Record meeting" onClick={() => setFabOpen(false)}>
+          <Video size={19} />
+        </button>
+        <span className="pw-fab-hint">Brain Dump ↑ · Record Meeting ←</span>
+        <button className={`pw-fab-main ${fabOpen ? 'open' : ''}`} onClick={() => setFabOpen((o) => !o)}>
+          <span className="dot" />
+        </button>
+      </div>
+
+      {/* brain dump dialog (mock: tasks appear as you "speak") */}
+      {brainOpen && (
+        <div className="pw-brain-veil" onClick={() => setBrainOpen(false)}>
+          <div className="pw-brain pw-glass" onClick={(e) => e.stopPropagation()}>
+            <div className="pw-brain-head">
+              <h3>Brain Dump</h3>
+              <button className="pw-iconbtn" onClick={() => setBrainOpen(false)}><X size={15} /></button>
+            </div>
+            <div className="pw-brain-listen">
+              <div className="pw-mic"><Mic size={20} /></div>
+              <div>
+                <div className="lbl">Listening… speak freely</div>
+                <div className="sub">Tasks appear below as you talk. Stop when you're done.</div>
+              </div>
+            </div>
+            <div className="pw-brain-body">
+              {brainCount >= 1 && (
+                <div className="pw-brain-group">
+                  <div className="pw-brain-glabel"><Calendar size={12} />TODAY'S TO-DO</div>
+                  <div className="pw-brain-task">
+                    <span className="pw-dot" style={{ background: '#e5484d' }} />
+                    <span className="tt">Email Sarah the Q3 numbers</span>
+                    <span className="pw-mchip">Urgent</span>
+                  </div>
+                </div>
+              )}
+              {brainCount >= 2 && (
+                <div className="pw-brain-group">
+                  <div className="pw-brain-glabel"><FolderOpen size={12} />FOCUS OS</div>
+                  <div className="pw-brain-task">
+                    <span className="pw-dot" style={{ background: '#2ec4c9' }} />
+                    <span className="tt">Renew SSL certificates before Friday</span>
+                    <span className="pw-mchip">High</span>
+                  </div>
+                </div>
+              )}
+              {brainCount >= 3 && (
+                <div className="pw-brain-group">
+                  <div className="pw-brain-glabel"><Plus size={12} />🆕 NEW PROJECT: BALI HOLIDAY</div>
+                  <div className="pw-brain-task">
+                    <span className="pw-dot" style={{ background: '#67c264' }} />
+                    <span className="tt">Book flights for October</span>
+                    <span className="pw-mchip">Medium</span>
+                  </div>
+                  {brainCount >= 4 && (
+                    <div className="pw-brain-task">
+                      <span className="pw-dot" style={{ background: '#67c264' }} />
+                      <span className="tt">Research villas in Ubud</span>
+                      <span className="pw-mchip">Low</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="pw-brain-foot">
+              <button className="pw-btn" style={{ flex: 1, justifyContent: 'center' }}>
+                <Square size={12} />Stop listening
+              </button>
+              <button className="pw-btn acc" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setBrainOpen(false)}>
+                <Check size={14} />Save All Tasks ({brainCount})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* add-task panel (docked on desktop, sheet on mobile) */}
       {addOpen && (
