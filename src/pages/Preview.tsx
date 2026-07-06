@@ -328,6 +328,43 @@ const CSS = `
   display: flex; align-items: center; justify-content: center;
 }
 .pv-dock-item span { font-size: 10px; font-weight: 600; letter-spacing: .01em; }
+.pv-upnext { margin-top: 24px; }
+.pv-spacer { flex: 1; min-height: 16px; }
+.pv-actions {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; margin-bottom: 108px;
+}
+
+/* -------- tablet: wider centred column, bigger type -------- */
+@media (min-width: 640px) {
+  .pv-col { max-width: 620px; padding: 84px 40px 0; }
+  .pv-root .pv-greet { font-size: 40px; }
+  .pv-upnext { margin-top: 36px; }
+  .pv-root .pv-orb { width: 132px; height: 132px; }
+  .pv-root .pv-orb-core { width: 33px; height: 33px; }
+  .pv-root .pv-orb-label { font-size: 13.5px; }
+}
+
+/* -------- desktop / landscape: two-column composition -------- */
+@media (min-width: 1000px) {
+  .pv-col { max-width: 1060px; padding: 0 56px; }
+  .pv-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 420px;
+    grid-template-rows: 1fr auto auto 1.15fr;
+    column-gap: 64px;
+  }
+  .pv-head { grid-column: 1; grid-row: 2; }
+  .pv-root .pv-greet { font-size: 48px; text-align: left; margin-top: 0; }
+  .pv-root .pv-sub { text-align: left; font-size: 18px; }
+  .pv-actions { grid-column: 1; grid-row: 3; margin: 56px 0 0; }
+  .pv-upnext { grid-column: 2; grid-row: 1 / span 4; align-self: center; margin-top: 0; }
+  .pv-spacer { display: none; }
+  .pv-root .pv-orb { width: 150px; height: 150px; }
+  .pv-root .pv-orb-core { width: 36px; height: 36px; }
+  .pv-root .pv-task { padding: 12px 20px; }
+  .pv-root .pv-uphead { padding: 18px 20px 4px; }
+}
 `;
 
 /* ------------------------------------------------------------ skeleton */
@@ -335,10 +372,12 @@ const CSS = `
 function HeroSkeleton() {
   return (
     <div className="pv-content">
-      <h1 className="pv-greet">{greeting()}, Igor</h1>
-      <p className="pv-sub">{SUBTITLE}</p>
+      <div className="pv-head">
+        <h1 className="pv-greet">{greeting()}, Igor</h1>
+        <p className="pv-sub">{SUBTITLE}</p>
+      </div>
 
-      <div className="pv-glass" style={{ marginTop: 24 }}>
+      <div className="pv-glass pv-upnext">
         <div className="pv-uphead">
           <span className="pv-card-title">Up next</span>
           <span className="pv-count pv-task-meta">2 open</span>
@@ -362,9 +401,9 @@ function HeroSkeleton() {
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 16 }} />
+      <div className="pv-spacer" />
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 108 }}>
+      <div className="pv-actions">
         <button className="pv-orb" aria-label="Brain dump">
           <div className="pv-orb-core" />
         </button>
