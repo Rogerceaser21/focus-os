@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
+
+if (import.meta.env.DEV) (window as any).__gsap = gsap;
 import { Video, HelpCircle, Check, Mic, Square, Calendar, FolderOpen, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -149,17 +151,21 @@ const Home = () => {
     };
   }, [rec]);
 
-  // FABs elsewhere send ?braindump=1 — auto-start the inline recording stage
+  // FABs elsewhere send ?braindump=1 — auto-start the inline recording stage.
+  // Deliberately NO effect cleanup: stripping the param re-runs the effect and
+  // a cleanup would kill the pending timer before it ever fires. The ref guards
+  // strict-mode double-invoke and re-runs instead.
   const autoStartRef = useRef(false);
   useEffect(() => {
     if (!user || autoStartRef.current) return;
     if (searchParams.get('braindump') !== '1') return;
     autoStartRef.current = true;
-    const next = new URLSearchParams(searchParams);
-    next.delete('braindump');
-    setSearchParams(next, { replace: true });
-    const t = setTimeout(() => handleOrbTap(), 500);
-    return () => clearTimeout(t);
+    setTimeout(() => {
+      const next = new URLSearchParams(window.location.search);
+      next.delete('braindump');
+      setSearchParams(next, { replace: true });
+      handleOrbTap();
+    }, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, searchParams]);
 

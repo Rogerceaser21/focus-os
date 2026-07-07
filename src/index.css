@@ -764,6 +764,10 @@ All colors MUST be HSL.
    -------------------------------------------------------------------------- */
 .liquid-glass .lg-hero-col {
   position: relative; z-index: 1;
+  /* width 100% is load-bearing: the parent is a column flexbox, and margin
+     auto would otherwise disable stretch and collapse this to fit-content,
+     breaking the recording-stage geometry (orb glide, absolute stream) */
+  width: 100%;
   max-width: 430px; margin: 0 auto; height: 100dvh;
   display: flex; flex-direction: column;
   padding: 40px 20px 0; overflow: hidden;
