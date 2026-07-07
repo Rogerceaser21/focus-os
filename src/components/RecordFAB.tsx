@@ -141,8 +141,7 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
           animate={{ rotate: fabExpanded ? 45 : 0 }}
           transition={{ duration: 0.2 }}
           onClick={handleMainClick}
-          className="relative w-[56px] h-[56px] rounded-full shadow-lg flex items-center justify-center border-[3.5px] border-foreground/70"
-          style={{ background: 'hsl(var(--card))' }}
+          className="relative w-[56px] h-[56px] rounded-full flex items-center justify-center lg-fab-main"
         >
           <div
             className="rounded-full transition-all duration-200"
