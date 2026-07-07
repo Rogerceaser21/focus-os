@@ -2,6 +2,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ScrollHintArea } from '@/components/ScrollHintArea';
 
 interface SidePanelProps {
   open: boolean;
@@ -27,9 +28,9 @@ export const SidePanel = ({ open, onClose, title, children, className, footer }:
           <X className="h-4 w-4" />
         </Button>
       </div>
-      <div className={cn('flex-1 overflow-y-auto px-4', footer ? 'pb-4' : 'pb-24')}>
+      <ScrollHintArea className={cn('px-4', footer ? 'pb-4' : 'pb-24')}>
         {children}
-      </div>
+      </ScrollHintArea>
       {footer && <div className="flex-shrink-0 px-4 pb-4">{footer}</div>}
     </div>
   );

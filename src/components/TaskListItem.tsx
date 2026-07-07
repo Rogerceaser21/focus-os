@@ -459,7 +459,9 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               {editedTitle}
             </span>
           )}
-          {sharedText && (
+          {/* Mobile keeps the row lean: play + X only. Share/AI/calendar/edit
+              live in the edit pane, opened by tapping the task. */}
+          {sharedText && !isMobile && (
             <div className="shrink-0 max-w-[40%] sm:max-w-none" onClick={(e) => e.stopPropagation()}>
               <ShareStatusPopover
                 recipients={task.sharedRecipients!}
@@ -478,7 +480,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               </ShareStatusPopover>
             </div>
           )}
-          {onEditTask && (
+          {onEditTask && !isMobile && (
             <Button
               variant="ghost"
               size="sm"
@@ -489,15 +491,17 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               <HandToAI variant="full" className="h-3.5 w-auto" />
             </Button>
           )}
-          <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <GoogleCalendarButton
-              taskId={task.id}
-              task={task}
-              synced={!!task.googleCalendarEventId}
-              onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
-            />
-          </div>
-          {onEditTask && (
+          {!isMobile && (
+            <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              <GoogleCalendarButton
+                taskId={task.id}
+                task={task}
+                synced={!!task.googleCalendarEventId}
+                onChange={(s) => { (task as any).googleCalendarEventId = s ? 'pending' : undefined; onUpdate({ ...task }); }}
+              />
+            </div>
+          )}
+          {onEditTask && !isMobile && (
             <Button
               variant="ghost"
               size="sm"

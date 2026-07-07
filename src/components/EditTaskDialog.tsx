@@ -30,6 +30,7 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
 import { SidePanel } from '@/components/SidePanel';
+import { ScrollHintArea } from '@/components/ScrollHintArea';
 import { uploadTaskImage, getImageDisplayUrl } from '@/lib/taskImageStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { HandoffToAIDialog } from '@/components/HandoffToAIDialog';
@@ -282,7 +283,9 @@ export const EditTaskDialog = ({
   };
 
   const panelTitle = (
-    <div className="flex items-center gap-2">
+    // pr-9 keeps the trailing bin icon clear of the dialog's built-in X close;
+    // flex-wrap lets the share chip drop to its own line on narrow screens.
+    <div className="flex items-center gap-2 flex-wrap pr-9">
       <span>Edit Task</span>
       <Button
         variant="outline"
@@ -583,7 +586,7 @@ export const EditTaskDialog = ({
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>{panelTitle}</DialogTitle>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto">{formContent}</div>
+            <ScrollHintArea>{formContent}</ScrollHintArea>
             {formFooter}
           </DialogContent>
         </Dialog>
@@ -600,7 +603,7 @@ export const EditTaskDialog = ({
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>{panelTitle}</DialogTitle>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto">{formContent}</div>
+            <ScrollHintArea>{formContent}</ScrollHintArea>
             {formFooter}
           </DialogContent>
         </Dialog>

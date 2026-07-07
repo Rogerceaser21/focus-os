@@ -373,7 +373,9 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               Pause
             </Button>
           )}
-          <Button
+          {/* Mobile keeps the card footer lean: play + X only. */}
+          {!isMobile && (
+            <Button
               size="sm"
               variant="ghost"
               onClick={() => onAssignTask?.(task)}
@@ -382,7 +384,8 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
             >
               <Share2 className="h-3 w-3" />
             </Button>
-          {!task.assignedToEmail && (
+          )}
+          {!task.assignedToEmail && !isMobile && (
             <GoogleCalendarButton
               taskId={task.id}
               task={task}
@@ -431,7 +434,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               Shared by {task.assignedToEmail}
             </span>
           )}
-          {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
+          {task.sharedRecipients && task.sharedRecipients.length > 0 && !isMobile ? (
             <div className="ml-auto">
               <ShareStatusPopover
                 recipients={task.sharedRecipients}
