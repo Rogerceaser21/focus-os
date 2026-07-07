@@ -805,10 +805,10 @@ const Meetings = () => {
         </div>
       </div>
 
-      {/* Participant Setup */}
+      {/* Participant Setup — floating glass card, same material as the sidebar */}
       {showParticipants && recordingState === 'idle' && (
-        <div className="border-b bg-card/50">
-          <div className="max-w-4xl mx-auto px-4 py-4 space-y-3">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="lg-glasscard px-5 py-4 space-y-3">
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Meeting Name

@@ -979,3 +979,23 @@ All colors MUST be HSL.
   top: 10px !important;
 }
 .liquid-glass .lg-pagehead button { border-radius: 999px; }
+
+/* page header pill matches the content column width, not the viewport */
+.liquid-glass .lg-pagehead { max-width: 896px; margin-left: auto; margin-right: auto; }
+
+/* standalone glass card (new-meeting form etc.) — same material as lg-side */
+.liquid-glass .lg-glasscard {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+  border-radius: 26px;
+  margin-bottom: 16px;
+}
+.liquid-glass .lg-glasscard input {
+  border-radius: 14px;
+  background: var(--chip);
+  border-color: var(--chip-brd);
+}
+.liquid-glass .lg-glasscard button { border-radius: 999px; }
