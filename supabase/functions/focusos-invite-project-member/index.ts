@@ -165,10 +165,10 @@ Deno.serve(async (req) => {
           subject: `${senderName} invited you to collaborate on "${project.name}"`,
           html: `
             <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-              <h2 style="color: #7c3aed;">You've been invited to a project!</h2>
+              <h2 style="color: #0f7490;">You've been invited to a project!</h2>
               <p><strong>${senderName}</strong> has invited you to collaborate on the project <strong>"${project.name}"</strong> as a <strong>${role}</strong>.</p>
               <p>Log in to Focus OS to accept or decline this invitation.</p>
-              <a href="https://focusos2.lovable.app" style="display: inline-block; background: #7c3aed; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px;">Open Focus OS</a>
+              <a href="https://focusos2.lovable.app" style="display: inline-block; background: #0f7490; color: white; padding: 12px 24px; border-radius: 999px; text-decoration: none; margin-top: 16px;">Open Focus OS</a>
             </div>
           `,
         }),

@@ -857,7 +857,7 @@ const MeetingDetail = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="sticky top-0 z-10 lg-pagehead">
           <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
             <Skeleton className="h-10 w-10 rounded" />
             <Skeleton className="h-6 w-48" />
@@ -880,7 +880,7 @@ const MeetingDetail = () => {
     <>
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="sticky top-0 z-10 lg-pagehead">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/meetings')}>
             <ArrowLeft className="h-5 w-5" />

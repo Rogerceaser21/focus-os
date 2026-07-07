@@ -776,8 +776,8 @@ const Meetings = () => {
   return (
     <>
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10" data-meetings-tour-step="page">
+      {/* Header — floating glass pill (lg-pagehead) */}
+      <div className="sticky top-0 z-10 lg-pagehead" data-meetings-tour-step="page">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/app')}>
             <ArrowLeft className="h-5 w-5" />

@@ -917,3 +917,65 @@ All colors MUST be HSL.
 .liquid-glass .lg-content.lg-scrolling::-webkit-scrollbar-thumb { background: var(--t3); }
 .liquid-glass .lg-content { scrollbar-width: thin; scrollbar-color: transparent transparent; }
 .liquid-glass .lg-content.lg-scrolling { scrollbar-color: var(--t3) transparent; }
+
+/* brain-dump review dialog: mock add-task-panel skin (glass rows, pill controls) */
+.liquid-glass .lg-review { border-radius: 28px; }
+.liquid-glass .lg-review [data-task-card] {
+  background: var(--gbg-strong);
+  border: 1px solid var(--gbrd);
+  border-radius: 16px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.liquid-glass .lg-review .border-l-2 { border-color: var(--row-line); }
+.liquid-glass .lg-review button { border-radius: 999px; }
+
+/* docked Add/Edit Task side panel becomes the mock's floating glass panel */
+.liquid-glass [data-side-panel] {
+  position: fixed;
+  top: 14px; right: 14px; bottom: 14px;
+  height: auto; width: 380px; z-index: 45;
+  border: 1px solid var(--gbrd) !important;
+  border-radius: 26px;
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--gshadow);
+  overflow: hidden;
+}
+
+/* dialog + panel form polish: mock pw-input / pw-choice look */
+.liquid-glass [role='dialog'],
+.liquid-glass [data-side-panel] { border-radius: 26px; }
+.liquid-glass [role='dialog'] input:not([type='color']):not([type='checkbox']),
+.liquid-glass [role='dialog'] textarea,
+.liquid-glass [data-side-panel] input:not([type='color']):not([type='checkbox']),
+.liquid-glass [data-side-panel] textarea {
+  border-radius: 14px;
+  background: var(--chip);
+  border-color: var(--chip-brd);
+}
+.liquid-glass [role='dialog'] button:not([role='checkbox']):not([role='radio']),
+.liquid-glass [data-side-panel] button:not([role='checkbox']):not([role='radio']) {
+  border-radius: 999px;
+}
+.liquid-glass [role='dialog'] [role='combobox'],
+.liquid-glass [data-side-panel] [role='combobox'] {
+  border-radius: 14px;
+  background: var(--chip);
+  border-color: var(--chip-brd);
+}
+
+/* page headers (Meetings, MeetingDetail): floating glass bar */
+.liquid-glass .lg-pagehead {
+  margin: 14px;
+  border: 1px solid var(--gbrd);
+  border-radius: 999px;
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--gshadow);
+  top: 10px !important;
+}
+.liquid-glass .lg-pagehead button { border-radius: 999px; }

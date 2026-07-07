@@ -284,7 +284,7 @@ export const BrainDumpLiveDialog = ({
     <>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6"
+        className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6 lg-review"
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
@@ -385,7 +385,7 @@ export const BrainDumpLiveDialog = ({
           {tasks.length > 0 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">
+                <span className="text-base font-bold">
                   {isDone ? 'Review & Edit Tasks' : 'Tasks Found'}
                 </span>
                 <span className="text-sm text-muted-foreground">
