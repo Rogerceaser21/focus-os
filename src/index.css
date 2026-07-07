@@ -600,6 +600,48 @@ All colors MUST be HSL.
 /* fully vanish when collapsed (w-0) — no border/margin sliver */
 .liquid-glass .lg-side.w-0 { border: none !important; margin: 0; box-shadow: none; }
 
+/* --------------------------------------------------------------------------
+   Home-Screen (standalone) mode ONLY. In Safari the safe-area insets are 0 and
+   this media query never matches, so browser rendering is untouched. Launched
+   from the icon, the insets are real (~59px top / ~34px bottom): the global
+   #root padding used to shift the whole app down and spill the bottom 93px
+   off-screen (record orb under the dock, panel edges exposed as seams).
+   Instead: no global shift; each fixed-viewport shell pads its own top, and
+   bottom-pinned elements lift by the bottom inset.
+   -------------------------------------------------------------------------- */
+@media (display-mode: standalone) {
+  #root {
+    padding: 0;
+  }
+  /* app pages: content starts below the clock, wallpaper still runs behind it */
+  .liquid-glass .lg-shell {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  /* 8px instead of the browser's 40px (the inset already gives clearance);
+     bottom padding reserves the dock zone — the hero content is
+     bottom-anchored by flex spacers, so this is what actually lifts the
+     Record Meeting button clear of the dock. */
+  .liquid-glass .lg-hero-col {
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(106px + env(safe-area-inset-bottom, 0px));
+  }
+  /* bottom-pinned chrome clears the home indicator */
+  .liquid-glass .lg-dock {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .liquid-glass div.fixed.bottom-24 {
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  /* floating panels + centred sheets stay clear of both insets */
+  .liquid-glass [data-side-panel] {
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .liquid-glass .lg-editsheet {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+  }
+}
+
 /* Mobile edit pane: slides up from the bottom edge of the screen like an iOS
    sheet (and back down on close), instead of the default quick zoom. Keyframes
    carry the Radix centering translate so the panel lands exactly where the
