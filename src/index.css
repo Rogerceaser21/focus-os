@@ -613,6 +613,12 @@ All colors MUST be HSL.
   #root {
     padding: 0;
   }
+  /* iOS standalone does not extend fixed layers into the bottom
+     home-indicator zone — overdraw the wallpaper past it so no bare
+     html background shows through. */
+  html.liquid-glass body::before {
+    bottom: calc(-1 * env(safe-area-inset-bottom, 0px) - 4px);
+  }
   /* app pages: content starts below the clock, wallpaper still runs behind it */
   .liquid-glass .lg-shell {
     padding-top: env(safe-area-inset-top, 0px);
@@ -623,7 +629,10 @@ All colors MUST be HSL.
      Record Meeting button clear of the dock. */
   .liquid-glass .lg-hero-col {
     padding-top: calc(8px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(106px + env(safe-area-inset-bottom, 0px));
+    /* generous: the same viewport quirk shortens the usable height by the
+       bottom inset, which ate the clearance measured in simulation */
+    padding-bottom: calc(110px + (2 * env(safe-area-inset-bottom, 0px)));
+    height: 100svh;
   }
   /* bottom-pinned chrome clears the home indicator */
   .liquid-glass .lg-dock {
