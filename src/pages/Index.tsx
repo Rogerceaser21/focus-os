@@ -274,7 +274,12 @@ const Index = () => {
   useEffect(() => {
     const handleClickOutside = (event: PointerEvent) => {
       const target = event.target as HTMLElement;
-      
+
+      // An open dropdown swallows this click to dismiss itself (Radix disables
+      // page pointer-events, so the target reports as <body>) — never collapse
+      // cards on the same click.
+      if (document.querySelector('[data-radix-popper-content-wrapper]')) return;
+
       // Check if click is outside all task cards
       const isOutsideTaskCard = !target.closest('[data-task-card]');
       

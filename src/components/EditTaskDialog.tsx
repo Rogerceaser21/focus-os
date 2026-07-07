@@ -521,14 +521,19 @@ export const EditTaskDialog = ({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => onOpenChange(false)}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} data-task-tour-step="save-button" disabled={uploading}>
-          {uploading ? 'Uploading...' : 'Save Changes'}
-        </Button>
-      </div>
+    </div>
+  );
+
+  // Pinned outside the scroll area in every container so Cancel/Save are
+  // always reachable without scrolling.
+  const formFooter = (
+    <div className="flex justify-end gap-2 pt-3 border-t border-border/50 flex-shrink-0">
+      <Button variant="outline" onClick={() => onOpenChange(false)}>
+        Cancel
+      </Button>
+      <Button onClick={handleSubmit} data-task-tour-step="save-button" disabled={uploading}>
+        {uploading ? 'Uploading...' : 'Save Changes'}
+      </Button>
     </div>
   );
 
@@ -563,11 +568,12 @@ export const EditTaskDialog = ({
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-full mx-0 sm:mx-auto p-4 sm:p-6">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>{panelTitle}</DialogTitle>
             </DialogHeader>
-            {formContent}
+            <div className="flex-1 overflow-y-auto">{formContent}</div>
+            {formFooter}
           </DialogContent>
         </Dialog>
         {extras}
@@ -579,11 +585,12 @@ export const EditTaskDialog = ({
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-full mx-0 sm:mx-auto p-4 sm:p-6">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>{panelTitle}</DialogTitle>
             </DialogHeader>
-            {formContent}
+            <div className="flex-1 overflow-y-auto">{formContent}</div>
+            {formFooter}
           </DialogContent>
         </Dialog>
         {extras}
@@ -594,7 +601,7 @@ export const EditTaskDialog = ({
   return (
     <>
       {open && (
-        <SidePanel open={open} onClose={() => onOpenChange(false)} title={panelTitle} className="border-r border-l-0">
+        <SidePanel open={open} onClose={() => onOpenChange(false)} title={panelTitle} className="border-r border-l-0" footer={formFooter}>
           {formContent}
         </SidePanel>
       )}

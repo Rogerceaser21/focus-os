@@ -9,9 +9,11 @@ interface SidePanelProps {
   title: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  /** Pinned below the scroll area — always visible. */
+  footer?: React.ReactNode;
 }
 
-export const SidePanel = ({ open, onClose, title, children, className }: SidePanelProps) => {
+export const SidePanel = ({ open, onClose, title, children, className, footer }: SidePanelProps) => {
   if (!open) return null;
 
   return (
@@ -25,9 +27,10 @@ export const SidePanel = ({ open, onClose, title, children, className }: SidePan
           <X className="h-4 w-4" />
         </Button>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pb-24">
+      <div className={cn('flex-1 overflow-y-auto px-4', footer ? 'pb-4' : 'pb-24')}>
         {children}
       </div>
+      {footer && <div className="flex-shrink-0 px-4 pb-4">{footer}</div>}
     </div>
   );
 };
