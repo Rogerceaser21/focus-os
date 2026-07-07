@@ -70,7 +70,7 @@ const BottomNav = ({
           icon={<FolderOpen className="w-5 h-5" />}
           label="Projects"
           onClick={() => {
-            if (isMobile && location.pathname === '/app' && onToggleSidebar) {
+            if (location.pathname === '/app' && onToggleSidebar) {
               onToggleSidebar();
             } else {
               navigate('/app?openSidebar=true');

@@ -68,6 +68,7 @@ const Home = () => {
   const { tasks: liveTasks, connectionState, start, stop, resetTasks } = useBrainDumpLive();
   const rec = connectionState === 'connecting' || connectionState === 'listening';
 
+  const colRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const orbRef = useRef<HTMLButtonElement>(null);
   const coreRef = useRef<HTMLDivElement>(null);
@@ -110,11 +111,30 @@ const Home = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // GSAP: orb glides left on wide screens while recording; red core breathes
+  // GSAP: on wide screens the hero column expands and the orb glides left while
+  // recording. Widths are computed from real geometry (viewport, stream panel),
+  // clamped so the orb can never leave the column — no magic mock numbers.
   useEffect(() => {
     const wide = window.matchMedia('(min-width: 1000px)').matches;
-    if (actionsRef.current) {
-      gsap.to(actionsRef.current, { x: rec && wide ? -280 : 0, duration: 0.65, ease: 'expo.inOut' });
+    const col = colRef.current;
+    if (col && wide) {
+      const targetW = rec ? Math.min(1120, window.innerWidth - 16) : 640;
+      gsap.to(col, {
+        maxWidth: targetW,
+        duration: 0.55,
+        ease: 'power3.inOut',
+        onComplete: () => {
+          if (!rec) gsap.set(col, { clearProps: 'maxWidth' });
+        },
+      });
+      // stream panel: 460px wide, 44px from the column's right edge; the orb
+      // centres in the remaining left region, and stays >= 95px from the edge
+      const shift = rec ? -Math.min((460 + 44) / 2, targetW / 2 - 95) : 0;
+      if (actionsRef.current) {
+        gsap.to(actionsRef.current, { x: shift, duration: 0.65, ease: 'expo.inOut' });
+      }
+    } else if (actionsRef.current) {
+      gsap.to(actionsRef.current, { x: 0, duration: 0.4, ease: 'power2.out' });
     }
     if (rec && coreRef.current) {
       pulseRef.current = gsap.to(coreRef.current, { scale: 0.78, duration: 0.8, ease: 'sine.inOut', yoyo: true, repeat: -1 });
@@ -128,6 +148,20 @@ const Home = () => {
       pulseRef.current = null;
     };
   }, [rec]);
+
+  // FABs elsewhere send ?braindump=1 — auto-start the inline recording stage
+  const autoStartRef = useRef(false);
+  useEffect(() => {
+    if (!user || autoStartRef.current) return;
+    if (searchParams.get('braindump') !== '1') return;
+    autoStartRef.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete('braindump');
+    setSearchParams(next, { replace: true });
+    const t = setTimeout(() => handleOrbTap(), 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, searchParams]);
 
   // Auto-launch the Home tour for first-time users, or when triggered via ?tour=home
   useEffect(() => {
@@ -218,7 +252,7 @@ const Home = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
 
-      <div className={`lg-hero-col ${rec ? 'rec' : ''}`}>
+      <div className={`lg-hero-col ${rec ? 'rec' : ''}`} ref={colRef}>
         {/* Greeting */}
         <div className="text-center">
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground lg-onbg">

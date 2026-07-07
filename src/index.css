@@ -767,7 +767,7 @@ All colors MUST be HSL.
   max-width: 430px; margin: 0 auto; height: 100dvh;
   display: flex; flex-direction: column;
   padding: 40px 20px 0; overflow: hidden;
-  transition: max-width .5s cubic-bezier(.4, 0, .2, 1);
+  /* no max-width transition here — GSAP animates the recording-stage expansion */
 }
 
 /* up next card (leaves the flow while recording so the stream takes its slot) */
@@ -865,7 +865,7 @@ All colors MUST be HSL.
 /* wide screens: centred by default; recording opens the side-by-side stage */
 @media (min-width: 1000px) {
   .liquid-glass .lg-hero-col { max-width: 640px; }
-  .liquid-glass .lg-hero-col.rec { max-width: 1120px; }
+  /* .rec expansion width is animated by GSAP in Home.tsx (geometry-aware) */
   .liquid-glass .lg-orb { width: 150px; height: 150px; }
   .liquid-glass .lg-orb-core { width: 36px; height: 36px; }
   .liquid-glass .lg-stream {
@@ -883,3 +883,33 @@ All colors MUST be HSL.
   .liquid-glass .lg-orb { width: 118px; height: 118px; }
   .liquid-glass .lg-hero-actions { margin-bottom: 92px; }
 }
+
+/* empty content panel: fully transparent so the wallpaper shows (fix: blank slab) */
+.liquid-glass .lg-content:not(:has(*)) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.liquid-glass .lg-content:not(:has(*))::after {
+  content: 'No tasks here yet';
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; min-height: 120px;
+  font-size: 13.5px; font-weight: 600;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0, 20, 30, 0.5), 0 1px 2px rgba(0, 20, 30, 0.3);
+}
+.liquid-glass[data-wallpaper='plain'] .lg-content:not(:has(*))::after {
+  color: hsl(var(--foreground)); opacity: 0.5; text-shadow: none;
+}
+
+/* iOS-style transient scrollbar on the task panel: permanent 5px gutter so no
+   layout shift; thumb only painted while scrolling (.lg-scrolling toggled by
+   the scroll listener in src/lib/transientScrollbar.ts), fades on idle */
+.liquid-glass .lg-content::-webkit-scrollbar { display: block !important; width: 5px; }
+.liquid-glass .lg-content::-webkit-scrollbar-track { background: transparent; }
+.liquid-glass .lg-content::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+.liquid-glass .lg-content.lg-scrolling::-webkit-scrollbar-thumb { background: var(--t3); }
+.liquid-glass .lg-content { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.liquid-glass .lg-content.lg-scrolling { scrollbar-color: var(--t3) transparent; }

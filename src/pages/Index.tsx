@@ -1683,7 +1683,6 @@ https://www.skyscanner.com`,
 
           {/* Actions Bar — mock .pw-row1: search + view seg + density seg + Add Task */}
           <div className="flex flex-row gap-2 items-center shrink-0 lg-row1">
-            <SidebarTrigger className="lg-iconbtn relative z-10 hidden md:flex" />
             <div className="lg-search relative flex-1">
               <Search className="h-3.5 w-3.5 shrink-0" />
               <input placeholder="Search tasks…" value={searchInput} onChange={e => setSearchInput(e.target.value)} />
@@ -2358,7 +2357,7 @@ https://www.skyscanner.com`,
 
         {/* Radial FAB - compact (double-tap to return home) */}
         {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
-          <RecordFAB compact onBrainDump={() => setDialogOpen(true)} />
+          <RecordFAB compact onBrainDump={() => navigate('/home?braindump=1')} />
         )}
       </div>
       
