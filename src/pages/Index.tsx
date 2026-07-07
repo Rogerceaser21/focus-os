@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query';
 import Fuse from 'fuse.js';
 
-import { useTheme } from 'next-themes';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,14 +33,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
-import LightRays from '@/components/LightRays';
 import HeroSection from '@/components/HeroSection';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 import BottomNav from '@/components/BottomNav';
-import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences, type UserPreferences } from '@/hooks/useUserPreferences';
@@ -264,15 +261,6 @@ const Index = () => {
   const [lastProcessedTourStep, setLastProcessedTourStep] = useState<number | null>(null);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences(user?.id);
-  const { setTheme, theme } = useTheme();
-  const isCream = theme === 'cream';
-  // liquid-glass paints its own wallpaper backdrop; the WebGL/particle layers stay off
-  const hasFlatBackdrop = isCream || theme === 'liquid-glass';
-  const { triggerParticles, containerRef } = useParticleAnimation({
-    particleCount: 12,
-    colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
-    animationDuration: 0.6
-  });
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
@@ -749,11 +737,6 @@ const Index = () => {
       
       // Apply task filter
       setActiveTab(preferences.default_task_filter);
-      
-      // Apply theme
-      if (preferences.theme) {
-        setTheme(preferences.theme);
-      }
       
       setPreferencesLoaded(true);
     }
@@ -1689,10 +1672,6 @@ https://www.skyscanner.com`,
   return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} openSidebarRequested={openSidebarRequested} onOpenSidebarHandled={handleOpenSidebarHandled} />
       <div className="min-h-screen flex w-full relative">
-        {!hasFlatBackdrop && <div ref={containerRef} className="dock-particle-container" />}
-        {!hasFlatBackdrop && <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />}
-        {!hasFlatBackdrop && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
-
         <div className="flex flex-1 relative w-full flex-col">
           <div className="flex flex-1 relative">
             {/* Sidebar */}

@@ -63,114 +63,6 @@ All colors MUST be HSL.
     --glass-glow: 186 80% 50% / 0.15;
   }
 
-  /* Dark Mode */
-  .dark {
-    --background: 225 25% 6%;
-    --foreground: 0 0% 95%;
-
-    --card: 225 20% 10%;
-    --card-foreground: 0 0% 95%;
-
-    --popover: 225 20% 12%;
-    --popover-foreground: 0 0% 95%;
-
-    --primary: 186 80% 55%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 225 20% 15%;
-    --secondary-foreground: 0 0% 85%;
-
-    --muted: 225 15% 14%;
-    --muted-foreground: 0 0% 60%;
-
-    --accent: 14 90% 65%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 225 15% 18%;
-    --input: 225 15% 16%;
-    --ring: 186 80% 55%;
-
-    --success: 142 76% 50%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 60%;
-    --info: 199 89% 58%;
-
-    --sidebar-background: 225 20% 8%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 186 80% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 225 15% 14%;
-    --sidebar-accent-foreground: 0 0% 85%;
-    --sidebar-border: 225 15% 18%;
-    --sidebar-ring: 186 80% 55%;
-
-    --dock-background: 225 30% 10%;
-
-    /* Glass effect tokens - Dark mode */
-    --glass-background: 225 20% 12% / 0.7;
-    --glass-border: 0 0% 100% / 0.08;
-    --glass-shadow: 0 0% 0% / 0.4;
-    --glass-blur: 20px;
-    --glass-glow: 186 80% 55% / 0.2;
-  }
-
-  /* Cream Theme */
-  .cream {
-    --background: 38 30% 92%;
-    --foreground: 30 25% 13%;
-
-    --card: 38 35% 96%;
-    --card-foreground: 30 25% 13%;
-
-    --popover: 38 35% 96%;
-    --popover-foreground: 30 25% 13%;
-
-    --primary: 18 60% 45%;
-    --primary-foreground: 38 30% 96%;
-
-    --secondary: 35 20% 85%;
-    --secondary-foreground: 30 25% 18%;
-
-    --muted: 35 18% 88%;
-    --muted-foreground: 30 18% 42%;
-
-    --accent: 350 45% 35%;
-    --accent-foreground: 38 30% 96%;
-
-    --destructive: 0 65% 48%;
-    --destructive-foreground: 38 30% 96%;
-
-    --border: 35 18% 78%;
-    --input: 35 18% 82%;
-    --ring: 18 60% 45%;
-
-    --success: 85 40% 38%;
-    --success-foreground: 38 30% 96%;
-    --warning: 32 70% 48%;
-    --info: 28 55% 50%;
-
-    --sidebar-background: 38 28% 94%;
-    --sidebar-foreground: 30 25% 18%;
-    --sidebar-primary: 18 60% 45%;
-    --sidebar-primary-foreground: 30 25% 13%;
-    --sidebar-accent: 35 20% 88%;
-    --sidebar-accent-foreground: 30 25% 13%;
-    --sidebar-border: 35 18% 80%;
-    --sidebar-ring: 18 60% 45%;
-
-    --dock-background: 30 20% 16%;
-
-    /* Glass effect tokens - Cream mode */
-    --glass-background: 38 35% 96% / 0.7;
-    --glass-border: 35 18% 78% / 0.5;
-    --glass-shadow: 30 20% 30% / 0.08;
-    --glass-blur: 16px;
-    --glass-glow: 18 60% 45% / 0.15;
-  }
-
   /* Liquid Glass theme — wallpaper-adaptive materials (see src/lib/wallpaper.tsx).
      Default token set = frost (bright art wallpapers: Monet, Hokusai).
      [data-wallpaper] variants switch the material to smoke (dark art) or solid (plain).
@@ -279,7 +171,9 @@ All colors MUST be HSL.
     --wallpaper-veil: radial-gradient(120% 90% at 50% 0%, hsl(228 60% 6% / 0.32), hsl(228 55% 4% / 0.64) 80%);
   }
 
-  /* solid — no art (Plain) */
+  /* solid — no art (Plain). Base colour comes from the user's colour picker
+     via --plain-color (set by WallpaperController); data-plain-tone flips the
+     token set to keep text readable on dark picks. */
   .liquid-glass[data-wallpaper='plain'] {
     --background: 220 14% 96%;
     --foreground: 214 14% 12%;
@@ -315,6 +209,42 @@ All colors MUST be HSL.
     --wallpaper-veil: none;
   }
 
+  /* solid, dark tone — user picked a dark plain colour */
+  .liquid-glass[data-wallpaper='plain'][data-plain-tone='dark'] {
+    --background: 220 10% 12%;
+    --foreground: 220 20% 96%;
+    --card: 220 10% 18%;
+    --card-foreground: 220 20% 96%;
+    --popover: 220 10% 16%;
+    --popover-foreground: 220 20% 96%;
+    --primary: 220 20% 96%;
+    --primary-foreground: 220 10% 12%;
+    --secondary: 220 9% 24%;
+    --secondary-foreground: 220 15% 92%;
+    --muted: 220 9% 22%;
+    --muted-foreground: 220 12% 72%;
+    --accent: 220 20% 96%;
+    --accent-foreground: 220 10% 12%;
+    --border: 220 8% 32%;
+    --input: 220 8% 28%;
+    --ring: 220 20% 96%;
+    --sidebar-background: 220 10% 17%;
+    --sidebar-foreground: 220 20% 94%;
+    --sidebar-primary: 220 20% 96%;
+    --sidebar-primary-foreground: 220 10% 12%;
+    --sidebar-accent: 220 9% 24%;
+    --sidebar-accent-foreground: 220 15% 92%;
+    --sidebar-border: 220 8% 30%;
+    --sidebar-ring: 220 20% 96%;
+    --dock-background: 220 10% 15% / 0.85;
+    --glass-background: 220 10% 20% / 0.6;
+    --glass-border: 0 0% 100% / 0.14;
+    --glass-shadow: 0 0% 0% / 0.45;
+    --glass-blur: 18px;
+    --glass-glow: 220 20% 96% / 0.12;
+    --wallpaper-veil: none;
+  }
+
   /* The wallpaper, painted on a viewport-fixed pseudo layer behind the app.
      NOT background-attachment: fixed — Chromium fails to repaint fixed
      attachment layers when the var(--wallpaper-url) custom property changes,
@@ -330,6 +260,7 @@ All colors MUST be HSL.
     background-position: center, center;
   }
   html.liquid-glass[data-wallpaper='plain'] body::before {
+    background-color: var(--plain-color, hsl(var(--background)));
     background-image:
       radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
       radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
@@ -507,7 +438,8 @@ All colors MUST be HSL.
 /* page shells: thin veil so the wallpaper shows through */
 .liquid-glass .bg-background { background-color: hsl(var(--background) / 0.2); }
 .liquid-glass[data-wallpaper='starry'] .bg-background { background-color: hsl(var(--background) / 0.3); }
-.liquid-glass[data-wallpaper='plain'] .bg-background { background-color: hsl(var(--background)); }
+/* plain: page shell fully transparent so the picked --plain-color shows through */
+.liquid-glass[data-wallpaper='plain'] .bg-background { background-color: transparent; }
 
 /* primary surfaces: translucent fill + real frost */
 .liquid-glass .bg-card,

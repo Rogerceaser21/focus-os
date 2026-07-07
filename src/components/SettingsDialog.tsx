@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { UserPreferences } from '@/hooks/useUserPreferences';
 import { PROVIDERS, AIProvider, ImageMode } from '@/lib/aiHandoff';
-import { WALLPAPERS, useWallpaper, type WallpaperId } from '@/lib/wallpaper';
+import { WALLPAPERS, useWallpaper, usePlainColor, type WallpaperId } from '@/lib/wallpaper';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 import ApiTokensSection from '@/components/ApiTokensSection';
 
@@ -49,9 +48,8 @@ export default function SettingsDialog({
   loading,
   onSave,
 }: SettingsDialogProps) {
-  const { setTheme } = useTheme();
-  const [selectedTheme, setSelectedTheme] = useState<'dark' | 'light' | 'cream' | 'liquid-glass'>('dark');
   const [wallpaper, setWallpaperChoice] = useWallpaper();
+  const [plainColor, setPlainColorChoice] = usePlainColor();
   const [defaultView, setDefaultView] = useState<string>('today');
   const [displayMode, setDisplayMode] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -69,18 +67,10 @@ export default function SettingsDialog({
       setTaskFilter(preferences.default_task_filter);
       setTaskCardView(preferences.default_task_card_view || 'compact');
       setTaskCardViewMobile(preferences.default_task_card_view_mobile || 'compact');
-      setSelectedTheme(preferences.theme || 'dark');
       setAiProvider((preferences.ai_handoff_default_provider as AIProvider | null) ?? 'none');
       setAiImageMode((preferences.ai_handoff_image_mode as ImageMode | undefined) ?? 'public_link');
     }
   }, [preferences]);
-
-  // Apply theme immediately when changed
-  const handleThemeChange = (value: string) => {
-    const newTheme = value as 'dark' | 'light' | 'cream' | 'liquid-glass';
-    setSelectedTheme(newTheme);
-    setTheme(newTheme);
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -90,7 +80,6 @@ export default function SettingsDialog({
       default_task_filter: taskFilter,
       default_task_card_view: taskCardView,
       default_task_card_view_mobile: taskCardViewMobile,
-      theme: selectedTheme,
       ai_handoff_default_provider: aiProvider === 'none' ? null : aiProvider,
       ai_handoff_image_mode: aiImageMode,
     });
@@ -116,57 +105,38 @@ export default function SettingsDialog({
           </div>
         ) : (
           <div className="space-y-6 py-4 overflow-y-auto flex-1 pr-2">
-            {/* Theme Selection */}
+            {/* Background Selection */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold">Theme</Label>
+              <Label className="text-base font-semibold">Background</Label>
               <p className="text-sm text-muted-foreground">
-                Choose your preferred color theme
+                Pick a wallpaper, or Plain with your own colour
               </p>
-              <RadioGroup value={selectedTheme} onValueChange={handleThemeChange}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="dark" id="theme-dark" />
-                  <Label htmlFor="theme-dark" className="font-normal cursor-pointer">
-                    Dark
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="light" id="theme-light" />
-                  <Label htmlFor="theme-light" className="font-normal cursor-pointer">
-                    Light
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="cream" id="theme-cream" />
-                  <Label htmlFor="theme-cream" className="font-normal cursor-pointer">
-                    Cream
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="liquid-glass" id="theme-liquid-glass" />
-                  <Label htmlFor="theme-liquid-glass" className="font-normal cursor-pointer">
-                    Liquid Glass
-                  </Label>
-                </div>
-              </RadioGroup>
-              {selectedTheme === 'liquid-glass' && (
-                <div className="pl-6 pt-1 space-y-2">
-                  <p className="text-sm text-muted-foreground">Wallpaper</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(Object.keys(WALLPAPERS) as WallpaperId[]).map((id) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setWallpaperChoice(id)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                          wallpaper === id
-                            ? 'bg-primary text-primary-foreground border-transparent'
-                            : 'bg-secondary/50 text-muted-foreground border-border hover:bg-secondary'
-                        }`}
-                      >
-                        {WALLPAPERS[id].name}
-                      </button>
-                    ))}
-                  </div>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(WALLPAPERS) as WallpaperId[]).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setWallpaperChoice(id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      wallpaper === id
+                        ? 'bg-primary text-primary-foreground border-transparent'
+                        : 'bg-secondary/50 text-muted-foreground border-border hover:bg-secondary'
+                    }`}
+                  >
+                    {WALLPAPERS[id].name}
+                  </button>
+                ))}
+              </div>
+              {wallpaper === 'plain' && (
+                <div className="flex items-center gap-3 pt-1">
+                  <input
+                    type="color"
+                    value={plainColor}
+                    onChange={(e) => setPlainColorChoice(e.target.value)}
+                    aria-label="Plain background colour"
+                    className="h-9 w-14 cursor-pointer rounded-lg border border-border bg-transparent p-1"
+                  />
+                  <span className="text-sm text-muted-foreground">Background colour</span>
                 </div>
               )}
             </div>

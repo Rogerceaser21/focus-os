@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,18 +13,12 @@ import { Shield } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { setTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
-
-  // Force cream theme on Auth page
-  useEffect(() => {
-    setTheme('cream');
-  }, [setTheme]);
 
   // Admin reset state
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);

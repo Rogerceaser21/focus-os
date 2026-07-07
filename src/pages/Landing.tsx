@@ -1,19 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
-import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 
 const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { setTheme } = useTheme();
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Force cream theme on Landing page
-  useEffect(() => {
-    setTheme('cream');
-  }, [setTheme]);
 
   const handlePlay = () => {
     if (videoRef.current) {

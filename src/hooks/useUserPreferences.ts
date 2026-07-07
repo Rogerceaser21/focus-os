@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -12,7 +11,8 @@ export interface UserPreferences {
   default_task_filter: 'all' | 'todo' | 'in-progress' | 'completed';
   default_task_card_view: 'full' | 'compact' | 'minimal';
   default_task_card_view_mobile: 'full' | 'compact' | 'minimal';
-  theme: 'dark' | 'light' | 'cream' | 'liquid-glass';
+  /** Legacy column. Liquid Glass is the only theme now; the DB value is ignored. */
+  theme: string;
   has_completed_onboarding: boolean;
   has_completed_task_tour: boolean;
   has_completed_projects_tour: boolean;
@@ -28,7 +28,6 @@ export interface UserPreferences {
 }
 
 export const useUserPreferences = (userId?: string | null) => {
-  const { setTheme } = useTheme();
   const queryClient = useQueryClient();
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +53,6 @@ export const useUserPreferences = (userId?: string | null) => {
       await createDefaultPreferences(uid);
     } else {
       setPreferences(data as UserPreferences);
-      if (data.theme) setTheme(data.theme);
     }
     setLoading(false);
   };
@@ -70,7 +68,7 @@ export const useUserPreferences = (userId?: string | null) => {
           default_task_filter: 'all',
           default_task_card_view: 'compact',
           default_task_card_view_mobile: 'minimal',
-          theme: 'cream',
+          theme: 'liquid-glass',
           has_completed_onboarding: false,
           has_completed_task_tour: false,
           has_completed_projects_tour: false,
@@ -204,7 +202,6 @@ export const useUserPreferences = (userId?: string | null) => {
       const cached = queryClient.getQueryData(['focusos-preferences', userId]);
       if (cached) {
         setPreferences(cached as UserPreferences);
-        if ((cached as any).theme) setTheme((cached as any).theme);
         setLoading(false);
         fetchPreferences(userId);
       } else {
