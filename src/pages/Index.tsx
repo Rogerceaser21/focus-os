@@ -223,6 +223,21 @@ const Index = () => {
   const [showTaskTour, setShowTaskTour] = useState(false);
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  // Mobile edit pane closes in two steps: open=false plays the slide-down
+  // exit animation, THEN the component unmounts. Unmounting immediately
+  // (editingTask=null) would skip the animation entirely.
+  const [editClosing, setEditClosing] = useState(false);
+  const closeEditPane = () => {
+    if (isMobile) {
+      setEditClosing(true);
+      setTimeout(() => {
+        setEditingTask(null);
+        setEditClosing(false);
+      }, 340);
+    } else {
+      setEditingTask(null);
+    }
+  };
   const [editHighlight, setEditHighlight] = useState<{ target: 'images' | 'dates'; nonce: number } | null>(null);
   useEffect(() => { if (!editingTask) setEditHighlight(null); }, [editingTask]);
   const handleEditTaskImages = (task: Task) => {
@@ -2420,16 +2435,16 @@ https://www.skyscanner.com`,
       {isMobile && editingTask && (
         <EditTaskDialog
           task={editingTask}
-          open={!!editingTask}
+          open={!!editingTask && !editClosing}
           highlight={editHighlight}
           onOpenChange={(open) => {
             if (!open && !showTaskTour && !showProjectsTour) {
-              setEditingTask(null);
+              closeEditPane();
             }
           }}
           onUpdateTask={async (updatedTask) => {
             await handleUpdateTask(updatedTask);
-            setEditingTask(null);
+            closeEditPane();
           }}
           projects={projects}
           currentUserId={user?.id}

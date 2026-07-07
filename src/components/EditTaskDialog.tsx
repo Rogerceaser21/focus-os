@@ -321,40 +321,6 @@ export const EditTaskDialog = ({
           />
         </div>
       )}
-      {onDeleteTask && !isReceivedSharedTask && !isCollaboratorOnProject && (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-              title="Delete task"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete this task?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={async () => {
-                  await onDeleteTask(task);
-                  onOpenChange(false);
-                }}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Yes, Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
     </div>
   );
 
@@ -539,9 +505,43 @@ export const EditTaskDialog = ({
   );
 
   // Pinned outside the scroll area in every container so Cancel/Save are
-  // always reachable without scrolling.
+  // always reachable without scrolling. Delete sits far left, red.
   const formFooter = (
-    <div className="flex justify-end gap-2 pt-3 border-t border-border/50 flex-shrink-0">
+    <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/50 flex-shrink-0">
+      {onDeleteTask && !isReceivedSharedTask && !isCollaboratorOnProject && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 mr-auto text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Delete task"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  await onDeleteTask(task);
+                  onOpenChange(false);
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Yes, Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
       <Button variant="outline" onClick={() => onOpenChange(false)}>
         Cancel
       </Button>

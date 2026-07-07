@@ -588,18 +588,21 @@ All colors MUST be HSL.
    carry the Radix centering translate so the panel lands exactly where the
    utility classes put it. */
 .liquid-glass .lg-editsheet[data-state='open'] {
-  animation: lg-sheet-in 420ms cubic-bezier(0.32, 0.72, 0, 1);
+  animation: lg-sheet-in 480ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* 'forwards' keeps the pane parked off-screen for the brief gap between
+   animation end and React unmount (Index defers unmount by ~340ms). */
 .liquid-glass .lg-editsheet[data-state='closed'] {
-  animation: lg-sheet-out 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  animation: lg-sheet-out 300ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 @keyframes lg-sheet-in {
-  from { transform: translate(-50%, 100vh); }
-  to   { transform: translate(-50%, -50%); }
+  0%   { transform: translate(-50%, 100vh) scale(0.97); }
+  70%  { transform: translate(-50%, -51.2%) scale(1.004); }
+  100% { transform: translate(-50%, -50%) scale(1); }
 }
 @keyframes lg-sheet-out {
-  from { transform: translate(-50%, -50%); }
-  to   { transform: translate(-50%, 100vh); }
+  from { transform: translate(-50%, -50%) scale(1); }
+  to   { transform: translate(-50%, 100vh) scale(0.98); }
 }
 
 /* search / view switcher / density / add-task pill (mock .pw-row1) */

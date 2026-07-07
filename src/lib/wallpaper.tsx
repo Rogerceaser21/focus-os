@@ -23,6 +23,16 @@ export const WALLPAPERS: Record<WallpaperId, { name: string; src: string | null 
   plain: { name: 'Plain', src: null },
 };
 
+/* Edge tone per wallpaper — fed to <meta name="theme-color"> and the <html>
+   background so iOS Safari tints its top/bottom chrome to blend with the
+   wallpaper (browser chrome can't show the image itself, only a tint), and
+   rubber-band overscroll shows a matching colour instead of white. */
+const EDGE_TONES: Record<Exclude<WallpaperId, 'plain'>, string> = {
+  lilies: '#8fa89b',
+  wave: '#e3dcc6',
+  starry: '#1e2a4a',
+};
+
 const LS_KEY = 'focusos-wallpaper';
 const LS_PLAIN_COLOR_KEY = 'focusos-plain-color';
 const CHANGE_EVENT = 'focusos-wallpaper-change';
@@ -117,6 +127,16 @@ export function WallpaperController() {
       el.style.removeProperty('--plain-color');
       delete el.dataset.plainTone;
     }
+    // Blend the browser chrome (Safari status bar / toolbar) into the wallpaper.
+    const tone = wp === 'plain' ? plainColor : EDGE_TONES[wp];
+    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = tone;
+    el.style.backgroundColor = tone;
   }, [wp, plainColor]);
 
   return null;
