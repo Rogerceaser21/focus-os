@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ImageViewer } from '@/components/ImageViewer';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
+import { ShareStatusPopover } from '@/components/ShareStatusPopover';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -307,6 +308,16 @@ export const EditTaskDialog = ({
         task={{ ...task, title, description, priority, status, startDate, endDate, dueDate, projectId: selectedProjectId || undefined }}
         synced={!!task.googleCalendarEventId}
       />
+      {/* On phones the share-status chip lives here instead of on the task row */}
+      {isMobile && task.sharedRecipients && task.sharedRecipients.length > 0 && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ShareStatusPopover
+            recipients={task.sharedRecipients}
+            itemType="Task"
+            allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
+          />
+        </div>
+      )}
       {onDeleteTask && !isReceivedSharedTask && !isCollaboratorOnProject && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -568,7 +579,7 @@ export const EditTaskDialog = ({
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6">
+          <DialogContent className="lg-editsheet sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>{panelTitle}</DialogTitle>
             </DialogHeader>

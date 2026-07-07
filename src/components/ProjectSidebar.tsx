@@ -1201,7 +1201,7 @@ export const ProjectSidebar = ({
           {/* Sidebar content */}
           <div 
             className={`
-              fixed inset-y-0 left-0 z-50 w-[280px] bg-card/95 backdrop-blur-sm border-r
+              fixed inset-y-0 left-0 z-50 w-[280px] lg-side
               transform transition-transform duration-300 ease-in-out flex flex-col
               ${openMobile ? 'translate-x-0' : '-translate-x-full'}
             `}
@@ -1219,9 +1219,9 @@ export const ProjectSidebar = ({
     return (
       <>
         <Sheet open={openMobile} onOpenChange={setOpenMobile}>
-          <SheetContent 
-            side="left" 
-            className="w-[280px] p-0 bg-card/50 backdrop-blur-sm flex flex-col"
+          <SheetContent
+            side="left"
+            className="w-[280px] p-0 lg-side flex flex-col"
           >
             {sidebarContent}
           </SheetContent>

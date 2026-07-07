@@ -609,7 +609,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 {editedTitle}
               </h3>
             )}
-            {onEditTask && (
+            {onEditTask && !isMobile && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -620,7 +620,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 <HandToAI variant="full" className="h-4 w-auto" />
               </Button>
             )}
-            {onEditTask && (
+            {onEditTask && !isMobile && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -663,7 +663,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 </AlertDialogContent>
               </AlertDialog>
             )}
-            <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <div onClick={(e) => e.stopPropagation()} className={`shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity ${isMobile ? 'hidden' : ''}`}>
               <GoogleCalendarButton
                 taskId={task.id}
                 task={task}
@@ -888,8 +888,9 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
             </div>
           )}
 
-          {/* Always-visible shared badge (mobile) - for both shared recipients AND single completedByEmail */}
-          {!isExpanded && task.sharedRecipients && task.sharedRecipients.length > 0 && (
+          {/* Always-visible shared badge (tablet) - for both shared recipients AND single completedByEmail.
+              On phones the badge moved into the edit pane header. */}
+          {!isExpanded && !isMobile && task.sharedRecipients && task.sharedRecipients.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
               <ShareStatusPopover
                 recipients={task.sharedRecipients}
@@ -982,7 +983,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 {editedTitle}
               </h3>
             )}
-            {onEditTask && (
+            {onEditTask && !isMobile && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -993,7 +994,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 <HandToAI variant="full" className="h-4 w-auto" />
               </Button>
             )}
-            {onEditTask && (
+            {onEditTask && !isMobile && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1036,7 +1037,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 </AlertDialogContent>
               </AlertDialog>
             )}
-            <div onClick={(e) => e.stopPropagation()} className="shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <div onClick={(e) => e.stopPropagation()} className={`shrink-0 opacity-100 sm:[@media(hover:hover)]:opacity-0 sm:group-hover:opacity-100 transition-opacity ${isMobile ? 'hidden' : ''}`}>
               <GoogleCalendarButton
                 taskId={task.id}
                 task={task}

@@ -583,6 +583,24 @@ All colors MUST be HSL.
 /* fully vanish when collapsed (w-0) — no border/margin sliver */
 .liquid-glass .lg-side.w-0 { border: none !important; margin: 0; box-shadow: none; }
 
+/* Mobile edit pane: smooth sheet-like rise + settle instead of the default
+   quick zoom. Keyframes carry the Radix centering translate so the panel
+   lands exactly where the utility classes put it. */
+.liquid-glass .lg-editsheet[data-state='open'] {
+  animation: lg-sheet-in 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.liquid-glass .lg-editsheet[data-state='closed'] {
+  animation: lg-sheet-out 240ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes lg-sheet-in {
+  from { opacity: 0; transform: translate(-50%, -38%); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+@keyframes lg-sheet-out {
+  from { opacity: 1; transform: translate(-50%, -50%); }
+  to   { opacity: 0; transform: translate(-50%, -38%); }
+}
+
 /* search / view switcher / density / add-task pill (mock .pw-row1) */
 .liquid-glass .lg-row1 {
   background: var(--gbg);
