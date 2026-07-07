@@ -148,10 +148,10 @@ const NavButton = ({
       active
         ? accent
           ? 'text-red-400'
-          : 'text-white'
+          : 'lg-dock-on text-foreground'
         : accent
           ? 'text-accent hover:text-red-400'
-          : 'text-muted-foreground hover:text-white'
+          : 'text-muted-foreground hover:text-foreground'
     }`}
   >
     {icon}

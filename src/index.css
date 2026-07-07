@@ -123,6 +123,21 @@ All colors MUST be HSL.
     --glass-glow: 211 100% 50% / 0.2;
 
     --wallpaper-veil: linear-gradient(180deg, hsl(0 0% 100% / 0.08), hsl(0 0% 0% / 0.14));
+
+    /* material vars ported 1:1 from the mock (previewTheme BASE_CSS, frost) */
+    --t1: #22303a;
+    --t2: rgba(34, 48, 58, 0.55);
+    --t3: rgba(34, 48, 58, 0.35);
+    --gbg: linear-gradient(135deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.36) 100%);
+    --gbg-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.5) 100%);
+    --gbrd: rgba(255, 255, 255, 0.62);
+    --gshadow: 0 8px 32px rgba(10, 30, 40, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.85);
+    --lg-blur: 26px;
+    --lg-sat: 180%;
+    --row-line: rgba(34, 48, 58, 0.1);
+    --lg-hover: rgba(255, 255, 255, 0.45);
+    --chip: rgba(255, 255, 255, 0.55);
+    --chip-brd: rgba(255, 255, 255, 0.7);
   }
 
   /* Hokusai keeps frost but takes a deep-teal accent */
@@ -169,6 +184,21 @@ All colors MUST be HSL.
     --glass-blur: 34px;
     --glass-glow: 199 89% 74% / 0.25;
     --wallpaper-veil: radial-gradient(120% 90% at 50% 0%, hsl(228 60% 6% / 0.32), hsl(228 55% 4% / 0.64) 80%);
+
+    /* material vars (mock smoke) */
+    --t1: rgba(238, 244, 255, 0.95);
+    --t2: rgba(214, 226, 255, 0.55);
+    --t3: rgba(214, 226, 255, 0.35);
+    --gbg: linear-gradient(135deg, rgba(44, 52, 78, 0.46) 0%, rgba(16, 20, 36, 0.42) 100%);
+    --gbg-strong: linear-gradient(135deg, rgba(54, 64, 94, 0.6) 0%, rgba(20, 24, 42, 0.55) 100%);
+    --gbrd: rgba(255, 255, 255, 0.16);
+    --gshadow: 0 16px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+    --lg-blur: 34px;
+    --lg-sat: 160%;
+    --row-line: rgba(214, 226, 255, 0.1);
+    --lg-hover: rgba(255, 255, 255, 0.06);
+    --chip: rgba(125, 211, 252, 0.12);
+    --chip-brd: rgba(125, 211, 252, 0.28);
   }
 
   /* solid — no art (Plain). Base colour comes from the user's colour picker
@@ -207,6 +237,21 @@ All colors MUST be HSL.
     --glass-blur: 18px;
     --glass-glow: 214 14% 10% / 0.1;
     --wallpaper-veil: none;
+
+    /* material vars (mock solid) */
+    --t1: #1b1f24;
+    --t2: rgba(27, 31, 36, 0.5);
+    --t3: rgba(27, 31, 36, 0.32);
+    --gbg: rgba(255, 255, 255, 0.78);
+    --gbg-strong: rgba(255, 255, 255, 0.92);
+    --gbrd: rgba(20, 24, 40, 0.08);
+    --gshadow: 0 2px 16px rgba(20, 24, 40, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    --lg-blur: 18px;
+    --lg-sat: 120%;
+    --row-line: rgba(20, 24, 40, 0.07);
+    --lg-hover: rgba(20, 24, 40, 0.04);
+    --chip: rgba(20, 24, 40, 0.05);
+    --chip-brd: rgba(20, 24, 40, 0.07);
   }
 
   /* solid, dark tone — user picked a dark plain colour */
@@ -243,6 +288,21 @@ All colors MUST be HSL.
     --glass-blur: 18px;
     --glass-glow: 220 20% 96% / 0.12;
     --wallpaper-veil: none;
+
+    /* material vars (solid, dark tone) */
+    --t1: rgba(238, 242, 248, 0.95);
+    --t2: rgba(210, 220, 235, 0.55);
+    --t3: rgba(210, 220, 235, 0.35);
+    --gbg: rgba(24, 28, 35, 0.62);
+    --gbg-strong: rgba(34, 40, 49, 0.85);
+    --gbrd: rgba(255, 255, 255, 0.14);
+    --gshadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    --lg-blur: 18px;
+    --lg-sat: 120%;
+    --row-line: rgba(210, 220, 235, 0.1);
+    --lg-hover: rgba(255, 255, 255, 0.06);
+    --chip: rgba(255, 255, 255, 0.08);
+    --chip-brd: rgba(255, 255, 255, 0.14);
   }
 
   /* The wallpaper, painted on a viewport-fixed pseudo layer behind the app.
@@ -477,84 +537,190 @@ All colors MUST be HSL.
 .liquid-glass[data-wallpaper='plain'] .lg-onbg { color: hsl(var(--foreground)); text-shadow: none; }
 
 /* ---------------------------------------------------------------------------
-   Structural: the mock architecture. Every region floats as its own glass
-   piece — sidebar panel, control pills, one big content panel, capsule dock.
+   Structural: the /preview/app mock architecture, ported 1:1 (PreviewApp.tsx
+   + previewTheme.tsx are the source of truth). Material vars (--t1 … --chip-brd)
+   are defined per wallpaper in the token blocks above; accent = --primary.
    -------------------------------------------------------------------------- */
 
-/* sidebar floats as a rounded glass panel (desktop rail and mobile sheet) */
+/* glass material primitive (mock .pw-glass) */
+.liquid-glass .lg-glass {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+}
+
+/* app shell: fixed viewport, panels scroll internally (mock .pw-shell) */
+.liquid-glass .lg-shell { height: 100dvh; overflow: hidden; }
+
+/* main column: pills stay put, only the content panel scrolls (mock .pw-main) */
+.liquid-glass .lg-maincol {
+  padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 84px);
+  gap: 10px;
+}
+@media (max-width: 999px) {
+  .liquid-glass .lg-maincol { padding: 10px 10px calc(env(safe-area-inset-bottom, 0px) + 78px); }
+}
+
+/* sidebar: pinned floating glass panel, own scroll, X to close (mock .pw-side) */
 .liquid-glass [data-sidebar='sidebar'] {
   border-radius: 26px;
-  border: 1px solid hsl(var(--glass-border));
+  border: 1px solid var(--gbrd);
   overflow: hidden;
 }
 .liquid-glass .lg-side {
-  background-color: hsl(var(--card) / 0.72);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  border: 1px solid hsl(var(--glass-border));
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd) !important;
+  box-shadow: var(--gshadow);
   border-radius: 26px;
   margin: 14px 0 14px 14px;
-  height: calc(100vh - 28px);
+  height: calc(100dvh - 28px);
   overflow: hidden;
 }
-.liquid-glass[data-wallpaper='starry'] .lg-side { background-color: hsl(var(--card) / 0.6); }
+/* fully vanish when collapsed (w-0) — no border/margin sliver */
+.liquid-glass .lg-side.w-0 { border: none !important; margin: 0; box-shadow: none; }
 
-/* search / view switcher / add-task row becomes a glass pill */
+/* search / view switcher / density / add-task pill (mock .pw-row1) */
 .liquid-glass .lg-row1 {
-  background-color: hsl(var(--card) / 0.72);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  border: 1px solid hsl(var(--glass-border));
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
   border-radius: 999px;
   padding: 8px 10px;
 }
-.liquid-glass .lg-row1 input { background-color: transparent; border-color: transparent; box-shadow: none; }
-.liquid-glass[data-wallpaper='starry'] .lg-row1 { background-color: hsl(var(--card) / 0.6); }
+.liquid-glass .lg-search {
+  display: flex; align-items: center; gap: 8px;
+  border-radius: 999px; padding: 4px 8px;
+  color: var(--t2); font-size: 13px; min-width: 0;
+}
+.liquid-glass .lg-search input {
+  background: transparent; border: none; outline: none; box-shadow: none;
+  color: var(--t1); font-size: 13px; width: 100%;
+}
+.liquid-glass .lg-search input::placeholder { color: var(--t3); }
 
-/* status tabs pill */
+/* segmented control (mock .pw-seg) — view switcher + density */
+.liquid-glass .lg-seg {
+  display: flex; gap: 2px; flex: none;
+  background: var(--chip); border: 1px solid var(--chip-brd);
+  border-radius: 999px; padding: 3px;
+}
+.liquid-glass .lg-seg button {
+  display: inline-flex; align-items: center; gap: 5px; border: none; cursor: pointer;
+  background: transparent; color: var(--t2); font-size: 12px; font-weight: 600;
+  border-radius: 999px; padding: 6px 11px;
+}
+.liquid-glass .lg-seg button.on {
+  background: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+  box-shadow: 0 2px 10px hsl(var(--primary) / 0.35);
+}
+@media (max-width: 999px) {
+  .liquid-glass .lg-seg:not(.lg-density) button span { display: none; }
+  .liquid-glass .lg-seg button { padding: 6px 9px; }
+  /* density buttons are text-only; below the label breakpoint drop the whole seg */
+  .liquid-glass .lg-density { display: none; }
+}
+
+/* pill buttons (mock .pw-btn / .pw-iconbtn) */
+.liquid-glass .lg-btn {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--gbrd);
+  background: var(--chip); color: var(--t1);
+  font-size: 12.5px; font-weight: 600; padding: 8px 12px;
+}
+.liquid-glass .lg-btn.acc {
+  background: hsl(var(--primary)); border-color: transparent;
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 4px 16px hsl(var(--primary) / 0.4);
+}
+.liquid-glass .lg-iconbtn {
+  width: 30px; height: 30px; flex: none; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--gbrd);
+  background: var(--chip); color: var(--t2);
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* status tabs pill (mock .pw-tabs) */
 .liquid-glass .lg-tabs {
-  background-color: hsl(var(--card) / 0.72);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  border: 1px solid hsl(var(--glass-border));
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
   border-radius: 999px;
   padding: 5px;
+  gap: 4px;
 }
-.liquid-glass .lg-tabs [data-state='active'] { background-color: hsl(var(--card) / 0.95); border-radius: 999px; }
-.liquid-glass[data-wallpaper='starry'] .lg-tabs { background-color: hsl(var(--card) / 0.6); }
-.liquid-glass[data-wallpaper='starry'] .lg-tabs [data-state='active'] { background-color: hsl(var(--secondary)); }
+.liquid-glass .lg-tabs [data-state] {
+  border: none; background: transparent; color: var(--t2);
+  font-size: 13px; font-weight: 600; border-radius: 999px; padding: 8px 0;
+  box-shadow: none;
+}
+.liquid-glass .lg-tabs [data-state='active'] {
+  background: var(--gbg-strong); color: var(--t1); box-shadow: var(--gshadow);
+}
 
-/* project action bar pill (component paints bg-muted) */
+/* project action bar pill (mock .pw-projbar) */
 .liquid-glass .lg-projbar {
-  background-color: hsl(var(--card) / 0.72);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  border: 1px solid hsl(var(--glass-border));
-  border-radius: 24px;
-  padding: 2px 8px;
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+  border-radius: 999px;
+  padding: 2px 10px;
 }
-.liquid-glass[data-wallpaper='starry'] .lg-projbar { background-color: hsl(var(--card) / 0.6); }
 
-/* one big content panel wrapping the task groups / grid / gantt / time */
+/* inactive tab panels stay mounted; display utilities (grid) beat the UA [hidden]
+   rule, so force them off */
+.liquid-glass .lg-content[hidden],
+.liquid-glass .lg-content[data-state='inactive'] { display: none; }
+
+/* one big frosted content panel; the ONLY scrolling region (mock .pw-content) */
 .liquid-glass .lg-content {
-  background-color: hsl(var(--card) / 0.55);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  border: 1px solid hsl(var(--glass-border));
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
   border-radius: 26px;
-  padding: 12px 14px 16px;
-  min-height: 200px;
+  padding: 6px 10px 12px;
+  overflow-y: auto;
+  min-height: 0;
 }
-.liquid-glass[data-wallpaper='starry'] .lg-content { background-color: hsl(var(--card) / 0.42); }
-/* rows/cards inside the panel: light fills, no nested blur (perf + mock look) */
-.liquid-glass .lg-content .bg-card {
+
+/* priority group headers (mock .pw-phead) */
+.liquid-glass .lg-phead { padding: 14px 12px 6px; }
+.liquid-glass .lg-phead-line { background: var(--row-line); }
+.liquid-glass .lg-prio-urgent { color: #e5484d; }
+.liquid-glass .lg-prio-high { color: #f0883e; }
+.liquid-glass .lg-prio-medium { color: var(--t2); }
+.liquid-glass .lg-prio-low { color: var(--t3); }
+
+/* task rows: flat rows with hairline separators inside the panel (mock .pw-task) */
+.liquid-glass .lg-rows { gap: 0; }
+.liquid-glass .lg-rows > * { position: relative; }
+.liquid-glass .lg-rows > * + *::before {
+  content: ''; position: absolute; top: 0; left: 44px; right: 12px; height: 1px;
+  background: var(--row-line);
+}
+.liquid-glass .lg-content [data-task-card] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  background-color: hsl(var(--card) / 0.55);
+  border-radius: 14px;
+  padding: 8px 10px;
 }
-.liquid-glass[data-wallpaper='starry'] .lg-content .bg-card { background-color: hsl(var(--card) / 0.55); }
+.liquid-glass .lg-content [data-task-card]:hover { background: var(--lg-hover); }
 
-/* bottom nav becomes the floating capsule dock (inline styles need !important) */
+/* bottom nav becomes the floating capsule dock (mock .pw-dock; inline styles need !important) */
 .liquid-glass .lg-dock {
   left: 50% !important;
   right: auto !important;
@@ -563,17 +729,18 @@ All colors MUST be HSL.
   display: flex !important;
   gap: 4px;
   width: auto;
-  padding: 6px 12px !important;
+  padding: 7px 9px !important;
   margin: 0 !important;
-  border: 1px solid hsl(var(--glass-border)) !important;
+  border: 1px solid var(--gbrd) !important;
   border-radius: 999px;
-  background: hsl(var(--card) / 0.72) !important;
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  box-shadow: 0 12px 40px hsl(var(--glass-shadow));
+  background: var(--gbg) !important;
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--gshadow);
 }
-.liquid-glass .lg-dock > button { min-width: 62px; }
-.liquid-glass[data-wallpaper='starry'] .lg-dock { background: hsl(var(--card) / 0.65) !important; }
+.liquid-glass .lg-dock > button { min-width: 62px; padding: 6px; gap: 2px; color: var(--t2); }
+.liquid-glass .lg-dock > button span { font-size: 9.5px; font-weight: 700; }
+.liquid-glass .lg-dock > button.lg-dock-on { color: hsl(var(--primary)); }
 @media (max-width: 639px) {
   .liquid-glass .lg-dock {
     left: 10px !important;

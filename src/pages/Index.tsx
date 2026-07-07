@@ -1671,136 +1671,76 @@ https://www.skyscanner.com`,
 
   return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} openSidebarRequested={openSidebarRequested} onOpenSidebarHandled={handleOpenSidebarHandled} />
-      <div className="min-h-screen flex w-full relative">
-        <div className="flex flex-1 relative w-full flex-col">
-          <div className="flex flex-1 relative">
+      <div className="h-screen flex w-full relative overflow-hidden lg-shell">
+        <div className="flex flex-1 relative w-full flex-col min-h-0">
+          <div className="flex flex-1 relative min-h-0">
             {/* Sidebar */}
             <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => { setProjectRefreshTrigger(prev => prev + 1); fetchTasks(); }} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : undefined} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : undefined} isTourActive={showProjectsTour} userId={user?.id} senderProjectSharedMap={senderProjectSharedMap} />
 
             {/* Main Content */}
-            <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
-              <div
-                className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4"
-                style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 128px)' }}
-              >
+            <div className="flex-1 relative z-10 min-w-0 flex flex-col min-h-0 overflow-x-hidden">
+              <div className="flex flex-col flex-1 min-h-0 w-full lg-maincol">
 
-          {/* Actions Bar */}
-          <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6 lg-row1">
-            <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px] hidden md:flex shrink-0" />
-            <div className="relative flex-[2] md:flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hidden lg:block" />
-              <Input placeholder="Search" value={searchInput} onChange={e => setSearchInput(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10 lg:hidden" />
-              <Input placeholder="Search tasks..." value={searchInput} onChange={e => setSearchInput(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10 hidden lg:block" />
+          {/* Actions Bar — mock .pw-row1: search + view seg + density seg + Add Task */}
+          <div className="flex flex-row gap-2 items-center shrink-0 lg-row1">
+            <SidebarTrigger className="lg-iconbtn relative z-10 hidden md:flex" />
+            <div className="lg-search relative flex-1">
+              <Search className="h-3.5 w-3.5 shrink-0" />
+              <input placeholder="Search tasks…" value={searchInput} onChange={e => setSearchInput(e.target.value)} />
             </div>
-            <div className="flex gap-2">
-              {/* Mobile/Tablet: Display Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-1 border-2 h-10 px-3 flex lg:hidden">
-                <span className="text-sm">Display</span>
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem onClick={() => setViewMode('list')}>
-                    <LayoutList className="h-4 w-4 mr-2" />
-                    List
-                    {viewMode === 'list' && <Check className="h-4 w-4 ml-auto" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setViewMode('grid')}>
-                    <LayoutGrid className="h-4 w-4 mr-2" />
-                    Grid
-                    {viewMode === 'grid' && <Check className="h-4 w-4 ml-auto" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setViewMode('gantt')}>
-                    <GanttChartSquare className="h-4 w-4 mr-2" />
-                    Gantt
-                    {viewMode === 'gantt' && <Check className="h-4 w-4 ml-auto" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setViewMode('time-tracking')}>
-                    <Clock className="h-4 w-4 mr-2" />
-                    Time Tracking
-                    {viewMode === 'time-tracking' && <Check className="h-4 w-4 ml-auto" />}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Desktop: Individual Buttons */}
-              <div className="hidden lg:flex gap-2">
-                <Button variant={viewMode === 'list' ? 'default' : 'outline'} onClick={() => setViewMode('list')} className="gap-2 border-2">
-                  <LayoutList className="h-4 w-4" />
-                  <span>List</span>
-                </Button>
-                <Button variant={viewMode === 'grid' ? 'default' : 'outline'} onClick={() => setViewMode('grid')} className="gap-2 border-2">
-                  <LayoutGrid className="h-4 w-4" />
-                  <span>Grid</span>
-                </Button>
-                <Button variant={viewMode === 'gantt' ? 'default' : 'outline'} onClick={() => setViewMode('gantt')} className="gap-2 border-2">
-                  <GanttChartSquare className="h-4 w-4" />
-                  <span>Gantt</span>
-                </Button>
-                <Button variant={viewMode === 'time-tracking' ? 'default' : 'outline'} onClick={() => setViewMode('time-tracking')} className="gap-2 border-2">
-                  <Clock className="h-4 w-4" />
-                  <span>Time</span>
-                </Button>
+            <div className="lg-seg">
+              <button type="button" className={viewMode === 'list' ? 'on' : ''} onClick={() => setViewMode('list')}>
+                <LayoutList className="h-[13px] w-[13px]" /><span>List</span>
+              </button>
+              <button type="button" className={viewMode === 'grid' ? 'on' : ''} onClick={() => setViewMode('grid')}>
+                <LayoutGrid className="h-[13px] w-[13px]" /><span>Grid</span>
+              </button>
+              <button type="button" className={viewMode === 'gantt' ? 'on' : ''} onClick={() => setViewMode('gantt')}>
+                <GanttChartSquare className="h-[13px] w-[13px]" /><span>Gantt</span>
+              </button>
+              <button type="button" className={viewMode === 'time-tracking' ? 'on' : ''} onClick={() => setViewMode('time-tracking')}>
+                <Clock className="h-[13px] w-[13px]" /><span>Time</span>
+              </button>
+            </div>
+            {viewMode === 'list' && (
+              <div className="lg-seg lg-density">
+                <button type="button" className={globalCardView === 'full' ? 'on' : ''} onClick={() => { setGlobalCardView('full'); setExpandedTaskIds(new Set()); }}>
+                  <span>Full</span>
+                </button>
+                <button type="button" className={globalCardView === 'compact' ? 'on' : ''} onClick={() => { setGlobalCardView('compact'); setExpandedTaskIds(new Set()); }}>
+                  <span>Compact</span>
+                </button>
+                <button type="button" className={globalCardView === 'minimal' ? 'on' : ''} onClick={() => { setGlobalCardView('minimal'); setExpandedTaskIds(new Set()); }}>
+                  <span>Minimal</span>
+                </button>
               </div>
-
-              {viewMode === 'list' && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="outline"
-                      aria-label={`View: ${globalCardView}`}
-                      className="gap-2 border-2 h-10 px-2 lg:px-3"
-                    >
-                      <Eye className="h-4 w-4" />
-                      <span className="hidden lg:inline">
-                        {globalCardView === 'full' ? 'Full' : globalCardView === 'compact' ? 'Compact' : 'Minimal'}
-                      </span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onClick={() => { setGlobalCardView('full'); setExpandedTaskIds(new Set()); }}>
-                      <Check className={`h-4 w-4 mr-2 ${globalCardView === 'full' ? 'opacity-100' : 'opacity-0'}`} />
-                      Full
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setGlobalCardView('compact'); setExpandedTaskIds(new Set()); }}>
-                      <Check className={`h-4 w-4 mr-2 ${globalCardView === 'compact' ? 'opacity-100' : 'opacity-0'}`} />
-                      Compact
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setGlobalCardView('minimal'); setExpandedTaskIds(new Set()); }}>
-                      <Check className={`h-4 w-4 mr-2 ${globalCardView === 'minimal' ? 'opacity-100' : 'opacity-0'}`} />
-                      Minimal
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              <Button
-                aria-label="Add task"
-                className="gap-2 border-2 shadow-lg shadow-primary/20 px-2 lg:px-3"
-                data-task-tour-step="add-task-button"
-                onClick={() => handleAddTaskDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                <span className="hidden lg:inline">Add Task</span>
-              </Button>
-            </div>
+            )}
+            <button
+              type="button"
+              aria-label="Add task"
+              className="lg-btn acc shrink-0"
+              data-task-tour-step="add-task-button"
+              onClick={() => handleAddTaskDialogOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline">Add Task</span>
+            </button>
           </div>
 
           {/* Main Content */}
-          {!fullDataLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto lg-tabs">
+          {!fullDataLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
+              <TabsList className="w-full grid grid-cols-4 h-auto shrink-0 lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
+                  All ({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
                 <TabsTrigger value="todo" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">To Do </span>({sortedTasks.filter(t => t.status === 'todo').length})
+                  To Do ({sortedTasks.filter(t => t.status === 'todo').length})
                 </TabsTrigger>
                 <TabsTrigger value="in-progress" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Progress </span>({sortedTasks.filter(t => t.status === 'in-progress').length})
+                  Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
                 </TabsTrigger>
                 <TabsTrigger value="completed" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Done </span>({sortedTasks.filter(t => t.status === 'completed').length})
+                  Done ({sortedTasks.filter(t => t.status === 'completed').length})
                 </TabsTrigger>
               </TabsList>
 
@@ -1809,11 +1749,11 @@ https://www.skyscanner.com`,
                 const isCollaborator = (currentProject?.isShared && currentProject?.userId !== user?.id) ?? false;
                 const isSharedProject = currentProject?.isShared ?? false;
                 const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                return <div className={`w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-1 flex-wrap">
                       <span className="hidden sm:inline" style={{ color: currentProject?.color }}>📁</span>
-                      
+
                       {isEditingProjectName && !isCollaborator ? (
                         <Input
                           autoFocus
@@ -2134,7 +2074,7 @@ https://www.skyscanner.com`,
                 </div>
               )}
 
-              <TabsContent value="all" className="mt-6 lg-content">
+              <TabsContent value="all" className="flex-1 min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status !== 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2153,7 +2093,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="todo" className="mt-6 lg-content">
+              <TabsContent value="todo" className="flex-1 min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'todo')}
                   onUpdate={handleUpdateTask}
@@ -2172,7 +2112,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="in-progress" className="mt-6 lg-content">
+              <TabsContent value="in-progress" className="flex-1 min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'in-progress')}
                   onUpdate={handleUpdateTask}
@@ -2191,7 +2131,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="completed" className="mt-6 lg-content">
+              <TabsContent value="completed" className="flex-1 min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2209,19 +2149,19 @@ https://www.skyscanner.com`,
                   isReorderMode={isReorderMode}
                 />
               </TabsContent>
-            </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="w-full grid grid-cols-4 h-auto">
+            </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
+              <TabsList className="w-full grid grid-cols-4 h-auto shrink-0 lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
+                  All ({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
                 <TabsTrigger value="todo" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">To Do </span>({sortedTasks.filter(t => t.status === 'todo').length})
+                  To Do ({sortedTasks.filter(t => t.status === 'todo').length})
                 </TabsTrigger>
                 <TabsTrigger value="in-progress" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Progress </span>({sortedTasks.filter(t => t.status === 'in-progress').length})
+                  Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
                 </TabsTrigger>
                 <TabsTrigger value="completed" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Done </span>({sortedTasks.filter(t => t.status === 'completed').length})
+                  Done ({sortedTasks.filter(t => t.status === 'completed').length})
                 </TabsTrigger>
               </TabsList>
 
@@ -2230,7 +2170,7 @@ https://www.skyscanner.com`,
                 const isCollaborator2 = (currentProject2?.isShared && currentProject2?.userId !== user?.id) ?? false;
                 const isSharedProject2 = currentProject2?.isShared ?? false;
                 const assignedByEmail2 = isCollaborator2 ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                return <div className={`w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 px-3 py-2">
                     <div className="flex flex-col gap-0.5 flex-1">
                       <div className="flex items-center gap-2">
@@ -2339,22 +2279,22 @@ https://www.skyscanner.com`,
                 </div>;
               })()}
 
-              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6 lg-content">
+              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6 lg-content">
+              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6 lg-content">
+              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6 lg-content">
+              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
-            </Tabs> : viewMode === 'gantt' ? <div className="mt-6 lg-content">
+            </Tabs> : viewMode === 'gantt' ? <div className="flex-1 min-h-0 lg-content">
               <GanttChart 
                 tasks={sortedTasks}
                 allTasks={sortedTasks}
@@ -2373,7 +2313,7 @@ https://www.skyscanner.com`,
                 onAddTask={handleAddTask}
                 onOpenAddTask={() => handleAddTaskDialogOpen(true)}
               />
-            </div> : <div className="mt-6 lg-content">
+            </div> : <div className="flex-1 min-h-0 lg-content">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
             </div>}
               </div>

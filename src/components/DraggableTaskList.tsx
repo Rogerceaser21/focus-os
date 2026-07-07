@@ -281,14 +281,14 @@ export const DraggableTaskList = ({
 
             return (
               <div key={priority}>
-                <div className="flex items-center gap-2 py-1.5 px-2">
-                  <div className={`text-xs font-semibold uppercase tracking-wider ${color}`}>
+                <div className="flex items-center gap-2.5 py-1.5 px-2 lg-phead">
+                  <div className={`text-[11px] font-extrabold uppercase tracking-[.12em] ${color} lg-prio-${priority}`}>
                     {label}
                   </div>
-                  <div className="flex-1 h-px bg-border" />
-                  <span className="text-xs text-muted-foreground">{tasksInGroup.length}</span>
+                  <div className="flex-1 h-px bg-border lg-phead-line" />
+                  <span className="text-[11px] font-bold text-muted-foreground">{tasksInGroup.length}</span>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 lg-rows">
                   {tasksInGroup.map((task) => (
                     <SortableTaskItem
                       key={task.id}
