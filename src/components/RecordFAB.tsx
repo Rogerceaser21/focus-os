@@ -80,11 +80,30 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
                 onBrainDump();
               }}
             >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18h6" />
-                <path d="M10 22h4" />
-                <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
-              </svg>
+              {/* mini orb — same visual language as the Home brain-dump orb */}
+              <span
+                aria-hidden
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 999,
+                  background: 'radial-gradient(circle at 40% 35%, #ffffff, #e3e6ea)',
+                  border: '1.5px solid rgba(20, 24, 40, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <span
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: 999,
+                    background: 'radial-gradient(circle at 38% 32%, #ff5a52, #c81e1e 70%)',
+                    boxShadow: '0 1px 4px rgba(200, 30, 30, 0.5)',
+                  }}
+                />
+              </span>
             </motion.button>
           )}
         </AnimatePresence>

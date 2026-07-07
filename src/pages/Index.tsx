@@ -2357,7 +2357,7 @@ https://www.skyscanner.com`,
 
         {/* Radial FAB - compact (double-tap to return home) */}
         {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
-          <RecordFAB compact onBrainDump={() => navigate('/home?braindump=1')} />
+          <RecordFAB onBrainDump={() => navigate('/home?braindump=1')} />
         )}
       </div>
       

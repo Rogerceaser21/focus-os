@@ -1195,7 +1195,7 @@ const Meetings = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    <RecordFAB compact onBrainDump={() => navigate('/home?braindump=1')} />
+    <RecordFAB onBrainDump={() => navigate('/home?braindump=1')} />
     {user && (
       <BrainDumpLiveDialog
         open={brainDumpOpen}
