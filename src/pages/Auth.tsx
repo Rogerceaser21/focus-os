@@ -46,7 +46,7 @@ const Auth = () => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/home`,
+          redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
           skipBrowserRedirect: true,
         },
       });
@@ -61,7 +61,7 @@ const Auth = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/home`,
+          redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
         },
       });
       if (error) {
@@ -81,7 +81,7 @@ const Auth = () => {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/home`,
+        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
         data: {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
@@ -105,7 +105,7 @@ const Auth = () => {
     }
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}reset-password`,
     });
     setLoading(false);
     if (error) {
