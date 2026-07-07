@@ -6,6 +6,13 @@
     <!-- Updated at runtime by WallpaperController to match the active wallpaper;
          this static value matches the default (Hokusai wave) for first paint. -->
     <meta name="theme-color" content="#e3dcc6" />
+    <!-- Home-Screen (standalone) mode: no Safari chrome, wallpaper paints
+         edge-to-edge under the status bar. Just meta tags — deliberately no
+         service worker / manifest (the old PWA machinery stays dead). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Focus OS" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>Focus OS</title>
     <meta name="description" content="Focus OS means less stress">
     <meta name="author" content="ThoughtStream" />
