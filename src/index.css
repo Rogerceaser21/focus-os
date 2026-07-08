@@ -328,19 +328,20 @@ All colors MUST be HSL.
 
   /* Home-Screen (standalone) mode: the wallpaper runs under the iOS status
      bar, whose clock/icons are white in black-translucent mode. A whisper of
-     dark fade keeps them readable over the light wallpapers. */
-  @media (display-mode: standalone) {
-    html.liquid-glass body::after {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: calc(env(safe-area-inset-top, 0px) + 8px);
-      z-index: 90;
-      pointer-events: none;
-      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.28), transparent);
-    }
+     dark fade keeps them readable over the light wallpapers.
+     html.standalone is set by main.tsx — iOS legacy web apps report
+     navigator.standalone and do NOT reliably match the display-mode media
+     query, so a class is the only dependable hook. */
+  html.standalone.liquid-glass body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(env(safe-area-inset-top, 0px) + 8px);
+    z-index: 90;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.28), transparent);
   }
 }
 
@@ -601,54 +602,54 @@ All colors MUST be HSL.
 .liquid-glass .lg-side.w-0 { border: none !important; margin: 0; box-shadow: none; }
 
 /* --------------------------------------------------------------------------
-   Home-Screen (standalone) mode ONLY. In Safari the safe-area insets are 0 and
-   this media query never matches, so browser rendering is untouched. Launched
+   Home-Screen (standalone) mode ONLY. Scoped to html.standalone, set by
+   main.tsx (iOS icon apps report navigator.standalone but do NOT reliably
+   match @media (display-mode: standalone), so a class is the dependable hook).
+   In Safari the class is absent, so browser rendering is untouched. Launched
    from the icon, the insets are real (~59px top / ~34px bottom): the global
    #root padding used to shift the whole app down and spill the bottom 93px
    off-screen (record orb under the dock, panel edges exposed as seams).
    Instead: no global shift; each fixed-viewport shell pads its own top, and
    bottom-pinned elements lift by the bottom inset.
    -------------------------------------------------------------------------- */
-@media (display-mode: standalone) {
-  #root {
-    padding: 0;
-  }
-  /* iOS standalone does not extend fixed layers into the bottom
-     home-indicator zone — overdraw the wallpaper past it so no bare
-     html background shows through. */
-  html.liquid-glass body::before {
-    bottom: calc(-1 * env(safe-area-inset-bottom, 0px) - 4px);
-  }
-  /* app pages: content starts below the clock, wallpaper still runs behind it */
-  .liquid-glass .lg-shell {
-    padding-top: env(safe-area-inset-top, 0px);
-  }
-  /* 8px instead of the browser's 40px (the inset already gives clearance);
-     bottom padding reserves the dock zone — the hero content is
-     bottom-anchored by flex spacers, so this is what actually lifts the
-     Record Meeting button clear of the dock. */
-  .liquid-glass .lg-hero-col {
-    padding-top: calc(8px + env(safe-area-inset-top, 0px));
-    /* generous: the same viewport quirk shortens the usable height by the
-       bottom inset, which ate the clearance measured in simulation */
-    padding-bottom: calc(110px + (2 * env(safe-area-inset-bottom, 0px)));
-    height: 100svh;
-  }
-  /* bottom-pinned chrome clears the home indicator */
-  .liquid-glass .lg-dock {
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
-  }
-  .liquid-glass div.fixed.bottom-24 {
-    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-  }
-  /* floating panels + centred sheets stay clear of both insets */
-  .liquid-glass [data-side-panel] {
-    top: calc(14px + env(safe-area-inset-top, 0px));
-    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  }
-  .liquid-glass .lg-editsheet {
-    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
-  }
+html.standalone #root {
+  padding: 0;
+}
+/* iOS standalone does not extend fixed layers into the bottom
+   home-indicator zone — overdraw the wallpaper past it so no bare
+   html background shows through. */
+html.standalone.liquid-glass body::before {
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px) - 4px);
+}
+/* app pages: content starts below the clock, wallpaper still runs behind it */
+html.standalone.liquid-glass .lg-shell {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+/* 8px instead of the browser's 40px (the inset already gives clearance);
+   bottom padding reserves the dock zone — the hero content is
+   bottom-anchored by flex spacers, so this is what actually lifts the
+   Record Meeting button clear of the dock. */
+html.standalone.liquid-glass .lg-hero-col {
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  /* generous: the same viewport quirk shortens the usable height by the
+     bottom inset, which ate the clearance measured in simulation */
+  padding-bottom: calc(110px + (2 * env(safe-area-inset-bottom, 0px)));
+  height: 100svh;
+}
+/* bottom-pinned chrome clears the home indicator */
+html.standalone.liquid-glass .lg-dock {
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+}
+html.standalone.liquid-glass div.fixed.bottom-24 {
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+/* floating panels + centred sheets stay clear of both insets */
+html.standalone.liquid-glass [data-side-panel] {
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+}
+html.standalone.liquid-glass .lg-editsheet {
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
 }
 
 /* Mobile edit pane: slides up from the bottom edge of the screen like an iOS
