@@ -615,18 +615,10 @@ All colors MUST be HSL.
 html.standalone #root {
   padding: 0;
 }
-/* Root-level wallpaper: the <html> background is propagated to the viewport
-   canvas and is NEVER clipped (unlike the fixed body::before, which iOS clips
-   at the home-indicator boundary in standalone — leaving body's cream bg
-   showing as a strip). Painting the wallpaper here guarantees the bottom edge
-   bleeds. --wallpaper-url is set on <html> by WallpaperController; on the
-   plain wallpaper it is 'none' and the tone background-color shows instead. */
-html.standalone.liquid-glass {
-  background-image: var(--wallpaper-url, none);
-  background-size: cover;
-  background-position: center;
-  background-attachment: scroll;
-}
+/* Root-level wallpaper is painted on <html> inline by WallpaperController (the
+   root background is propagated to the viewport canvas and is NEVER clipped,
+   unlike the fixed body::before which iOS clips at the home-indicator boundary
+   in standalone). See src/lib/wallpaper.tsx. */
 /* body has an opaque cream bg (bg-background) that would cover the html
    wallpaper in the clipped home-indicator strip. Make it transparent in
    standalone — the fixed body::before still covers everywhere else, so the
@@ -656,9 +648,10 @@ html.standalone.liquid-glass .lg-hero-col {
   padding-bottom: calc(110px + (2 * env(safe-area-inset-bottom, 0px)));
   height: 100svh;
 }
-/* bottom-pinned chrome clears the home indicator */
+/* Dock sits low, near the bottom edge (Igor wants the menu lower in the
+   home-screen app). Starting value — tuned live on device. */
 html.standalone.liquid-glass .lg-dock {
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+  bottom: 6px !important;
 }
 html.standalone.liquid-glass div.fixed.bottom-24 {
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
