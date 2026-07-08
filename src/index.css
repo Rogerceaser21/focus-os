@@ -615,11 +615,12 @@ All colors MUST be HSL.
 html.standalone #root {
   padding: 0;
 }
-/* iOS standalone does not extend fixed layers into the bottom
-   home-indicator zone — overdraw the wallpaper past it so no bare
-   html background shows through. */
+/* iOS standalone leaves a bare strip at the home-indicator zone (the webview
+   reports safe-area-inset-bottom as 0 here, so an inset-based overdraw is too
+   small). Extend the fixed wallpaper layer a generous fixed amount past the
+   bottom — it sits at z-index:-1 so overdraw is harmless. */
 html.standalone.liquid-glass body::before {
-  bottom: calc(-1 * env(safe-area-inset-bottom, 0px) - 4px);
+  bottom: -140px;
 }
 /* app pages: content starts below the clock, wallpaper still runs behind it */
 html.standalone.liquid-glass .lg-shell {
