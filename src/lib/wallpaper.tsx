@@ -33,6 +33,15 @@ const EDGE_TONES: Record<Exclude<WallpaperId, 'plain'>, string> = {
   starry: '#1e2a4a',
 };
 
+/* Bottom-edge tone per wallpaper — in standalone mode this colours the thin
+   home-indicator sliver the cover-sized image doesn't reach, so it reads as
+   a continuation of the artwork's bottom instead of a bare stripe. */
+const BOTTOM_TONES: Record<Exclude<WallpaperId, 'plain'>, string> = {
+  lilies: '#6f8f80',
+  wave: '#41607a',
+  starry: '#141d33',
+};
+
 const LS_KEY = 'focusos-wallpaper';
 const LS_PLAIN_COLOR_KEY = 'focusos-plain-color';
 const CHANGE_EVENT = 'focusos-wallpaper-change';
@@ -136,7 +145,12 @@ export function WallpaperController() {
       document.head.appendChild(meta);
     }
     meta.content = tone;
-    el.style.backgroundColor = tone;
+    // Standalone: the root background-color only ever shows in the bottom
+    // home-indicator sliver, so use the artwork's bottom-edge tone there.
+    // Safari: it shows on overscroll top/bottom, keep the (top) edge tone.
+    const standalone = el.classList.contains('standalone');
+    el.style.backgroundColor =
+      standalone && wp !== 'plain' ? BOTTOM_TONES[wp] : tone;
   }, [wp, plainColor]);
 
   return null;

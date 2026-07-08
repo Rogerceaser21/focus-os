@@ -623,8 +623,9 @@ html.standalone #root {
    reaches the strip, body::before is disabled (single continuous image, no
    seam), and body stays viewport-height so the document never scrolls. */
 html.standalone.liquid-glass {
-  /* 100px: the strip proved deeper than the nominal 34pt home-indicator inset */
-  height: calc(100% + 100px);
+  /* +40px: Igor-approved framing (his 1:56 reference shot). The remaining
+     sliver below is hidden by the bottom-edge tone, not by more stretching. */
+  height: calc(100% + 40px);
   background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
   background-size: cover, cover;
   background-position: center, center;
@@ -658,11 +659,9 @@ html.standalone.liquid-glass .lg-hero-col {
   padding-bottom: calc(110px + (2 * env(safe-area-inset-bottom, 0px)));
   height: 100svh;
 }
-/* Dock sits at the viewport floor — the lowest renderable position for
-   interactive elements (iOS clips everything but the root background below
-   this line). Igor-approved position. */
+/* Dock height exactly as Igor approved (his 1:56 reference shot). */
 html.standalone.liquid-glass .lg-dock {
-  bottom: 0px !important;
+  bottom: 6px !important;
 }
 html.standalone.liquid-glass div.fixed.bottom-24 {
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
