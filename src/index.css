@@ -658,10 +658,11 @@ html.standalone.liquid-glass .lg-hero-col {
   padding-bottom: calc(110px + (2 * env(safe-area-inset-bottom, 0px)));
   height: 100svh;
 }
-/* Dock sits low, near the bottom edge (Igor wants the menu lower in the
-   home-screen app). Starting value — tuned live on device. */
+/* Dock sits at the viewport floor — the lowest renderable position for
+   interactive elements (iOS clips everything but the root background below
+   this line). Igor-approved position. */
 html.standalone.liquid-glass .lg-dock {
-  bottom: 6px !important;
+  bottom: 0px !important;
 }
 html.standalone.liquid-glass div.fixed.bottom-24 {
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
