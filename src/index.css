@@ -623,7 +623,8 @@ html.standalone #root {
    reaches the strip, body::before is disabled (single continuous image, no
    seam), and body stays viewport-height so the document never scrolls. */
 html.standalone.liquid-glass {
-  height: calc(100% + 40px);
+  /* 100px: the strip proved deeper than the nominal 34pt home-indicator inset */
+  height: calc(100% + 100px);
   background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
   background-size: cover, cover;
   background-position: center, center;
