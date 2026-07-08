@@ -25,7 +25,7 @@ if (isStandalone) {
 // exactly what the running home-screen app sees.
 {
   const probe = document.createElement('div');
-  probe.textContent = `PROBE3 SA:${navStandalone} MM:${mmStandalone} FS:${mmFullscreen} NB:${notBrowser} CLS:${document.documentElement.classList.contains('standalone')}`;
+  probe.textContent = `PROBE4 strip test: magenta=theme-color green=html cream=manifest`;
   probe.style.cssText =
     'position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 2px);' +
     'transform:translateX(-50%);z-index:2147483647;background:#e11d48;color:#fff;' +
