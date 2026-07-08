@@ -615,6 +615,18 @@ All colors MUST be HSL.
 html.standalone #root {
   padding: 0;
 }
+/* Root-level wallpaper: the <html> background is propagated to the viewport
+   canvas and is NEVER clipped (unlike the fixed body::before, which iOS clips
+   at the home-indicator boundary in standalone — leaving body's cream bg
+   showing as a strip). Painting the wallpaper here guarantees the bottom edge
+   bleeds. --wallpaper-url is set on <html> by WallpaperController; on the
+   plain wallpaper it is 'none' and the tone background-color shows instead. */
+html.standalone.liquid-glass {
+  background-image: var(--wallpaper-url, none);
+  background-size: cover;
+  background-position: center;
+  background-attachment: scroll;
+}
 /* iOS standalone leaves a bare strip at the home-indicator zone (the webview
    reports safe-area-inset-bottom as 0 here, so an inset-based overdraw is too
    small). Extend the fixed wallpaper layer a generous fixed amount past the
