@@ -615,23 +615,32 @@ All colors MUST be HSL.
 html.standalone #root {
   padding: 0;
 }
-/* Root-level wallpaper is painted on <html> inline by WallpaperController (the
-   root background is propagated to the viewport canvas and is NEVER clipped,
-   unlike the fixed body::before which iOS clips at the home-indicator boundary
-   in standalone). See src/lib/wallpaper.tsx. */
-/* body has an opaque cream bg (bg-background) that would cover the html
-   wallpaper in the clipped home-indicator strip. Make it transparent in
-   standalone — the fixed body::before still covers everywhere else, so the
-   only place html shows through is that bottom strip. */
+/* The bottom home-indicator strip sits BELOW the layout viewport: fixed
+   layers (like body::before) are hard-clipped at that boundary — verified on
+   device — but the root element's own background paints the entire canvas,
+   strip included. So in standalone the <html> element IS the wallpaper layer:
+   its box is stretched 40px past the viewport so the cover-sized image
+   reaches the strip, body::before is disabled (single continuous image, no
+   seam), and body stays viewport-height so the document never scrolls. */
+html.standalone.liquid-glass {
+  height: calc(100% + 40px);
+  background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat;
+}
+html.standalone.liquid-glass[data-wallpaper='plain'] {
+  background-color: var(--plain-color, hsl(var(--background)));
+  background-image:
+    radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
+    radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
+}
 html.standalone.liquid-glass body {
+  height: 100svh;
   background-color: transparent;
 }
-/* iOS standalone leaves a bare strip at the home-indicator zone (the webview
-   reports safe-area-inset-bottom as 0 here, so an inset-based overdraw is too
-   small). Extend the fixed wallpaper layer a generous fixed amount past the
-   bottom — it sits at z-index:-1 so overdraw is harmless. */
 html.standalone.liquid-glass body::before {
-  bottom: -140px;
+  content: none;
 }
 /* app pages: content starts below the clock, wallpaper still runs behind it */
 html.standalone.liquid-glass .lg-shell {

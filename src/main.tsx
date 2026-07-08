@@ -20,20 +20,6 @@ if (isStandalone) {
   document.documentElement.classList.add('standalone');
 }
 
-// TEMP diagnostic probe (remove once standalone detection is confirmed).
-// Shows a red banner reporting each signal so a single screenshot tells us
-// exactly what the running home-screen app sees.
-{
-  const probe = document.createElement('div');
-  probe.textContent = `PROBE4 strip test: magenta=theme-color green=html cream=manifest`;
-  probe.style.cssText =
-    'position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 2px);' +
-    'transform:translateX(-50%);z-index:2147483647;background:#e11d48;color:#fff;' +
-    'font:700 10px/1.3 ui-monospace,SFMono-Regular,monospace;padding:3px 7px;' +
-    'border-radius:6px;pointer-events:none;white-space:nowrap;max-width:96vw;overflow:hidden;';
-  document.body.appendChild(probe);
-}
-
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider attribute="class" forcedTheme="liquid-glass" defaultTheme="liquid-glass" enableSystem={false} themes={['liquid-glass']}>

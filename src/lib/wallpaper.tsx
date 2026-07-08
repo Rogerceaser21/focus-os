@@ -135,27 +135,8 @@ export function WallpaperController() {
       meta.name = 'theme-color';
       document.head.appendChild(meta);
     }
-    // TEMP diagnostic: magenta theme-color vs green html background — whichever
-    // colour shows in the bottom strip identifies which layer paints it.
-    meta.content = '#ff00ff';
-    el.style.backgroundColor = '#00ff00';
-
-    // Home-Screen (standalone) mode: paint the wallpaper on the <html> root
-    // itself. The root background reaches the iOS home-indicator strip at the
-    // very bottom (where the fixed wallpaper layer gets clipped and the bare
-    // tone colour would otherwise show), so the chosen wallpaper fills the
-    // bottom edge. Set inline for reliability; Safari (no 'standalone' class)
-    // keeps the tone-only background.
-    if (el.classList.contains('standalone')) {
-      if (src) {
-        el.style.backgroundImage = `url('${src}')`;
-        el.style.backgroundSize = 'cover';
-        el.style.backgroundPosition = 'center';
-        el.style.backgroundRepeat = 'no-repeat';
-      } else {
-        el.style.backgroundImage = 'none';
-      }
-    }
+    meta.content = tone;
+    el.style.backgroundColor = tone;
   }, [wp, plainColor]);
 
   return null;
