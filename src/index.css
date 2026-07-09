@@ -626,9 +626,23 @@ html.standalone.liquid-glass {
   /* +40px: Igor-approved framing (his 1:56 reference shot). The remaining
      sliver below is hidden by the bottom-edge tone, not by more stretching. */
   height: calc(100% + 40px);
-  background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
-  background-size: cover, cover;
-  background-position: center, center;
+  /* Middle layer = seam-kill gradient: fades the artwork into the strip
+     tone across the 64px just above the layout-viewport bottom (hidden
+     behind the dock), and holds it solid through the 40px overshoot. So
+     whether iOS clips background images at the viewport bottom or at the
+     stretched box bottom, both sides of the handover to the raw
+     background-color are the same colour and no hard line can appear.
+     Tone var is set per wallpaper by WallpaperController (standalone only). */
+  background-image:
+    var(--wallpaper-veil, none),
+    linear-gradient(
+      to bottom,
+      transparent calc(100% - 104px),
+      var(--wallpaper-bottom-tone, transparent) calc(100% - 40px)
+    ),
+    var(--wallpaper-url, none);
+  background-size: cover, cover, cover;
+  background-position: center, center, center;
   background-repeat: no-repeat;
 }
 html.standalone.liquid-glass[data-wallpaper='plain'] {
