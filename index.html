@@ -72,6 +72,12 @@
         } catch(e) {}
       })();
     </script>
+    <!-- Standalone (icon-app) wallpaper layer. A REAL fixed element with
+         non-negative stacking: iOS clips negative-z fixed pseudo-layers at
+         the short layout viewport, but paints elements like this one to the
+         physical screen bottom (device-probe-verified 2026-07-09). Hidden
+         outside standalone mode; sized by CSS in index.css. -->
+    <div id="lg-wallpaper" aria-hidden="true"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
