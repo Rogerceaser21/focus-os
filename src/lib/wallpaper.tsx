@@ -33,22 +33,11 @@ const EDGE_TONES: Record<Exclude<WallpaperId, 'plain'>, string> = {
   starry: '#1e2a4a',
 };
 
-/* Bottom-edge tone per wallpaper — mean colour of the artwork's bottom band
-   at the phone cover-crop (sampled from the actual jpgs, centre crop, bottom
-   10%). In standalone mode this is the endpoint of the seam-kill gradient
-   (--wallpaper-bottom-tone) that fades the image into the strip colour. */
-const BOTTOM_TONES: Record<Exclude<WallpaperId, 'plain'>, string> = {
-  lilies: '#404c44',
-  wave: '#717a6d',
-  starry: '#2b2f2d',
-};
-
-/* BOTTOM_TONES with the wallpaper veil's bottom stop baked in. The strip
-   below the layout viewport shows the raw <html> background-color with NO
-   veil layer over it, while the artwork just above the seam is displayed
-   through the veil — so the strip colour must pre-multiply the veil to match
-   what the eye sees above the seam. wave/lilies veil bottom = black 14%;
-   starry = hsl(228 55% 4%) at 64%. */
+/* Backstop colour per wallpaper in standalone mode — the root background
+   behind the full-screen fixed wallpaper layer, visible only for a moment
+   while the image loads. Values = the artwork's bottom band (sampled from
+   the jpgs) composited under the veil's bottom stop, so any flash reads as
+   the artwork, not a bare colour. */
 const BOTTOM_BAND: Record<Exclude<WallpaperId, 'plain'>, string> = {
   lilies: '#37413a',
   wave: '#61695e',
@@ -158,17 +147,11 @@ export function WallpaperController() {
       document.head.appendChild(meta);
     }
     meta.content = tone;
-    // Standalone: the root background-color only ever shows in the bottom
-    // home-indicator sliver, so use the veil-composited bottom band colour
-    // there, and feed the raw bottom tone to the seam-kill gradient in
-    // index.css so artwork fades into exactly that colour at the viewport
-    // bottom. Safari: colour shows on overscroll top/bottom, keep edge tone.
+    // Standalone: the root background-color is only a load-time backstop
+    // behind the full-screen fixed wallpaper layer, so use the artwork's
+    // bottom band colour. Safari: colour shows on overscroll top/bottom,
+    // keep the edge tone.
     const standalone = el.classList.contains('standalone');
-    if (standalone && wp !== 'plain') {
-      el.style.setProperty('--wallpaper-bottom-tone', BOTTOM_TONES[wp]);
-    } else {
-      el.style.removeProperty('--wallpaper-bottom-tone');
-    }
     el.style.backgroundColor =
       standalone && wp !== 'plain' ? BOTTOM_BAND[wp] : tone;
   }, [wp, plainColor]);

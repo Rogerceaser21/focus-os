@@ -615,48 +615,25 @@ All colors MUST be HSL.
 html.standalone #root {
   padding: 0;
 }
-/* The bottom home-indicator strip sits BELOW the layout viewport: fixed
-   layers (like body::before) are hard-clipped at that boundary — verified on
-   device — but the root element's own background paints the entire canvas,
-   strip included. So in standalone the <html> element IS the wallpaper layer:
-   its box is stretched 40px past the viewport so the cover-sized image
-   reaches the strip, body::before is disabled (single continuous image, no
-   seam), and body stays viewport-height so the document never scrolls. */
-html.standalone.liquid-glass {
-  /* +40px: Igor-approved framing (his 1:56 reference shot). The remaining
-     sliver below is hidden by the bottom-edge tone, not by more stretching. */
-  height: calc(100% + 40px);
-  /* Middle layer = seam-kill gradient: fades the artwork into the strip
-     tone across the 64px just above the layout-viewport bottom (hidden
-     behind the dock), and holds it solid through the 40px overshoot. So
-     whether iOS clips background images at the viewport bottom or at the
-     stretched box bottom, both sides of the handover to the raw
-     background-color are the same colour and no hard line can appear.
-     Tone var is set per wallpaper by WallpaperController (standalone only). */
-  background-image:
-    var(--wallpaper-veil, none),
-    linear-gradient(
-      to bottom,
-      transparent calc(100% - 104px),
-      var(--wallpaper-bottom-tone, transparent) calc(100% - 40px)
-    ),
-    var(--wallpaper-url, none);
-  background-size: cover, cover, cover;
-  background-position: center, center, center;
-  background-repeat: no-repeat;
-}
-html.standalone.liquid-glass[data-wallpaper='plain'] {
-  background-color: var(--plain-color, hsl(var(--background)));
-  background-image:
-    radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
-    radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
-}
+/* The wallpaper covers the ENTIRE physical screen, home-indicator strip
+   included. Device probe 2026-07-09: iOS does NOT clip fixed elements below
+   the layout viewport (the earlier belief that it did was a probe artifact),
+   and 100lvh is exactly the physical screen height (852 vs the 833 layout
+   viewport on Pro-class iPhones). So the standard Safari wallpaper layer
+   (body::before, position: fixed) is simply resized to the physical screen.
+   Fixed layers create no scrollable overflow, so this cannot add scroll
+   slack or move the dock. body stays viewport-height so the document never
+   scrolls; the root background-color remains as a backstop while the image
+   loads. */
 html.standalone.liquid-glass body {
   height: 100svh;
   background-color: transparent;
 }
 html.standalone.liquid-glass body::before {
-  content: none;
+  right: auto;
+  bottom: auto;
+  width: 100lvw;
+  height: 100lvh;
 }
 /* app pages: content starts below the clock, wallpaper still runs behind it */
 html.standalone.liquid-glass .lg-shell {
