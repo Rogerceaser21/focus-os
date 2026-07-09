@@ -609,98 +609,44 @@ All colors MUST be HSL.
 .liquid-glass .lg-side.w-0 { border: none !important; margin: 0; box-shadow: none; }
 
 /* --------------------------------------------------------------------------
-   iOS white-flash fix for the mobile Projects panel (the Radix Sheet
-   instance of .lg-side above: ProjectSidebar.tsx SheetContent, side="left").
-   Reported on real iPhone: a white artifact flashes (a) the very first time
-   this sheet opens after login and (b) every time it closes. Steady-state
-   open already looks correct (the background/backdrop-filter above), so
-   this is purely an animation-window problem. Two independent WebKit
-   quirks, one per symptom:
+   iOS white-artifact fix for the mobile Projects panel (the Radix Sheet
+   instance of .lg-side: ProjectSidebar.tsx SheetContent, side="left").
+   Device-video-verified mechanism (Igor's screen recording, 2026-07-09):
+   while the sheet runs its slide transform animation, iOS WebKit disables
+   the element's backdrop-filter, so the panel paints its translucent white
+   --gbg over whatever the compositor samples instead of blurred wallpaper —
+   in Safari browser mode that sample is the cream page canvas, so the
+   whole panel reads as a FLAT WHITE sliver for the entire slide, on every
+   open and close. (The standalone icon-app was unaffected because there
+   the root canvas itself carries the wallpaper image, so even the broken
+   sample looks right — Igor spotted that difference, and it was the
+   decisive clue.) An earlier attempt to hide this window behind an opaque
+   frost mask just made the white permanent — reverted.
 
-   (a) FIRST OPEN ONLY — sheetVariants (sheet.tsx) puts `backdrop-filter`
-       and the `animate-in` transform animation (tailwindcss-animate's
-       `enter` keyframe, translate3d -> none) on the SAME element, and that
-       element is being created for the first time. WebKit has to spin up
-       the backdrop-sampling compositor path for this layer; the very first
-       time that happens on the page it can lag a few frames, during which
-       only the panel's own flat `background: var(--gbg)` (translucent
-       white) paints, unblurred -> reads as a white flash while it slides
-       in. Later opens reuse the now-warm path, so the same lag becomes
-       imperceptible (why every open after the first already looks fine).
-   (b) EVERY CLOSE — tailwindcss-animate's `.animate-out` sets
-       `animation-name: exit` but never sets `animation-fill-mode`
-       (node_modules/tailwindcss-animate/index.js), and the default fill
-       mode is `none`. The `exit` keyframe only declares its `to` state
-       (slid fully off-screen); when it ends, the cascade reverts the
-       element to its BASE declared transform — `none`, i.e. fully
-       on-screen — until Radix's Presence unmounts it. Radix does try to
-       suppress exactly this: its animationend handler sets an inline
-       animationFillMode "forwards" on the node (react-presence source).
-       But that is JS reacting to an event, and on iOS under main-thread
-       load WebKit can paint the reverted frame before the handler runs —
-       a race Radix can lose, which is what the phone shows. The CSS rule
-       below declares fill-mode from t=0, so the held end pose never
-       depends on event timing.
-
-   Fix below is CSS-only and scoped to THIS sheet only: every selector
-   requires both `.lg-side` AND a `[data-state]` attribute. The other two
-   `.lg-side` elements in the app (ProjectSidebar's tour-mode plain div and
-   the desktop persistent sidebar div, both further down this file's
-   callers) are never Radix-controlled and never carry `data-state`, so
-   they don't match. No other Sheet/Dialog in the app carries `.lg-side`.
-   (a) holds the exit transform at its slid-away end state instead of
-   snapping back. (b) gives the panel a same-themed, already-defined
-   near-opaque fallback (`--gbg-strong`, defined for every wallpaper/theme
-   alongside `--gbg` above) on a masking pseudo-element, opaque exactly
-   during the two risk windows and faded by CSS keyframes timed to match
-   the existing open/close durations (data-[state=open]:duration-500 /
-   data-[state=closed]:duration-300 in sheetVariants) — no JS timers; the
-   real blurred look (already correct today) simply shows through once the
-   mask's own opacity keyframe reaches 0. */
+   Therefore: the blurred element must NEVER run a transform animation.
+   These rules replace tailwindcss-animate's slide (transform) keyframes
+   with a clip-path wipe of the same duration and easing family: the panel
+   box stays put from the first frame, its backdrop-filter layer is never
+   invalidated, and the visible region sweeps open/closed. `round 26px`
+   keeps the clip matched to the panel's own radius. Scoped to
+   .lg-side[data-state]: only the Radix projects sheet ever matches (the
+   tour div and the desktop panel never carry data-state); other
+   sheets/dialogs keep their stock animations. `forwards` on close holds
+   the fully-clipped end state until Radix unmounts the node, with no
+   dependency on Radix's animationend JS (which iOS can out-paint). */
+@keyframes lg-side-wipe-in {
+  from { clip-path: inset(0 100% 0 0 round 26px); }
+  to { clip-path: inset(0 0 0 0 round 26px); }
+}
+@keyframes lg-side-wipe-out {
+  from { clip-path: inset(0 0 0 0 round 26px); }
+  to { clip-path: inset(0 100% 0 0 round 26px); }
+}
+.liquid-glass .lg-side[data-state='open'] {
+  animation: lg-side-wipe-in 500ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+}
 .liquid-glass .lg-side[data-state='closed'] {
-  /* (a) stop the close-time snap-back to the on-screen position. */
-  animation-fill-mode: forwards;
-}
-.liquid-glass .lg-side[data-state]::after {
-  /* (b) mask layer. Absolute against .lg-side's own box (it's `position:
-     fixed`, which — like any non-static position — is a valid containing
-     block for absolutely-positioned descendants), clipped to the 26px
-     rounded rect by .lg-side's own `overflow: hidden` above. Deliberately
-     painted above the panel's real content (and the X close button) during
-     the brief opaque windows: those windows only ever overlap an in-flight
-     slide animation, never the steady-state open panel, so nothing usable
-     is ever hidden. pointer-events: none keeps it fully inert either way. */
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  pointer-events: none;
-  background: var(--gbg-strong);
-  opacity: 0;
-}
-@keyframes lg-side-mask-in {
-  /* First open: opaque through most of the slide (covers the cold
-     backdrop-filter warm-up), fading out right at the end — by then the
-     real backdrop-filter has had the full 500ms to engage. */
-  0% { opacity: 1; }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
-}
-@keyframes lg-side-mask-out {
-  /* Close: transparent at the instant, opaque within the first third and
-     held opaque through the rest of the 300ms exit — the panel is on its
-     way off-screen the whole time, so there's no reveal to mask against,
-     only teardown artifacts (including the (a) snap-back, belt-and-braces
-     even though (a) already prevents it) to cover. */
-  0% { opacity: 0; }
-  30% { opacity: 1; }
-  100% { opacity: 1; }
-}
-.liquid-glass .lg-side[data-state='open']::after {
-  animation: lg-side-mask-in 500ms ease-out forwards;
-}
-.liquid-glass .lg-side[data-state='closed']::after {
-  animation: lg-side-mask-out 300ms ease-in forwards;
+  animation: lg-side-wipe-out 300ms cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
 }
 
 /* Mobile Projects panel is a Radix Sheet: its SheetOverlay (sheet.tsx) is a
