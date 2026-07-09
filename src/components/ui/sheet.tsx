@@ -56,12 +56,17 @@ interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
   disableOverlayPointerEvents?: boolean;
+  /** Extra className applied to this instance's SheetOverlay only. Lets a single
+   * SheetContent (e.g. a liquid-glass panel) neutralise the default tinted/blurred
+   * overlay without touching sheetVariants/SheetOverlay defaults — every other
+   * Sheet in the app that doesn't pass this keeps the normal dim+blur overlay. */
+  overlayClassName?: string;
 }
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, disableOverlayPointerEvents, ...props }, ref) => (
+  ({ side = "right", className, children, disableOverlayPointerEvents, overlayClassName, ...props }, ref) => (
     <SheetPortal>
-      <SheetOverlay disablePointerEvents={disableOverlayPointerEvents} />
+      <SheetOverlay disablePointerEvents={disableOverlayPointerEvents} className={overlayClassName} />
       <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
         {children}
         <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">

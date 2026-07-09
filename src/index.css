@@ -608,6 +608,25 @@ All colors MUST be HSL.
 /* fully vanish when collapsed (w-0) — no border/margin sliver */
 .liquid-glass .lg-side.w-0 { border: none !important; margin: 0; box-shadow: none; }
 
+/* Mobile Projects panel is a Radix Sheet: its SheetOverlay (sheet.tsx) is a
+   full-screen fixed div PAINTED BEHIND the panel with bg-background/60 +
+   backdrop-blur-sm. The panel's own backdrop-filter then samples that already
+   tinted/blurred layer (backdrop-filter samples everything painted underneath,
+   not just what's directly behind in the box model), compounding into a milky
+   wash on real devices — even though .lg-side's background/backdrop-filter
+   above are already correct. The desktop .lg-side div has no such overlay,
+   which is why it stays crisp. Fix: keep the overlay (click-outside-to-dismiss
+   still needs it) but make it paint nothing, so the panel's backdrop-filter
+   samples the crisp wallpaper, matching the desktop reference. Scoped to the
+   ONE SheetContent that opts in via overlayClassName="lg-side-overlay"
+   (ProjectSidebar.tsx) — no other Sheet/Dialog in the app passes this class,
+   so their overlays keep the normal dim+blur look. */
+.liquid-glass .lg-side-overlay {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* --------------------------------------------------------------------------
    Home-Screen (standalone) mode ONLY. Scoped to html.standalone, set by
    main.tsx (iOS icon apps report navigator.standalone but do NOT reliably
