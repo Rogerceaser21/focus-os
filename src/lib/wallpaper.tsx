@@ -33,15 +33,13 @@ const EDGE_TONES: Record<Exclude<WallpaperId, 'plain'>, string> = {
   starry: '#1e2a4a',
 };
 
-/* Backstop colour per wallpaper in standalone mode — the root background
-   behind the full-screen fixed wallpaper layer, visible only for a moment
-   while the image loads. Values = the artwork's bottom band (sampled from
-   the jpgs) composited under the veil's bottom stop, so any flash reads as
-   the artwork, not a bare colour. */
-const BOTTOM_BAND: Record<Exclude<WallpaperId, 'plain'>, string> = {
-  lilies: '#37413a',
-  wave: '#61695e',
-  starry: '#13151a',
+/* Bottom-edge tone per wallpaper — in standalone mode this colours the thin
+   home-indicator sliver the cover-sized image doesn't reach, so it reads as
+   a continuation of the artwork's bottom instead of a bare stripe. */
+const BOTTOM_TONES: Record<Exclude<WallpaperId, 'plain'>, string> = {
+  lilies: '#6f8f80',
+  wave: '#41607a',
+  starry: '#141d33',
 };
 
 const LS_KEY = 'focusos-wallpaper';
@@ -147,13 +145,12 @@ export function WallpaperController() {
       document.head.appendChild(meta);
     }
     meta.content = tone;
-    // Standalone: the root background-color is only a load-time backstop
-    // behind the full-screen fixed wallpaper layer, so use the artwork's
-    // bottom band colour. Safari: colour shows on overscroll top/bottom,
-    // keep the edge tone.
+    // Standalone: the root background-color only ever shows in the bottom
+    // home-indicator sliver, so use the artwork's bottom-edge tone there.
+    // Safari: it shows on overscroll top/bottom, keep the (top) edge tone.
     const standalone = el.classList.contains('standalone');
     el.style.backgroundColor =
-      standalone && wp !== 'plain' ? BOTTOM_BAND[wp] : tone;
+      standalone && wp !== 'plain' ? BOTTOM_TONES[wp] : tone;
   }, [wp, plainColor]);
 
   return null;

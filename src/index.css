@@ -615,51 +615,34 @@ All colors MUST be HSL.
 html.standalone #root {
   padding: 0;
 }
-/* The wallpaper covers the ENTIRE physical screen, home-indicator strip
-   included, via the #lg-wallpaper div in index.html. Two device probes
-   (2026-07-08 / 2026-07-09) narrowed the physics: iOS clips NEGATIVE-z fixed
-   pseudo-layers (like the Safari body::before) at the short layout viewport,
-   but paints normally-stacked real fixed elements all the way to the glass
-   (100lvh = the physical screen height, 852 vs the 793 short viewport on
-   Pro-class iPhones). So standalone uses the real div at z-index 1 with the
-   app root lifted above it, and disables the pseudo. Fixed layers create no
-   scrollable overflow, so no scroll slack and the dock cannot move. body
-   stays viewport-height so the document never scrolls; the root
-   background-color remains a load-time backstop. */
+/* The bottom home-indicator strip sits BELOW the layout viewport: fixed
+   layers (like body::before) are hard-clipped at that boundary — verified on
+   device — but the root element's own background paints the entire canvas,
+   strip included. So in standalone the <html> element IS the wallpaper layer:
+   its box is stretched 40px past the viewport so the cover-sized image
+   reaches the strip, body::before is disabled (single continuous image, no
+   seam), and body stays viewport-height so the document never scrolls. */
+html.standalone.liquid-glass {
+  /* +40px: Igor-approved framing (his 1:56 reference shot). The remaining
+     sliver below is hidden by the bottom-edge tone, not by more stretching. */
+  height: calc(100% + 40px);
+  background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat;
+}
+html.standalone.liquid-glass[data-wallpaper='plain'] {
+  background-color: var(--plain-color, hsl(var(--background)));
+  background-image:
+    radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
+    radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
+}
 html.standalone.liquid-glass body {
   height: 100svh;
   background-color: transparent;
 }
 html.standalone.liquid-glass body::before {
   content: none;
-}
-#lg-wallpaper {
-  display: none;
-}
-html.standalone.liquid-glass #lg-wallpaper {
-  display: block;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100lvw;
-  height: 100lvh;
-  z-index: 1;
-  pointer-events: none;
-  background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
-  background-size: cover, cover;
-  background-position: center, center;
-  background-repeat: no-repeat;
-}
-html.standalone.liquid-glass[data-wallpaper='plain'] #lg-wallpaper {
-  background-color: var(--plain-color, hsl(var(--background)));
-  background-image:
-    radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
-    radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
-}
-/* app paints above the wallpaper div (which must NOT be negative-z) */
-html.standalone #root {
-  position: relative;
-  z-index: 2;
 }
 /* app pages: content starts below the clock, wallpaper still runs behind it */
 html.standalone.liquid-glass .lg-shell {
