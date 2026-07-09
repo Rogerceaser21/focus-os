@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { TourLoadingOverlay } from './TourLoadingOverlay';
 import AnimatedList from './AnimatedList';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
 import Fuse from 'fuse.js';
 import { SidebarScrollArea } from './SidebarScrollArea';
@@ -511,7 +510,7 @@ export const ProjectSidebar = ({
         // Navigate to the cloned meeting
         setTimeout(() => {
           navigate(`/meetings/${data.recipientTaskId}`);
-          if (isActuallyMobile) setOpenMobile(false);
+          if (isMobile) setOpenMobile(false);
         }, 800);
       } else if (acceptedItem?.project_name) {
         setTimeout(async () => {
@@ -525,7 +524,7 @@ export const ProjectSidebar = ({
           if (matchedProject) {
             onSelectProject(matchedProject.id);
             onSelectSpecialList(null);
-            if (isActuallyMobile) setOpenMobile(false);
+            if (isMobile) setOpenMobile(false);
           }
         }, 1200);
       }
@@ -645,8 +644,15 @@ export const ProjectSidebar = ({
     onSelectProject(null);
   };
 
+  // Single source of truth for mobile detection: read isMobile from the
+  // SidebarProvider context (which itself calls useIsMobile()) instead of
+  // calling useIsMobile() a second time here. Two independent hook instances
+  // both start at `false` and flip to `true` in their own effect after mount;
+  // relying on only one keeps this component's branch (plain div vs Sheet)
+  // always in lockstep with the provider's `open`/`sidebarOpen` state, so
+  // there's no window where the desktop-styled div and the mobile Sheet can
+  // both exist/mount back-to-back for the same view.
   const { open: sidebarOpen, setOpen: setSidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
-  const isActuallyMobile = useIsMobile();
 
   const [launchingTourLabel, setLaunchingTourLabel] = useState<string | null>(null);
 
@@ -674,7 +680,7 @@ export const ProjectSidebar = ({
 
     setLaunchingTourLabel(labelMap[tourType]);
 
-    if (isActuallyMobile) {
+    if (isMobile) {
       setOpenMobile(false);
     } else {
       try { setSidebarOpen?.(false); } catch { /* no-op if context unavailable */ }
@@ -698,7 +704,7 @@ export const ProjectSidebar = ({
       <div className="border-b p-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-lg">Projects</h2>
-          {!isActuallyMobile && (
+          {!isMobile && (
             <button
               type="button"
               aria-label="Close sidebar"
@@ -725,7 +731,7 @@ export const ProjectSidebar = ({
                 Home Tour
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
-                if (isActuallyMobile) setOpenMobile(false);
+                if (isMobile) setOpenMobile(false);
                 navigate('/meetings?tour=meetings');
               }}>
                 Meetings Tour
@@ -754,7 +760,7 @@ export const ProjectSidebar = ({
           className="w-full gap-2 mt-2 border-primary/50 text-primary hover:bg-primary/10 hover:border-primary"
           onClick={() => {
             navigate('/meetings');
-            if (isActuallyMobile) setOpenMobile(false);
+            if (isMobile) setOpenMobile(false);
           }}
         >
           <Mic className="h-4 w-4" />
@@ -790,7 +796,7 @@ export const ProjectSidebar = ({
                       onClick={() => {
                         handleSelectProject(project.id);
                         setSidebarSearchInput('');
-                        if (isActuallyMobile) setOpenMobile(false);
+                        if (isMobile) setOpenMobile(false);
                       }}
                     >
                       <Folder className="h-4 w-4" style={{ color: project.color }} />
@@ -812,7 +818,7 @@ export const ProjectSidebar = ({
                       onClick={() => {
                         navigate(`/meetings/${meeting.id}`);
                         setSidebarSearchInput('');
-                        if (isActuallyMobile) setOpenMobile(false);
+                        if (isMobile) setOpenMobile(false);
                       }}
                     >
                       <Mic className="h-4 w-4 text-primary" />
@@ -836,7 +842,7 @@ export const ProjectSidebar = ({
                 className="w-full justify-start gap-2"
                 onClick={() => {
                   handleSelectSpecial('today');
-                  if (isActuallyMobile) setOpenMobile(false);
+                  if (isMobile) setOpenMobile(false);
                 }}
               >
                 <Calendar className="h-4 w-4" />
@@ -848,7 +854,7 @@ export const ProjectSidebar = ({
                 className="w-full justify-start gap-2 text-orange-400/80 hover:text-orange-400"
                 onClick={() => {
                   handleSelectSpecial('past-due');
-                  if (isActuallyMobile) setOpenMobile(false);
+                  if (isMobile) setOpenMobile(false);
                 }}
               >
                 <Calendar className="h-4 w-4" />
@@ -860,7 +866,7 @@ export const ProjectSidebar = ({
                 className="w-full justify-start gap-2"
                 onClick={() => {
                   handleSelectSpecial('unassigned');
-                  if (isActuallyMobile) setOpenMobile(false);
+                  if (isMobile) setOpenMobile(false);
                 }}
               >
                 <ListTodo className="h-4 w-4" />
@@ -1123,7 +1129,7 @@ export const ProjectSidebar = ({
                       className="w-full justify-start gap-2"
                       onClick={() => {
                         handleSelectProject(project.id);
-                        if (isActuallyMobile) setOpenMobile(false);
+                        if (isMobile) setOpenMobile(false);
                       }}
                     >
                       <Folder className="h-4 w-4" style={{ color: project.color }} />
@@ -1153,7 +1159,7 @@ export const ProjectSidebar = ({
                           className="w-full justify-start gap-2"
                           onClick={() => {
                             handleSelectProject(project.id);
-                            if (isActuallyMobile) setOpenMobile(false);
+                            if (isMobile) setOpenMobile(false);
                           }}
                         >
                           <Folder
@@ -1190,7 +1196,7 @@ export const ProjectSidebar = ({
 
   // On mobile, use Sheet overlay - dialog is OUTSIDE the Sheet
   // BUT when tour is active, use a simple fixed div to avoid Radix focus/event trapping
-  if (isActuallyMobile) {
+  if (isMobile) {
     if (isTourActive) {
       // Tour mode: Bypass Sheet entirely, use simple fixed positioning
       return (

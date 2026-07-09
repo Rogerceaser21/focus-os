@@ -588,9 +588,16 @@ All colors MUST be HSL.
   overflow: hidden;
 }
 .liquid-glass .lg-side {
-  background: var(--gbg);
-  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
-  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  /* !important on background/backdrop-filter: the mobile Projects panel is a
+     Radix Sheet whose base `sheetVariants()` class list (src/components/ui/sheet.tsx)
+     bakes in the generic `.glass-panel` utility (static frost, not wallpaper-aware).
+     `cn()` merges `lg-side` alongside it rather than replacing it, so both classes
+     land on the same element. Match the `border` override below (already !important
+     for the same reason) so the wallpaper-driven glass always wins, on both the
+     desktop div and the mobile Sheet, instead of racing on selector specificity. */
+  background: var(--gbg) !important;
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat)) !important;
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat)) !important;
   border: 1px solid var(--gbrd) !important;
   box-shadow: var(--gshadow);
   border-radius: 26px;
