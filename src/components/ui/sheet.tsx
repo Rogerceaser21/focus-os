@@ -61,13 +61,23 @@ interface SheetContentProps
    * overlay without touching sheetVariants/SheetOverlay defaults — every other
    * Sheet in the app that doesn't pass this keeps the normal dim+blur overlay. */
   overlayClassName?: string;
+  /** Keep the sheet mounted while closed (threaded to Radix Portal/Overlay/
+   * Content). iOS Safari (browser mode) paints a newly created compositing
+   * layer BLANK WHITE for a frame if an animation is running while the layer
+   * is born or torn down — device-bisected on the Projects panel 2026-07-09
+   * (flash persisted with backdrop-filter off and scroll-lock off; vanished
+   * only with animation off). forceMount + CSS transitions on data-state
+   * animate an already-rastered layer instead, so nothing blank can paint.
+   * Pair with instance CSS that hides the closed state (transform off-screen
+   * + pointer-events none), like .lg-side does in index.css. */
+  forceMount?: true;
 }
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, disableOverlayPointerEvents, overlayClassName, ...props }, ref) => (
-    <SheetPortal>
-      <SheetOverlay disablePointerEvents={disableOverlayPointerEvents} className={overlayClassName} />
-      <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+  ({ side = "right", className, children, disableOverlayPointerEvents, overlayClassName, forceMount, ...props }, ref) => (
+    <SheetPortal forceMount={forceMount}>
+      <SheetOverlay forceMount={forceMount} disablePointerEvents={disableOverlayPointerEvents} className={overlayClassName} />
+      <SheetPrimitive.Content forceMount={forceMount} ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
         {children}
         <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
           <X className="h-4 w-4" />

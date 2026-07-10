@@ -631,57 +631,46 @@ All colors MUST be HSL.
 .liquid-glass .lg-side.w-0 { border: none !important; margin: 0; box-shadow: none; }
 
 /* --------------------------------------------------------------------------
-   iOS white-artifact fix for the mobile Projects panel (the Radix Sheet
-   instance of .lg-side: ProjectSidebar.tsx SheetContent, side="left").
-   Device-video-verified mechanism (Igor's screen recording, 2026-07-09):
-   while the sheet runs its slide transform animation, iOS WebKit disables
-   the element's backdrop-filter, so the panel paints its translucent white
-   --gbg over whatever the compositor samples instead of blurred wallpaper —
-   in Safari browser mode that sample is the cream page canvas, so the
-   whole panel reads as a FLAT WHITE sliver for the entire slide, on every
-   open and close. (The standalone icon-app was unaffected because there
-   the root canvas itself carries the wallpaper image, so even the broken
-   sample looks right — Igor spotted that difference, and it was the
-   decisive clue.) An earlier attempt to hide this window behind an opaque
-   frost mask just made the white permanent — reverted.
+   iOS Safari white-flash fix for the mobile Projects panel — THE LAW:
+   NEVER run an animation on a layer while it is being created or destroyed.
 
-   Therefore: the blurred element must NEVER run a transform animation.
-   These rules replace tailwindcss-animate's slide (transform) keyframes
-   with a clip-path wipe of the same duration and easing family: the panel
-   box stays put from the first frame, its backdrop-filter layer is never
-   invalidated, and the visible region sweeps open/closed. `round 26px`
-   keeps the clip matched to the panel's own radius. Scoped to
-   .lg-side[data-state]: only the Radix projects sheet ever matches (the
-   tour div and the desktop panel never carry data-state); other
-   sheets/dialogs keep their stock animations. `forwards` on close holds
-   the fully-clipped end state until Radix unmounts the node, with no
-   dependency on Radix's animationend JS (which iOS can out-paint). */
-@keyframes lg-side-wipe-in {
-  from { clip-path: inset(0 100% 0 0 round 26px); }
-  to { clip-path: inset(0 0 0 0 round 26px); }
+   Device-bisected 2026-07-09 with one-suspect-off switches on Igor's phone:
+   the flash persisted with backdrop-filter fully OFF and with the scroll
+   lock OFF, and vanished only with animation OFF. So the white was never
+   the blur, the overlay, the scroll lock, or the canvas sample — it is
+   Safari-browser painting a freshly created (or dying) compositing layer
+   BLANK WHITE before its content raster lands, whenever an animation runs
+   across the layer's birth/death. The standalone icon-app rasters in time,
+   which is why it never flashed; five earlier animation-flavour fixes all
+   failed because every Radix mount/unmount animation re-entered the window.
+
+   Mechanism here: the sheet is forceMounted (ProjectSidebar passes
+   forceMount; sheet.tsx threads it to Portal/Overlay/Content), so its layer
+   is created ONCE at app load, hidden, and never torn down. Open/close are
+   CSS TRANSITIONS on Radix's data-state attribute — animating an
+   already-rastered layer, which the bisect proved safe. Closed state hides
+   off-screen with pointer-events off; no visibility:hidden (that would let
+   WebKit drop the raster and reopen the birth window). Radix keeps
+   focus-trap/dismiss behaviour keyed to open state as normal. Scoped to
+   .lg-side[data-state] = only the projects sheet; other sheets/dialogs and
+   the desktop panel (no data-state) untouched. */
+.liquid-glass .lg-side[data-state] {
+  animation: none !important; /* kill tailwindcss-animate enter/exit entirely */
 }
-@keyframes lg-side-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-/* OPEN: clip-path wipe reveals the panel in place (device-verified clean).
-   The box never moves, so its backdrop-filter layer is never invalidated. */
 .liquid-glass .lg-side[data-state='open'] {
-  animation: lg-side-wipe-in 500ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+  transform: translateX(0);
+  transition: transform 380ms cubic-bezier(0.32, 0.72, 0, 1) !important;
 }
-/* CLOSE: the clip-path wipe-out still animated the element's geometry, and on
-   image wallpapers iOS drops backdrop-filter for the animation window, so the
-   panel's translucent --gbg (0.55-0.62 white for wave/lilies/starry) paints
-   over a broken sample = a white flash on the shrinking strip. The plain
-   theme was immune only because its --gbg is 0.78 near-opaque white over a
-   solid light canvas (device-confirmed 2026-07-09: close-only, image-themes-
-   only). Fade opacity instead: opacity is the one property iOS keeps
-   backdrop-filter alive through, and in the worst case the panel and any
-   residual white vanish together as opacity reaches 0 — no solid flash is
-   possible. Panel stays put (transform slide from sheetVariants overridden),
-   `forwards` holds it invisible until Radix unmounts. */
 .liquid-glass .lg-side[data-state='closed'] {
-  animation: lg-side-fade-out 220ms ease-out forwards !important;
+  /* -100% - 60px clears the 14px margin + border glow/shadow spill */
+  transform: translateX(calc(-100% - 60px));
+  transition: transform 260ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+  pointer-events: none;
+}
+/* the transparent overlay also stays mounted; keep it inert while closed */
+.liquid-glass .lg-side-overlay[data-state='closed'] {
+  pointer-events: none;
+  animation: none !important;
 }
 
 /* TEMP DIAGNOSTIC SWITCHES (?gd=..., classes set in main.tsx) — each kills

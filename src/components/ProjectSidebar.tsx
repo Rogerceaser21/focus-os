@@ -1233,6 +1233,7 @@ export const ProjectSidebar = ({
             side="left"
             className="w-[280px] p-0 lg-side flex flex-col"
             overlayClassName="lg-side-overlay"
+            forceMount
           >
             {sidebarContent}
           </SheetContent>
