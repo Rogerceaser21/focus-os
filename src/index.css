@@ -684,6 +684,23 @@ All colors MUST be HSL.
   animation: lg-side-fade-out 220ms ease-out forwards !important;
 }
 
+/* TEMP DIAGNOSTIC SWITCHES (?gd=..., classes set in main.tsx) — each kills
+   ONE suspect of the Safari-only white flash so on-device testing bisects
+   the cause. Remove together with the main.tsx/ProjectSidebar.tsx hooks. */
+/* no backdrop-filter at all: if the flash STILL happens, blur is innocent */
+html.dbg-noblur .liquid-glass .lg-side,
+html.dbg-noblur.liquid-glass .lg-side {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--gbg-strong) !important;
+}
+/* no animation at all: instant mount/unmount — if clean, the animation
+   window is a necessary condition */
+html.dbg-noanim.liquid-glass .lg-side[data-state],
+html.dbg-noanim.liquid-glass .lg-side-overlay {
+  animation: none !important;
+}
+
 /* Mobile Projects panel is a Radix Sheet: its SheetOverlay (sheet.tsx) is a
    full-screen fixed div PAINTED BEHIND the panel with bg-background/60 +
    backdrop-blur-sm. The panel's own backdrop-filter then samples that already

@@ -1222,9 +1222,13 @@ export const ProjectSidebar = ({
     }
     
     // Normal mode: Use Sheet
+    // TEMP DIAGNOSTIC (?gd=nolock, see main.tsx): non-modal Radix skips the
+    // scroll-lock / body mutation / inert machinery — one of the bisect
+    // switches for the iOS Safari white-flash hunt. Remove with the others.
+    const gdNolock = new URLSearchParams(window.location.search).get('gd') === 'nolock';
     return (
       <>
-        <Sheet open={openMobile} onOpenChange={setOpenMobile}>
+        <Sheet open={openMobile} onOpenChange={setOpenMobile} modal={!gdNolock}>
           <SheetContent
             side="left"
             className="w-[280px] p-0 lg-side flex flex-col"
