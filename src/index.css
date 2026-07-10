@@ -305,6 +305,28 @@ All colors MUST be HSL.
     --chip-brd: rgba(255, 255, 255, 0.14);
   }
 
+  /* Root-canvas wallpaper copy — the backdrop-filter SAFETY NET, not the
+     visible wallpaper (body::before below paints over it everywhere).
+     iOS WebKit disables backdrop-filter on any element while it runs a
+     compositing-affecting animation (open WebKit bug 219729; exact white
+     flash repro in 315836); during that window the broken fallback samples
+     the ROOT CANVAS, not the separately-composited body::before image
+     layer. With only the cream EDGE_TONE colour on the canvas, every
+     animated glass surface (the Projects sheet open/close being the
+     device-verified case) flashed flat white in Safari browser mode. The
+     standalone icon-app never flashed because there the canvas itself
+     carries the artwork — this rule gives browser mode the same property.
+     Normal scroll attachment (see the Chromium note below); on scrollable
+     documents this layer sizes oddly, which is harmless — it is never
+     visible behind body::before and only exists to feed the broken
+     sampling path correct pixels. */
+  html.liquid-glass {
+    background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
+    background-size: cover, cover;
+    background-position: center, center;
+    background-repeat: no-repeat;
+  }
+
   /* The wallpaper, painted on a viewport-fixed pseudo layer behind the app.
      NOT background-attachment: fixed — Chromium fails to repaint fixed
      attachment layers when the var(--wallpaper-url) custom property changes,
