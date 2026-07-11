@@ -23,3 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 graphify-out/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

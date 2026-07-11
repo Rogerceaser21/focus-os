@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
@@ -15,10 +16,6 @@ import AnimatedList from './AnimatedList';
 import { useSidebar } from '@/components/ui/sidebar';
 import Fuse from 'fuse.js';
 import { SidebarScrollArea } from './SidebarScrollArea';
-import {
-  Sheet,
-  SheetContent,
-} from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -699,6 +696,18 @@ export const ProjectSidebar = ({
     }, startDelay);
   };
 
+  // Escape-to-close for the mobile drawer. Gated on openMobile so the listener
+  // only exists while the drawer is open. Radix Dialog gave this for free before
+  // the normal-mobile branch dropped Radix (see the portal comment below).
+  useEffect(() => {
+    if (!isMobile || !openMobile) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenMobile(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isMobile, openMobile, setOpenMobile]);
+
   const sidebarContent = (
     <>
       <div className="border-b p-4 flex-shrink-0">
@@ -1221,24 +1230,50 @@ export const ProjectSidebar = ({
       );
     }
     
-    // Normal mode: Use Sheet
+    // Normal mode: plain-div portal (NOT a Radix Sheet).
+    //
+    // Why not Radix: the drawer is opened by a PLAIN button (BottomNav's Projects
+    // tab -> toggleSidebar), not a SheetTrigger. A forceMounted Radix Sheet keeps
+    // its DismissableLayer mounted and listening while closed, and on TOUCH it
+    // defers its outside-dismiss to a one-shot document click listener. React's
+    // root onClick (toggle -> open) runs first, the document listener (onDismiss
+    // -> onOpenChange(false)) runs second, so every open/reopen tap is cancelled.
+    // A forceMounted Radix layer cannot be BOTH permanently mounted AND quiet
+    // while closed. Device-diagnosed 2026-07-11. The tour branch above already
+    // proved a plain fixed div works; this mirrors it.
+    //
+    // Why a portal to document.body: ancestor elements carry backdrop-filter,
+    // which makes them the containing block for position:fixed — a fixed child
+    // would otherwise be trapped inside the filtered ancestor's box. Portalling
+    // to <body> escapes that so the panel/overlay pin to the viewport.
+    //
+    // WHITE-FLASH LAW: the overlay and panel are PERMANENTLY rendered (never
+    // conditionally mounted, never visibility:hidden), so their compositing
+    // layers are born once and never torn down. Open/close is driven ONLY by the
+    // .lg-side / .lg-side-overlay [data-state] CSS transforms in index.css —
+    // animating an already-rastered layer, which the 2026-07-09 device bisect
+    // proved is the only Safari-safe path (a layer animated across its
+    // birth/death paints blank white for a frame).
     return (
       <>
-        {/* modal={false} is load-bearing with forceMount: a forceMounted MODAL
-            dialog locks body pointer-events forever (see sheet.tsx forceMount
-            doc, device-probed 2026-07-11). */}
-        <Sheet open={openMobile} onOpenChange={setOpenMobile} modal={false}>
-          <SheetContent
-            side="left"
-            className="w-[280px] p-0 lg-side flex flex-col"
-            overlayClassName="lg-side-overlay"
-            forceMount
-            overlayOpen={openMobile}
-            onOverlayClick={() => setOpenMobile(false)}
-          >
-            {sidebarContent}
-          </SheetContent>
-        </Sheet>
+        {createPortal(
+          <>
+            <div
+              data-state={openMobile ? 'open' : 'closed'}
+              className="fixed inset-0 z-50 lg-side-overlay"
+              onClick={() => setOpenMobile(false)}
+            />
+            <div
+              role="dialog"
+              aria-label="Projects"
+              data-state={openMobile ? 'open' : 'closed'}
+              className="fixed inset-y-0 left-0 h-full z-50 w-[280px] p-0 lg-side flex flex-col gap-4"
+            >
+              {sidebarContent}
+            </div>
+          </>,
+          document.body,
+        )}
         {createDialog}
         <TourLoadingOverlay label={launchingTourLabel} />
       </>

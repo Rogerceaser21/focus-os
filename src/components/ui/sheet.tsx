@@ -13,18 +13,13 @@ const SheetClose = SheetPrimitive.Close;
 
 const SheetPortal = SheetPrimitive.Portal;
 
-interface SheetOverlayProps extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay> {
-  disablePointerEvents?: boolean;
-}
-
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,
-  SheetOverlayProps
->(({ className, disablePointerEvents, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
       "fixed inset-0 z-50 bg-background/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      disablePointerEvents && "pointer-events-none",
       className,
     )}
     {...props}
@@ -54,52 +49,23 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {
-  disableOverlayPointerEvents?: boolean;
-  /** Extra className applied to this instance's SheetOverlay only. Lets a single
-   * SheetContent (e.g. a liquid-glass panel) neutralise the default tinted/blurred
-   * overlay without touching sheetVariants/SheetOverlay defaults — every other
-   * Sheet in the app that doesn't pass this keeps the normal dim+blur overlay. */
-  overlayClassName?: string;
-  /** Keep the sheet mounted while closed (threaded to Radix Portal/Overlay/
-   * Content). iOS Safari (browser mode) paints a newly created compositing
-   * layer BLANK WHITE for a frame if an animation is running while the layer
-   * is born or torn down — device-bisected on the Projects panel 2026-07-09
-   * (flash persisted with backdrop-filter off and scroll-lock off; vanished
-   * only with animation off). forceMount + CSS transitions on data-state
-   * animate an already-rastered layer instead, so nothing blank can paint.
-   * Pair with instance CSS that hides the closed state (transform off-screen
-   * + pointer-events none), like .lg-side does in index.css.
-   *
-   * MUST be paired with modal={false} on the Sheet root. A forceMounted
-   * MODAL Radix dialog sets body { pointer-events: none } on mount and only
-   * restores it on unmount — which now never happens — so every tap in the
-   * app dies (device-probed 2026-07-11: body locked while sheet closed, plus
-   * the Radix overlay's inline pointer-events:auto ate the taps that got
-   * through). Radix renders no Overlay at all in non-modal mode, so the
-   * forceMount path below renders its own plain persistent overlay div,
-   * driven by overlayOpen/onOverlayClick — same data-state transition
-   * discipline, no layer birth/death, no Radix inline styles to fight. */
-  forceMount?: true;
-  /** forceMount path only: drives the custom overlay's data-state. */
-  overlayOpen?: boolean;
-  /** forceMount path only: tap-outside-to-close for the custom overlay. */
-  onOverlayClick?: () => void;
-}
+    VariantProps<typeof sheetVariants> {}
 
+// WHITE-FLASH / TOUCH-DISMISS NOTE — the mobile Projects drawer does NOT use
+// this component. A Radix Sheet cannot be permanently mounted (forceMount) AND
+// stay quiet while closed: its DismissableLayer keeps listening and, on touch,
+// its deferred outside-dismiss races the plain toggle button that opens it,
+// cancelling every open/reopen tap (device-diagnosed 2026-07-11). It also can't
+// be animated across a mount/unmount on iOS Safari without a blank-white frame
+// (2026-07-09 device bisect). The sanctioned pattern for an always-present,
+// CSS-transition-driven drawer is the plain-div portal in ProjectSidebar.tsx's
+// normal-mobile branch — copy that, not this. This stays the stock shadcn Sheet
+// for ordinary open-on-tap sheets (e.g. GanttChart, the shadcn Sidebar).
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, disableOverlayPointerEvents, overlayClassName, forceMount, overlayOpen, onOverlayClick, ...props }, ref) => (
-    <SheetPortal forceMount={forceMount}>
-      {forceMount ? (
-        <div
-          data-state={overlayOpen ? "open" : "closed"}
-          className={cn("fixed inset-0 z-50", overlayClassName)}
-          onClick={onOverlayClick}
-        />
-      ) : (
-        <SheetOverlay disablePointerEvents={disableOverlayPointerEvents} className={overlayClassName} />
-      )}
-      <SheetPrimitive.Content forceMount={forceMount} ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+  ({ side = "right", className, children, ...props }, ref) => (
+    <SheetPortal>
+      <SheetOverlay />
+      <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
         {children}
         <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
           <X className="h-4 w-4" />

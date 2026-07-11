@@ -124,7 +124,12 @@
             if (cls && typeof cls !== 'string') cls = cls.baseVal || el.tagName;
             var pe = el ? getComputedStyle(el).pointerEvents : '-';
             var bodyPE = getComputedStyle(document.body).pointerEvents;
-            lastTapBad = bodyPE === 'none' || /lg-side-overlay/.test(String(cls));
+            // Only flag an overlay hit when the overlay is CLOSED — tapping the
+            // OPEN overlay is the legitimate tap-outside-to-close gesture, not a
+            // dead tap. (A closed overlay eating a tap would be the real bug.)
+            var overlayClosedHit = /lg-side-overlay/.test(String(cls)) &&
+              el && el.getAttribute('data-state') === 'closed';
+            lastTapBad = bodyPE === 'none' || overlayClosedHit;
             lastTap = 'tap: top=' + String(cls).slice(0, 70) + ' topPE=' + pe;
             report();
           } catch (err) { lastTap = 'tap probe error: ' + err.message; }

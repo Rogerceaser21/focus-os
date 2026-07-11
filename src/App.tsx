@@ -17,6 +17,8 @@ import GoogleConnected from "./pages/GoogleConnected";
 import SharedAction from "./pages/SharedAction";
 import Preview from "./pages/Preview";
 import PreviewApp from "./pages/PreviewApp";
+// DEV-ONLY drawer reproduction harness (routes gated by import.meta.env.DEV below).
+import DrawerRepro from "./pages/DrawerRepro";
 
 
 const queryClient = new QueryClient();
@@ -41,6 +43,16 @@ const App = () => (
         <Route path="/respond" element={<SharedAction />} />
         <Route path="/preview" element={<Preview />} />
         <Route path="/preview/app" element={<PreviewApp />} />
+        {/* DEV-ONLY: mobile Projects drawer reproduction harness (see
+            DrawerRepro.tsx + tests/drawer.spec.ts). Distinct keys force a
+            remount when navigating between the two, mirroring the real app's
+            /meetings -> /app route change. Not reachable in production. */}
+        {import.meta.env.DEV && (
+          <>
+            <Route path="/dev/drawer-repro" element={<DrawerRepro key="repro" />} />
+            <Route path="/dev/drawer-away" element={<DrawerRepro key="away" />} />
+          </>
+        )}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
