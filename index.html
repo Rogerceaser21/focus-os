@@ -72,6 +72,67 @@
         } catch(e) {}
       })();
     </script>
+    <script>
+      // TEMP freeze-hunt probe (remove after saga). Passive only: never blocks
+      // or redirects a tap; badge is pointer-events:none and outside #root.
+      // Auto-shows red the moment <body> pointer-events goes "none" (Radix
+      // modal lock) or a tap lands on the closed sheet overlay; ?diag=hit
+      // keeps the badge visible always (green = healthy).
+      (function () {
+        var forced = /[?&]diag=hit/.test(location.search);
+        var badge = null;
+        var lastTap = 'tap: none yet';
+        var lastTapBad = false;
+        function ensureBadge() {
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.setAttribute('style',
+              'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 64px);' +
+              'z-index:2147483647;pointer-events:none;font:11px/1.45 ui-monospace,Menlo,monospace;' +
+              'padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.85);color:#7CFC00;white-space:pre-wrap;');
+            document.body.appendChild(badge);
+          }
+          return badge;
+        }
+        function overlayInfo() {
+          var o = document.querySelector('.lg-side-overlay');
+          if (!o) return 'overlay: not in DOM';
+          return 'overlay state=' + o.getAttribute('data-state') +
+            ' cssPE=' + getComputedStyle(o).pointerEvents +
+            ' inlinePE=' + (o.style.pointerEvents || '-');
+        }
+        function report() {
+          var bodyPE = getComputedStyle(document.body).pointerEvents;
+          var locked = bodyPE === 'none';
+          var side = document.querySelector('.lg-side');
+          if (locked || forced || lastTapBad) {
+            var b = ensureBadge();
+            b.textContent = 'FocusOS diag ' + new Date().toTimeString().slice(0, 8) +
+              '\nbody pointer-events = ' + bodyPE + (locked ? '   << LOCKED' : '') +
+              '\n' + overlayInfo() +
+              '\nsheet state=' + (side ? side.getAttribute('data-state') : 'not in DOM') +
+              '\n' + lastTap;
+            b.style.color = (locked || lastTapBad) ? '#ff5c5c' : '#7CFC00';
+          } else if (badge) {
+            badge.textContent = '';
+          }
+        }
+        window.addEventListener('pointerdown', function (e) {
+          try {
+            var el = document.elementFromPoint(e.clientX, e.clientY);
+            var cls = el ? (el.className || el.tagName) : 'null';
+            if (cls && typeof cls !== 'string') cls = cls.baseVal || el.tagName;
+            var pe = el ? getComputedStyle(el).pointerEvents : '-';
+            var bodyPE = getComputedStyle(document.body).pointerEvents;
+            lastTapBad = bodyPE === 'none' || /lg-side-overlay/.test(String(cls));
+            lastTap = 'tap: top=' + String(cls).slice(0, 70) + ' topPE=' + pe;
+            report();
+          } catch (err) { lastTap = 'tap probe error: ' + err.message; }
+        }, true);
+        setInterval(report, 1000);
+        window.addEventListener('load', report);
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
