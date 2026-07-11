@@ -69,14 +69,36 @@ interface SheetContentProps
    * only with animation off). forceMount + CSS transitions on data-state
    * animate an already-rastered layer instead, so nothing blank can paint.
    * Pair with instance CSS that hides the closed state (transform off-screen
-   * + pointer-events none), like .lg-side does in index.css. */
+   * + pointer-events none), like .lg-side does in index.css.
+   *
+   * MUST be paired with modal={false} on the Sheet root. A forceMounted
+   * MODAL Radix dialog sets body { pointer-events: none } on mount and only
+   * restores it on unmount — which now never happens — so every tap in the
+   * app dies (device-probed 2026-07-11: body locked while sheet closed, plus
+   * the Radix overlay's inline pointer-events:auto ate the taps that got
+   * through). Radix renders no Overlay at all in non-modal mode, so the
+   * forceMount path below renders its own plain persistent overlay div,
+   * driven by overlayOpen/onOverlayClick — same data-state transition
+   * discipline, no layer birth/death, no Radix inline styles to fight. */
   forceMount?: true;
+  /** forceMount path only: drives the custom overlay's data-state. */
+  overlayOpen?: boolean;
+  /** forceMount path only: tap-outside-to-close for the custom overlay. */
+  onOverlayClick?: () => void;
 }
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, disableOverlayPointerEvents, overlayClassName, forceMount, ...props }, ref) => (
+  ({ side = "right", className, children, disableOverlayPointerEvents, overlayClassName, forceMount, overlayOpen, onOverlayClick, ...props }, ref) => (
     <SheetPortal forceMount={forceMount}>
-      <SheetOverlay forceMount={forceMount} disablePointerEvents={disableOverlayPointerEvents} className={overlayClassName} />
+      {forceMount ? (
+        <div
+          data-state={overlayOpen ? "open" : "closed"}
+          className={cn("fixed inset-0 z-50", overlayClassName)}
+          onClick={onOverlayClick}
+        />
+      ) : (
+        <SheetOverlay disablePointerEvents={disableOverlayPointerEvents} className={overlayClassName} />
+      )}
       <SheetPrimitive.Content forceMount={forceMount} ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
         {children}
         <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">

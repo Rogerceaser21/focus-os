@@ -1224,12 +1224,17 @@ export const ProjectSidebar = ({
     // Normal mode: Use Sheet
     return (
       <>
-        <Sheet open={openMobile} onOpenChange={setOpenMobile}>
+        {/* modal={false} is load-bearing with forceMount: a forceMounted MODAL
+            dialog locks body pointer-events forever (see sheet.tsx forceMount
+            doc, device-probed 2026-07-11). */}
+        <Sheet open={openMobile} onOpenChange={setOpenMobile} modal={false}>
           <SheetContent
             side="left"
             className="w-[280px] p-0 lg-side flex flex-col"
             overlayClassName="lg-side-overlay"
             forceMount
+            overlayOpen={openMobile}
+            onOverlayClick={() => setOpenMobile(false)}
           >
             {sidebarContent}
           </SheetContent>

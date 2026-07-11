@@ -667,9 +667,14 @@ All colors MUST be HSL.
   transition: transform 260ms cubic-bezier(0.32, 0.72, 0, 1) !important;
   pointer-events: none;
 }
-/* the transparent overlay also stays mounted; keep it inert while closed */
+/* The transparent overlay also stays mounted; keep it inert while closed.
+   !important is load-bearing: the old Radix Overlay carried an inline
+   pointer-events:auto that beat this rule and ate every tap while closed
+   (device-probed 2026-07-11). The overlay is now a plain div (sheet.tsx
+   forceMount path) with no inline styles, but keep the !important so a
+   future swap back to a Radix-rendered overlay can't silently regress. */
 .liquid-glass .lg-side-overlay[data-state='closed'] {
-  pointer-events: none;
+  pointer-events: none !important;
   animation: none !important;
 }
 
