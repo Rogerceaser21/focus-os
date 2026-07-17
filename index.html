@@ -113,6 +113,7 @@
               '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
             var badLock = locked && !modalOpen;
             var b = ensureBadge();
+            b.style.display = 'block';
             b.textContent = 'FocusOS diag ' + new Date().toTimeString().slice(0, 8) +
               '\nbody pointer-events = ' + bodyPE +
               (locked ? (modalOpen ? '   (modal open - normal)' : '   << LOCKED') : '') +
@@ -121,7 +122,10 @@
               '\n' + lastTap;
             b.style.color = (badLock || lastTapBad) ? '#ff5c5c' : '#7CFC00';
           } else if (badge) {
+            // display:none, not just empty text — an emptied box still paints
+            // its black background (the "black line" Igor saw, 2026-07-17)
             badge.textContent = '';
+            badge.style.display = 'none';
           }
         }
         window.addEventListener('pointerdown', function (e) {
