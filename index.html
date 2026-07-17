@@ -105,14 +105,21 @@
           var bodyPE = getComputedStyle(document.body).pointerEvents;
           var locked = bodyPE === 'none';
           var side = document.querySelector('.lg-side');
-          if (locked || forced || lastTapBad) {
+          // Opt-in ONLY (?diag=hit). No auto-show: a body lock while a modal
+          // dialog is open is legitimate Radix behaviour, so auto-flagging it
+          // cries wolf during normal use (Igor's icon-app, 2026-07-17).
+          if (forced) {
+            var modalOpen = !!document.querySelector(
+              '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
+            var badLock = locked && !modalOpen;
             var b = ensureBadge();
             b.textContent = 'FocusOS diag ' + new Date().toTimeString().slice(0, 8) +
-              '\nbody pointer-events = ' + bodyPE + (locked ? '   << LOCKED' : '') +
+              '\nbody pointer-events = ' + bodyPE +
+              (locked ? (modalOpen ? '   (modal open - normal)' : '   << LOCKED') : '') +
               '\n' + overlayInfo() +
               '\nsheet state=' + (side ? side.getAttribute('data-state') : 'not in DOM') +
               '\n' + lastTap;
-            b.style.color = (locked || lastTapBad) ? '#ff5c5c' : '#7CFC00';
+            b.style.color = (badLock || lastTapBad) ? '#ff5c5c' : '#7CFC00';
           } else if (badge) {
             badge.textContent = '';
           }
