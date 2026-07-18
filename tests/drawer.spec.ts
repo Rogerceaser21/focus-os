@@ -101,6 +101,81 @@ test('touch: navigate-open gives exactly one open pulse and stays open', async (
   expect(openPulses, 'should open exactly once, no flicker').toBe(1);
 });
 
+test('touch: navigate-open with slow data — no twitch', async ({ page }) => {
+  await page.goto('/dev/drawer-away');
+  await page.locator(AWAY).waitFor();
+
+  // Arm a MutationObserver on the panel's data-state BEFORE tapping, watching
+  // the whole document subtree so it catches the panel from the moment it
+  // mounts on the repro route. Also raf-scan as a backstop.
+  await page.evaluate(() => {
+    const w = window as unknown as { __log: { t: number; state: string | null }[] };
+    w.__log = [];
+    const push = (s: string | null) => {
+      const L = w.__log;
+      if (!L.length || L[L.length - 1].state !== s) L.push({ t: performance.now(), state: s });
+    };
+    const scan = () => {
+      const el = document.querySelector('[data-testid="drawer-panel"]');
+      push(el ? el.getAttribute('data-state') : null);
+    };
+    const mo = new MutationObserver(scan);
+    mo.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['data-state'],
+    });
+    const raf = () => {
+      scan();
+      requestAnimationFrame(raf);
+    };
+    raf();
+    scan();
+  });
+
+  // Tap the away button with a real touch — navigates to
+  // /dev/drawer-repro?openSidebar=true and opens the drawer (empty; data lands
+  // ~1.5s later via the harness data-delay).
+  await page.locator(AWAY).tap();
+  await page.locator(PANEL).waitFor();
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
+
+  // Model the device GHOST CLICK: the trailing synthesized click of the SAME
+  // tap that navigated here. On iOS it fires shortly after touchend, by which
+  // time the drawer has opened, so it lands on the now-full-screen overlay —
+  // NOT on the away button that received the pointerdown (that element is gone).
+  // Playwright/CDP touch injection does not emit this delayed compat click (the
+  // 'exactly one open pulse' spec above proves a native tap yields only
+  // null->open, never a self-close), so we dispatch it explicitly: a lone click
+  // on the overlay with NO matching pointerdown. Pre-fix this self-closes the
+  // just-opened drawer; fix A ignores it. (Igor video 2026-07-18.)
+  await page.locator(OVERLAY).dispatchEvent('click');
+
+  // Let the ghost click, the ~1.5s data-delay flip, and any re-render settle.
+  await page.waitForTimeout(4000);
+
+  const log = await page.evaluate(
+    () => (window as unknown as { __log: { t: number; state: string | null }[] }).__log,
+  );
+  const openPulses = log.filter((e) => e.state === 'open').length;
+  const closedPulses = log.filter((e) => e.state === 'closed').length;
+  // Index of the first open, so we can prove nothing closes AFTER it.
+  const firstOpenIdx = log.findIndex((e) => e.state === 'open');
+  const closedAfterOpen = log
+    .slice(firstOpenIdx + 1)
+    .filter((e) => e.state === 'closed').length;
+  // Surfaced in the reporter so the pre-fix pulse train is visible verbatim.
+  console.log('state log:', JSON.stringify(log));
+  console.log('open pulses:', openPulses, 'closed pulses:', closedPulses, 'closed-after-open:', closedAfterOpen);
+
+  // Fixed behaviour: opens exactly once, never self-closes, ends open.
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
+  expect(openPulses, 'should open exactly once, no self-reopen').toBe(1);
+  expect(closedPulses, 'should never self-close within 4s').toBe(0);
+  expect(closedAfterOpen, 'no close after the first open (the twitch)').toBe(0);
+});
+
 test('overlay pointer-events track state; body stays interactive', async ({ page }) => {
   await page.goto('/dev/drawer-repro');
   await page.locator(PANEL).waitFor();

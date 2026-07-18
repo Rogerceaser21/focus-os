@@ -2,17 +2,21 @@
 //
 // Routed only when import.meta.env.DEV (see App.tsx). It mirrors the mobile
 // Projects drawer construct from ProjectSidebar.tsx so tests/drawer.spec.ts can
-// prove the touch-dismiss reopen bug and its fix WITHOUT Supabase auth (the real
-// /app route needs a live session). Keep this in lockstep with ProjectSidebar's
-// normal-mobile branch: whatever drawer construct ProjectSidebar uses, this uses.
+// prove the touch-dismiss / navigate-open bugs and their fixes WITHOUT Supabase
+// auth (the real /app route needs a live session). Keep this in lockstep with
+// ProjectSidebar's normal-mobile branch AND Index's MobileSidebarController:
+// whatever drawer construct + open/clear logic those use, this uses.
 //
 // Two routes:
 //   /dev/drawer-repro  — mirrors /app: mounts the drawer + a toggle button wired
 //                        like BottomNav's Projects button (toggleSidebar in place).
+//                        Also runs an artificial ~1.5s data-delay after mount to
+//                        mimic the projects fetch, so the drawer opens EMPTY and
+//                        populates later (the sign-in -> Home -> Projects path).
 //   /dev/drawer-away   — mirrors /meetings: NO drawer, a button that navigates to
-//                        /dev/drawer-repro?openSidebar=true (the openSidebar effect
+//                        /dev/drawer-repro?openSidebar=true (the openSidebar flow
 //                        below opens the drawer after remount).
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
@@ -20,21 +24,66 @@ import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 const AWAY_PATH = '/dev/drawer-away';
 const REPRO_PATH = '/dev/drawer-repro';
 
+// Artificial projects-fetch latency: the drawer opens immediately (empty) and
+// the body content only arrives after this delay, mirroring the real sign-in
+// path where the drawer opens before projects load. Also forces a re-render
+// mid-window so tests can prove the fixed drawer neither self-reopens nor
+// self-recloses when data lands.
+const DATA_DELAY_MS = 1500;
+
 const DrawerReproInner = () => {
   const { openMobile, setOpenMobile, toggleSidebar, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const onAway = location.pathname === AWAY_PATH;
 
-  // Mirror Index.tsx:817 (setOpenSidebarRequested) + MobileSidebarController
-  // effect (Index.tsx:156-159): ?openSidebar=true opens the drawer on mount.
+  // Mirror Index.tsx:791-825 + MobileSidebarController (Index.tsx:151-159).
+  // A one-shot request flag decouples "consume the ?openSidebar param" from
+  // "open the drawer", exactly like the real app.
+  const [openSidebarRequested, setOpenSidebarRequested] = useState(false);
+  const [dataReady, setDataReady] = useState(false);
+
+  // Ghost-click latch for the overlay — mirrors ProjectSidebar.tsx. Close only
+  // when one gesture both starts (pointerdown) and ends (click) on the overlay.
+  const overlayPointerDownRef = useRef(false);
+
+  // Artificial data-delay: flip dataReady ~1.5s after landing on the repro
+  // route, like the projects fetch resolving. Mirrors "drawer opens empty, then
+  // data loads".
+  useEffect(() => {
+    if (onAway) return;
+    setDataReady(false);
+    const t = setTimeout(() => setDataReady(true), DATA_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [onAway]);
+
+  // Mirror Index.tsx:791-825 — on ?openSidebar=true, raise the request flag and
+  // strip the param from the URL (so it is consumed exactly once).
   useEffect(() => {
     if (onAway) return;
     const params = new URLSearchParams(location.search);
     if (params.get('openSidebar') === 'true' && isMobile) {
-      setOpenMobile(true);
+      setOpenSidebarRequested(true);
+      params.delete('openSidebar');
+      const clean = params.toString();
+      navigate(clean ? `${REPRO_PATH}?${clean}` : REPRO_PATH, { replace: true });
     }
-  }, [location.search, isMobile, onAway, setOpenMobile]);
+  }, [location.search, isMobile, onAway, navigate]);
+
+  // Mirror MobileSidebarController (Index.tsx:155-159), INCLUDING fix B: the
+  // effect consumes the request, opens the drawer, and immediately clears the
+  // flag so a later data-load re-render can never re-fire the open (one-shot).
+  useEffect(() => {
+    if (!openSidebarRequested || !isMobile) return;
+    setOpenMobile(true);
+    setOpenSidebarRequested(false); // fix B — one-shot per request
+  }, [openSidebarRequested, isMobile, setOpenMobile]);
+
+  // Hygiene: clear the overlay latch whenever the drawer closes (mirrors
+  // ProjectSidebar.tsx).
+  useEffect(() => {
+    if (!openMobile) overlayPointerDownRef.current = false;
+  }, [openMobile]);
 
   // Toggle button wired exactly like BottomNav's Projects button (BottomNav.tsx
   // :72-78): on the repro route toggle in place; from the away route navigate to
@@ -63,13 +112,22 @@ const DrawerReproInner = () => {
       {/* Drawer construct — mounted only on the repro route (mirrors /app; the
           away route is like /meetings with no drawer). isMobile gate mirrors
           ProjectSidebar's normal-mobile branch. FIXED construct: plain-div
-          portal to document.body (matches ProjectSidebar.tsx exactly). */}
+          portal to document.body with the ghost-click-guarded overlay (matches
+          ProjectSidebar.tsx exactly). */}
       {!onAway && isMobile && createPortal(
         <>
           <div
             data-state={openMobile ? 'open' : 'closed'}
             className="fixed inset-0 z-50 lg-side-overlay"
-            onClick={() => setOpenMobile(false)}
+            // Fix A: close only when the gesture both started (pointerdown) and
+            // ended (click) on this overlay. A cross-navigation ghost click has
+            // no pointerdown latch, so it can never self-close the drawer.
+            onPointerDown={() => { overlayPointerDownRef.current = true; }}
+            onClick={() => {
+              if (!overlayPointerDownRef.current) return;
+              overlayPointerDownRef.current = false;
+              setOpenMobile(false);
+            }}
           />
           <div
             role="dialog"
@@ -81,7 +139,9 @@ const DrawerReproInner = () => {
             <div className="border-b p-4">
               <h2 className="font-semibold text-lg">Projects</h2>
             </div>
-            <div className="p-4" data-testid="drawer-body">Drawer body</div>
+            <div className="p-4" data-testid="drawer-body">
+              {dataReady ? 'Drawer body' : 'Loading projects…'}
+            </div>
           </div>
         </>,
         document.body,

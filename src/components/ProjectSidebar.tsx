@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types/task';
@@ -651,6 +651,14 @@ export const ProjectSidebar = ({
   // both exist/mount back-to-back for the same view.
   const { open: sidebarOpen, setOpen: setSidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
 
+  // Ghost-click latch for the mobile drawer overlay. The overlay closes the
+  // drawer only when ONE gesture both starts (pointerdown) and ends (click) on
+  // it. A ghost click — the trailing synthesized click of the SAME tap that
+  // navigated Home -> /app and opened the drawer — arrives on the freshly
+  // mounted overlay with NO matching pointerdown, so it must not close the
+  // just-opened drawer. (Igor video 2026-07-18.)
+  const overlayPointerDownRef = useRef(false);
+
   const [launchingTourLabel, setLaunchingTourLabel] = useState<string | null>(null);
 
   // Dismiss the loading overlay as soon as the tour signals it has painted
@@ -695,6 +703,13 @@ export const ProjectSidebar = ({
       }
     }, startDelay);
   };
+
+  // Hygiene: whenever the drawer is (re)closed, clear the overlay gesture latch
+  // so a stale pointerdown can never authorise a later ghost click. Pairs with
+  // the ghost-click guard on the overlay onClick below (Igor video 2026-07-18).
+  useEffect(() => {
+    if (!openMobile) overlayPointerDownRef.current = false;
+  }, [openMobile]);
 
   // Escape-to-close for the mobile drawer. Gated on openMobile so the listener
   // only exists while the drawer is open. Radix Dialog gave this for free before
@@ -1261,7 +1276,19 @@ export const ProjectSidebar = ({
             <div
               data-state={openMobile ? 'open' : 'closed'}
               className="fixed inset-0 z-50 lg-side-overlay"
-              onClick={() => setOpenMobile(false)}
+              // Tap-outside-to-close, but ONLY when the gesture both started and
+              // ended on this overlay. onPointerDown latches the start; onClick
+              // closes only if that latch is set, then resets it. A ghost click
+              // (the navigating tap's trailing synthesized click, whose
+              // pointerdown fired on the previous page before this overlay
+              // existed) has no latch, so it can never self-close the drawer.
+              // (Igor video 2026-07-18.)
+              onPointerDown={() => { overlayPointerDownRef.current = true; }}
+              onClick={() => {
+                if (!overlayPointerDownRef.current) return;
+                overlayPointerDownRef.current = false;
+                setOpenMobile(false);
+              }}
             />
             <div
               role="dialog"
