@@ -53,6 +53,7 @@ import { InviteProjectMemberDialog } from '@/components/InviteProjectMemberDialo
 import { ProjectMembersBar } from '@/components/ProjectMembersBar';
 import { addDays } from 'date-fns';
 import RecordFAB from '@/components/RecordFAB';
+import { TASK_LIST_COLUMNS } from '@/hooks/usePrefetchAppData';
 
 // Merge raw DB rows by id (first occurrence wins) and sort created_at desc — the
 // same shape and order the app expected from the previous single unfiltered query,
@@ -435,7 +436,7 @@ const Index = () => {
   const fetchOwnTaskRows = useCallback(async (): Promise<any[] | null> => {
     if (!user) return null;
     const { data, error } = await retryFetch(() =>
-      (supabase as any).from('focusos_tasks').select('*')
+      (supabase as any).from('focusos_tasks').select(TASK_LIST_COLUMNS)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1000)
@@ -450,7 +451,7 @@ const Index = () => {
   const fetchSharedTaskRows = useCallback(async (memberIds: string[]): Promise<any[]> => {
     if (!user || memberIds.length === 0) return [];
     const { data, error } = await retryFetch(() =>
-      (supabase as any).from('focusos_tasks').select('*')
+      (supabase as any).from('focusos_tasks').select(TASK_LIST_COLUMNS)
         .in('project_id', memberIds)
         .order('created_at', { ascending: false })
         .limit(1000)
@@ -659,6 +660,69 @@ const Index = () => {
     };
     loadInitialData();
   }, [user, preferences, initialLoadComplete, queryClient, applyTaskRows, applyProjectRows, buildSharedMaps, fetchMemberProjectIds, fetchOwnTaskRows, fetchSharedTaskRows, fetchOwnProjectRows, fetchSharedProjectRows, fetchSenderSharedItems]);
+
+  // Deferred image hydration. The task-list load path (own/shared fetches + warm prefetch
+  // cache) deliberately omits the heavy `images` column so the list paints fast; this
+  // backfills images ~1s after the list is up, off the critical path. Runs once per load,
+  // patches only tasks whose images array is still empty (never clobbers an edit that
+  // landed in between), and fails silently. Keyed off fullDataLoaded, which both the cold
+  // and warm-cache load paths set true — so both get their images.
+  const imagesHydratedRef = useRef(false);
+  // True once hydration has APPLIED (or proven there is nothing to hydrate). Gates
+  // whether an empty images array on a task update means "removed" or "not loaded
+  // yet" — before this flips, writing [] would wipe a task's stored images.
+  const imagesReadyRef = useRef(false);
+  useEffect(() => {
+    if (!user || !fullDataLoaded || imagesHydratedRef.current) return;
+
+    const run = async () => {
+      // Guard the actual work (not just the scheduling) so a double-invoked effect
+      // (React strict mode) hydrates exactly once.
+      if (imagesHydratedRef.current) return;
+      imagesHydratedRef.current = true;
+      try {
+        const memberIds = memberProjectIdsRef.current;
+        const [ownRes, sharedRes] = await Promise.all([
+          retryFetch(() =>
+            (supabase as any).from('focusos_tasks').select('id, images')
+              .eq('user_id', user.id)
+              .limit(1000)
+          ),
+          memberIds.length
+            ? retryFetch(() =>
+                (supabase as any).from('focusos_tasks').select('id, images')
+                  .in('project_id', memberIds)
+                  .limit(1000)
+              )
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+        if (ownRes.error && sharedRes.error) {
+          console.warn('[Index] image hydration failed:', ownRes.error);
+          return;
+        }
+        const imagesById = new Map<string, string[]>();
+        for (const row of [...(ownRes.data || []), ...(sharedRes.data || [])]) {
+          if (row && Array.isArray(row.images) && row.images.length > 0) {
+            imagesById.set(row.id, row.images as string[]);
+          }
+        }
+        if (imagesById.size === 0) { imagesReadyRef.current = true; return; }
+        // Fill images only where the current task has none, so a task the user edited
+        // between the slim load and now is never overwritten.
+        setAllTasks(prev => prev.map(t =>
+          (t.images && t.images.length > 0) || !imagesById.has(t.id)
+            ? t
+            : { ...t, images: imagesById.get(t.id)! }
+        ));
+        imagesReadyRef.current = true;
+      } catch (err) {
+        console.warn('[Index] image hydration threw:', err);
+      }
+    };
+
+    const handle = window.setTimeout(run, 1000);
+    return () => window.clearTimeout(handle);
+  }, [user, fullDataLoaded, retryFetch]);
 
   // Resolve assigner emails to names for shared project headers
   useEffect(() => {
@@ -1355,7 +1419,11 @@ https://www.skyscanner.com`,
     }
 
     // Optimistic update: Update local state immediately to prevent list jumping
-    setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
+    setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id
+      ? ((updatedTask.images && updatedTask.images.length > 0) || imagesReadyRef.current
+          ? updatedTask
+          : { ...updatedTask, images: task.images })
+      : task));
 
     // Update database in background
     const {
@@ -1368,7 +1436,10 @@ https://www.skyscanner.com`,
       start_date: updatedTask.startDate?.toISOString(),
       end_date: updatedTask.endDate?.toISOString(),
       due_date: updatedTask.dueDate?.toISOString(),
-      images: updatedTask.images || [],
+      // Pre-hydration an empty array means "images not loaded yet", not "removed" —
+      // omit the column so a save in that window can't wipe stored images.
+      ...((updatedTask.images && updatedTask.images.length > 0) || imagesReadyRef.current
+        ? { images: updatedTask.images || [] } : {}),
       timer_total_seconds: updatedTask.timer.totalSeconds,
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime,

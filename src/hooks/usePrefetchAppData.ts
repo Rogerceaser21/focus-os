@@ -2,6 +2,18 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+// Slim projection for the task-list load path: every column transformDbTask (Index.tsx)
+// reads, EXCLUDING `images`. Legacy rows hold inline base64 data URLs in `images`, which
+// bloats a full select to ~21.5 MB / 7.3s for large accounts; the slim list is ~241 KB.
+// `created_at` is not read by transformDbTask but IS required so mergeByIdDesc can order
+// the merged own+shared rows. Images are hydrated separately after first paint (see the
+// deferred hydration effect in Index.tsx). Index imports this constant — single source.
+export const TASK_LIST_COLUMNS =
+  'id,title,description,priority,status,start_date,end_date,due_date,' +
+  'timer_total_seconds,timer_is_running,timer_start_time,project_id,sort_order,' +
+  'completed_by_email,assigned_to_email,change_request_message,' +
+  'google_calendar_event_id,created_at';
+
 const RETRY_DELAYS = [0, 300, 800, 1500];
 
 async function retryQuery<T>(fn: () => Promise<{ data: T | null; error: any }>): Promise<T | null> {
@@ -64,7 +76,7 @@ export const usePrefetchAppData = (userId?: string | null) => {
           retryQuery<any[]>(() =>
             (supabase as any)
               .from('focusos_tasks')
-              .select('*')
+              .select(TASK_LIST_COLUMNS)
               .eq('user_id', userId)
               .order('created_at', { ascending: false })
               .limit(1000)
@@ -73,7 +85,7 @@ export const usePrefetchAppData = (userId?: string | null) => {
             ? retryQuery<any[]>(() =>
                 (supabase as any)
                   .from('focusos_tasks')
-                  .select('*')
+                  .select(TASK_LIST_COLUMNS)
                   .in('project_id', memberIds)
                   .order('created_at', { ascending: false })
                   .limit(1000)
