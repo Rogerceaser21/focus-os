@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  fetchProjects as fetchProjectsShared,
+  fetchMemberProjectIds as fetchMemberIdsShared,
+} from '@/lib/appDataFetchers';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,6 +75,10 @@ export const ProjectSidebar = ({
   const [sidebarSearchInput, setSidebarSearchInput] = useState('');
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState('');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  // Timestamp of the last successful projects load — used to skip the redundant
+  // TOKEN_REFRESHED refire (see the auth-state effect below).
+  const lastFetchAtRef = useRef(0);
 
   // Debounce sidebar search
   useEffect(() => {
@@ -89,13 +98,24 @@ export const ProjectSidebar = ({
     fetchProjectInvitations();
   }, [projectRefreshTrigger, userId]);
 
-  // Recover from cold-start auth races (mobile Safari): refetch projects when
-  // Supabase finishes restoring/refreshing the session after initial mount.
+  // React to Supabase auth events after mount.
   useEffect(() => {
     if (!userId) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-        fetchProjects();
+      if (event === 'SIGNED_IN') {
+        // A real sign-in must always (re)load, even right after a load.
+        fetchProjects({ fresh: true });
+        fetchMeetings();
+        fetchSharedItems();
+        fetchProjectInvitations();
+      } else if (event === 'TOKEN_REFRESHED') {
+        // TOKEN_REFRESHED fires ~2s into almost every cold start and used to refire
+        // the whole fetch set — a duplicate-request storm. The initial mount load,
+        // now backed by the shared fetcher's empty-success retry, already recovers a
+        // latched-empty sidebar (task ed4851e3), so skip this refire when a load
+        // completed recently.
+        if (Date.now() - lastFetchAtRef.current < 60_000) return;
+        fetchProjects({ fresh: true });
         fetchMeetings();
         fetchSharedItems();
         fetchProjectInvitations();
@@ -278,62 +298,27 @@ export const ProjectSidebar = ({
     }
   }, [sharedItems, userId]);
 
-  // Accepted-membership project ids (shared projects visible to this user). Explicit
-  // own/shared filters replace the single unfiltered RLS scan for performance; RLS
-  // stays the security net (own OR accepted-member).
-  const fetchMemberProjectIds = async (): Promise<string[]> => {
-    if (!userId) return [];
-    const { data, error } = await (supabase as any)
-      .from('focusos_project_members')
-      .select('project_id')
-      .eq('user_id', userId)
-      .eq('status', 'accepted');
-    if (error || !data) return [];
-    return data.map((m: any) => m.project_id);
-  };
-
-  const fetchProjects = async () => {
-    // Retry with backoff to survive cold-start auth races on mobile Safari
-    const delays = [0, 300, 800, 1500];
-    let data: any = null;
-    let error: any = null;
-    for (let i = 0; i < delays.length; i++) {
-      if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
-      const memberIds = await fetchMemberProjectIds();
-      const [ownRes, sharedRes] = await Promise.all([
-        (supabase as any)
-          .from('focusos_projects')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false }),
-        memberIds.length
-          ? (supabase as any)
-              .from('focusos_projects')
-              .select('*')
-              .in('id', memberIds)
-              .order('created_at', { ascending: false })
-          : Promise.resolve({ data: [], error: null }),
-      ]);
-      error = ownRes.error || sharedRes.error;
-      if (!error) {
-        // Merge own + shared by id (first wins), sort created_at desc — the same set
-        // the previous single RLS query returned; split by is_shared below is unchanged.
-        const byId = new Map<string, any>();
-        for (const p of [...(ownRes.data || []), ...(sharedRes.data || [])]) {
-          if (!byId.has(p.id)) byId.set(p.id, p);
-        }
-        data = Array.from(byId.values()).sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        break;
+  // Route projects through the shared single-flight fetcher so this sidebar and Index's
+  // list share ONE request (same key), with the own/shared merge + empty-success retry
+  // living in one place. `fresh` forces a network refetch for event-driven callers
+  // (create / accept invite / realtime) that must not read the stale snapshot; the mount
+  // load omits it so an in-flight Index/prefetch load is reused. The is_shared split and
+  // the shared-task visibility filter below are unchanged.
+  const fetchProjects = async (opts?: { fresh?: boolean }) => {
+    if (!userId) return;
+    let data: any[];
+    try {
+      if (opts?.fresh) {
+        // Refresh memberships first so a just-accepted invite's shared project is included.
+        await fetchMemberIdsShared(queryClient, userId, { fresh: true });
       }
-    }
-
-    if (error) {
+      data = await fetchProjectsShared(queryClient, userId, { fresh: opts?.fresh });
+    } catch (error) {
       console.error('[ProjectSidebar] fetchProjects failed after retries:', error);
       toast.error('Failed to load projects');
       return;
     }
+    lastFetchAtRef.current = Date.now();
 
     // Split into own projects and shared projects
     const ownProjects = data.filter((p: any) => !p.is_shared);
@@ -491,7 +476,7 @@ export const ProjectSidebar = ({
       }
       toast.success('Project invitation accepted!');
       fetchProjectInvitations();
-      fetchProjects();
+      fetchProjects({ fresh: true });
       // Trigger parent to refetch tasks so the shared project's tasks are loaded
       onProjectCreated?.();
     } catch (err) {
@@ -534,7 +519,7 @@ export const ProjectSidebar = ({
       toast.success(isChangeRequest ? 'Changes accepted — task is back in your project!' : 'Item accepted and added to your data!', { duration: 1500 });
       
       // Refresh data
-      await fetchProjects();
+      await fetchProjects({ fresh: true });
       await fetchSharedItems();
       await fetchMeetings();
       
@@ -662,7 +647,7 @@ export const ProjectSidebar = ({
     }
 
     toast.success('Project created!');
-    fetchProjects();
+    fetchProjects({ fresh: true });
     setIsCreateOpen(false);
     onProjectCreated?.();
   };

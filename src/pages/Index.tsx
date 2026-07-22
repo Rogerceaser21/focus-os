@@ -53,20 +53,12 @@ import { InviteProjectMemberDialog } from '@/components/InviteProjectMemberDialo
 import { ProjectMembersBar } from '@/components/ProjectMembersBar';
 import { addDays } from 'date-fns';
 import RecordFAB from '@/components/RecordFAB';
-import { TASK_LIST_COLUMNS } from '@/hooks/usePrefetchAppData';
-
-// Merge raw DB rows by id (first occurrence wins) and sort created_at desc — the
-// same shape and order the app expected from the previous single unfiltered query,
-// now that own and shared rows arrive from two separate requests.
-const mergeByIdDesc = (rows: any[]): any[] => {
-  const byId = new Map<string, any>();
-  for (const r of rows) {
-    if (r && !byId.has(r.id)) byId.set(r.id, r);
-  }
-  return Array.from(byId.values()).sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
-};
+import {
+  fetchAllTasks as fetchAllTasksShared,
+  fetchProjects as fetchProjectsShared,
+  fetchMemberProjectIds as fetchMemberIdsShared,
+  appDataKeys,
+} from '@/lib/appDataFetchers';
 
 // Inline skeleton for the task list area shown while initialLoadComplete is false.
 const TaskListSkeleton = () => {
@@ -388,80 +380,11 @@ const Index = () => {
     return { data, error };
   }, []);
 
-  const fetchMemberProjectIds = useCallback(async (): Promise<string[]> => {
-    if (!user) return memberProjectIdsRef.current;
-    const { data, error } = await retryFetch(() =>
-      (supabase as any)
-        .from('focusos_project_members')
-        .select('project_id')
-        .eq('user_id', user.id)
-        .eq('status', 'accepted')
-    );
-    if (error || !data) return memberProjectIdsRef.current;
-    const ids = (data as any[]).map(m => m.project_id);
-    memberProjectIdsRef.current = ids;
-    return ids;
-  }, [user, retryFetch]);
-
-  // Own returns null on error (drives the failure toast); shared returns [] on error
-  // (best-effort — a shared-query failure must not hide the user's own rows).
-  const fetchOwnProjectRows = useCallback(async (): Promise<any[] | null> => {
-    if (!user) return null;
-    const { data, error } = await retryFetch(() =>
-      (supabase as any).from('focusos_projects').select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-    );
-    if (error) {
-      console.error('[Index] fetchOwnProjectRows failed after retries:', error);
-      return null;
-    }
-    return data || [];
-  }, [user, retryFetch]);
-
-  const fetchSharedProjectRows = useCallback(async (memberIds: string[]): Promise<any[]> => {
-    if (!user || memberIds.length === 0) return [];
-    const { data, error } = await retryFetch(() =>
-      (supabase as any).from('focusos_projects').select('*')
-        .in('id', memberIds)
-        .order('created_at', { ascending: false })
-    );
-    if (error) {
-      console.warn('[Index] fetchSharedProjectRows failed after retries:', error);
-      return [];
-    }
-    return data || [];
-  }, [user, retryFetch]);
-
-  const fetchOwnTaskRows = useCallback(async (): Promise<any[] | null> => {
-    if (!user) return null;
-    const { data, error } = await retryFetch(() =>
-      (supabase as any).from('focusos_tasks').select(TASK_LIST_COLUMNS)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1000)
-    );
-    if (error) {
-      console.warn('[Index] fetchOwnTaskRows failed after retries:', JSON.stringify(error), 'code:', error?.code, 'status:', error?.status);
-      return null;
-    }
-    return data || [];
-  }, [user, retryFetch]);
-
-  const fetchSharedTaskRows = useCallback(async (memberIds: string[]): Promise<any[]> => {
-    if (!user || memberIds.length === 0) return [];
-    const { data, error } = await retryFetch(() =>
-      (supabase as any).from('focusos_tasks').select(TASK_LIST_COLUMNS)
-        .in('project_id', memberIds)
-        .order('created_at', { ascending: false })
-        .limit(1000)
-    );
-    if (error) {
-      console.warn('[Index] fetchSharedTaskRows failed after retries:', JSON.stringify(error));
-      return [];
-    }
-    return data || [];
-  }, [user, retryFetch]);
+  // The own/shared/merge/member-id read logic now lives once in src/lib/appDataFetchers
+  // (fetchAllTasksShared / fetchProjectsShared / fetchMemberIdsShared), single-flighted
+  // under the shared query keys so Index, ProjectSidebar and the /home prefetch collapse
+  // to one request each. retryFetch above is kept only for the deferred image-hydration
+  // effect below, which reads a different (id, images) projection.
 
   const applyProjectRows = useCallback((rows: any[]) => {
     setProjects(rows.map((p: any) => ({
@@ -487,34 +410,32 @@ const Index = () => {
     setAllTasks(transformedTasks);
   }, [transformDbTask]);
 
-  // Fetch projects (own + shared), merged and sorted created_at desc.
+  // Event-driven projects refetch (post-mutation / tour). `fresh: true` bypasses the
+  // 5-min stale cache so a just-created/renamed/deleted project is reflected; the
+  // fetcher still refreshes memberships first (fresh) and dedupes concurrent callers.
   const fetchProjects = useCallback(async () => {
-    const memberIds = await fetchMemberProjectIds();
-    const [own, shared] = await Promise.all([
-      fetchOwnProjectRows(),
-      fetchSharedProjectRows(memberIds),
-    ]);
-    if (own === null) {
-      toast.error('Failed to load projects');
-      return;
-    }
-    applyProjectRows(mergeByIdDesc([...own, ...shared]));
-  }, [fetchMemberProjectIds, fetchOwnProjectRows, fetchSharedProjectRows, applyProjectRows]);
-
-  // Fetch ALL tasks (own + shared), merged and sorted created_at desc.
-  const fetchAllTasks = useCallback(async () => {
+    if (!user) return;
     try {
-      const memberIds = await fetchMemberProjectIds();
-      const [own, shared] = await Promise.all([
-        fetchOwnTaskRows(),
-        fetchSharedTaskRows(memberIds),
-      ]);
-      if (own === null) return;
-      applyTaskRows(mergeByIdDesc([...own, ...shared]));
+      memberProjectIdsRef.current = await fetchMemberIdsShared(queryClient, user.id, { fresh: true });
+      const rows = await fetchProjectsShared(queryClient, user.id, { fresh: true });
+      applyProjectRows(rows);
+    } catch (error) {
+      console.error('[Index] fetchProjects failed:', error);
+      toast.error('Failed to load projects');
+    }
+  }, [user, queryClient, applyProjectRows]);
+
+  // Event-driven full task refetch (resync / post-mutation / tour). Fresh, single-flight.
+  const fetchAllTasks = useCallback(async () => {
+    if (!user) return;
+    try {
+      memberProjectIdsRef.current = await fetchMemberIdsShared(queryClient, user.id, { fresh: true });
+      const rows = await fetchAllTasksShared(queryClient, user.id, { fresh: true });
+      applyTaskRows(rows);
     } catch (error) {
       console.error('Error fetching all tasks:', error);
     }
-  }, [fetchMemberProjectIds, fetchOwnTaskRows, fetchSharedTaskRows, applyTaskRows]);
+  }, [user, queryClient, applyTaskRows]);
 
   // Build shared item maps from raw data (used by both cache and fetch paths)
   const buildSharedMaps = useCallback(async (sharedItems: any[]) => {
@@ -594,17 +515,17 @@ const Index = () => {
     }
   }, [projectRefreshTrigger, initialLoadComplete, fetchProjects]);
 
-  // Initial load — parallel critical path. Once user + preferences are available we
-  // fire memberships + own-projects + own-tasks together; the task list unblocks as
-  // soon as own tasks arrive (fullDataLoaded), never waiting on projects. Shared
-  // projects/tasks merge in when the memberships query resolves. A warm prefetch
-  // cache (own+shared already merged under the same keys) short-circuits all of it.
+  // Initial load — routed through the shared single-flight fetchers. Once user +
+  // preferences are available, tasks and projects load in PARALLEL under the shared
+  // keys; the task list unblocks the instant the tasks query resolves, never gated on
+  // projects. An in-flight /home prefetch under the same key is REUSED (single flight),
+  // not raced, and a warm getQueryData hit short-circuits to an instant no-network paint.
   useEffect(() => {
     const loadInitialData = async () => {
       if (!(user && preferences && !initialLoadComplete)) return;
       try {
-        const cachedTasks = queryClient.getQueryData(['focusos-all-tasks', user.id]) as any[] | undefined;
-        const cachedProjects = queryClient.getQueryData(['focusos-projects', user.id]) as any[] | undefined;
+        const cachedTasks = queryClient.getQueryData(appDataKeys.tasks(user.id)) as any[] | undefined;
+        const cachedProjects = queryClient.getQueryData(appDataKeys.projects(user.id)) as any[] | undefined;
 
         if (cachedTasks && cachedTasks.length > 0 && cachedProjects) {
           // Warm cache hit — use prefetched data instantly (no network).
@@ -618,34 +539,28 @@ const Index = () => {
             buildSharedMaps(cachedShared);
           }
 
-          // Warm the member-id ref so later refetches (resync/refresh) include shared rows.
-          fetchMemberProjectIds();
+          // Warm the member-id ref so image hydration + later refetches include shared rows
+          // (single-flight — reuses the request the prefetch already made).
+          fetchMemberIdsShared(queryClient, user.id)
+            .then((ids) => { memberProjectIdsRef.current = ids; })
+            .catch(() => {});
         } else {
-          // Cold load — memberships + own tasks + own projects all in parallel.
-          const memberIdsP = fetchMemberProjectIds();
+          // Cold (or prefetch-in-flight) load. fetchQuery under the shared keys reuses an
+          // in-flight prefetch rather than firing a duplicate request.
+          const tasksP = fetchAllTasksShared(queryClient, user.id)
+            .then((rows) => { applyTaskRows(rows); })
+            .catch((err) => { console.error('[Index] tasks load failed:', err); })
+            .finally(() => { setFullDataLoaded(true); });
 
-          const tasksP = (async () => {
-            const own = await fetchOwnTaskRows();
-            if (own !== null) applyTaskRows(own);
-            // Unblock the task list the instant own tasks resolve — do not wait on projects.
-            setFullDataLoaded(true);
-            const ids = await memberIdsP;
-            if (ids.length > 0) {
-              const shared = await fetchSharedTaskRows(ids);
-              if (shared.length > 0) applyTaskRows(mergeByIdDesc([...(own || []), ...shared]));
-            }
-          })();
+          const projectsP = fetchProjectsShared(queryClient, user.id)
+            .then((rows) => { applyProjectRows(rows); })
+            .catch(() => { toast.error('Failed to load projects'); });
 
-          const projectsP = (async () => {
-            const own = await fetchOwnProjectRows();
-            if (own === null) { toast.error('Failed to load projects'); return; }
-            applyProjectRows(own);
-            const ids = await memberIdsP;
-            if (ids.length > 0) {
-              const shared = await fetchSharedProjectRows(ids);
-              if (shared.length > 0) applyProjectRows(mergeByIdDesc([...own, ...shared]));
-            }
-          })();
+          // Warm the member-id ref (single-flight — reuses the request the task/project
+          // fetchers already triggered) for image hydration and later refetches.
+          fetchMemberIdsShared(queryClient, user.id)
+            .then((ids) => { memberProjectIdsRef.current = ids; })
+            .catch(() => {});
 
           // Sender shared-item decorations are non-critical — load alongside, never gate.
           fetchSenderSharedItems();
@@ -659,7 +574,7 @@ const Index = () => {
       }
     };
     loadInitialData();
-  }, [user, preferences, initialLoadComplete, queryClient, applyTaskRows, applyProjectRows, buildSharedMaps, fetchMemberProjectIds, fetchOwnTaskRows, fetchSharedTaskRows, fetchOwnProjectRows, fetchSharedProjectRows, fetchSenderSharedItems]);
+  }, [user, preferences, initialLoadComplete, queryClient, applyTaskRows, applyProjectRows, buildSharedMaps, fetchSenderSharedItems]);
 
   // Deferred image hydration. The task-list load path (own/shared fetches + warm prefetch
   // cache) deliberately omits the heavy `images` column so the list paints fast; this
@@ -797,6 +712,43 @@ const Index = () => {
       }
     };
   }, [user, resyncTasks]);
+
+  // Resume refetch: after the tab has been hidden a while, in-memory data may have drifted
+  // (missed realtime events, an expired-then-refreshed token). On return to visible after
+  // >60s hidden, invalidate the shared queries and refetch tasks/projects/member-ids/
+  // preferences once. Single-flight under the shared keys collapses this with any
+  // concurrent trigger (e.g. the resync above), so it never storms.
+  const hiddenSinceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.id;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenSinceRef.current = Date.now();
+        return;
+      }
+      const hiddenFor = hiddenSinceRef.current ? Date.now() - hiddenSinceRef.current : 0;
+      hiddenSinceRef.current = null;
+      if (hiddenFor < 60_000) return;
+
+      // Preferences has an active observer (useUserPreferences) — invalidate refetches it.
+      queryClient.invalidateQueries({ queryKey: appDataKeys.preferences(uid) });
+      // Tasks / projects / member-ids are fetched imperatively — force a fresh
+      // single-flight refetch and re-apply to local state (applyTaskRows keeps its
+      // don't-blank-a-populated-list guard).
+      fetchMemberIdsShared(queryClient, uid, { fresh: true })
+        .then((ids) => { memberProjectIdsRef.current = ids; })
+        .catch(() => {});
+      fetchAllTasksShared(queryClient, uid, { fresh: true })
+        .then((rows) => applyTaskRows(rows))
+        .catch(() => {});
+      fetchProjectsShared(queryClient, uid, { fresh: true })
+        .then((rows) => applyProjectRows(rows))
+        .catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [user, queryClient, applyTaskRows, applyProjectRows]);
 
   // Realtime subscription for tasks - keeps all sessions in sync
   useEffect(() => {
