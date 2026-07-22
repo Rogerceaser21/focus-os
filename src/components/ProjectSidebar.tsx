@@ -278,6 +278,20 @@ export const ProjectSidebar = ({
     }
   }, [sharedItems, userId]);
 
+  // Accepted-membership project ids (shared projects visible to this user). Explicit
+  // own/shared filters replace the single unfiltered RLS scan for performance; RLS
+  // stays the security net (own OR accepted-member).
+  const fetchMemberProjectIds = async (): Promise<string[]> => {
+    if (!userId) return [];
+    const { data, error } = await (supabase as any)
+      .from('focusos_project_members')
+      .select('project_id')
+      .eq('user_id', userId)
+      .eq('status', 'accepted');
+    if (error || !data) return [];
+    return data.map((m: any) => m.project_id);
+  };
+
   const fetchProjects = async () => {
     // Retry with backoff to survive cold-start auth races on mobile Safari
     const delays = [0, 300, 800, 1500];
@@ -285,13 +299,34 @@ export const ProjectSidebar = ({
     let error: any = null;
     for (let i = 0; i < delays.length; i++) {
       if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
-      const res = await (supabase as any)
-        .from('focusos_projects')
-        .select('*')
-        .order('created_at', { ascending: false });
-      data = res.data;
-      error = res.error;
-      if (!error) break;
+      const memberIds = await fetchMemberProjectIds();
+      const [ownRes, sharedRes] = await Promise.all([
+        (supabase as any)
+          .from('focusos_projects')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false }),
+        memberIds.length
+          ? (supabase as any)
+              .from('focusos_projects')
+              .select('*')
+              .in('id', memberIds)
+              .order('created_at', { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      error = ownRes.error || sharedRes.error;
+      if (!error) {
+        // Merge own + shared by id (first wins), sort created_at desc — the same set
+        // the previous single RLS query returned; split by is_shared below is unchanged.
+        const byId = new Map<string, any>();
+        for (const p of [...(ownRes.data || []), ...(sharedRes.data || [])]) {
+          if (!byId.has(p.id)) byId.set(p.id, p);
+        }
+        data = Array.from(byId.values()).sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        break;
+      }
     }
 
     if (error) {
@@ -340,6 +375,7 @@ export const ProjectSidebar = ({
     const { data, error } = await (supabase as any)
       .from('focusos_meetings')
       .select('id, title')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
