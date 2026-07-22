@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchProjects as fetchProjectsShared, appDataKeys } from '@/lib/appDataFetchers';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -327,9 +328,17 @@ const Meetings = () => {
     };
   }, [processingMeetingId, navigate]);
 
+  // Route through the shared projects cache so an /app <-> /meetings switch within
+  // staleTime serves from cache instead of re-hitting the network. The shared fetcher
+  // returns full own+shared rows; map to the id/name/color shape this page uses.
   const fetchProjects = async () => {
-    const { data } = await (supabase as any).from('focusos_projects').select('id, name, color');
-    if (data) setProjects(data);
+    if (!user) return;
+    try {
+      const rows = await fetchProjectsShared(queryClient, user.id);
+      setProjects(rows.map((p: any) => ({ id: p.id, name: p.name, color: p.color })));
+    } catch (error) {
+      console.error('[Meetings] fetchProjects failed:', error);
+    }
   };
 
   const checkOrphanedSessions = async () => {
@@ -423,6 +432,12 @@ const Meetings = () => {
 
     const { data, error } = await query;
     if (!error && data) {
+      // Warm the shared meetings cache (the unfiltered list only) so an /app <-> /meetings
+      // switch re-hits the warm-read above instead of refetching. Prefetch writes the same
+      // key; a projectId-filtered fetch is a subset, so never cache it under this key.
+      if (!projectId && user) {
+        queryClient.setQueryData(appDataKeys.meetings(user.id), data);
+      }
       setMeetings(
         data.map(m => ({
           ...m,

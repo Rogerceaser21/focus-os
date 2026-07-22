@@ -55,8 +55,10 @@ import { addDays } from 'date-fns';
 import RecordFAB from '@/components/RecordFAB';
 import {
   fetchAllTasks as fetchAllTasksShared,
+  fetchCompletedTasks as fetchCompletedTasksShared,
   fetchProjects as fetchProjectsShared,
   fetchMemberProjectIds as fetchMemberIdsShared,
+  fetchTaskImages as fetchTaskImagesShared,
   appDataKeys,
 } from '@/lib/appDataFetchers';
 
@@ -363,28 +365,11 @@ const Index = () => {
   // current user is an accepted member; those ids gate the shared task/project queries
   // and mirror the two RLS SELECT policies (own OR accepted-member) exactly. ---
 
-  // Retry with backoff to survive cold-start auth races on mobile Safari.
-  const retryFetch = useCallback(async (
-    run: () => Promise<{ data: any; error: any }>
-  ): Promise<{ data: any; error: any }> => {
-    const delays = [0, 300, 800, 1500];
-    let data: any = null;
-    let error: any = null;
-    for (let i = 0; i < delays.length; i++) {
-      if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
-      const res = await run();
-      data = res.data;
-      error = res.error;
-      if (!error) break;
-    }
-    return { data, error };
-  }, []);
-
   // The own/shared/merge/member-id read logic now lives once in src/lib/appDataFetchers
-  // (fetchAllTasksShared / fetchProjectsShared / fetchMemberIdsShared), single-flighted
-  // under the shared query keys so Index, ProjectSidebar and the /home prefetch collapse
-  // to one request each. retryFetch above is kept only for the deferred image-hydration
-  // effect below, which reads a different (id, images) projection.
+  // (fetchAllTasksShared / fetchCompletedTasksShared / fetchProjectsShared /
+  // fetchMemberIdsShared / fetchTaskImagesShared), single-flighted under the shared query
+  // keys so Index, ProjectSidebar and the /home prefetch collapse to one request each and
+  // a cross-route remount within staleTime re-reads cache instead of the network.
 
   const applyProjectRows = useCallback((rows: any[]) => {
     setProjects(rows.map((p: any) => ({
@@ -400,14 +385,25 @@ const Index = () => {
     })));
   }, []);
 
+  // The shared task fetchers now return the NON-completed (open) set only; completed rows
+  // arrive separately (hydrateCompletedTasks) and share this same state. A fresh open-only
+  // apply therefore PRESERVES any completed tasks already merged in — replacing the whole
+  // list would blank the Done tab on every resync/refetch.
   const applyTaskRows = useCallback((rows: any[]) => {
-    const transformedTasks = rows.map(transformDbTask);
-    // A transient auth/RLS race can return 0 rows; don't blank a populated list.
-    if (transformedTasks.length === 0 && allTasksRef.current.length > 0) {
-      console.warn('[Index] task fetch returned 0 rows while tasks exist — ignoring to avoid blanking the list (transient auth/RLS race)');
+    const openTasks = rows.map(transformDbTask);
+    // A transient auth/RLS race can return 0 open rows; don't blank a list that already
+    // holds open tasks. (0 open is legitimate for an all-completed account, whose state
+    // holds only completed rows — that case is allowed through.)
+    const hadOpen = allTasksRef.current.some(t => t.status !== 'completed');
+    if (openTasks.length === 0 && hadOpen) {
+      console.warn('[Index] open-task fetch returned 0 rows while open tasks exist — ignoring to avoid blanking the list (transient auth/RLS race)');
       return;
     }
-    setAllTasks(transformedTasks);
+    const openIds = new Set(openTasks.map(t => t.id));
+    const keptCompleted = allTasksRef.current.filter(
+      t => t.status === 'completed' && !openIds.has(t.id),
+    );
+    setAllTasks([...openTasks, ...keptCompleted]);
   }, [transformDbTask]);
 
   // Event-driven projects refetch (post-mutation / tour). `fresh: true` bypasses the
@@ -576,12 +572,60 @@ const Index = () => {
     loadInitialData();
   }, [user, preferences, initialLoadComplete, queryClient, applyTaskRows, applyProjectRows, buildSharedMaps, fetchSenderSharedItems]);
 
+  // ---- Deferred hydration of the two halves the critical-path load omits: completed
+  // tasks and inline images. Both run once after first paint (fullDataLoaded) and both
+  // single-flight through the shared cache, so a cross-route remount within staleTime
+  // re-applies from cache instead of re-hitting the network. ----
+
+  // Images already fetched this session (id -> images), covering open AND completed rows.
+  // Lets a completed merge that lands before or after the image pass still pick up images.
+  const hydratedImagesRef = useRef<Map<string, string[]> | null>(null);
+
+  // Merge the completed set into allTasks. Existing state wins on id (keeps optimistic
+  // edits and already-hydrated images on open tasks); freshly merged completed rows pick
+  // up any images the image pass already fetched. Single-flight + 5-min cache via the
+  // shared key, so a remount does not re-hit the network within staleTime.
+  const hydrateCompletedTasks = useCallback(async () => {
+    if (!user) return;
+    try {
+      const rows = await fetchCompletedTasksShared(queryClient, user.id);
+      if (!rows.length) return;
+      setAllTasks(prev => {
+        const byId = new Map(prev.map(t => [t.id, t] as const));
+        for (const raw of rows) {
+          if (byId.has(raw.id)) continue; // existing state wins
+          const t = transformDbTask(raw);
+          const imgs = hydratedImagesRef.current?.get(t.id);
+          byId.set(t.id, imgs && imgs.length > 0 ? { ...t, images: imgs } : t);
+        }
+        return Array.from(byId.values());
+      });
+    } catch (err) {
+      console.warn('[Index] completed-task hydration failed:', err);
+    }
+  }, [user, queryClient, transformDbTask]);
+
+  // Fetch completed tasks lazily, just after first paint. The Done count pill and Done tab
+  // are always present in list/grid, so the default view effectively shows a completed
+  // section — hence deferred-after-paint (like image hydration) rather than blocking login.
+  const completedHydratedRef = useRef(false);
+  useEffect(() => {
+    if (!user || !fullDataLoaded || completedHydratedRef.current) return;
+    const run = () => {
+      if (completedHydratedRef.current) return;
+      completedHydratedRef.current = true;
+      hydrateCompletedTasks();
+    };
+    const handle = window.setTimeout(run, 800);
+    return () => window.clearTimeout(handle);
+  }, [user, fullDataLoaded, hydrateCompletedTasks]);
+
   // Deferred image hydration. The task-list load path (own/shared fetches + warm prefetch
   // cache) deliberately omits the heavy `images` column so the list paints fast; this
-  // backfills images ~1s after the list is up, off the critical path. Runs once per load,
-  // patches only tasks whose images array is still empty (never clobbers an edit that
-  // landed in between), and fails silently. Keyed off fullDataLoaded, which both the cold
-  // and warm-cache load paths set true — so both get their images.
+  // backfills images ~1s after the list is up, off the critical path. Routed through the
+  // shared cache key (fetchTaskImagesShared) so an /app remount within staleTime re-applies
+  // from cache instead of re-pulling the images. Runs once per mount, patches only tasks
+  // whose images array is still empty (never clobbers an edit that landed in between).
   const imagesHydratedRef = useRef(false);
   // True once hydration has APPLIED (or proven there is nothing to hydrate). Gates
   // whether an empty images array on a task update means "removed" or "not loaded
@@ -596,31 +640,8 @@ const Index = () => {
       if (imagesHydratedRef.current) return;
       imagesHydratedRef.current = true;
       try {
-        const memberIds = memberProjectIdsRef.current;
-        const [ownRes, sharedRes] = await Promise.all([
-          retryFetch(() =>
-            (supabase as any).from('focusos_tasks').select('id, images')
-              .eq('user_id', user.id)
-              .limit(1000)
-          ),
-          memberIds.length
-            ? retryFetch(() =>
-                (supabase as any).from('focusos_tasks').select('id, images')
-                  .in('project_id', memberIds)
-                  .limit(1000)
-              )
-            : Promise.resolve({ data: [], error: null }),
-        ]);
-        if (ownRes.error && sharedRes.error) {
-          console.warn('[Index] image hydration failed:', ownRes.error);
-          return;
-        }
-        const imagesById = new Map<string, string[]>();
-        for (const row of [...(ownRes.data || []), ...(sharedRes.data || [])]) {
-          if (row && Array.isArray(row.images) && row.images.length > 0) {
-            imagesById.set(row.id, row.images as string[]);
-          }
-        }
+        const imagesById = await fetchTaskImagesShared(queryClient, user.id);
+        hydratedImagesRef.current = imagesById;
         if (imagesById.size === 0) { imagesReadyRef.current = true; return; }
         // Fill images only where the current task has none, so a task the user edited
         // between the slim load and now is never overwritten.
@@ -631,13 +652,13 @@ const Index = () => {
         ));
         imagesReadyRef.current = true;
       } catch (err) {
-        console.warn('[Index] image hydration threw:', err);
+        console.warn('[Index] image hydration failed:', err);
       }
     };
 
     const handle = window.setTimeout(run, 1000);
     return () => window.clearTimeout(handle);
-  }, [user, fullDataLoaded, retryFetch]);
+  }, [user, fullDataLoaded, queryClient]);
 
   // Resolve assigner emails to names for shared project headers
   useEffect(() => {

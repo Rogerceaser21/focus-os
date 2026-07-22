@@ -13,9 +13,15 @@ export const APP_DATA_STALE_TIME = 5 * 60 * 1000; // 5 min
 // or refetching this data must key off these, or the dedup silently breaks.
 export const appDataKeys = {
   tasks: (userId: string) => ['focusos-all-tasks', userId] as const,
+  completedTasks: (userId: string) => ['focusos-completed-tasks', userId] as const,
   projects: (userId: string) => ['focusos-projects', userId] as const,
   preferences: (userId: string) => ['focusos-preferences', userId] as const,
   memberIds: (userId: string) => ['focusos-member-ids', userId] as const,
+  taskImages: (userId: string) => ['focusos-task-images', userId] as const,
+  meetings: (userId: string) => ['focusos-meetings', userId] as const,
+  meetingsList: (userId: string) => ['focusos-meetings-list', userId] as const,
+  sharedItems: (userId: string) => ['focusos-shared-items', userId] as const,
+  projectInvitations: (userId: string) => ['focusos-project-invitations', userId] as const,
 };
 
 // Slim projection for the task-list load path: every column transformDbTask (Index.tsx)
@@ -150,6 +156,10 @@ async function loadMemberProjectIds(userId: string): Promise<string[]> {
   return res.data.map((m: any) => m.project_id);
 }
 
+// The login/critical-path task load is NON-completed only: status values are
+// 'todo' | 'in-progress' | 'completed' (see TaskStatus), so `.neq('status','completed')`
+// leaves exactly the open set. Completed rows load lazily off the critical path via
+// loadCompletedTasks below, keyed separately so both sets can be cached independently.
 async function loadAllTasks(client: QueryClient, userId: string): Promise<any[]> {
   await ensureSession();
   const memberIds = await fetchMemberProjectIds(client, userId);
@@ -159,6 +169,7 @@ async function loadAllTasks(client: QueryClient, userId: string): Promise<any[]>
         .from('focusos_tasks')
         .select(TASK_LIST_COLUMNS)
         .eq('user_id', userId)
+        .neq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1000),
     ),
@@ -168,6 +179,7 @@ async function loadAllTasks(client: QueryClient, userId: string): Promise<any[]>
             .from('focusos_tasks')
             .select(TASK_LIST_COLUMNS)
             .in('project_id', memberIds)
+            .neq('status', 'completed')
             .order('created_at', { ascending: false })
             .limit(1000),
         )
@@ -175,6 +187,131 @@ async function loadAllTasks(client: QueryClient, userId: string): Promise<any[]>
   ]);
   if (own === null) throw new Error('[appDataFetchers] own tasks failed after retries');
   return mergeByIdDesc([...own, ...shared]);
+}
+
+// Completed-tasks loader — the lazy other half of loadAllTasks. Same slim projection,
+// own + shared, session gate and empty-success retry semantics; only the status
+// predicate is inverted (`.eq('status','completed')`). Fetched on demand (deferred
+// after first paint, see hydrateCompletedTasks in Index.tsx) and merged into the same
+// allTasks state so every Done count / Done tab / chart sees the full set.
+async function loadCompletedTasks(client: QueryClient, userId: string): Promise<any[]> {
+  await ensureSession();
+  const memberIds = await fetchMemberProjectIds(client, userId);
+  const [own, shared] = await Promise.all([
+    fetchOwnRows(() =>
+      (supabase as any)
+        .from('focusos_tasks')
+        .select(TASK_LIST_COLUMNS)
+        .eq('user_id', userId)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1000),
+    ),
+    memberIds.length
+      ? fetchSharedRows(() =>
+          (supabase as any)
+            .from('focusos_tasks')
+            .select(TASK_LIST_COLUMNS)
+            .in('project_id', memberIds)
+            .eq('status', 'completed')
+            .order('created_at', { ascending: false })
+            .limit(1000),
+        )
+      : Promise.resolve([] as any[]),
+  ]);
+  if (own === null) throw new Error('[appDataFetchers] own completed tasks failed after retries');
+  return mergeByIdDesc([...own, ...shared]);
+}
+
+// Deferred image hydration source — the heavy `images` (inline base64) column for every
+// own + shared task, keyed on its own cache entry so an /app remount within staleTime
+// re-applies from cache instead of re-pulling ~21 MB. Returns a map id -> images (only
+// rows that actually hold images), covering BOTH open and completed tasks so a later
+// completed merge can pick images out of it. Own error after retries throws (React Query
+// keeps it retryable); a shared-only error degrades to whatever own returned.
+async function loadTaskImages(
+  client: QueryClient,
+  userId: string,
+): Promise<Map<string, string[]>> {
+  await ensureSession();
+  const memberIds = await fetchMemberProjectIds(client, userId);
+  const [own, shared] = await Promise.all([
+    fetchOwnRows(() =>
+      (supabase as any)
+        .from('focusos_tasks')
+        .select('id, images')
+        .eq('user_id', userId)
+        .limit(1000),
+    ),
+    memberIds.length
+      ? fetchSharedRows(() =>
+          (supabase as any)
+            .from('focusos_tasks')
+            .select('id, images')
+            .in('project_id', memberIds)
+            .limit(1000),
+        )
+      : Promise.resolve([] as any[]),
+  ]);
+  if (own === null) throw new Error('[appDataFetchers] task images failed after retries');
+  const byId = new Map<string, string[]>();
+  for (const row of [...own, ...shared]) {
+    if (row && Array.isArray(row.images) && row.images.length > 0) {
+      byId.set(row.id, row.images as string[]);
+    }
+  }
+  return byId;
+}
+
+// These three sidebar reads use ERROR-retry only (runWithErrorRetry), NOT the empty-
+// success retry: an empty result is legitimately common here (no meetings / no shared
+// items / no pending invitations), so retrying empty would just add ~2s to the sidebar
+// for those users. A persistent error throws so React Query keeps the query retryable.
+
+// Slim meetings list for the sidebar (id, title only). Own-scoped.
+async function loadMeetingsList(userId: string): Promise<Array<{ id: string; title: string }>> {
+  await ensureSession();
+  const res = await runWithErrorRetry<any[]>(() =>
+    (supabase as any)
+      .from('focusos_meetings')
+      .select('id, title')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+  );
+  if (res.error) throw res.error;
+  return (res.data || []).map((m: any) => ({ id: m.id, title: m.title }));
+}
+
+// Shared items (sender + recipient rows the RLS policy exposes) in pending/accepted
+// state — the sidebar's inbox source. Not user-scoped in the query (RLS scopes it);
+// keyed by userId only for cache identity.
+async function loadSharedItems(_userId: string): Promise<any[]> {
+  await ensureSession();
+  const res = await runWithErrorRetry<any[]>(() =>
+    (supabase as any)
+      .from('focusos_shared_items')
+      .select('*')
+      .in('status', ['pending', 'accepted'])
+      .order('created_at', { ascending: false }),
+  );
+  if (res.error) throw res.error;
+  return res.data || [];
+}
+
+// Pending project invitations for this user — the base rows only. The sidebar keeps its
+// own name-enrichment (project + inviter profiles) on top, so this loader stays cheap.
+async function loadProjectInvitations(userId: string): Promise<any[]> {
+  await ensureSession();
+  const res = await runWithErrorRetry<any[]>(() =>
+    (supabase as any)
+      .from('focusos_project_members')
+      .select('id, project_id, invited_by, invited_email, role, status')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
+  );
+  if (res.error) throw res.error;
+  return res.data || [];
 }
 
 async function loadProjects(client: QueryClient, userId: string): Promise<any[]> {
@@ -248,6 +385,18 @@ export function fetchAllTasks(
   });
 }
 
+export function fetchCompletedTasks(
+  client: QueryClient,
+  userId: string,
+  opts?: FetchOpts,
+): Promise<any[]> {
+  return client.fetchQuery({
+    queryKey: appDataKeys.completedTasks(userId),
+    queryFn: () => loadCompletedTasks(client, userId),
+    staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+  });
+}
+
 export function fetchProjects(
   client: QueryClient,
   userId: string,
@@ -260,12 +409,68 @@ export function fetchProjects(
   });
 }
 
+export function fetchTaskImages(
+  client: QueryClient,
+  userId: string,
+  opts?: FetchOpts,
+): Promise<Map<string, string[]>> {
+  return client.fetchQuery({
+    queryKey: appDataKeys.taskImages(userId),
+    queryFn: () => loadTaskImages(client, userId),
+    staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+  });
+}
+
+export function fetchMeetingsList(
+  client: QueryClient,
+  userId: string,
+  opts?: FetchOpts,
+): Promise<Array<{ id: string; title: string }>> {
+  return client.fetchQuery({
+    queryKey: appDataKeys.meetingsList(userId),
+    queryFn: () => loadMeetingsList(userId),
+    staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+  });
+}
+
+export function fetchSharedItems(
+  client: QueryClient,
+  userId: string,
+  opts?: FetchOpts,
+): Promise<any[]> {
+  return client.fetchQuery({
+    queryKey: appDataKeys.sharedItems(userId),
+    queryFn: () => loadSharedItems(userId),
+    staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+  });
+}
+
+export function fetchProjectInvitations(
+  client: QueryClient,
+  userId: string,
+  opts?: FetchOpts,
+): Promise<any[]> {
+  return client.fetchQuery({
+    queryKey: appDataKeys.projectInvitations(userId),
+    queryFn: () => loadProjectInvitations(userId),
+    staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+  });
+}
+
 // ---- prefetch (silent warming for /home → /app). Never throws into the caller. ----
 
 export function prefetchTasks(client: QueryClient, userId: string): Promise<void> {
   return client.prefetchQuery({
     queryKey: appDataKeys.tasks(userId),
     queryFn: () => loadAllTasks(client, userId),
+    staleTime: APP_DATA_STALE_TIME,
+  });
+}
+
+export function prefetchCompletedTasks(client: QueryClient, userId: string): Promise<void> {
+  return client.prefetchQuery({
+    queryKey: appDataKeys.completedTasks(userId),
+    queryFn: () => loadCompletedTasks(client, userId),
     staleTime: APP_DATA_STALE_TIME,
   });
 }

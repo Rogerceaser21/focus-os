@@ -5,6 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   fetchProjects as fetchProjectsShared,
   fetchMemberProjectIds as fetchMemberIdsShared,
+  fetchMeetingsList as fetchMeetingsListShared,
+  fetchSharedItems as fetchSharedItemsShared,
+  fetchProjectInvitations as fetchProjectInvitationsShared,
 } from '@/lib/appDataFetchers';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
@@ -116,9 +119,9 @@ export const ProjectSidebar = ({
         // A real sign-in must always (re)load, even right after a load. New session ->
         // allow one fresh RSVP sync too (still deferred off the sign-in interaction).
         fetchProjects({ fresh: true });
-        fetchMeetings();
-        fetchSharedItems();
-        fetchProjectInvitations();
+        fetchMeetings({ fresh: true });
+        fetchSharedItems({ fresh: true });
+        fetchProjectInvitations({ fresh: true });
         rsvpSyncedRef.current = false;
         window.setTimeout(syncRsvpThenRefresh, 3000);
       } else if (event === 'TOKEN_REFRESHED') {
@@ -129,9 +132,9 @@ export const ProjectSidebar = ({
         // completed recently.
         if (Date.now() - lastFetchAtRef.current < 60_000) return;
         fetchProjects({ fresh: true });
-        fetchMeetings();
-        fetchSharedItems();
-        fetchProjectInvitations();
+        fetchMeetings({ fresh: true });
+        fetchSharedItems({ fresh: true });
+        fetchProjectInvitations({ fresh: true });
       }
     });
     return () => subscription.unsubscribe();
@@ -157,7 +160,7 @@ export const ProjectSidebar = ({
           toast.info(`📬 New item shared with you`, {
             description: `"${newItem.item_title}" from ${senderDisplay}`,
           });
-          fetchSharedItems();
+          fetchSharedItems({ fresh: true });
         }
       )
       // Listen for updates too (when status changes to 'accepted' — notify sender)
@@ -180,7 +183,7 @@ export const ProjectSidebar = ({
           if (updated.completed_at && !old?.completed_at) {
             // Don't show toast here — queued from state
           }
-          fetchSharedItems();
+          fetchSharedItems({ fresh: true });
         }
       )
       .subscribe();
@@ -208,7 +211,7 @@ export const ProjectSidebar = ({
           // Re-fetch projects to update shared project visibility
           fetchProjects();
           // Also re-fetch shared items in case a change_request was created
-          fetchSharedItems();
+          fetchSharedItems({ fresh: true });
         }
       )
       .subscribe();
@@ -369,15 +372,17 @@ export const ProjectSidebar = ({
     }
   };
 
-  const fetchMeetings = async () => {
-    const { data, error } = await (supabase as any)
-      .from('focusos_meetings')
-      .select('id, title')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setMeetings(data.map(m => ({ id: m.id, title: m.title })));
+  // Meetings / shared-items / invitations route through the shared single-flight keys so
+  // a mount (cross-route remount included) reads cache within staleTime instead of the
+  // network. Event-driven callers (SIGNED_IN, TOKEN_REFRESHED, realtime, accept/decline/
+  // create/acknowledge/cancel) pass { fresh: true } to bypass the stale snapshot.
+  const fetchMeetings = async (opts?: { fresh?: boolean }) => {
+    if (!userId) return;
+    try {
+      const data = await fetchMeetingsListShared(queryClient, userId, { fresh: opts?.fresh });
+      setMeetings(data);
+    } catch (error) {
+      console.error('[ProjectSidebar] fetchMeetings failed after retries:', error);
     }
   };
 
@@ -392,31 +397,29 @@ export const ProjectSidebar = ({
     } catch (e) {
       return; // sync failed; the table read already painted whatever exists
     }
-    fetchSharedItems();
+    fetchSharedItems({ fresh: true });
   };
 
-  const fetchSharedItems = async () => {
-    const { data, error } = await (supabase as any)
-      .from('focusos_shared_items')
-      .select('*')
-      .in('status', ['pending', 'accepted'])
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
+  const fetchSharedItems = async (opts?: { fresh?: boolean }) => {
+    if (!userId) return;
+    try {
+      const data = await fetchSharedItemsShared(queryClient, userId, { fresh: opts?.fresh });
       setSharedItems(data);
+    } catch (error) {
+      console.error('[ProjectSidebar] fetchSharedItems failed after retries:', error);
     }
   };
 
-  const fetchProjectInvitations = async () => {
+  const fetchProjectInvitations = async (opts?: { fresh?: boolean }) => {
     if (!userId) return;
-    const { data, error } = await (supabase as any)
-      .from('focusos_project_members')
-      .select('id, project_id, invited_by, invited_email, role, status')
-      .eq('user_id', userId)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
-
-    if (!error && data && data.length > 0) {
+    let data: any[];
+    try {
+      data = await fetchProjectInvitationsShared(queryClient, userId, { fresh: opts?.fresh });
+    } catch (error) {
+      console.error('[ProjectSidebar] fetchProjectInvitations failed after retries:', error);
+      return;
+    }
+    if (data && data.length > 0) {
       // Fetch project names
       const projectIds = data.map((i: any) => i.project_id);
       const { data: projectsData } = await (supabase as any)
@@ -475,7 +478,7 @@ export const ProjectSidebar = ({
               description: `You've been invited to collaborate on a project`,
             });
           }
-          fetchProjectInvitations();
+          fetchProjectInvitations({ fresh: true });
         }
       )
       .subscribe();
@@ -495,7 +498,7 @@ export const ProjectSidebar = ({
         return;
       }
       toast.success('Project invitation accepted!');
-      fetchProjectInvitations();
+      fetchProjectInvitations({ fresh: true });
       fetchProjects({ fresh: true });
       // Trigger parent to refetch tasks so the shared project's tasks are loaded
       onProjectCreated?.();
@@ -515,7 +518,7 @@ export const ProjectSidebar = ({
       });
       if (error) throw error;
       toast.success('Invitation declined');
-      fetchProjectInvitations();
+      fetchProjectInvitations({ fresh: true });
     } catch (err) {
       console.error('Decline invite error:', err);
       toast.error('Failed to decline invitation');
@@ -540,8 +543,8 @@ export const ProjectSidebar = ({
       
       // Refresh data
       await fetchProjects({ fresh: true });
-      await fetchSharedItems();
-      await fetchMeetings();
+      await fetchSharedItems({ fresh: true });
+      await fetchMeetings({ fresh: true });
       
       // Navigate to the accepted item
       if (acceptedItem?.item_type === 'meeting' && data?.recipientTaskId) {
@@ -582,7 +585,7 @@ export const ProjectSidebar = ({
       });
       if (error) throw error;
       toast.success('Item declined');
-      fetchSharedItems();
+      fetchSharedItems({ fresh: true });
     } catch (err) {
       console.error('Decline error:', err);
       toast.error('Failed to decline shared item');
@@ -598,7 +601,7 @@ export const ProjectSidebar = ({
         .from('focusos_shared_items')
         .update({ sender_acknowledged: true })
         .eq('id', sharedItemId);
-      fetchSharedItems();
+      fetchSharedItems({ fresh: true });
     } catch (err) {
       console.error('Acknowledge error:', err);
     }
@@ -611,7 +614,7 @@ export const ProjectSidebar = ({
         .from('focusos_shared_items')
         .update({ completion_acknowledged: true })
         .eq('id', sharedItemId);
-      fetchSharedItems();
+      fetchSharedItems({ fresh: true });
     } catch (err) {
       console.error('Acknowledge completion error:', err);
     }
@@ -626,7 +629,7 @@ export const ProjectSidebar = ({
         .update({ status: 'cancelled' })
         .eq('id', sharedItemId);
       toast.success('Shared item cancelled');
-      fetchSharedItems();
+      fetchSharedItems({ fresh: true });
     } catch (err) {
       console.error('Cancel error:', err);
       toast.error('Failed to cancel shared item');

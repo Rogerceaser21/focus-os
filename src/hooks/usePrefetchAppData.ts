@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   APP_DATA_STALE_TIME,
   prefetchTasks,
+  prefetchCompletedTasks,
   prefetchProjects,
   prefetchPreferences,
 } from '@/lib/appDataFetchers';
@@ -26,6 +27,9 @@ export const usePrefetchAppData = (userId?: string | null) => {
 
     // Shared single-flight loads (own + shared merged under the shared keys).
     prefetchTasks(queryClient, userId);
+    // Completed tasks warm the Done view; kept off the /app critical path by loading them
+    // here on Home (background), so /app's deferred completed-hydration reuses this cache.
+    prefetchCompletedTasks(queryClient, userId);
     prefetchProjects(queryClient, userId);
     prefetchPreferences(queryClient, userId);
 

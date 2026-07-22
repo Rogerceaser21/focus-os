@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
@@ -9,6 +10,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
+import { APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
 import { HomeTour } from '@/components/HomeTour';
@@ -55,13 +57,9 @@ const Home = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  const [firstName, setFirstName] = useState<string>('');
   const [subtitleIndex, setSubtitleIndex] = useState(0);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
-  const [projects, setProjects] = useState<(ProjectInfo & { color?: string })[]>([]);
   const [tourOpen, setTourOpen] = useState(false);
-  const [upNext, setUpNext] = useState<UpNextTask[]>([]);
-  const [openCount, setOpenCount] = useState<number>(0);
   const [reviewTasks, setReviewTasks] = useState<BrainDumpTask[] | undefined>(undefined);
   const { preferences, markHomeTourComplete } = useUserPreferences(user?.id);
 
@@ -84,29 +82,51 @@ const Home = () => {
   }, [user, authLoading, navigate]);
 
 
-  useEffect(() => {
-    if (!user) return;
-    (supabase as any).from('focusos_profiles').select('first_name').eq('user_id', user.id).maybeSingle().
-    then(({ data }: any) => {if (data?.first_name) setFirstName(data.first_name);});
-    (supabase as any).from('focusos_projects').select('id, name, color').eq('user_id', user.id).order('name').
-    then(({ data }: any) => {if (data) setProjects(data);});
-  }, [user]);
+  // Home data via React Query with staleTime: switching /app <-> /home within staleTime
+  // now serves from cache instead of the raw fetch-on-mount these effects used before.
+  const { data: firstName = '' } = useQuery({
+    queryKey: ['focusos-home-profile', user?.id],
+    enabled: !!user,
+    staleTime: APP_DATA_STALE_TIME,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('focusos_profiles').select('first_name').eq('user_id', user!.id).maybeSingle();
+      return data?.first_name ?? '';
+    },
+  });
 
-  // Up Next card: the next few open tasks (soonest due first)
-  useEffect(() => {
-    if (!user) return;
-    (supabase as any).
-    from('focusos_tasks').
-    select('id, title, status, due_date, project_id', { count: 'exact' }).
-    eq('user_id', user.id).
-    neq('status', 'completed').
-    order('due_date', { ascending: true, nullsFirst: false }).
-    limit(3).
-    then(({ data, count }: any) => {
-      if (data) setUpNext(data);
-      if (typeof count === 'number') setOpenCount(count);
-    });
-  }, [user]);
+  const { data: projects = [] } = useQuery<(ProjectInfo & { color?: string })[]>({
+    queryKey: ['focusos-home-projects', user?.id],
+    enabled: !!user,
+    staleTime: APP_DATA_STALE_TIME,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('focusos_projects').select('id, name, color').eq('user_id', user!.id).order('name');
+      return (data ?? []) as (ProjectInfo & { color?: string })[];
+    },
+  });
+
+  // Up Next card: the next few open tasks (soonest due first) + the total open count.
+  const { data: upNextData } = useQuery({
+    queryKey: ['focusos-home-upnext', user?.id],
+    enabled: !!user,
+    staleTime: APP_DATA_STALE_TIME,
+    queryFn: async () => {
+      const { data, count } = await (supabase as any)
+        .from('focusos_tasks')
+        .select('id, title, status, due_date, project_id', { count: 'exact' })
+        .eq('user_id', user!.id)
+        .neq('status', 'completed')
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .limit(3);
+      return {
+        upNext: (data ?? []) as UpNextTask[],
+        openCount: typeof count === 'number' ? count : 0,
+      };
+    },
+  });
+  const upNext = upNextData?.upNext ?? [];
+  const openCount = upNextData?.openCount ?? 0;
 
   useEffect(() => {
     const interval = setInterval(() => setSubtitleIndex((p) => (p + 1) % SUBTITLES.length), 4000);
