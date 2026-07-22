@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
 import { toast } from 'sonner';
 
 interface PushArgs {
@@ -24,17 +26,34 @@ interface PushArgs {
 export function useGoogleCalendar() {
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
 
-  const refresh = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setIsConnected(false); return; }
-    const { data } = await supabase
-      .from('focusos_google_tokens')
-      .select('user_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    setIsConnected(!!data);
-  }, []);
+  // This hook mounts once per task row (GoogleCalendarButton in TaskListItem/TaskCard),
+  // so per-instance work here MUST be network-free: getSession reads localStorage
+  // (getUser hit /auth/v1/user per row — 217 calls on one /app remount, live-measured),
+  // and the connected check is single-flighted through a shared 5-min cache key.
+  const refresh = useCallback(async (opts?: { fresh?: boolean }) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const uid = session?.user?.id;
+    if (!uid) { setIsConnected(false); return; }
+    try {
+      const connected = await queryClient.fetchQuery({
+        queryKey: ['focusos-google-connected', uid],
+        queryFn: async () => {
+          const { data } = await supabase
+            .from('focusos_google_tokens')
+            .select('user_id')
+            .eq('user_id', uid)
+            .maybeSingle();
+          return !!data;
+        },
+        staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+      });
+      setIsConnected(connected);
+    } catch {
+      setIsConnected(false);
+    }
+  }, [queryClient]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
