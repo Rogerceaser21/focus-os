@@ -79,6 +79,8 @@ export const ProjectSidebar = ({
   // Timestamp of the last successful projects load — used to skip the redundant
   // TOKEN_REFRESHED refire (see the auth-state effect below).
   const lastFetchAtRef = useRef(0);
+  // Once-per-load latch for the heavy Google-RSVP edge sync (see syncRsvpThenRefresh).
+  const rsvpSyncedRef = useRef(false);
 
   // Debounce sidebar search
   useEffect(() => {
@@ -98,16 +100,27 @@ export const ProjectSidebar = ({
     fetchProjectInvitations();
   }, [projectRefreshTrigger, userId]);
 
+  // Deferred RSVP sync: 3s pushes the 2.5-11s edge call past the login critical path
+  // (first task card paints ~2.8s). Once per load via rsvpSyncedRef.
+  useEffect(() => {
+    if (!userId) return;
+    const t = window.setTimeout(syncRsvpThenRefresh, 3000);
+    return () => window.clearTimeout(t);
+  }, [userId]);
+
   // React to Supabase auth events after mount.
   useEffect(() => {
     if (!userId) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
-        // A real sign-in must always (re)load, even right after a load.
+        // A real sign-in must always (re)load, even right after a load. New session ->
+        // allow one fresh RSVP sync too (still deferred off the sign-in interaction).
         fetchProjects({ fresh: true });
         fetchMeetings();
         fetchSharedItems();
         fetchProjectInvitations();
+        rsvpSyncedRef.current = false;
+        window.setTimeout(syncRsvpThenRefresh, 3000);
       } else if (event === 'TOKEN_REFRESHED') {
         // TOKEN_REFRESHED fires ~2s into almost every cold start and used to refire
         // the whole fetch set — a duplicate-request storm. The initial mount load,
@@ -368,14 +381,21 @@ export const ProjectSidebar = ({
     }
   };
 
-  const fetchSharedItems = async () => {
-    // Best-effort: sync Google RSVPs into sender's pending shared items
-    // before reading. Silent — never blocks UI on failure.
+  // Google-RSVP edge sync: 2.5-11s live-measured, so it must never run inline on a
+  // read path. Deferred + once per load (see the scheduling effect); on completion the
+  // shared-items read re-runs to reconcile whatever the sync changed.
+  const syncRsvpThenRefresh = async () => {
+    if (rsvpSyncedRef.current) return;
+    rsvpSyncedRef.current = true;
     try {
       await (supabase as any).functions.invoke('focusos-sync-shared-rsvp');
     } catch (e) {
-      // ignore; we still render whatever is in the table
+      return; // sync failed; the table read already painted whatever exists
     }
+    fetchSharedItems();
+  };
+
+  const fetchSharedItems = async () => {
     const { data, error } = await (supabase as any)
       .from('focusos_shared_items')
       .select('*')
