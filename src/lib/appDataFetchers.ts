@@ -36,6 +36,19 @@ export const TASK_LIST_COLUMNS =
   'completed_by_email,assigned_to_email,change_request_message,' +
   'google_calendar_event_id,created_at';
 
+// The raw-row keys the task-list caches hold (TASK_LIST_COLUMNS as an array).
+export const TASK_LIST_COLUMN_KEYS = TASK_LIST_COLUMNS.split(',');
+
+// Project a full realtime `payload.new` row down to exactly the slim task-list keys. The
+// caches under appDataKeys.tasks / .completedTasks hold this slim shape (no `images`);
+// realtime sends the whole row, so a realtime patch must slim it or the heavy inline-base64
+// `images` column would leak back into the hot task-list cache the slim load exists to avoid.
+export function slimTaskRow(raw: any): any {
+  const out: any = {};
+  for (const k of TASK_LIST_COLUMN_KEYS) out[k] = raw[k];
+  return out;
+}
+
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // Backoff on ERROR (cold-start auth races on mobile Safari), and — for own-data —

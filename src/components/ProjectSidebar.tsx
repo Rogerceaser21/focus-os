@@ -84,6 +84,14 @@ export const ProjectSidebar = ({
   const lastFetchAtRef = useRef(0);
   // Once-per-load latch for the heavy Google-RSVP edge sync (see syncRsvpThenRefresh).
   const rsvpSyncedRef = useRef(false);
+  // Full set of this user's shared projects (id/name/color, pre active-filter). Kept so the
+  // realtime task handler can (a) test whether a changed task belongs to a shared project
+  // and (b) re-run the active-filter without a full fetchProjects. Includes projects hidden
+  // by the filter, so a task reopening in a hidden project can bring it back.
+  const sharedProjectsAllRef = useRef<{ id: string; name: string; color: string }[]>([]);
+  // Debounce timer + latest-closure ref for the targeted shared-visibility recompute.
+  const sharedVisibilityDebounceRef = useRef<number | null>(null);
+  const recomputeSharedVisibilityRef = useRef<() => void>(() => {});
 
   // Debounce sidebar search
   useEffect(() => {
@@ -193,7 +201,13 @@ export const ProjectSidebar = ({
     };
   }, [userId]);
 
-  // Realtime: re-fetch shared projects when any of this user's tasks change (status updates)
+  // Realtime: keep shared-project visibility live when this user's tasks change (status /
+  // change-request updates). No full fetchProjects / fetchSharedItems fan-out per event —
+  // the sidebar needs task data only for the shared-project active-filter. Recompute that
+  // filter (one slim task read) debounced ~2s, and only when the changed task belongs to a
+  // shared project. (DELETE's default replica identity omits project_id, so a delete can't
+  // be targeted; an emptied shared project stays visible under the no-tasks rule and the
+  // next fetchProjects self-heals, so this is acceptable.)
   useEffect(() => {
     if (!userId) return;
 
@@ -208,16 +222,26 @@ export const ProjectSidebar = ({
           filter: `user_id=eq.${userId}`,
         },
         (payload: any) => {
-          // Re-fetch projects to update shared project visibility
-          fetchProjects();
-          // Also re-fetch shared items in case a change_request was created
-          fetchSharedItems({ fresh: true });
+          const projectId = payload.new?.project_id ?? payload.old?.project_id;
+          if (!projectId) return;
+          if (!sharedProjectsAllRef.current.some((p) => p.id === projectId)) return;
+          if (sharedVisibilityDebounceRef.current !== null) {
+            window.clearTimeout(sharedVisibilityDebounceRef.current);
+          }
+          sharedVisibilityDebounceRef.current = window.setTimeout(() => {
+            sharedVisibilityDebounceRef.current = null;
+            recomputeSharedVisibilityRef.current();
+          }, 2000);
         }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(taskChannel);
+      if (sharedVisibilityDebounceRef.current !== null) {
+        window.clearTimeout(sharedVisibilityDebounceRef.current);
+        sharedVisibilityDebounceRef.current = null;
+      }
     };
   }, [userId]);
 
@@ -346,31 +370,43 @@ export const ProjectSidebar = ({
       timer: { totalSeconds: 0, isRunning: false }
     })));
 
-    // For shared projects, filter out those where ALL tasks are completed
-    if (shared.length > 0) {
-      const sharedIds = shared.map((p: any) => p.id);
-      const { data: sharedTasks } = await (supabase as any)
-        .from('focusos_tasks')
-        .select('id, project_id, status, change_request_message')
-        .in('project_id', sharedIds);
-
-      const activeShared = shared.filter((p: any) => {
-        const projectTasks = (sharedTasks || []).filter((t: any) => t.project_id === p.id);
-        // Show if no tasks yet, or if any task is actively visible (not completed AND no pending change request)
-        const visibleActiveTasks = projectTasks.filter((t: any) => t.status !== 'completed' && !t.change_request_message);
-        return projectTasks.length === 0 || visibleActiveTasks.length > 0;
-      });
-
-      setSharedProjects(activeShared.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        color: p.color,
-        timer: { totalSeconds: 0, isRunning: false }
-      })));
-    } else {
-      setSharedProjects([]);
-    }
+    // Stash the full shared set for the realtime targeted recompute, then apply the
+    // active-visibility filter (shared task read + hide-when-all-done) via the shared path.
+    sharedProjectsAllRef.current = shared.map((p: any) => ({ id: p.id, name: p.name, color: p.color }));
+    await recomputeSharedVisibility();
   };
+
+  // Light shared-project active-visibility filter: for the current shared set, read the
+  // slim task rows and show a project only if it has no tasks yet or at least one task that
+  // is not completed and has no pending change request. Extracted from fetchProjects so the
+  // realtime task handler can re-run just this (one small query) instead of a full refetch.
+  const recomputeSharedVisibility = async () => {
+    const shared = sharedProjectsAllRef.current;
+    if (shared.length === 0) {
+      setSharedProjects([]);
+      return;
+    }
+    const sharedIds = shared.map((p) => p.id);
+    const { data: sharedTasks } = await (supabase as any)
+      .from('focusos_tasks')
+      .select('id, project_id, status, change_request_message')
+      .in('project_id', sharedIds);
+
+    const activeShared = shared.filter((p) => {
+      const projectTasks = (sharedTasks || []).filter((t: any) => t.project_id === p.id);
+      const visibleActiveTasks = projectTasks.filter((t: any) => t.status !== 'completed' && !t.change_request_message);
+      return projectTasks.length === 0 || visibleActiveTasks.length > 0;
+    });
+
+    setSharedProjects(activeShared.map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      timer: { totalSeconds: 0, isRunning: false }
+    })));
+  };
+  // Keep the realtime handler (subscribed once, deps [userId]) pointed at the latest closure.
+  useEffect(() => { recomputeSharedVisibilityRef.current = recomputeSharedVisibility; });
 
   // Meetings / shared-items / invitations route through the shared single-flight keys so
   // a mount (cross-route remount included) reads cache within staleTime instead of the

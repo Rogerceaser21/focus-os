@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchProjects as fetchProjectsShared, appDataKeys } from '@/lib/appDataFetchers';
+import { fetchProjects as fetchProjectsShared, appDataKeys, APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -315,7 +315,7 @@ const Meetings = () => {
         toast.error(`Processing failed: ${procError || 'Unknown error'}`);
         setProcessingMeetingId(null);
         setRecordingState('idle');
-        fetchMeetings();
+        fetchMeetings({ fresh: true });
       }
     };
 
@@ -419,46 +419,75 @@ const Meetings = () => {
     setOrphanedSession(null);
   };
 
-  const fetchMeetings = async () => {
+  // Map raw meeting rows into state and, if any are still processing, arm the stuck-meeting
+  // poller. Shared by the cached (unfiltered) and the direct (project-filtered) read paths.
+  const applyMeetings = (data: any[] | null | undefined) => {
+    if (!data) return;
+    setMeetings(
+      data.map(m => ({
+        ...m,
+        action_items: Array.isArray(m.action_items) ? m.action_items : [],
+        processing_status: (m as any).processing_status || 'done',
+        processing_error: (m as any).processing_error || null,
+      }))
+    );
+
+    // Safety net: if any meetings are still in-flight, ping the poller
+    // so it picks back up if its chain ever died.
+    const inFlight = data.some((m: any) =>
+      m.processing_status === 'transcribing' || m.processing_status === 'summarizing'
+    );
+    if (inFlight) {
+      supabase.functions
+        .invoke('focusos-poll-stuck-meetings', { body: { chainCount: 0 } })
+        .catch((e) => console.warn('arm-on-load poller invoke failed:', e?.message));
+    }
+  };
+
+  const fetchMeetings = async (opts?: { fresh?: boolean }) => {
     setLoading(true);
-    let query = (supabase as any)
-      .from('focusos_meetings')
-      .select('*')
-      .order('created_at', { ascending: false });
 
+    // A project-filtered view is a strict subset of the full list, so it is read directly
+    // and never cached under the shared meetings key (a later unfiltered read would
+    // otherwise serve the subset).
     if (projectId) {
-      query = query.eq('project_id', projectId);
+      const { data, error } = await (supabase as any)
+        .from('focusos_meetings')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+      if (!error) applyMeetings(data);
+      setLoading(false);
+      return;
     }
 
-    const { data, error } = await query;
-    if (!error && data) {
-      // Warm the shared meetings cache (the unfiltered list only) so an /app <-> /meetings
-      // switch re-hits the warm-read above instead of refetching. Prefetch writes the same
-      // key; a projectId-filtered fetch is a subset, so never cache it under this key.
-      if (!projectId && user) {
-        queryClient.setQueryData(appDataKeys.meetings(user.id), data);
-      }
-      setMeetings(
-        data.map(m => ({
-          ...m,
-          action_items: Array.isArray(m.action_items) ? m.action_items : [],
-          processing_status: (m as any).processing_status || 'done',
-          processing_error: (m as any).processing_error || null,
-        }))
-      );
-
-      // Safety net: if any meetings are still in-flight, ping the poller
-      // so it picks back up if its chain ever died.
-      const inFlight = data.some((m: any) =>
-        m.processing_status === 'transcribing' || m.processing_status === 'summarizing'
-      );
-      if (inFlight) {
-        supabase.functions
-          .invoke('focusos-poll-stuck-meetings', { body: { chainCount: 0 } })
-          .catch((e) => console.warn('arm-on-load poller invoke failed:', e?.message));
-      }
+    if (!user) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    try {
+      // Single-flight through the shared cache: within staleTime this serves the cached rows
+      // with no network (the /app <-> /meetings visit path); `fresh` forces a refetch for the
+      // post-mutation callers (processing-error, delete) that must not read the stale snapshot.
+      const data = await queryClient.fetchQuery({
+        queryKey: appDataKeys.meetings(user.id),
+        queryFn: async () => {
+          const { data, error } = await (supabase as any)
+            .from('focusos_meetings')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          return data || [];
+        },
+        staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+      });
+      applyMeetings(data);
+    } catch (err) {
+      console.error('[Meetings] fetchMeetings failed:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -767,7 +796,7 @@ const Meetings = () => {
       });
       if (error) throw error;
       toast.success('Meeting deleted');
-      fetchMeetings();
+      fetchMeetings({ fresh: true });
     } catch (err) {
       console.error('Delete error:', err);
       toast.error('Failed to delete meeting');

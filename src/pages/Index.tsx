@@ -60,6 +60,7 @@ import {
   fetchMemberProjectIds as fetchMemberIdsShared,
   fetchTaskImages as fetchTaskImagesShared,
   appDataKeys,
+  slimTaskRow,
 } from '@/lib/appDataFetchers';
 
 // Inline skeleton for the task list area shown while initialLoadComplete is false.
@@ -585,10 +586,10 @@ const Index = () => {
   // edits and already-hydrated images on open tasks); freshly merged completed rows pick
   // up any images the image pass already fetched. Single-flight + 5-min cache via the
   // shared key, so a remount does not re-hit the network within staleTime.
-  const hydrateCompletedTasks = useCallback(async () => {
+  const hydrateCompletedTasks = useCallback(async (opts?: { fresh?: boolean }) => {
     if (!user) return;
     try {
-      const rows = await fetchCompletedTasksShared(queryClient, user.id);
+      const rows = await fetchCompletedTasksShared(queryClient, user.id, { fresh: opts?.fresh });
       if (!rows.length) return;
       setAllTasks(prev => {
         const byId = new Map(prev.map(t => [t.id, t] as const));
@@ -760,20 +761,88 @@ const Index = () => {
       fetchMemberIdsShared(queryClient, uid, { fresh: true })
         .then((ids) => { memberProjectIdsRef.current = ids; })
         .catch(() => {});
-      fetchAllTasksShared(queryClient, uid, { fresh: true })
-        .then((rows) => applyTaskRows(rows))
-        .catch(() => {});
+      // Open then completed, in order: the fresh open apply drops a task that moved
+      // open->completed while hidden, then the completed re-merge re-adds it as completed
+      // (hydrateCompletedTasks keeps existing state on id, so it must run second).
+      (async () => {
+        try {
+          const rows = await fetchAllTasksShared(queryClient, uid, { fresh: true });
+          applyTaskRows(rows);
+        } catch {
+          /* keep prior state */
+        }
+        await hydrateCompletedTasks({ fresh: true });
+      })();
       fetchProjectsShared(queryClient, uid, { fresh: true })
         .then((rows) => applyProjectRows(rows))
         .catch(() => {});
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [user, queryClient, applyTaskRows, applyProjectRows]);
+  }, [user, queryClient, applyTaskRows, applyProjectRows, hydrateCompletedTasks]);
 
   // Realtime subscription for tasks - keeps all sessions in sync
   useEffect(() => {
     if (!user) return;
+    const uid = user.id;
+
+    // Preserve locally-hydrated images when a realtime row carries none: the slim task-list
+    // load omits `images`, so a realtime payload for a row hydrated this session can arrive
+    // image-less. Take the incoming as-is once the image pass has run (imagesReadyRef) or
+    // the payload actually carries images; otherwise keep the existing/hydrated images.
+    const preserveImages = (incoming: Task, existing: Task | undefined): Task => {
+      if ((incoming.images && incoming.images.length > 0) || imagesReadyRef.current) return incoming;
+      const preserved = (existing?.images && existing.images.length > 0)
+        ? existing.images
+        : hydratedImagesRef.current?.get(incoming.id);
+      return preserved && preserved.length > 0 ? { ...incoming, images: preserved } : incoming;
+    };
+
+    // Mirror a realtime row into the raw-row caches so a later cache read (nav remount)
+    // reflects it. A status change moves the row between the open and completed caches.
+    // Slim the row first (never leak `images` into the hot task-list cache); only patch a
+    // cache that already holds data — fabricating one would mark it fresh and starve the
+    // real fetch that populates it (completed is lazily hydrated).
+    const patchCaches = (raw: any, deleted: boolean) => {
+      const openKey = appDataKeys.tasks(uid);
+      const completedKey = appDataKeys.completedTasks(uid);
+      if (deleted) {
+        queryClient.setQueryData(openKey, (prev: any[] | undefined) => prev ? prev.filter((r: any) => r.id !== raw.id) : prev);
+        queryClient.setQueryData(completedKey, (prev: any[] | undefined) => prev ? prev.filter((r: any) => r.id !== raw.id) : prev);
+        return;
+      }
+      const slim = slimTaskRow(raw);
+      const completed = slim.status === 'completed';
+      const targetKey = completed ? completedKey : openKey;
+      const otherKey = completed ? openKey : completedKey;
+      queryClient.setQueryData(targetKey, (prev: any[] | undefined) => {
+        if (!prev) return prev;
+        const idx = prev.findIndex((r: any) => r.id === slim.id);
+        if (idx === -1) return [slim, ...prev];
+        const next = prev.slice();
+        next[idx] = slim;
+        return next;
+      });
+      queryClient.setQueryData(otherKey, (prev: any[] | undefined) => prev ? prev.filter((r: any) => r.id !== slim.id) : prev);
+    };
+
+    // INSERT/UPDATE share one upsert: replace by id, else append. Handles a completed row
+    // absent from state (a completed-task UPDATE), so the Done set stays live without a
+    // refetch. Never seed an empty list mid-cold-load — the initial load will populate it.
+    const upsertTask = (raw: any) => {
+      const incoming = transformDbTask(raw);
+      setAllTasks(prev => {
+        const idx = prev.findIndex(t => t.id === incoming.id);
+        if (idx === -1) {
+          if (prev.length === 0) return prev;
+          return [...prev, preserveImages(incoming, undefined)];
+        }
+        const next = prev.slice();
+        next[idx] = preserveImages(incoming, prev[idx]);
+        return next;
+      });
+      patchCaches(raw, false);
+    };
 
     const channel = supabase
       .channel(`tasks-${user.id}`)
@@ -786,11 +855,7 @@ const Index = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          const newTask = transformDbTask(payload.new);
-          setAllTasks(prev => {
-            if (prev.length === 0 || prev.some(t => t.id === newTask.id)) return prev;
-            return [...prev, newTask];
-          });
+          upsertTask(payload.new);
         }
       )
       .on(
@@ -802,10 +867,10 @@ const Index = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          const updatedTask = transformDbTask(payload.new);
-          setAllTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
-          // Trigger sidebar refresh for shared project visibility
-          setProjectRefreshTrigger(prev => prev + 1);
+          // No projectRefreshTrigger bump: the sidebar recomputes shared-project
+          // visibility off its own tasks channel, and the auto-eject effect handles the
+          // currently-viewed shared project off this allTasks change.
+          upsertTask(payload.new);
         }
       )
       .on(
@@ -819,6 +884,7 @@ const Index = () => {
         (payload) => {
           const deletedTaskId = (payload.old as any).id;
           setAllTasks(prev => prev.filter(t => t.id !== deletedTaskId));
+          patchCaches({ id: deletedTaskId }, true);
         }
       )
       .subscribe((status, err) => {
@@ -856,7 +922,7 @@ const Index = () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(sharedItemsChannel);
     };
-  }, [user, transformDbTask, fetchSenderSharedItems]);
+  }, [user, transformDbTask, fetchSenderSharedItems, queryClient]);
 
   // Apply user preferences on load
   useEffect(() => {
