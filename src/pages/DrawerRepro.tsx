@@ -155,23 +155,14 @@ const DrawerReproInner = () => {
           <div
             data-state={openMobile ? 'open' : 'closed'}
             className="fixed inset-0 z-50 lg-side-overlay"
-            // Fix A + C/D wave: close only when the gesture both started
-            // (pointerdown) and ended (pointerup) on this overlay, and begin the
-            // close on finger LIFT (pointerup) rather than the trailing click so
-            // the glide starts with no click-cycle wait. A cross-navigation ghost
-            // click is a lone synthesized `click` (no pointerdown, no pointerup),
-            // so it can never reach this handler and self-close the drawer.
+            // Fix A: close only when the gesture both started (pointerdown) and
+            // ended (click) on this overlay. A cross-navigation ghost click has
+            // no pointerdown latch, so it can never self-close the drawer.
             onPointerDown={() => { overlayPointerDownRef.current = true; }}
-            onPointerUp={() => {
+            onClick={() => {
               if (!overlayPointerDownRef.current) return;
               overlayPointerDownRef.current = false;
               setOpenMobile(false);
-              // Mirror ProjectSidebar: swallow the SAME tap's trailing
-              // synthesized click so it cannot activate the toggle button the
-              // just-closed overlay uncovered (which would reopen the drawer).
-              const swallow = (e: Event) => { e.stopPropagation(); e.preventDefault(); };
-              document.addEventListener('click', swallow, { capture: true, once: true });
-              window.setTimeout(() => document.removeEventListener('click', swallow, true), 400);
             }}
           />
           <div

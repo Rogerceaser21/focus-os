@@ -144,7 +144,7 @@ const NavButton = ({
   <button
     onClick={onClick}
     data-home-tour-step={dataTour}
-    className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors duration-200 [transition-timing-function:var(--motion-ease)] ${
+    className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${
       active
         ? accent
           ? 'text-red-400'

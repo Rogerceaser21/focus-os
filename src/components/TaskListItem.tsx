@@ -423,7 +423,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
       <>
       <div
         data-task-card
-        className={`group w-full glass-card rounded-lg px-1.5 py-1 hover:border-primary/50 transition-[background-color,border-color,box-shadow] duration-200 [transition-timing-function:var(--motion-ease)] cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
+        className={`group w-full glass-card rounded-lg px-1.5 py-1 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
         onClick={onTaskClick}
       >
         <div className="flex items-center gap-1 min-w-0">
@@ -574,7 +574,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
     <>
       <div 
         data-task-card
-        className={`group w-full glass-card rounded-lg p-1.5 hover:border-primary/50 transition-[background-color,border-color,box-shadow] duration-200 [transition-timing-function:var(--motion-ease)] cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
+        className={`group w-full glass-card rounded-lg p-1.5 hover:border-primary/50 transition-all duration-300 cursor-pointer ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}
         onClick={isMobile && globalViewMode === 'compact' ? undefined : onTaskClick}
       >
         {/* Mobile/Tablet Layout */}

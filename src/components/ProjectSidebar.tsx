@@ -22,7 +22,6 @@ import { CreateProjectDialog } from './CreateProjectDialog';
 import { TourLoadingOverlay } from './TourLoadingOverlay';
 import AnimatedList from './AnimatedList';
 import { useSidebar } from '@/components/ui/sidebar';
-import { beginSurfaceTransition, endSurfaceTransition } from '@/lib/motionGate';
 import Fuse from 'fuse.js';
 import { SidebarScrollArea } from './SidebarScrollArea';
 import {
@@ -739,11 +738,6 @@ export const ProjectSidebar = ({
   // mounted overlay with NO matching pointerdown, so it must not close the
   // just-opened drawer. (Igor video 2026-07-18.)
   const overlayPointerDownRef = useRef(false);
-  // The portalled drawer panel, so the motion gate can clear on its real
-  // transitionend (transform) rather than a guessed duration.
-  const drawerPanelRef = useRef<HTMLDivElement>(null);
-  // Skip the mount pass: openMobile is false at mount with no visible glide.
-  const drawerMountedRef = useRef(false);
 
   const [launchingTourLabel, setLaunchingTourLabel] = useState<string | null>(null);
 
@@ -808,32 +802,6 @@ export const ProjectSidebar = ({
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [isMobile, openMobile, setOpenMobile]);
-
-  // Feed the motion gate on every drawer open/close so a deferred data merge
-  // (completed / images in Index) never commits its setAllTasks while the panel
-  // is gliding. Cleared on the panel's real transform transitionend, with a
-  // duration-matched fallback (lg-in 450 / lg-out 350 + margin) in case
-  // transitionend is missed (reduced motion, interrupted glide).
-  useEffect(() => {
-    if (!isMobile) return;
-    if (!drawerMountedRef.current) { drawerMountedRef.current = true; return; }
-    beginSurfaceTransition('drawer');
-    const panel = drawerPanelRef.current;
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      endSurfaceTransition('drawer');
-    };
-    const onEnd = (e: TransitionEvent) => { if (e.propertyName === 'transform') finish(); };
-    panel?.addEventListener('transitionend', onEnd);
-    const fallback = window.setTimeout(finish, 520);
-    return () => {
-      panel?.removeEventListener('transitionend', onEnd);
-      window.clearTimeout(fallback);
-      finish();
-    };
-  }, [openMobile, isMobile]);
 
   const sidebarContent = (
     <>
@@ -1389,35 +1357,20 @@ export const ProjectSidebar = ({
               data-state={openMobile ? 'open' : 'closed'}
               className="fixed inset-0 z-50 lg-side-overlay"
               // Tap-outside-to-close, but ONLY when the gesture both started and
-              // ended on this overlay. onPointerDown latches the start; the close
-              // now fires on onPointerUp (finger LIFT) instead of the trailing
-              // click, so the glide begins ~1 frame after lift with no
-              // click-cycle wait (the "closes really slow" perception was the
-              // panel sitting through the click dispatch before the transform
-              // even started; C+D wave measurement + fix). Ghost-click latch
-              // semantics are intact: a ghost is a lone synthesized `click` with
-              // NO pointerdown AND no pointerup on this overlay, so it can never
-              // reach this handler — the twitch protection is unchanged.
-              // (Igor video 2026-07-18; C+D wave 2026-07-24.)
+              // ended on this overlay. onPointerDown latches the start; onClick
+              // closes only if that latch is set, then resets it. A ghost click
+              // (the navigating tap's trailing synthesized click, whose
+              // pointerdown fired on the previous page before this overlay
+              // existed) has no latch, so it can never self-close the drawer.
+              // (Igor video 2026-07-18.)
               onPointerDown={() => { overlayPointerDownRef.current = true; }}
-              onPointerUp={() => {
+              onClick={() => {
                 if (!overlayPointerDownRef.current) return;
                 overlayPointerDownRef.current = false;
                 setOpenMobile(false);
-                // Close fires on pointerup, so the SAME tap's trailing
-                // synthesized click would land on whatever the just-closed
-                // overlay uncovered — e.g. the BottomNav Projects button
-                // underneath, which would immediately reopen the drawer. Swallow
-                // that one trailing click in the capture phase so the close is
-                // final. once:true drops it after the click; the timer clears any
-                // orphan if no compat click is emitted.
-                const swallow = (e: Event) => { e.stopPropagation(); e.preventDefault(); };
-                document.addEventListener('click', swallow, { capture: true, once: true });
-                window.setTimeout(() => document.removeEventListener('click', swallow, true), 400);
               }}
             />
             <div
-              ref={drawerPanelRef}
               role="dialog"
               aria-label="Projects"
               data-state={openMobile ? 'open' : 'closed'}

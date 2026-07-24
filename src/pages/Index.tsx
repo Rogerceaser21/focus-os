@@ -62,16 +62,6 @@ import {
   appDataKeys,
   slimTaskRow,
 } from '@/lib/appDataFetchers';
-import {
-  runWhenSettled,
-  beginSurfaceTransition,
-  endSurfaceTransition,
-} from '@/lib/motionGate';
-
-// Content entrance plays ONCE per session, on first data arrival. A module-level
-// flag (survives component remounts, unlike a ref) so a re-navigation back into
-// /app does NOT replay the full staggered rise (415 rows must not re-run it).
-let contentEntrancePlayedThisSession = false;
 
 // Inline skeleton for the task list area shown while initialLoadComplete is false.
 const TaskListSkeleton = () => {
@@ -114,10 +104,8 @@ const ProjectsFAB = () => {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.2, ease: [0.32, 0.72, 0, 1] } }}
-      // micro role: 250ms in / 200ms out on the locked ease, artificial 0.2s
-      // delay removed so the FAB fades straight in with the surface (C+D wave)
-      transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, delay: 0.2 }}
       className="fixed left-6 z-[100]"
       style={{ bottom: 'calc(44px + env(safe-area-inset-bottom))' }}
     >
@@ -260,11 +248,10 @@ const Index = () => {
   const closeEditPane = () => {
     if (isMobile) {
       setEditClosing(true);
-      // Cover the lg-out (350ms) slide-down before unmounting, plus a small tail.
       setTimeout(() => {
         setEditingTask(null);
         setEditClosing(false);
-      }, 380);
+      }, 340);
     } else {
       setEditingTask(null);
     }
@@ -292,14 +279,6 @@ const Index = () => {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
-  // Entrance choreography: true from the FIRST session mount (module flag unset),
-  // false on any later remount so the staggered content rise plays once, never
-  // again. Kept truthy from mount so .lg-enter is present on the SAME render the
-  // content first appears (no visible→invisible flash from a post-mount toggle).
-  const [entranceActive, setEntranceActive] = useState(() => !contentEntrancePlayedThisSession);
-  // Skeleton is delayed 150ms: a warm cache flips fullDataLoaded within that
-  // window, so the skeleton never flashes; only a genuinely pending load shows it.
-  const [skeletonVisible, setSkeletonVisible] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const allTasksRef = useRef<Task[]>([]);
   useEffect(() => { allTasksRef.current = allTasks; }, [allTasks]);
@@ -646,10 +625,7 @@ const Index = () => {
       completedHydratedRef.current = true;
       hydrateCompletedTasks();
     };
-    // Gate the merge behind the motion gate: it commits on an idle slot once no
-    // drawer/sheet transition is in flight, so this setAllTasks never re-renders
-    // the task list mid-glide. Fetch + single-flight cache semantics unchanged.
-    const handle = window.setTimeout(() => runWhenSettled(run), 800);
+    const handle = window.setTimeout(run, 800);
     return () => window.clearTimeout(handle);
   }, [user, fullDataLoaded, hydrateCompletedTasks]);
 
@@ -689,35 +665,9 @@ const Index = () => {
       }
     };
 
-    // Same motion-gate deferral as the completed merge: the image backfill's
-    // setAllTasks lands on an idle slot with no transition in flight.
-    const handle = window.setTimeout(() => runWhenSettled(run), 1000);
+    const handle = window.setTimeout(run, 1000);
     return () => window.clearTimeout(handle);
   }, [user, fullDataLoaded, queryClient]);
-
-  // Delay the skeleton by 150ms so a warm cache (fullDataLoaded flips almost
-  // immediately) never flashes it; a genuinely pending load still shows it.
-  useEffect(() => {
-    if (fullDataLoaded) { setSkeletonVisible(false); return; }
-    const t = window.setTimeout(() => setSkeletonVisible(true), 150);
-    return () => window.clearTimeout(t);
-  }, [fullDataLoaded]);
-
-  // Feed the motion gate from the edit sheet: on open (editingTask set) or close
-  // (editClosing raised), mark a transition in flight for the lg-in/out window so
-  // a deferred merge cannot commit while the sheet is sliding. Duration-matched
-  // clear (the sheet uses a CSS keyframe, whose animationend is awkward to reach
-  // from here); the gate's own settle buffer covers the tail.
-  useEffect(() => {
-    if (!isMobile) return;
-    const opening = !!editingTask && !editClosing;
-    if (!opening && !editClosing) return;
-    beginSurfaceTransition('editsheet');
-    // lg-in 450ms opening, lg-out 350ms closing.
-    const ms = editClosing ? 350 : 450;
-    const t = window.setTimeout(() => endSurfaceTransition('editsheet'), ms);
-    return () => window.clearTimeout(t);
-  }, [editingTask, editClosing, isMobile]);
 
   // Resolve assigner emails to names for shared project headers
   useEffect(() => {
@@ -1940,18 +1890,6 @@ https://www.skyscanner.com`,
     sharedRecipients: senderSharedMap[t.id] || undefined,
   }));
 
-  // Latch the entrance: once content has actually arrived (this render or a
-  // later one), record the session flag so no remount replays it, then drop
-  // .lg-enter after the longest staggered row has landed (9*40 + 320 + buffer).
-  // The `both` fill left the rows at their natural end-state, so removing the
-  // class is seamless.
-  useEffect(() => {
-    if (!entranceActive) return;
-    if (!fullDataLoaded || sortedTasks.length === 0) return;
-    contentEntrancePlayedThisSession = true;
-    const t = window.setTimeout(() => setEntranceActive(false), 900);
-    return () => window.clearTimeout(t);
-  }, [entranceActive, fullDataLoaded, sortedTasks.length]);
 
 
   
@@ -2004,7 +1942,7 @@ https://www.skyscanner.com`,
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 min-w-0 flex flex-col min-h-0 overflow-x-hidden">
-              <div className={`flex flex-col flex-1 min-h-0 w-full lg-maincol${entranceActive ? ' lg-enter' : ''}`}>
+              <div className="flex flex-col flex-1 min-h-0 w-full lg-maincol">
 
           {/* Actions Bar — mock .pw-row1: search + view seg + density seg + Add Task */}
           <div className="flex flex-row gap-2 items-center shrink-0 lg-row1">
@@ -2052,7 +1990,7 @@ https://www.skyscanner.com`,
           </div>
 
           {/* Main Content */}
-          {!fullDataLoaded ? (skeletonVisible ? <TaskListSkeleton /> : null) : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
+          {!fullDataLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
               <TabsList className="w-full grid grid-cols-4 h-auto shrink-0 lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   All ({sortedTasks.filter(t => t.status !== 'completed').length})
