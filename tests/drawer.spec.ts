@@ -172,7 +172,13 @@ test('touch: navigate-open with slow data — no twitch', async ({ page }) => {
   // Fixed behaviour: opens exactly once, never self-closes, ends open.
   await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
   expect(openPulses, 'should open exactly once, no self-reopen').toBe(1);
-  expect(closedPulses, 'should never self-close within 4s').toBe(0);
+  // At most the single honest mount-closed state before the first open. Since
+  // useIsMobile resolves synchronously (motion-wave fix A), the persistent
+  // drawer layer now mounts in its true closed state and then transitions open
+  // — one clean open animation, not a self-close. The real twitch guard is
+  // closedAfterOpen below (no close AFTER the open). The pre-fix async hook made
+  // the panel mount already-open, so this was 0; <=1 covers both.
+  expect(closedPulses, 'at most the initial mount-closed, never more').toBeLessThanOrEqual(1);
   expect(closedAfterOpen, 'no close after the first open (the twitch)').toBe(0);
 });
 

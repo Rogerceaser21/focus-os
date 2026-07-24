@@ -47,6 +47,11 @@ const DrawerReproInner = () => {
   // when one gesture both starts (pointerdown) and ends (click) on the overlay.
   const overlayPointerDownRef = useRef(false);
 
+  // One-shot latch for the ?openSidebar handshake — mirrors Index.tsx fix 2.
+  // Guards against the consume effect re-raising the request on an interim
+  // re-run (a `projects`-style dep change) before the async URL strip commits.
+  const openSidebarHandledRef = useRef(false);
+
   // Artificial data-delay: flip dataReady ~1.5s after landing on the repro
   // route, like the projects fetch resolving. Mirrors "drawer opens empty, then
   // data loads".
@@ -57,17 +62,25 @@ const DrawerReproInner = () => {
     return () => clearTimeout(t);
   }, [onAway]);
 
-  // Mirror Index.tsx:791-825 — on ?openSidebar=true, raise the request flag and
-  // strip the param from the URL (so it is consumed exactly once).
+  // Mirror Index.tsx's openSidebar effect INCLUDING fix 2's one-shot latch — on
+  // ?openSidebar=true, raise the request flag once and strip the param. The
+  // latch is cleared only once the param has left the URL, so an interim re-run
+  // (before the async strip commits) cannot re-raise the request, while a fresh
+  // navigation with ?openSidebar=true is still handled once.
   useEffect(() => {
     if (onAway) return;
     const params = new URLSearchParams(location.search);
-    if (params.get('openSidebar') === 'true' && isMobile) {
-      setOpenSidebarRequested(true);
-      params.delete('openSidebar');
-      const clean = params.toString();
-      navigate(clean ? `${REPRO_PATH}?${clean}` : REPRO_PATH, { replace: true });
+    const wantsOpen = params.get('openSidebar') === 'true';
+    if (!wantsOpen) {
+      openSidebarHandledRef.current = false;
+      return;
     }
+    if (openSidebarHandledRef.current) return;
+    openSidebarHandledRef.current = true;
+    if (isMobile) setOpenSidebarRequested(true);
+    params.delete('openSidebar');
+    const clean = params.toString();
+    navigate(clean ? `${REPRO_PATH}?${clean}` : REPRO_PATH, { replace: true });
   }, [location.search, isMobile, onAway, navigate]);
 
   // Mirror MobileSidebarController (Index.tsx:155-159), INCLUDING fix B: the
@@ -108,6 +121,29 @@ const DrawerReproInner = () => {
       >
         {onAway ? 'Open Projects drawer' : 'Toggle Projects drawer'}
       </button>
+
+      {/* Desktop sidebar branch — mirrors ProjectSidebar's !isMobile sidebar,
+          the only place that renders the `aria-label="Close sidebar"` button.
+          At a mobile viewport this must NEVER render: useIsMobile now resolves
+          synchronously so isMobile is true from the first render. The pre-fix
+          async hook returned desktop for one render, flashing this 280px
+          sidebar over the app before the drawer swapped in — spec 3a guards
+          that it has count 0 at all times. */}
+      {!onAway && !isMobile && (
+        <aside
+          data-testid="desktop-sidebar"
+          className="fixed inset-y-0 left-0 z-40 w-[280px] p-4 lg-side"
+        >
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            className="lg-iconbtn h-7 w-7"
+            onClick={() => {}}
+          >
+            Close
+          </button>
+        </aside>
+      )}
 
       {/* Drawer construct — mounted only on the repro route (mirrors /app; the
           away route is like /meetings with no drawer). isMobile gate mirrors

@@ -225,6 +225,14 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [openSidebarRequested, setOpenSidebarRequested] = useState(false);
+  // One-shot latch for the ?openSidebar handshake. The effect that consumes the
+  // param re-runs on every `projects` change (the two-wave projects apply)
+  // while the URL-strip navigate(replace) is still in flight — async, so
+  // location.search still carries openSidebar=true on those interim re-runs.
+  // Without this latch each re-run re-raises setOpenSidebarRequested(true) and
+  // can reopen the drawer. Latched on consume, cleared once the param leaves the
+  // URL, so a fresh navigation with ?openSidebar=true is still handled once.
+  const openSidebarHandledRef = useRef(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
   const [isReorderMode, setIsReorderMode] = useState(false);
@@ -1005,7 +1013,21 @@ const Index = () => {
   useEffect(() => {
     if (!preferencesLoaded || !preferences) return;
     const urlParams = new URLSearchParams(location.search);
-    if (urlParams.get('openSidebar') === 'true') {
+    const wantsOpen = urlParams.get('openSidebar') === 'true';
+
+    // Reset the latch once the param has left the URL (strip committed), so the
+    // NEXT arrival with ?openSidebar=true is handled afresh.
+    if (!wantsOpen) {
+      openSidebarHandledRef.current = false;
+      return;
+    }
+
+    // Already consumed this arrival — a `projects` re-run before the strip
+    // commits must not re-raise the open request (would reopen the drawer).
+    if (openSidebarHandledRef.current) return;
+    openSidebarHandledRef.current = true;
+
+    {
       // Apply the user's default_view to select the right project/list
       const dv = preferences.default_view;
       if (dv === 'today') {
