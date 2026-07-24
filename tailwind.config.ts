@@ -88,10 +88,19 @@ export default {
           "0%, 100%": { opacity: "1", transform: "scale(1)" },
           "50%": { opacity: "0.7", transform: "scale(1.1)" },
         },
+        // Completion exit for a task card/row (C+D wave). Referenced as
+        // `animate-fade-out` by TaskCard/TaskListItem while `isFading`; the
+        // keyframe was missing before, so completions blinked out with no play.
+        // `forwards` holds the faded end-state until the row is removed.
+        "fade-out": {
+          from: { opacity: "1", transform: "scale(1)" },
+          to: { opacity: "0", transform: "scale(0.96)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-out": "fade-out var(--motion-content-out) var(--motion-ease) forwards",
       },
     },
   },

@@ -3,7 +3,11 @@ import { motion, useInView } from 'framer-motion';
 
 const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick, dataAttributes = {} }) => {
   const ref = useRef(null);
-  const inView = useInView(ref, { amount: 0.5, once: false });
+  // once: true — each item animates in a single time (was `once: false`, which
+  // re-ran the scale/opacity every time a row scrolled back into the viewport,
+  // the re-animation churn inside the drawer). Duration/ease track the C+D
+  // motion tokens (content-in 320ms on the locked ease).
+  const inView = useInView(ref, { amount: 0.5, once: true });
   return (
     <motion.div
       ref={ref}
@@ -13,7 +17,7 @@ const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick, dataA
       onClick={onClick}
       initial={{ scale: 0.7, opacity: 0 }}
       animate={inView ? { scale: 1, opacity: 1 } : { scale: 0.7, opacity: 0 }}
-      transition={{ duration: 0.2, delay }}
+      transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1], delay }}
       className="mb-2 cursor-pointer"
     >
       {children}
@@ -31,7 +35,11 @@ const AnimatedList = ({
   displayScrollbar = false,
   initialSelectedIndex = -1,
   renderItem,
-  getItemDataAttributes
+  getItemDataAttributes,
+  // Stable per-item key extractor (e.g. project id). Keying by array index made
+  // React reuse a row's DOM/animation state across reorders, so items appeared
+  // to re-animate; a stable id keeps each row's once-only entrance bound to it.
+  getItemKey
 }) => {
   const listRef = useRef(null);
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
@@ -110,7 +118,11 @@ const AnimatedList = ({
       >
         {items.map((item, index) => (
           <AnimatedItem
-            key={index}
+            key={
+              getItemKey
+                ? getItemKey(item, index)
+                : (item && typeof item === 'object' && 'id' in item ? (item as { id: string | number }).id : index)
+            }
             delay={0.05}
             index={index}
             onMouseEnter={() => setSelectedIndex(index)}

@@ -61,6 +61,28 @@ All colors MUST be HSL.
     --glass-shadow: 220 20% 20% / 0.08;
     --glass-blur: 16px;
     --glass-glow: 186 80% 50% / 0.15;
+
+    /* --------------------------------------------------------------------
+       Motion language (C+D wave). One coherent glide across every surface:
+       every animated surface reads its duration from a role token below and
+       shares the ONE locked easing curve, so nothing snaps and nothing drags.
+       Kept on the true :root (not .liquid-glass) so tokens resolve everywhere,
+       including Tailwind-generated utilities (e.g. animate-fade-out) and any
+       surface rendered outside the liquid-glass theme wrapper.
+       Roles: lg = large surfaces (drawer, edit sheet); md = Radix overlay
+       content (dialog/alert/popover/dropdown/tooltip); content = task
+       list/grid entrance; micro = small tints/fades (FAB, nav, row hover).
+       -------------------------------------------------------------------- */
+    --motion-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-lg-in: 450ms;
+    --motion-lg-out: 350ms;
+    --motion-md-in: 350ms;
+    --motion-md-out: 280ms;
+    --motion-content-in: 320ms;
+    --motion-content-stagger: 40ms;
+    --motion-content-out: 300ms;
+    --motion-micro-in: 250ms;
+    --motion-micro-out: 200ms;
   }
 
   /* Liquid Glass theme — wallpaper-adaptive materials (see src/lib/wallpaper.tsx).
@@ -659,12 +681,15 @@ All colors MUST be HSL.
 }
 .liquid-glass .lg-side[data-state='open'] {
   transform: translateX(0);
-  transition: transform 380ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+  /* lg-in glide (C+D wave): both directions visibly gliding on the one ease */
+  transition: transform var(--motion-lg-in) var(--motion-ease) !important;
 }
 .liquid-glass .lg-side[data-state='closed'] {
   /* -100% - 60px clears the 14px margin + border glow/shadow spill */
   transform: translateX(calc(-100% - 60px));
-  transition: transform 260ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+  /* lg-out glide; the close now BEGINS on overlay pointerup (ProjectSidebar),
+     so the panel starts leaving on finger-lift with no click-cycle wait */
+  transition: transform var(--motion-lg-out) var(--motion-ease) !important;
   pointer-events: none;
 }
 /* The transparent overlay also stays mounted; keep it inert while closed.
@@ -776,12 +801,15 @@ html.standalone.liquid-glass .lg-editsheet {
    carry the Radix centering translate so the panel lands exactly where the
    utility classes put it. */
 .liquid-glass .lg-editsheet[data-state='open'] {
-  animation: lg-sheet-in 480ms cubic-bezier(0.22, 1, 0.36, 1);
+  /* lg-in duration; keeps the bespoke overshoot ease that pairs with the 70%
+     keyframe so the pane still lands with a soft settle */
+  animation: lg-sheet-in var(--motion-lg-in) cubic-bezier(0.22, 1, 0.36, 1);
 }
 /* 'forwards' keeps the pane parked off-screen for the brief gap between
-   animation end and React unmount (Index defers unmount by ~340ms). */
+   animation end and React unmount (Index defers unmount by ~380ms, covering
+   the lg-out duration). */
 .liquid-glass .lg-editsheet[data-state='closed'] {
-  animation: lg-sheet-out 300ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: lg-sheet-out var(--motion-lg-out) var(--motion-ease) forwards;
 }
 @keyframes lg-sheet-in {
   0%   { transform: translate(-50%, 100vh) scale(0.97); }
@@ -940,6 +968,49 @@ html.standalone.liquid-glass .lg-editsheet {
 .liquid-glass .lg-content .lg-grid-card {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+/* --------------------------------------------------------------------------
+   Content entrance choreography (C+D wave). The task list/grid no longer just
+   pops in: on the FIRST data arrival of the session, .lg-maincol carries
+   .lg-enter (added by Index once, never on a remount — see contentEntrance
+   module flag) and the direct children of the active .lg-content panel rise in
+   with a capped stagger.
+
+   WHITE-FLASH LAW: the .lg-content panel itself is NOT animated — it is already
+   mounted and rastered; only its children (grid cards / list wrapper, all with
+   backdrop-filter: none) get a compositor-only opacity+translateY. No filtered
+   layer is born or destroyed mid-animation, so Safari cannot paint it blank.
+
+   STAGGER CAP: items 1-9 fan out by --motion-content-stagger; item 10 and every
+   row beyond it share the 10th's delay (the base rule), so 415 rows land with
+   the 10th, never a 16-second cascade. */
+@keyframes lg-content-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.liquid-glass .lg-maincol.lg-enter .lg-content > * {
+  animation: lg-content-rise var(--motion-content-in) var(--motion-ease) both;
+  animation-delay: calc(var(--motion-content-stagger) * 9); /* cap: 10th onward */
+}
+.liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(1) { animation-delay: 0ms; }
+.liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(2) { animation-delay: calc(var(--motion-content-stagger) * 1); }
+.liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(3) { animation-delay: calc(var(--motion-content-stagger) * 2); }
+.liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(4) { animation-delay: calc(var(--motion-content-stagger) * 3); }
+.liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(5) { animation-delay: calc(var(--motion-content-stagger) * 4); }
+.liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(6) { animation-delay: calc(var(--motion-content-stagger) * 5); }
+.liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(7) { animation-delay: calc(var(--motion-content-stagger) * 6); }
+.liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(8) { animation-delay: calc(var(--motion-content-stagger) * 7); }
+.liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(9) { animation-delay: calc(var(--motion-content-stagger) * 8); }
+
+/* Honour reduced-motion: no entrance rise, no completion fade-scale — content
+   simply appears / is removed with no transform or opacity choreography. */
+@media (prefers-reduced-motion: reduce) {
+  .liquid-glass .lg-maincol.lg-enter .lg-content > *,
+  .liquid-glass .lg-maincol.lg-enter .lg-content > *:nth-child(-n+9),
+  .animate-fade-out {
+    animation: none !important;
+  }
 }
 
 /* bottom nav becomes the floating capsule dock (mock .pw-dock; inline styles need !important) */

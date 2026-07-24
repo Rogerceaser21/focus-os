@@ -223,3 +223,57 @@ test('open/close cycle has no long frame gap', async ({ page }) => {
   expect(gaps.length, 'rAF actually sampled frames during the cycle').toBeGreaterThan(0);
   expect(maxGap, 'no inter-frame gap over 250ms during the open/close cycle').toBeLessThan(250);
 });
+
+// ---------------------------------------------------------------------------
+// 3d. Close begins on finger-lift — the perceived-lag guard (C+D wave).
+//
+// Igor reported the drawer "closes really slow": the close used to fire on the
+// overlay's trailing `click`, so on a real device the panel sat through the
+// click dispatch before the transform even started. The fix begins the close on
+// overlay `pointerup`. This asserts the panel's transform transition STARTS
+// within 150ms of the outside-tap pointerup, so the glide responds to the lift,
+// not a later click cycle. (Threshold is generous CI headroom; the real gap is a
+// frame or two.)
+// ---------------------------------------------------------------------------
+test('drawer close transition starts within 150ms of outside-tap pointerup', async ({ page }) => {
+  await page.goto('/dev/drawer-repro?openSidebar=true');
+  await page.locator(PANEL).waitFor();
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
+
+  // Attach timing probes to the live overlay + panel now that they are mounted.
+  await page.evaluate(() => {
+    const w = window as unknown as { __pu: number | null; __cs: number | null };
+    w.__pu = null;
+    w.__cs = null;
+    const overlay = document.querySelector('.lg-side-overlay') as HTMLElement | null;
+    const panel = document.querySelector('[data-testid="drawer-panel"]') as HTMLElement | null;
+    overlay?.addEventListener('pointerup', () => { if (w.__pu === null) w.__pu = performance.now(); }, true);
+    panel?.addEventListener('transitionstart', (e) => {
+      if ((e as TransitionEvent).propertyName === 'transform' && panel.getAttribute('data-state') === 'closed' && w.__cs === null) {
+        w.__cs = performance.now();
+      }
+    });
+  });
+
+  await tapOutside(page);
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'closed');
+  // transitionstart fires a frame AFTER the data-state attribute flips, so wait
+  // for the probe to record it (bounded) rather than reading the instant the
+  // attribute settles.
+  await page.waitForFunction(
+    () => (window as unknown as { __cs: number | null }).__cs !== null,
+    undefined,
+    { timeout: 2000 },
+  );
+
+  const { pu, cs } = await page.evaluate(() => {
+    const w = window as unknown as { __pu: number | null; __cs: number | null };
+    return { pu: w.__pu, cs: w.__cs };
+  });
+  const lag = pu !== null && cs !== null ? cs - pu : Number.NaN;
+  console.log('pointerup -> close transitionstart (ms):', Number.isNaN(lag) ? 'n/a' : lag.toFixed(1));
+
+  expect(pu, 'overlay pointerup was observed').not.toBeNull();
+  expect(cs, 'close transform transition started').not.toBeNull();
+  expect(lag, 'close begins within 150ms of the outside-tap pointerup').toBeLessThan(150);
+});
