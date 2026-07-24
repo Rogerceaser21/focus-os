@@ -218,7 +218,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
   };
 
   return (
-    <Card variant="glass" className={`p-2.5 hover:border-primary/50 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}>
+    <Card variant="glass" className={`lg-grid-card p-2.5 hover:border-primary/50 ${timer.isRunning ? 'border-glow-pulse' : ''} ${isFading ? 'animate-fade-out' : ''}`}>
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
             <Checkbox

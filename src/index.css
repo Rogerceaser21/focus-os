@@ -930,6 +930,18 @@ html.standalone.liquid-glass .lg-editsheet {
 }
 .liquid-glass .lg-content [data-task-card]:hover { background: var(--lg-hover); }
 
+/* Grid task cards shed their OWN backdrop-filter: the frost is already carried
+   once by the .lg-content panel behind them (same radius, --glass-blur ==
+   --lg-blur in every theme), so the ~415 per-card compositing layers collapse
+   onto that single shared surface. The .glass-card tint, border and shadow (the
+   LOOK) are deliberately kept — only the now-redundant second blur is dropped.
+   A distinct marker (not [data-task-card]) is used so grid cards do NOT inherit
+   the flat-row list skin above; un-layered so it beats .glass-card in @layer. */
+.liquid-glass .lg-content .lg-grid-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* bottom nav becomes the floating capsule dock (mock .pw-dock; inline styles need !important) */
 .liquid-glass .lg-dock {
   left: 50% !important;
