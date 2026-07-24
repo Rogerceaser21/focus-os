@@ -8,6 +8,12 @@ import { supabase } from '@/integrations/supabase/client';
 // functions taking (client, userId) — no React imports.
 
 export const APP_DATA_STALE_TIME = 5 * 60 * 1000; // 5 min
+// How long an UNOBSERVED cache entry survives. Nothing useQuery-observes the shared
+// keys (fetchQuery only), so React Query's default 5-min gcTime silently evicted every
+// entry mid-session and turned each navigation into a cold start (the 07-24 vanish /
+// skeleton family). Data stays correct via realtime patching + the focus/visibility
+// resync + {fresh:true} event paths; this only stops the cache from evaporating.
+export const APP_DATA_GC_TIME = 60 * 60 * 1000; // 60 min
 
 // Shared cache keys — the single source of truth. Any caller peeking, invalidating
 // or refetching this data must key off these, or the dedup silently breaks.
@@ -383,6 +389,7 @@ export function fetchMemberProjectIds(
     queryKey: appDataKeys.memberIds(userId),
     queryFn: () => loadMemberProjectIds(userId),
     staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -395,6 +402,7 @@ export function fetchAllTasks(
     queryKey: appDataKeys.tasks(userId),
     queryFn: () => loadAllTasks(client, userId),
     staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -407,6 +415,7 @@ export function fetchCompletedTasks(
     queryKey: appDataKeys.completedTasks(userId),
     queryFn: () => loadCompletedTasks(client, userId),
     staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -419,6 +428,7 @@ export function fetchProjects(
     queryKey: appDataKeys.projects(userId),
     queryFn: () => loadProjects(client, userId),
     staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -431,6 +441,9 @@ export function fetchTaskImages(
     queryKey: appDataKeys.taskImages(userId),
     queryFn: () => loadTaskImages(client, userId),
     staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+    // NO extended gcTime here on purpose: this map holds the legacy base64 image
+    // payload (~21 MB on data-heavy accounts). Default 5-min GC bounds its memory
+    // cost until the image backfill (task 2e1b897b) shrinks it to storage paths.
   });
 }
 
@@ -443,6 +456,7 @@ export function fetchMeetingsList(
     queryKey: appDataKeys.meetingsList(userId),
     queryFn: () => loadMeetingsList(userId),
     staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -455,6 +469,7 @@ export function fetchSharedItems(
     queryKey: appDataKeys.sharedItems(userId),
     queryFn: () => loadSharedItems(userId),
     staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -467,6 +482,7 @@ export function fetchProjectInvitations(
     queryKey: appDataKeys.projectInvitations(userId),
     queryFn: () => loadProjectInvitations(userId),
     staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -477,6 +493,7 @@ export function prefetchTasks(client: QueryClient, userId: string): Promise<void
     queryKey: appDataKeys.tasks(userId),
     queryFn: () => loadAllTasks(client, userId),
     staleTime: APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -485,6 +502,7 @@ export function prefetchCompletedTasks(client: QueryClient, userId: string): Pro
     queryKey: appDataKeys.completedTasks(userId),
     queryFn: () => loadCompletedTasks(client, userId),
     staleTime: APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -493,6 +511,7 @@ export function prefetchProjects(client: QueryClient, userId: string): Promise<v
     queryKey: appDataKeys.projects(userId),
     queryFn: () => loadProjects(client, userId),
     staleTime: APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 
@@ -501,6 +520,7 @@ export function prefetchPreferences(client: QueryClient, userId: string): Promis
     queryKey: appDataKeys.preferences(userId),
     queryFn: () => loadPreferences(userId),
     staleTime: APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 }
 

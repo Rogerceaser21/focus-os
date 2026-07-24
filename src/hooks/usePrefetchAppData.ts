@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   APP_DATA_STALE_TIME,
+  APP_DATA_GC_TIME,
   prefetchTasks,
   prefetchCompletedTasks,
   prefetchProjects,
@@ -47,6 +48,7 @@ export const usePrefetchAppData = (userId?: string | null) => {
         return data || [];
       },
       staleTime: APP_DATA_STALE_TIME,
+      gcTime: APP_DATA_GC_TIME,
     });
 
     // Prefetch meetings
@@ -62,6 +64,7 @@ export const usePrefetchAppData = (userId?: string | null) => {
         return data || [];
       },
       staleTime: APP_DATA_STALE_TIME,
+      gcTime: APP_DATA_GC_TIME,
     });
   }, [userId, queryClient]);
 };

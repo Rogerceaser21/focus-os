@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   APP_DATA_STALE_TIME,
+  APP_DATA_GC_TIME,
   appDataKeys,
   loadPreferences,
   ensureDefaultPreferences,
@@ -47,6 +48,7 @@ export const useUserPreferences = (userId?: string | null) => {
     queryFn: () => loadPreferences(userId as string),
     enabled: !!userId,
     staleTime: APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
   });
 
   const preferences = (data ?? null) as UserPreferences | null;

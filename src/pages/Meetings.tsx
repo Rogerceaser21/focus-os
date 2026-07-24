@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchProjects as fetchProjectsShared, appDataKeys, APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
+import { fetchProjects as fetchProjectsShared, appDataKeys, APP_DATA_STALE_TIME, APP_DATA_GC_TIME } from '@/lib/appDataFetchers';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -90,9 +90,23 @@ const Meetings = () => {
       return () => clearTimeout(t);
     }
   }, [tourParam, preferences]);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  // Synchronous warm start: read the shared meetings cache DURING the first render so a
+  // cache-hit visit never paints the skeleton (loading=true + post-paint effect used to
+  // flash it on every visit). Computed once — useState initializer, not per-render.
+  const [warmMeetings] = useState<Meeting[] | null>(() => {
+    if (!user || projectId) return null;
+    const cached = queryClient.getQueryData(['focusos-meetings', user.id]) as any[] | undefined;
+    if (!cached) return null;
+    return cached.map((m: any) => ({
+      ...m,
+      action_items: Array.isArray(m.action_items) ? m.action_items : [],
+      processing_status: m.processing_status || 'done',
+      processing_error: m.processing_error || null,
+    }));
+  });
+  const [meetings, setMeetings] = useState<Meeting[]>(warmMeetings ?? []);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(warmMeetings === null);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
 
   // Recording state
@@ -168,6 +182,10 @@ const Meetings = () => {
           }))
         );
         setLoading(false);
+        // Cached list painted instantly; refresh it quietly behind the render. Within
+        // staleTime the fetchQuery serves cache (zero network); past it this refetches
+        // so a long-lived (60-min gcTime) entry can never show old meetings for long.
+        fetchMeetings({ quiet: true });
       } else {
         fetchMeetings();
       }
@@ -444,8 +462,10 @@ const Meetings = () => {
     }
   };
 
-  const fetchMeetings = async (opts?: { fresh?: boolean }) => {
-    setLoading(true);
+  const fetchMeetings = async (opts?: { fresh?: boolean; quiet?: boolean }) => {
+    // quiet: background refresh behind an already-rendered cached list — never
+    // flip the skeleton back on.
+    if (!opts?.quiet) setLoading(true);
 
     // A project-filtered view is a strict subset of the full list, so it is read directly
     // and never cached under the shared meetings key (a later unfiltered read would
@@ -481,6 +501,7 @@ const Meetings = () => {
           return data || [];
         },
         staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+        gcTime: APP_DATA_GC_TIME,
       });
       applyMeetings(data);
     } catch (err) {
