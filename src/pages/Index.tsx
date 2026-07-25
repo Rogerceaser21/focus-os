@@ -63,34 +63,54 @@ import {
   slimTaskRow,
 } from '@/lib/appDataFetchers';
 
-// Inline skeleton for the task list area shown while initialLoadComplete is false.
-const TaskListSkeleton = () => {
-  const dots = [
-    { color: '#B8572E', delay: 0 },
-    { color: '#81313F', delay: 0.16 },
-    { color: '#67883A', delay: 0.32 },
-  ];
+// Opaque loading surfaces. The old loaders (48px spinner on a 20%-alpha screen, three
+// 14px dots) were invisible against the wallpaper — login read as seconds of dead-air
+// (07-24 bug 2). These panels are deliberately OPAQUE (--background at full alpha).
+const TaskListSkeleton = () => (
+  <div className="mt-2 flex flex-col gap-2.5 flex-1 min-h-0" aria-label="Loading tasks">
+    {[0, 1, 2, 3, 4, 5].map((i) => (
+      <div
+        key={i}
+        className="animate-pulse rounded-2xl h-16 shrink-0"
+        style={{ background: 'hsl(var(--background))', opacity: 0.9 - i * 0.12 }}
+      />
+    ))}
+  </div>
+);
 
-  return (
-    <div className="mt-6 flex items-center justify-center py-20 min-h-[200px]">
-      <div className="flex items-center gap-[11px]">
-        {dots.map((dot, i) => (
-          <motion.span
-            key={i}
-            className="inline-block rounded-full"
-            style={{ width: 14, height: 14, backgroundColor: dot.color }}
-            animate={{ y: [0, -14, 0], opacity: [0.45, 1, 0.45] }}
-            transition={{
-              duration: 1.1,
-              ease: 'easeInOut',
-              repeat: Infinity,
-              delay: dot.delay,
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
+// Full-screen boot skeleton for the auth/preferences gates — an app-shaped shell instead
+// of a transparent spinner, so something visibly loads from the first paint.
+const AppBootSkeleton = () => (
+  <div className="min-h-screen flex flex-col gap-2.5 p-3 pt-4">
+    <div className="animate-pulse rounded-2xl h-11 shrink-0" style={{ background: 'hsl(var(--background))' }} />
+    <div className="animate-pulse rounded-2xl h-9 w-3/4 shrink-0" style={{ background: 'hsl(var(--background))', opacity: 0.85 }} />
+    <TaskListSkeleton />
+  </div>
+);
+
+// Shown when a load failed or a known-populated account came back empty (the 07-24
+// vanish): named error + retry instead of a silent void.
+const LoadErrorPanel = ({ onRetry }: { onRetry: () => void }) => (
+  <div
+    className="mt-6 rounded-2xl flex flex-col items-center justify-center gap-3 py-14 px-6 text-center"
+    style={{ background: 'hsl(var(--background))' }}
+  >
+    <p className="font-semibold">Couldn't load your tasks</p>
+    <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
+    <button type="button" className="lg-btn acc mt-1" onClick={onRetry}>
+      Retry
+    </button>
+  </div>
+);
+
+// Last successful non-empty open-task count per account — the "this account is not
+// actually empty" hint behind the vanish defence.
+const lastKnownOpenCount = (uid: string): number => {
+  try {
+    return Number(localStorage.getItem(`focusos-open-count-${uid}`) || '0');
+  } catch {
+    return 0;
+  }
 };
 
 // Projects FAB component for mobile - must be inside SidebarProvider
@@ -279,6 +299,7 @@ const Index = () => {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const allTasksRef = useRef<Task[]>([]);
   useEffect(() => { allTasksRef.current = allTasks; }, [allTasks]);
@@ -412,8 +433,14 @@ const Index = () => {
     const keptCompleted = allTasksRef.current.filter(
       t => t.status === 'completed' && !openIds.has(t.id),
     );
+    if (openTasks.length > 0) {
+      setLoadFailed(false);
+      if (user) {
+        try { localStorage.setItem(`focusos-open-count-${user.id}`, String(openTasks.length)); } catch { /* no-op */ }
+      }
+    }
     setAllTasks([...openTasks, ...keptCompleted]);
-  }, [transformDbTask]);
+  }, [transformDbTask, user]);
 
   // Event-driven projects refetch (post-mutation / tour). `fresh: true` bypasses the
   // 5-min stale cache so a just-created/renamed/deleted project is reflected; the
@@ -553,9 +580,22 @@ const Index = () => {
           // Cold (or prefetch-in-flight) load. fetchQuery under the shared keys reuses an
           // in-flight prefetch rather than firing a duplicate request.
           const tasksP = fetchAllTasksShared(queryClient, user.id)
-            .then((rows) => { applyTaskRows(rows); })
-            .catch((err) => { console.error('[Index] tasks load failed:', err); })
-            .finally(() => { setFullDataLoaded(true); });
+            .then((rows) => {
+              if (rows.length === 0 && lastKnownOpenCount(user.id) > 0) {
+                // The 07-24 vanish defence: this account is known to hold open tasks, so
+                // an empty read is a failure, not truth. Evict the poisoned cache entry
+                // (it was stored as a FRESH success) so Retry genuinely refetches.
+                queryClient.removeQueries({ queryKey: appDataKeys.tasks(user.id) });
+                setLoadFailed(true);
+                return;
+              }
+              applyTaskRows(rows);
+              setFullDataLoaded(true);
+            })
+            .catch((err) => {
+              console.error('[Index] tasks load failed:', err);
+              setLoadFailed(true);
+            });
 
           const projectsP = fetchProjectsShared(queryClient, user.id)
             .then((rows) => { applyProjectRows(rows); })
@@ -982,6 +1022,13 @@ const Index = () => {
 
     setPreferencesLoaded(true);
   }
+
+  // Retry after a failed/suspicious initial load — re-arms the initial-load effect;
+  // the poisoned cache entry was evicted at detection time, so this refetches for real.
+  const handleRetryLoad = useCallback(() => {
+    setLoadFailed(false);
+    setInitialLoadComplete(false);
+  }, []);
 
   // Deleted/unavailable project fallback: an optimistically-applied project id (deep link
   // or stale default_view) falls back to Today once the real project list has loaded and
@@ -1906,26 +1953,12 @@ https://www.skyscanner.com`,
   
   // Show loading screen while auth is resolving
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <AppBootSkeleton />;
   }
   
   // Auth resolved but no user — show spinner while useEffect redirects
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Redirecting...</p>
-        </div>
-      </div>
-    );
+    return <AppBootSkeleton />;
   }
 
   // User exists but preferences still loading — keep full-screen spinner until
@@ -1933,14 +1966,7 @@ https://www.skyscanner.com`,
   // preferences exist, render the shell immediately and skeleton the task area
   // while initialLoadComplete is still false.
   if (prefsLoading || !preferences) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading your tasks...</p>
-        </div>
-      </div>
-    );
+    return <AppBootSkeleton />;
   }
 
   return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -2001,7 +2027,7 @@ https://www.skyscanner.com`,
           </div>
 
           {/* Main Content */}
-          {!fullDataLoaded || !preferencesLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
+          {loadFailed ? <LoadErrorPanel onRetry={handleRetryLoad} /> : !fullDataLoaded || !preferencesLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
               <TabsList className="w-full grid grid-cols-4 h-auto shrink-0 lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   All ({sortedTasks.filter(t => t.status !== 'completed').length})

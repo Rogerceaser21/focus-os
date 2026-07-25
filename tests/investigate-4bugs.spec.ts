@@ -202,48 +202,41 @@ test.describe.serial('4-bugs investigation', () => {
     // empty-success retry burns ~2×(500+1500)ms before [] is accepted; wait it out
     await page.waitForTimeout(7_000);
 
-    const voidState = {
+    // FIX 4: a known-populated account (open-count hint in localStorage) coming back
+    // empty is treated as a FAILED load: named error + Retry, never a silent void.
+    const defState = {
       taskVisible: await page.getByText('Probe task today').isVisible().catch(() => false),
-      skeletonPresent: await page.locator('.animate-pulse').first().isVisible().catch(() => false),
-      gridActive: await gridBtn.getAttribute('class').then((c) => /\bon\b/.test(c || '')),
+      errorPanel: await page.getByText("Couldn't load your tasks").isVisible().catch(() => false),
+      retryVisible: await page.getByRole('button', { name: 'Retry' }).isVisible().catch(() => false),
       listActive: await listBtn.getAttribute('class').then((c) => /\bon\b/.test(c || '')),
-      anyToast: await page.locator('[data-sonner-toast]').count(),
-      bodyTextSample: (await page.locator('.lg-maincol').innerText().catch(() => '')).slice(0, 400),
     };
-    console.log('[bug1] post-return state:', JSON.stringify(voidState, null, 2));
-    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug1-2-void.png'), fullPage: false });
+    console.log('[bug1] post-return state (defended):', JSON.stringify(defState, null, 2));
+    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug1-2-error-panel.png'), fullPage: false });
+    expect(defState.taskVisible, 'no tasks shown while reads are empty').toBe(false);
+    expect(defState.errorPanel, 'error panel replaces the silent void (fix 4)').toBe(true);
+    expect(defState.retryVisible, 'retry affordance present (fix 4)').toBe(true);
+    expect(defState.listActive, 'user default LIST retained (fix 2)').toBe(true);
 
-    expect(voidState.taskVisible, 'task list should have vanished').toBe(false);
-    // Since fix 2 the prefs resolve during render and can no longer starve: the void now
-    // keeps the user's LIST view (pre-fix-2 it flipped to the hardcoded GRID default).
-    expect(voidState.gridActive, 'view stays LIST even in the void (fix 2)').toBe(false);
-    expect(voidState.listActive, 'user default LIST retained (fix 2)').toBe(true);
-
-    // --- Stickiness while the failure persists: Igor's nav mash Today→Meetings→Today.
-    // Every remount either serves the cached-fresh [] or fresh-refetches into the same
-    // empty answer; there is no error surface and no retry affordance.
+    // --- Failure persisting across the nav mash: still the error panel, never a void.
     await page.goto('/meetings');
     await page.waitForTimeout(1_500);
     await page.goto('/app?view=today');
     await page.waitForTimeout(7_000);
-    const stillVoid = !(await page.getByText('Probe task today').isVisible().catch(() => false));
-    console.log('[bug1] still void after Today→Meetings→Today mash (failure persisting):', stillVoid);
-    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug1-3-sticky-void.png'), fullPage: false });
-    expect(stillVoid, 'void persists across /app↔/meetings navigation while reads stay empty').toBe(true);
+    const stillDefended = await page.getByText("Couldn't load your tasks").isVisible().catch(() => false);
+    console.log('[bug1] error panel persists across Today→Meetings→Today mash:', stillDefended);
+    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug1-3-sticky-error.png'), fullPage: false });
+    expect(stillDefended, 'error panel (not a void) while reads stay empty').toBe(true);
 
-    // --- Recovery path: backend healthy again + a window focus → the debounced
-    // resync safety net (fetchAllTasks fresh) restores TASKS — but it never
-    // refetches PROJECTS, so the prefs-apply effect stays starved and the
-    // user's LIST default remains lost (view stuck on GRID).
+    // --- Recovery: backend healthy again + the user taps Retry → tasks restored in LIST.
+    // (The suspicious-empty detection evicted the poisoned cache entry, so Retry
+    // genuinely refetches instead of re-reading the cached [].)
     knobs.dataPhase = 'happy';
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await page.waitForTimeout(4_500);
-    const healedTaskVisible = await page.getByText('Probe task today').isVisible().catch(() => false);
-    const gridStillActive = /\bon\b/.test((await gridBtn.getAttribute('class')) || '');
-    console.log('[bug1] after recovery+focus: taskVisible=', healedTaskVisible, 'gridStillActive=', gridStillActive);
-    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug1-4-healed.png'), fullPage: false });
-    expect(healedTaskVisible, 'focus-resync heals tasks once backend recovers').toBe(true);
-    expect(gridStillActive, 'view stays LIST through heal (fix 2 — no GRID stick)').toBe(false);
+    await page.getByRole('button', { name: 'Retry' }).click();
+    await expect(page.getByText('Probe task today')).toBeVisible({ timeout: 15_000 });
+    const gridAfterRetry = /\bon\b/.test((await gridBtn.getAttribute('class')) || '');
+    console.log('[bug1] after Retry: task restored, gridActive=', gridAfterRetry);
+    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug1-4-retry-healed.png'), fullPage: false });
+    expect(gridAfterRetry, 'LIST retained through the whole failure cycle').toBe(false);
 
     await context.close();
   });
