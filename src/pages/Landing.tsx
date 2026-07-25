@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
+import { AppBootSkeleton } from '@/components/AppSkeletons';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -20,12 +21,10 @@ const Landing = () => {
     }
   }, [user, loading, navigate]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
+  // Auth restoring OR logged-in (about to bounce to /home): show the boot skeleton
+  // instead of bare 'Loading...' text / a one-frame marketing flash (fix 4).
+  if (loading || user) {
+    return <AppBootSkeleton />;
   }
 
   return (
