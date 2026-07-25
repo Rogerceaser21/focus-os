@@ -512,7 +512,13 @@ All colors MUST be HSL.
       0 8px 32px hsl(var(--glass-shadow)),
       0 0 0 1px hsl(var(--glass-border)),
       inset 0 1px 0 hsl(0 0% 100% / 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Scoped: `all` made every row animate its own reflow when the deferred
+       image backfill re-rendered the list (~1s after paint), and dragged
+       hover feedback to 300ms. Micro feedback = 140ms, feedback properties
+       only — never layout. */
+    transition: border-color var(--dur-micro) var(--ease-out-strong),
+                background-color var(--dur-micro) var(--ease-out-strong),
+                box-shadow var(--dur-micro) var(--ease-out-strong);
   }
 
   .glass-card:hover {
