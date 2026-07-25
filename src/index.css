@@ -818,6 +818,41 @@ html.standalone.liquid-glass .lg-editsheet {
   to   { transform: translate(-50%, 100vh) scale(0.98); }
 }
 
+/* Centred modal family (Add Task, Settings, Share, Invite, Send Summary,
+   Create Project, Brain Dump, delete confirms, Changes Needed): deliberate
+   arrival instead of the stock 200ms zoom pop. Keyframes carry the Radix
+   centering translate; 'forwards' on exit parks the panel until Radix
+   unmounts (it waits for animation end on data-state=closed). The mobile
+   edit sheet keeps its own lg-sheet keyframes: .liquid-glass .lg-editsheet
+   rules outrank .lg-modal by specificity. Durations/easing ride the motion
+   tokens so the ?tweaks panel can drive them live. */
+.lg-modal[data-state='open'] {
+  animation: lg-modal-in var(--dur-panel-in) var(--ease-sheet);
+}
+.lg-modal[data-state='closed'] {
+  animation: lg-modal-out var(--dur-panel-out) var(--ease-sheet) forwards;
+}
+@keyframes lg-modal-in {
+  0%   { transform: translate(-50%, -44%) scale(0.96); opacity: 0; }
+  60%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+@keyframes lg-modal-out {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  to   { transform: translate(-50%, -46%) scale(0.97); opacity: 0; }
+}
+/* Overlays fade in step with their panel — the dim must never die before
+   the surface it serves (opacity only; frost layers ride the root-canvas
+   safety net exactly as the shipping dialog pattern does). */
+.lg-overlay[data-state='open'] {
+  animation: lg-overlay-in var(--dur-panel-in) var(--ease-sheet);
+}
+.lg-overlay[data-state='closed'] {
+  animation: lg-overlay-out var(--dur-panel-out) var(--ease-sheet) forwards;
+}
+@keyframes lg-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lg-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+
 /* search / view switcher / density / add-task pill (mock .pw-row1) */
 .liquid-glass .lg-row1 {
   background: var(--gbg);
