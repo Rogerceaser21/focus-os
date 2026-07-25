@@ -1377,3 +1377,40 @@ html.standalone.liquid-glass .lg-editsheet {
   border-color: var(--chip-brd);
 }
 .liquid-glass .lg-glasscard button { border-radius: 999px; }
+
+/* --------------------------------------------------------------------------
+   Reduced motion: fewer and gentler, not zero (comprehension fades stay,
+   travel shrinks to quick fades). TARGETED, not a blanket * rule — a
+   blanket duration override would turn infinite loops (animate-spin,
+   lg-ping, border-pulse) into strobes. Durations shorten but never zero,
+   so data-state transitions still fire (white-flash law: surfaces must
+   keep their transition lifecycle; never visibility:hidden). */
+@media (prefers-reduced-motion: reduce) {
+  .lg-modal[data-state],
+  .lg-overlay[data-state],
+  .lg-banner-in,
+  .lg-tick [data-state] svg {
+    animation-duration: 120ms !important;
+  }
+  .animate-fade-out {
+    animation-duration: 400ms !important; /* still completes inside the 1s unmount timer */
+  }
+  .lg-reveal,
+  .lg-reveal-content,
+  .glass-card,
+  .liquid-glass .lg-seg button,
+  .liquid-glass .lg-tabs [data-state],
+  .liquid-glass .lg-btn,
+  .liquid-glass .lg-iconbtn,
+  .liquid-glass .lg-dock button {
+    transition-duration: 120ms !important;
+  }
+  .liquid-glass .lg-side[data-state='open'],
+  .liquid-glass .lg-side[data-state='closed'] {
+    transition-duration: 150ms !important;
+  }
+  .liquid-glass .lg-editsheet[data-state='open'],
+  .liquid-glass .lg-editsheet[data-state='closed'] {
+    animation-duration: 150ms !important;
+  }
+}
