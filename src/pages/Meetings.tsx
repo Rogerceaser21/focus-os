@@ -870,10 +870,19 @@ const Meetings = () => {
         </div>
       </div>
 
-      {/* Participant Setup — floating glass card, same material as the sidebar */}
-      {showParticipants && recordingState === 'idle' && (
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="lg-glasscard px-5 py-4 space-y-3">
+      {/* Participant Setup — floating glass card, same material as the sidebar.
+          Persistently mounted + grid-rows reveal: the frost layer is born once
+          at page mount, never dies (white-flash law). data-state derives from
+          state during render; inert + pointer-events keep it untabbable closed. */}
+      <div
+        className="lg-reveal max-w-4xl mx-auto px-4 w-full"
+        data-state={showParticipants && recordingState === 'idle' ? 'open' : 'closed'}
+        aria-hidden={!(showParticipants && recordingState === 'idle')}
+        {...(showParticipants && recordingState === 'idle' ? {} : ({ inert: '' } as Record<string, string>))}
+      >
+        <div className="lg-reveal-clip">
+        <div className="lg-reveal-content">
+          <div className="lg-glasscard px-5 py-4 space-y-3 mb-1">
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Meeting Name
@@ -951,10 +960,11 @@ const Meetings = () => {
             </div>
           </div>
         </div>
-      )}
+        </div>
+      </div>
 
       {recordingState === 'recording' && (
-        <div className={`border-b ${isPaused ? 'bg-amber-500/10 border-amber-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
+        <div className={`lg-banner-in border-b ${isPaused ? 'bg-amber-500/10 border-amber-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
           <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -1014,7 +1024,7 @@ const Meetings = () => {
 
       {/* Processing Banner with Progress */}
       {recordingState === 'processing' && (
-        <div className="bg-primary/10 border-b border-primary/30">
+        <div className="lg-banner-in bg-primary/10 border-b border-primary/30">
           <div className="max-w-4xl mx-auto px-4 py-6">
             <div className="flex items-center gap-3 mb-3">
               <Loader2 className="h-6 w-6 animate-spin text-primary shrink-0" />

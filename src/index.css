@@ -872,6 +872,37 @@ html.standalone.liquid-glass .lg-editsheet {
   0%, 40% { opacity: 1; transform: scale(1); }
   100%    { opacity: 0; transform: scale(0.96); }
 }
+/* Inline reveal (meeting participant card): persistent mount + grid-rows
+   0fr->1fr so the frost layer is born ONCE at page mount and never dies —
+   the white-flash law satisfied structurally. Content resolves just after
+   the space opens; no per-field stagger. Never visibility:hidden (raster
+   drop); closed state is inert via pointer-events + the inert attribute. */
+.lg-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-reveal-out) var(--ease-sheet);
+}
+.lg-reveal[data-state='open'] {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-reveal-in) var(--ease-sheet);
+}
+.lg-reveal-clip { overflow: hidden; min-height: 0; }
+.lg-reveal-content {
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity 180ms var(--ease-out-strong), transform 200ms var(--ease-out-strong);
+  pointer-events: none;
+}
+.lg-reveal[data-state='open'] .lg-reveal-content {
+  opacity: 1; transform: translateY(0);
+  transition: opacity 260ms var(--ease-out-strong) 80ms, transform 300ms var(--ease-sheet) 60ms;
+  pointer-events: auto;
+}
+
+/* Status banners (recording / processing): plain tinted divs, no frost —
+   mount-entrance is L1-safe. Exit is covered by the incoming surface. */
+.lg-banner-in { animation: lg-banner-enter var(--dur-reveal-in) var(--ease-sheet); }
+@keyframes lg-banner-enter { from { opacity: 0; transform: translateY(-8px); } }
+
 /* Checkbox tick pop — completion is the app's emotional peak; the tick
    should land, not teleport (16px element, compositing-cheap). */
 .lg-tick [data-state] svg {
