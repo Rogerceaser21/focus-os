@@ -77,18 +77,18 @@ const lastKnownOpenCount = (uid: string): number => {
 // Projects FAB component for mobile - must be inside SidebarProvider
 const ProjectsFAB = () => {
   const { toggleSidebar, openMobile } = useSidebar();
-  
-  // Hide when mobile sidebar is open
-  if (openMobile) return null;
-  
+
+  // Stays mounted across drawer open/close: the old `return null` remounted
+  // it on every close, re-running a 0.2s-delayed entrance = ~350ms invisible
+  // hole on a many-times-daily surface (the exit prop was dead — no
+  // AnimatePresence). Opacity retargets mid-flight instead; pointer-events
+  // off while hidden so it can never eat taps through the drawer overlay.
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15, delay: 0.2 }}
+      animate={{ opacity: openMobile ? 0 : 1 }}
+      transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
       className="fixed left-6 z-[100]"
-      style={{ bottom: 'calc(44px + env(safe-area-inset-bottom))' }}
+      style={{ bottom: 'calc(44px + env(safe-area-inset-bottom))', pointerEvents: openMobile ? 'none' : 'auto' }}
     >
       <button
         onClick={toggleSidebar}
