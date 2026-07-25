@@ -838,14 +838,19 @@ html.standalone.liquid-glass .lg-editsheet {
 .lg-modal[data-state='closed'] {
   animation: lg-modal-out var(--dur-panel-out) var(--ease-sheet) forwards;
 }
+/* Materialize (Apple: a glass surface is a MATERIAL arriving — animate blur
+   and scale together, not a plain fade): the panel condenses from a soft
+   unfocused ghost into crisp glass as it rises. filter is bounded to the
+   panel itself, one-shot, and rides the same sanctioned mount-animation
+   window the shipping dialogs already use. */
 @keyframes lg-modal-in {
-  0%   { transform: translate(-50%, -44%) scale(0.96); opacity: 0; }
-  60%  { opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  0%   { transform: translate(-50%, -42%) scale(0.92); opacity: 0; filter: blur(14px); }
+  55%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; filter: blur(0); }
 }
 @keyframes lg-modal-out {
-  from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  to   { transform: translate(-50%, -46%) scale(0.97); opacity: 0; }
+  from { transform: translate(-50%, -50%) scale(1); opacity: 1; filter: blur(0); }
+  to   { transform: translate(-50%, -47%) scale(0.95); opacity: 0; filter: blur(10px); }
 }
 /* Overlays fade in step with their panel — the dim must never die before
    the surface it serves (opacity only; frost layers ride the root-canvas
@@ -867,10 +872,37 @@ html.standalone.liquid-glass .lg-editsheet {
    Opacity+transform only: never animate row height (layout law). */
 .animate-fade-out {
   animation: lg-task-complete var(--dur-complete) var(--ease-out-strong) forwards;
+  position: relative; overflow: hidden; /* hosts the success sweep */
 }
 @keyframes lg-task-complete {
   0%, 40% { opacity: 1; transform: scale(1); }
   100%    { opacity: 0; transform: scale(0.96); }
+}
+/* The authored completion moment, built from the app's own vocabulary:
+   a success-tinted glass sweep crosses the row (same mechanic as the
+   edit-highlight sweep) while a ring blooms off the checkbox — then the
+   row drifts away. Scoped to .animate-fade-out so it fires ONLY during a
+   live completion, never when completed rows merely mount (view switches
+   stay quiet by law). */
+.animate-fade-out::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: -40%; width: 35%;
+  background: linear-gradient(105deg, transparent, hsl(var(--success) / 0.35), transparent);
+  animation: highlight-sweep 0.7s ease-out forwards;
+  pointer-events: none;
+}
+.lg-tick { position: relative; }
+.animate-fade-out .lg-tick::before {
+  content: "";
+  position: absolute; inset: -2px; border-radius: 6px;
+  border: 1.5px solid hsl(var(--success));
+  animation: lg-tick-ring 600ms var(--ease-out-strong) forwards;
+  pointer-events: none;
+}
+@keyframes lg-tick-ring {
+  0%   { opacity: 0.9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2.1); }
 }
 /* Inline reveal (meeting participant card): persistent mount + grid-rows
    0fr->1fr so the frost layer is born ONCE at page mount and never dies —
