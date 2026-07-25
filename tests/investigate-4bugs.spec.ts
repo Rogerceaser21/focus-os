@@ -264,12 +264,13 @@ test.describe.serial('4-bugs investigation', () => {
     const toast = page.locator('[data-sonner-toast]', { hasText: 'Welcome back' });
     await toast.waitFor({ state: 'visible', timeout: 15_000 });
     const t0 = Date.now();
-    await page.waitForTimeout(2_500);
-    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug3-toast-at-2.5s.png') });
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug3-toast-at-0.8s.png') });
     await toast.waitFor({ state: 'hidden', timeout: 15_000 });
     const visibleMs = Date.now() - t0;
     console.log(`[bug3] toast visible for ~${visibleMs}ms`);
-    expect(visibleMs, 'sonner default 4000ms, never configured shorter').toBeGreaterThan(3_400);
+    // FIX 3: the login toast is now capped at 1500ms (pre-fix this asserted the 4s default)
+    expect(visibleMs, 'welcome toast dismisses quickly (duration: 1500)').toBeLessThan(2_600);
 
     await context.close();
   });

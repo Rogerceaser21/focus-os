@@ -92,7 +92,7 @@ const Auth = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Account created! Logging you in...');
+      toast.success('Account created! Logging you in...', { duration: 1500 });
       navigate('/');
     }
   };
@@ -131,7 +131,7 @@ const Auth = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Welcome back!');
+      toast.success('Welcome back!', { duration: 1500 });
       navigate('/');
     }
   };
