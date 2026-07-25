@@ -61,6 +61,31 @@ All colors MUST be HSL.
     --glass-shadow: 220 20% 20% / 0.08;
     --glass-blur: 16px;
     --glass-glow: 186 80% 50% / 0.15;
+
+    /* ------------------------------------------------------------------
+       Motion tokens — bimodal by design. Large surfaces GLIDE (420-480ms,
+       iOS sheet curve: Vaul / M3-emphasized lineage). Micro SNAPS
+       (140-200ms, strong ease-out). Nothing between 200ms and 420ms —
+       that middle band failed the feel gate (C+D wave, reverted 342c7e0).
+       No stagger on view switches, ever. Exits always shorter than
+       entrances (~0.65x). Sources: Vaul 500ms (0.32,0.72,0,1); M3
+       emphasized 400-500ms; Apple sheet spring response 0.3 damping 0.8;
+       Emil Kowalski curves + duration bands.
+       ------------------------------------------------------------------ */
+    --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);  /* micro: presses, fades, pills */
+    --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);       /* large surfaces (proven on .lg-side) */
+    --ease-move: cubic-bezier(0.77, 0, 0.175, 1);       /* on-screen movement/morphs, never enters */
+    --dur-micro: 140ms;        /* press feedback, hover tints, seg/tab pills */
+    --dur-quick: 200ms;        /* dropdown/popover enter, small fades */
+    --dur-quick-out: 150ms;    /* dropdown/popover exit */
+    --dur-panel-in: 420ms;     /* dialog / side-panel enter */
+    --dur-panel-out: 280ms;    /* dialog / side-panel exit */
+    --dur-reveal-in: 360ms;    /* inline grid-rows reveals (meeting card, banners) */
+    --dur-reveal-out: 280ms;
+    --dur-drawer-in: 380ms;    /* projects drawer — value-identical to shipped */
+    --dur-drawer-out: 260ms;
+    --dur-hero: 480ms;         /* signature edit-sheet rise — locked */
+    --dur-complete: 1000ms;    /* task completion ritual, matches unmount timers */
   }
 
   /* Liquid Glass theme — wallpaper-adaptive materials (see src/lib/wallpaper.tsx).
@@ -659,12 +684,12 @@ All colors MUST be HSL.
 }
 .liquid-glass .lg-side[data-state='open'] {
   transform: translateX(0);
-  transition: transform 380ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+  transition: transform var(--dur-drawer-in) var(--ease-sheet) !important;
 }
 .liquid-glass .lg-side[data-state='closed'] {
   /* -100% - 60px clears the 14px margin + border glow/shadow spill */
   transform: translateX(calc(-100% - 60px));
-  transition: transform 260ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+  transition: transform var(--dur-drawer-out) var(--ease-sheet) !important;
   pointer-events: none;
 }
 /* The transparent overlay also stays mounted; keep it inert while closed.
