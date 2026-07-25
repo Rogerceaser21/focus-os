@@ -4,7 +4,6 @@ import Fuse from 'fuse.js';
 
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { Task, Project, TaskPriority, TaskStatus } from '@/types/task';
 import { TaskCard } from '@/components/TaskCard';
@@ -72,37 +71,6 @@ const lastKnownOpenCount = (uid: string): number => {
   } catch {
     return 0;
   }
-};
-
-// Projects FAB component for mobile - must be inside SidebarProvider
-const ProjectsFAB = () => {
-  const { toggleSidebar, openMobile } = useSidebar();
-
-  // Stays mounted across drawer open/close: the old `return null` remounted
-  // it on every close, re-running a 0.2s-delayed entrance = ~350ms invisible
-  // hole on a many-times-daily surface (the exit prop was dead — no
-  // AnimatePresence). Opacity retargets mid-flight instead; pointer-events
-  // off while hidden so it can never eat taps through the drawer overlay.
-  return (
-    <motion.div
-      animate={{ opacity: openMobile ? 0 : 1 }}
-      transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-      className="fixed left-6 z-[100]"
-      style={{ bottom: 'calc(44px + env(safe-area-inset-bottom))', pointerEvents: openMobile ? 'none' : 'auto' }}
-    >
-      <button
-        onClick={toggleSidebar}
-        className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
-        style={{
-          background: 'conic-gradient(from 0deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)), hsl(var(--primary)))'
-        }}
-      >
-        <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
-          <span className="text-2xl font-bold text-primary">P</span>
-        </div>
-      </button>
-    </motion.div>
-  );
 };
 
 // BottomNav wrapper that provides sidebar toggle - must be inside SidebarProvider
