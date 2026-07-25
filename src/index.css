@@ -708,6 +708,17 @@ All colors MUST be HSL.
   pointer-events: none !important;
   animation: none !important;
 }
+/* Grab-and-throw: while a finger owns the panel, CSS motion stands down —
+   the drag writes transform directly (1:1 tracking on the already-rastered
+   layer). Placed after the state rules; the extra attribute wins the tie.
+   pan-y keeps vertical list scrolling native while horizontal pans reach
+   the pointer handlers. */
+.liquid-glass .lg-side[data-state][data-dragging] {
+  transition: none !important;
+}
+.liquid-glass .lg-side[data-state] {
+  touch-action: pan-y;
+}
 
 /* Mobile Projects panel is a Radix Sheet: its SheetOverlay (sheet.tsx) is a
    full-screen fixed div PAINTED BEHIND the panel with bg-background/60 +

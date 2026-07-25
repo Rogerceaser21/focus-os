@@ -739,6 +739,90 @@ export const ProjectSidebar = ({
   // just-opened drawer. (Igor video 2026-07-18.)
   const overlayPointerDownRef = useRef(false);
 
+  // Grab-and-throw: drag the open drawer left to close it, Apple-style
+  // (1:1 tracking, rubber-band past the resting point, velocity release).
+  // Gesture tracking is imperative by design — direct transform writes on
+  // the persistent panel layer at pointer speed; React state is touched
+  // only for the final open/close decision. The panel layer already exists
+  // (white-flash law), so dragging animates an already-rastered layer.
+  const dragPanelRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{
+    tracking: boolean;
+    claimed: boolean;
+    startX: number;
+    startY: number;
+    shift: number;
+    history: { x: number; t: number }[];
+  }>({ tracking: false, claimed: false, startX: 0, startY: 0, shift: 0, history: [] });
+
+  const DRAWER_W = 280;
+
+  const endDrag = (panel: HTMLDivElement, close: boolean) => {
+    const d = dragRef.current;
+    d.tracking = false;
+    if (!d.claimed) return;
+    d.claimed = false;
+    // Swallow the trailing synthesized click so a drag can never "tap" a
+    // project row it happened to end on (same family as the overlay's
+    // ghost-click latch).
+    const swallow = (e: MouseEvent) => { e.stopPropagation(); e.preventDefault(); };
+    panel.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => panel.removeEventListener('click', swallow, { capture: true } as EventListenerOptions), 400);
+    if (close) setOpenMobile(false);
+    // Release on the next frame: the data-state rule becomes the transform
+    // target again, and its transition animates from the finger's last
+    // position (transitions retarget from the current computed value).
+    requestAnimationFrame(() => {
+      panel.style.transform = '';
+      panel.removeAttribute('data-dragging');
+    });
+  };
+
+  const onPanelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!openMobile || e.pointerType === 'mouse') return;
+    const d = dragRef.current;
+    d.tracking = true;
+    d.claimed = false;
+    d.startX = e.clientX;
+    d.startY = e.clientY;
+    d.shift = 0;
+    d.history = [{ x: e.clientX, t: e.timeStamp }];
+  };
+
+  const onPanelPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    const panel = dragPanelRef.current;
+    if (!d.tracking || !panel) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.claimed) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { d.tracking = false; return; } // it's a scroll
+      if (Math.abs(dx) <= 10 || Math.abs(dx) <= Math.abs(dy)) return; // undecided
+      d.claimed = true;
+      panel.setPointerCapture(e.pointerId);
+      panel.setAttribute('data-dragging', '');
+    }
+    // Leftward follows 1:1; rightward rubber-bands (there is nothing there).
+    const shift = dx < 0 ? dx : (dx * DRAWER_W * 0.55) / (DRAWER_W + 0.55 * dx);
+    d.shift = shift;
+    panel.style.transform = `translateX(${shift}px)`;
+    d.history.push({ x: e.clientX, t: e.timeStamp });
+    if (d.history.length > 6) d.history.shift();
+  };
+
+  const onPanelPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    const panel = dragPanelRef.current;
+    if (!panel || !d.tracking) return;
+    if (!d.claimed) { d.tracking = false; return; }
+    const first = d.history[0];
+    const last = d.history[d.history.length - 1];
+    const dt = Math.max(1, last.t - first.t);
+    const vx = (last.x - first.x) / dt; // px/ms, negative = leftward
+    const close = vx < -0.5 || (d.shift < -DRAWER_W * 0.35 && vx < 0.05);
+    endDrag(panel, close);
+  };
+
   const [launchingTourLabel, setLaunchingTourLabel] = useState<string | null>(null);
 
   // Dismiss the loading overlay as soon as the tour signals it has painted
@@ -1371,10 +1455,15 @@ export const ProjectSidebar = ({
               }}
             />
             <div
+              ref={dragPanelRef}
               role="dialog"
               aria-label="Projects"
               data-state={openMobile ? 'open' : 'closed'}
               className="fixed inset-y-0 left-0 h-full z-50 w-[280px] p-0 lg-side flex flex-col gap-4"
+              onPointerDown={onPanelPointerDown}
+              onPointerMove={onPanelPointerMove}
+              onPointerUp={onPanelPointerUp}
+              onPointerCancel={onPanelPointerUp}
             >
               {sidebarContent}
             </div>
