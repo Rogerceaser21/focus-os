@@ -70,10 +70,10 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
         <AnimatePresence>
           {fabExpanded && (
             <motion.button
-              initial={{ opacity: 0, y: 0, scale: 0.5 }}
+              initial={{ opacity: 0, y: 0, scale: 0.8 }}
               animate={{ opacity: 1, y: -66, scale: 1 }}
-              exit={{ opacity: 0, y: 0, scale: 0.5 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              exit={{ opacity: 0, y: 0, scale: 0.8, transition: { duration: 0.15, ease: 'easeOut' } }}
+              transition={{ type: 'spring', duration: 0.45, bounce: 0.25 }}
               className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
               onClick={() => {
                 setFabExpanded(false);
@@ -112,10 +112,10 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
         <AnimatePresence>
           {fabExpanded && (
             <motion.button
-              initial={{ opacity: 0, x: 0, scale: 0.5 }}
+              initial={{ opacity: 0, x: 0, scale: 0.8 }}
               animate={{ opacity: 1, x: -66, scale: 1 }}
-              exit={{ opacity: 0, x: 0, scale: 0.5 }}
-              transition={{ duration: 0.2, ease: 'easeOut', delay: 0.05 }}
+              exit={{ opacity: 0, x: 0, scale: 0.8, transition: { duration: 0.15, ease: 'easeOut' } }}
+              transition={{ type: 'spring', duration: 0.45, bounce: 0.25, delay: 0.05 }}
               className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
               onClick={() => {
                 setFabExpanded(false);
@@ -139,7 +139,7 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
         {/* Main record button */}
         <motion.button
           animate={{ rotate: fabExpanded ? 45 : 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ type: 'spring', duration: 0.4, bounce: 0.3 }}
           onClick={handleMainClick}
           className="relative w-[56px] h-[56px] rounded-full flex items-center justify-center lg-fab-main"
         >
