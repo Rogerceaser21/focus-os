@@ -913,6 +913,11 @@ html.standalone.liquid-glass .lg-editsheet {
   display: inline-flex; align-items: center; gap: 5px; border: none; cursor: pointer;
   background: transparent; color: var(--t2); font-size: 12px; font-weight: 600;
   border-radius: 999px; padding: 6px 11px;
+  /* active pill hands over with a crossfade, not a hard jump; content
+     panels stay INSTANT — pill styling only */
+  transition: color var(--dur-micro) var(--ease-out-strong),
+              background-color var(--dur-micro) var(--ease-out-strong),
+              box-shadow var(--dur-micro) var(--ease-out-strong);
 }
 .liquid-glass .lg-seg button.on {
   background: hsl(var(--primary)); color: hsl(var(--primary-foreground));
@@ -944,6 +949,25 @@ html.standalone.liquid-glass .lg-editsheet {
   display: flex; align-items: center; justify-content: center;
 }
 
+/* Press feedback — every pressable pill/dock button confirms the touch on
+   pointer-DOWN (Apple: respond on press, not release). Transform-only on
+   non-frost or persistently-composited elements; :active fires on touch so
+   no hover-gating needed. Subtle by law (0.96-0.97). */
+.liquid-glass .lg-btn,
+.liquid-glass .lg-iconbtn,
+.liquid-glass .lg-seg button,
+.liquid-glass .lg-dock button {
+  transition-property: color, background-color, box-shadow, transform;
+  transition-duration: var(--dur-micro);
+  transition-timing-function: var(--ease-out-strong);
+}
+.liquid-glass .lg-btn:active,
+.liquid-glass .lg-iconbtn:active,
+.liquid-glass .lg-seg button:active,
+.liquid-glass .lg-dock button:active {
+  transform: scale(0.96);
+}
+
 /* status tabs pill (mock .pw-tabs) */
 .liquid-glass .lg-tabs {
   background: var(--gbg);
@@ -959,6 +983,9 @@ html.standalone.liquid-glass .lg-editsheet {
   border: none; background: transparent; color: var(--t2);
   font-size: 13px; font-weight: 600; border-radius: 999px; padding: 8px 0;
   box-shadow: none;
+  transition: color var(--dur-micro) var(--ease-out-strong),
+              background-color var(--dur-micro) var(--ease-out-strong),
+              box-shadow var(--dur-micro) var(--ease-out-strong);
 }
 .liquid-glass .lg-tabs [data-state='active'] {
   background: var(--gbg-strong); color: var(--t1); box-shadow: var(--gshadow);
