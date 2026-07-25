@@ -56,6 +56,14 @@ const taskRow = () => ({
   images: [],
 });
 
+
+const taskRowOther = () => ({
+  ...taskRow(),
+  id: 'dddddddd-4444-4444-8444-dddddddddddd',
+  title: 'Probe task other',
+  due_date: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+});
+
 const projectRow = (userId: string) => ({
   id: PROJECT_ID,
   name: 'Probe project',
@@ -108,7 +116,7 @@ async function installRestIntercepts(context: BrowserContext) {
       return reply(wantsObject ? prefRow(knobs.userId) : [prefRow(knobs.userId)]);
     }
     if (url.includes('focusos_tasks')) {
-      return reply(knobs.dataPhase === 'happy' ? [taskRow()] : []);
+      return reply(knobs.dataPhase === 'happy' ? [taskRow(), taskRowOther()] : []);
     }
     if (url.includes('focusos_projects')) {
       return reply(knobs.dataPhase === 'happy' ? [projectRow(knobs.userId)] : []);
@@ -206,8 +214,10 @@ test.describe.serial('4-bugs investigation', () => {
     await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug1-2-void.png'), fullPage: false });
 
     expect(voidState.taskVisible, 'task list should have vanished').toBe(false);
-    expect(voidState.gridActive, 'GRID becomes active (prefs effect starved)').toBe(true);
-    expect(voidState.listActive, 'LIST (the user default) no longer active').toBe(false);
+    // Since fix 2 the prefs resolve during render and can no longer starve: the void now
+    // keeps the user's LIST view (pre-fix-2 it flipped to the hardcoded GRID default).
+    expect(voidState.gridActive, 'view stays LIST even in the void (fix 2)').toBe(false);
+    expect(voidState.listActive, 'user default LIST retained (fix 2)').toBe(true);
 
     // --- Stickiness while the failure persists: Igor's nav mash Today→Meetings→Today.
     // Every remount either serves the cached-fresh [] or fresh-refetches into the same
@@ -231,9 +241,9 @@ test.describe.serial('4-bugs investigation', () => {
     const healedTaskVisible = await page.getByText('Probe task today').isVisible().catch(() => false);
     const gridStillActive = /\bon\b/.test((await gridBtn.getAttribute('class')) || '');
     console.log('[bug1] after recovery+focus: taskVisible=', healedTaskVisible, 'gridStillActive=', gridStillActive);
-    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug1-4-healed-but-grid.png'), fullPage: false });
+    await page.screenshot({ path: path.join(EVIDENCE_DIR, 'bug1-4-healed.png'), fullPage: false });
     expect(healedTaskVisible, 'focus-resync heals tasks once backend recovers').toBe(true);
-    expect(gridStillActive, 'view mode stays GRID even after tasks heal (projects never resynced)').toBe(true);
+    expect(gridStillActive, 'view stays LIST through heal (fix 2 — no GRID stick)').toBe(false);
 
     await context.close();
   });
@@ -310,6 +320,80 @@ test.describe.serial('4-bugs investigation', () => {
     expect(v3.skeletonSeen, 'third visit: no skeleton (cache-served)').toBe(false);
     expect(v3.requests, 'third visit: zero network (cache-served)').toBe(0);
 
+    await context.close();
+  });
+
+
+  test('fix2: no wrong-view frame on /app re-entries (Projects/Today/Past Due)', async ({ browser }) => {
+    test.setTimeout(150_000);
+    const context = await browser.newContext();
+    await installRestIntercepts(context);
+    knobs.dataPhase = 'happy';
+    const page = await context.newPage();
+
+    // fresh throwaway account (self-sufficient — does not depend on test order)
+    const stamp = Date.now();
+    const email = `focusos.probe4bugs+${stamp}@thefeedbackapp.net`;
+    const password = `Probe4bugs!${stamp}`;
+    await page.goto('/auth');
+    await page.getByRole('tab', { name: /sign up/i }).click();
+    await page.locator('#signup-firstname').fill('Probe');
+    await page.locator('#signup-lastname').fill('FlashCheck');
+    await page.locator('#signup-email').fill(email);
+    await page.locator('#signup-password').fill(password);
+    await page.getByRole('button', { name: /sign up/i }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/auth'), { timeout: 30_000 });
+    knobs.userId = await extractUserId(page);
+
+    // warm baseline once so the re-entry path (the flash path) has a warm cache
+    await page.goto('/app?view=today');
+    await expect(page.getByText('Probe task today')).toBeVisible({ timeout: 20_000 });
+    await page.goto('/home');
+    await page.waitForTimeout(1_000);
+
+    // rAF frame logger: records any frame showing grid cards or the not-due-today task
+    await page.evaluate(() => {
+      const w = window as any;
+      w.__badFrames = [];
+      let last = '';
+      const tick = () => {
+        const grid = document.querySelectorAll('.lg-grid-card').length;
+        const other = !!Array.from(document.querySelectorAll('[data-task-card], .lg-grid-card'))
+          .find((e) => /Probe task other/.test(e.textContent || ''));
+        const sig = `${location.search}|g${grid}|o${other}`;
+        if (sig !== last) {
+          last = sig;
+          if (grid > 0 || other) {
+            w.__badFrames.push({ t: Math.round(performance.now()), search: location.search, grid, other });
+          }
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+
+    // Igor's exact sequence via the dock (SPA taps, no reloads)
+    await page.locator('[data-home-tour-step="projects"]').click();
+    await page.waitForURL(/\/app/);
+    await page.waitForTimeout(2_500);
+    // the drawer opens over the dock (real behaviour) — dismiss via the overlay first
+    await page.touchscreen.tap(350, 400);
+    await page.waitForTimeout(600);
+    await page.locator('[data-home-tour-step="meetings"]').click();
+    await page.waitForURL(/\/meetings/);
+    await page.waitForTimeout(1_500);
+    await page.locator('[data-home-tour-step="today"]').click();
+    await page.waitForURL(/view=today/);
+    await page.waitForTimeout(2_500);
+    await page.locator('[data-home-tour-step="past-due"]').click();
+    await page.waitForURL(/view=past-due/);
+    await page.waitForTimeout(2_500);
+
+    const badFrames = await page.evaluate(() => (window as any).__badFrames);
+    console.log('[fix2] bad frames:', JSON.stringify(badFrames));
+    expect(badFrames, 'no frame may show grid cards or unfiltered (not-due-today) tasks').toEqual([]);
+    // and the end state is the correct one
+    await expect(page.getByText('Probe task today')).not.toBeVisible(); // past-due holds no today task
     await context.close();
   });
 

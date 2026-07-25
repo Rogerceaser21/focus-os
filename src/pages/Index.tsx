@@ -932,57 +932,68 @@ const Index = () => {
     };
   }, [user, transformDbTask, fetchSenderSharedItems, queryClient]);
 
-  // Apply user preferences on load
-  useEffect(() => {
+  // Resolve the view BEFORE anything paints — state adjusted DURING render (the
+  // react.dev "you might not need an effect" pattern). The old post-paint effect let the
+  // first content render use the hardcoded defaults (grid, no filter), which mounted the
+  // full unfiltered task set for a visible burst (the 07-25 422-card flash + ~1s freeze)
+  // before tearing it down. Setting state here re-renders synchronously pre-commit, so a
+  // wrong view can never reach the screen. Runs once per mount (preferencesLoaded latch);
+  // deliberately does NOT wait for projects — a project-id view applies optimistically and
+  // the effect below corrects a deleted project once projects have loaded.
+  if (user && preferences && !preferencesLoaded) {
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
 
-    if (preferences && !preferencesLoaded && projects.length > 0 && !selectedProjectId && !selectedSpecialList) {
-      // If URL has a view param, use it (from Home nav)
-      if (viewParam === 'past-due' || viewParam === 'today' || viewParam === 'unassigned') {
-        setSelectedSpecialList(viewParam);
-        setSelectedProjectId(null);
-      } else if (viewParam === 'projects') {
-        // Just load default project view
-        setSelectedSpecialList(null);
-      } else if (viewParam && projects.some(p => p.id === viewParam)) {
-        // Direct project id deep-link (e.g. from Convert-to-Project in MeetingDetail)
-        setSelectedProjectId(viewParam);
-        setSelectedSpecialList(null);
-      } else if (preferences.default_view === 'today') {
-        setSelectedSpecialList('today');
-        setSelectedProjectId(null);
-      } else if (preferences.default_view === 'unassigned') {
-        setSelectedSpecialList('unassigned');
-        setSelectedProjectId(null);
-      } else {
-        // It's a project ID - check if it still exists
-        const projectExists = projects.some(p => p.id === preferences.default_view);
-        if (projectExists) {
-          setSelectedProjectId(preferences.default_view);
-          setSelectedSpecialList(null);
-        } else {
-          // Fallback to today if project was deleted
-          setSelectedSpecialList('today');
-          setSelectedProjectId(null);
-        }
-      }
-      
-      // Apply display mode
-      const modeMap: Record<string, 'list' | 'grid' | 'gantt' | 'time-tracking'> = {
-        'list': 'list',
-        'grid': 'grid',
-        'gantt': 'gantt',
-        'time': 'time-tracking'
-      };
-      setViewMode(modeMap[preferences.default_display_mode] || 'list');
-      
-      // Apply task filter
-      setActiveTab(preferences.default_task_filter);
-      
-      setPreferencesLoaded(true);
+    if (viewParam === 'past-due' || viewParam === 'today' || viewParam === 'unassigned') {
+      setSelectedSpecialList(viewParam);
+      setSelectedProjectId(null);
+    } else if (viewParam === 'projects') {
+      setSelectedSpecialList(null);
+    } else if (viewParam) {
+      // Deep-linked project id — apply optimistically, existence re-checked below.
+      setSelectedProjectId(viewParam);
+      setSelectedSpecialList(null);
+    } else if (preferences.default_view === 'today') {
+      setSelectedSpecialList('today');
+      setSelectedProjectId(null);
+    } else if (preferences.default_view === 'unassigned') {
+      setSelectedSpecialList('unassigned');
+      setSelectedProjectId(null);
+    } else if (preferences.default_view && preferences.default_view !== 'home') {
+      // Project-id default — optimistic, corrected below if the project is gone.
+      setSelectedProjectId(preferences.default_view);
+      setSelectedSpecialList(null);
+    } else {
+      setSelectedSpecialList('today');
+      setSelectedProjectId(null);
     }
-  }, [preferences, preferencesLoaded, projects]);
+
+    // Apply display mode
+    const modeMap: Record<string, 'list' | 'grid' | 'gantt' | 'time-tracking'> = {
+      'list': 'list',
+      'grid': 'grid',
+      'gantt': 'gantt',
+      'time': 'time-tracking'
+    };
+    setViewMode(modeMap[preferences.default_display_mode] || 'list');
+
+    // Apply task filter
+    setActiveTab(preferences.default_task_filter);
+
+    setPreferencesLoaded(true);
+  }
+
+  // Deleted/unavailable project fallback: an optimistically-applied project id (deep link
+  // or stale default_view) falls back to Today once the real project list has loaded and
+  // does not contain it. Guarded on a non-empty list so a transient empty apply can never
+  // false-trigger it.
+  useEffect(() => {
+    if (!initialLoadComplete || !selectedProjectId || projects.length === 0) return;
+    if (!projects.some(p => p.id === selectedProjectId)) {
+      setSelectedSpecialList('today');
+      setSelectedProjectId(null);
+    }
+  }, [initialLoadComplete, projects, selectedProjectId]);
 
   useEffect(() => {
     if (!preferences) return;
@@ -1990,7 +2001,7 @@ https://www.skyscanner.com`,
           </div>
 
           {/* Main Content */}
-          {!fullDataLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
+          {!fullDataLoaded || !preferencesLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
               <TabsList className="w-full grid grid-cols-4 h-auto shrink-0 lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   All ({sortedTasks.filter(t => t.status !== 'completed').length})
