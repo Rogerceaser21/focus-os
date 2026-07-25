@@ -19,9 +19,16 @@ import Preview from "./pages/Preview";
 import PreviewApp from "./pages/PreviewApp";
 // DEV-ONLY drawer reproduction harness (routes gated by import.meta.env.DEV below).
 import DrawerRepro from "./pages/DrawerRepro";
+import MotionTweaks from "./components/dev/MotionTweaks";
 
 
 const queryClient = new QueryClient();
+
+// ?tweaks anywhere in the query string mounts the motion-tuning panel
+// (works on the deployed Pages build too — that is the point: Igor tunes
+// on his phone). Evaluated once at module load; no effects, no state.
+const showMotionTweaks =
+  typeof window !== "undefined" && new URLSearchParams(window.location.search).has("tweaks");
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -29,6 +36,7 @@ const App = () => (
       
       <Toaster />
       <Sonner />
+      {showMotionTweaks && <MotionTweaks />}
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/home" element={<Home />} />
