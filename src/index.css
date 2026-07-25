@@ -853,6 +853,29 @@ html.standalone.liquid-glass .lg-editsheet {
 @keyframes lg-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes lg-overlay-out { from { opacity: 1; } to { opacity: 0; } }
 
+/* Task completion ritual: the TSX has always applied .animate-fade-out
+   (TaskListItem/TaskCard, isFading latch + 1000ms unmount timer) but no
+   keyframe ever existed — rows blinked out. Hold ~400ms so the tick
+   registers, then drift out; finishes as the existing timer unmounts the
+   row (timer stays 1000ms — do not tune --dur-complete without it).
+   Opacity+transform only: never animate row height (layout law). */
+.animate-fade-out {
+  animation: lg-task-complete var(--dur-complete) var(--ease-out-strong) forwards;
+}
+@keyframes lg-task-complete {
+  0%, 40% { opacity: 1; transform: scale(1); }
+  100%    { opacity: 0; transform: scale(0.96); }
+}
+/* Checkbox tick pop — completion is the app's emotional peak; the tick
+   should land, not teleport (16px element, compositing-cheap). */
+.lg-tick [data-state] svg {
+  animation: lg-tick-in var(--dur-micro) var(--ease-out-strong);
+}
+@keyframes lg-tick-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
 /* search / view switcher / density / add-task pill (mock .pw-row1) */
 .liquid-glass .lg-row1 {
   background: var(--gbg);
