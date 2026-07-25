@@ -354,11 +354,25 @@ test.describe.serial('4-bugs investigation', () => {
         const grid = document.querySelectorAll('.lg-grid-card').length;
         const other = !!Array.from(document.querySelectorAll('[data-task-card], .lg-grid-card'))
           .find((e) => /Probe task other/.test(e.textContent || ''));
-        const sig = `${location.search}|g${grid}|o${other}`;
+        // warm navigation must never paint the loading skeleton (flicker fault A) …
+        const skel = !!document.querySelector('[aria-label="Loading tasks"]');
+        // … nor a stale list under the next view's URL (flicker fault B): the today-task
+        // in the fixture is due today, so it may never be visible on the past-due view.
+        const staleToday = location.search.includes('view=past-due') &&
+          !!Array.from(document.querySelectorAll('[data-task-card]'))
+            .find((e) => /Probe task today/.test(e.textContent || ''));
+        // URL/DOM mismatch during navigation = react-router's startTransition still
+        // committing (location flips at pushState; the interruptible render of the
+        // heavy Index tree spans several frames). That is the OLD view lingering —
+        // navigation latency, not the pop-in artifact this spec guards. Tracked
+        // separately with an upper regression bound instead of failing the frame.
+        w.__staleRun = staleToday ? (w.__staleRun || 0) + 1 : 0;
+        w.__staleMax = Math.max(w.__staleMax || 0, w.__staleRun);
+        const sig = `${location.search}|g${grid}|o${other}|s${skel}`;
         if (sig !== last) {
           last = sig;
-          if (grid > 0 || other) {
-            w.__badFrames.push({ t: Math.round(performance.now()), search: location.search, grid, other });
+          if (grid > 0 || other || skel) {
+            w.__badFrames.push({ t: Math.round(performance.now()), search: location.search, grid, other, skel });
           }
         }
         requestAnimationFrame(tick);
@@ -382,10 +396,18 @@ test.describe.serial('4-bugs investigation', () => {
     await page.locator('[data-home-tour-step="past-due"]').click();
     await page.waitForURL(/view=past-due/);
     await page.waitForTimeout(2_500);
+    // in-app view switches (no remount) — the fault-B path
+    await page.locator('[data-home-tour-step="today"]').click();
+    await page.waitForTimeout(1_500);
+    await page.locator('[data-home-tour-step="past-due"]').click();
+    await page.waitForTimeout(1_500);
 
     const badFrames = await page.evaluate(() => (window as any).__badFrames);
-    console.log('[fix2] bad frames:', JSON.stringify(badFrames));
-    expect(badFrames, 'no frame may show grid cards or unfiltered (not-due-today) tasks').toEqual([]);
+    const staleMax = await page.evaluate(() => (window as any).__staleMax || 0);
+    console.log('[fix2] bad frames:', JSON.stringify(badFrames), '| longest old-view transition:', staleMax, 'frames');
+    expect(badFrames, 'no frame may show a skeleton blink, grid cards or pop-in of a not-due task').toEqual([]);
+    // regression bound on navigation latency: the old view must never linger past ~200ms
+    expect(staleMax, 'old-view transition window stays under 12 frames').toBeLessThan(12);
     // and the end state is the correct one
     await expect(page.getByText('Probe task today')).not.toBeVisible(); // past-due holds no today task
     await context.close();

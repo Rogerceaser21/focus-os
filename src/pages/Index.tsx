@@ -205,6 +205,12 @@ const Index = () => {
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  // Both latches are STATE on purpose: these blocks run during render, and React may
+  // discard+replay a transition render (react-router navigations). A ref mutation
+  // survives the discard while the queued state updates do not — the replay would
+  // skip the block and drop the apply entirely (caught 2026-07-25: stuck selection).
+  const [appliedSearch, setAppliedSearch] = useState<string | null>(null);
+  const [warmStartDone, setWarmStartDone] = useState(false);
   const [openSidebarRequested, setOpenSidebarRequested] = useState(false);
   // One-shot latch for the ?openSidebar handshake. The effect that consumes the
   // param re-runs on every `projects` change (the two-wave projects apply)
@@ -942,6 +948,7 @@ const Index = () => {
   // deliberately does NOT wait for projects — a project-id view applies optimistically and
   // the effect below corrects a deleted project once projects have loaded.
   if (user && preferences && !preferencesLoaded) {
+    setAppliedSearch(window.location.search);
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
 
@@ -991,6 +998,30 @@ const Index = () => {
     setInitialLoadComplete(false);
   }, []);
 
+  // Warm-cache start DURING render (flicker fault A, 2026-07-25): the warm apply used
+  // to happen in the post-paint initial-load effect, so every /app re-entry painted the
+  // (now opaque) skeleton for ~4 frames while the data sat ready in the cache. Applying
+  // the cached rows here commits them before first paint — the skeleton renders only on
+  // genuinely cold loads. The initial-load effect still runs afterwards: its warm branch
+  // re-applies the same rows (idempotent) and handles shared maps / member ids.
+  if (user && !initialLoadComplete && !warmStartDone) {
+    setWarmStartDone(true);
+    const warmTasks = queryClient.getQueryData(appDataKeys.tasks(user.id)) as any[] | undefined;
+    const warmProjects = queryClient.getQueryData(appDataKeys.projects(user.id)) as any[] | undefined;
+    if (warmTasks && warmTasks.length > 0 && warmProjects) {
+      setAllTasks(warmTasks.map(transformDbTask));
+      setProjects(warmProjects.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        isShared: p.is_shared ?? false,
+        userId: p.user_id,
+        timer: { totalSeconds: 0, isRunning: false },
+      })));
+      setFullDataLoaded(true);
+    }
+  }
+
   // Deleted/unavailable project fallback: an optimistically-applied project id (deep link
   // or stale default_view) falls back to Today once the real project list has loaded and
   // does not contain it. Guarded on a non-empty list so a transient empty apply can never
@@ -1014,9 +1045,13 @@ const Index = () => {
     setExpandedTaskIds(new Set());
   }, [isMobile, preferences?.default_task_card_view, preferences?.default_task_card_view_mobile]);
 
-  // React to URL search param changes (e.g. from BottomNav clicks)
-  useEffect(() => {
-    if (!preferencesLoaded) return;
+  // React to URL search param changes (BottomNav clicks) DURING render — the old
+  // post-paint effect let one stale-list frame slip through on every in-app view
+  // switch (flicker fault B, 2026-07-25: Past Due list under a ?view=today URL for
+  // 19ms). Latched on the actual search string, so in-app selections that don't
+  // change the URL are never clobbered.
+  if (preferencesLoaded && appliedSearch !== location.search) {
+    setAppliedSearch(location.search);
     const urlParams = new URLSearchParams(location.search);
     const viewParam = urlParams.get('view');
     if (viewParam === 'past-due' || viewParam === 'today' || viewParam === 'unassigned') {
@@ -1025,7 +1060,7 @@ const Index = () => {
     } else if (viewParam === 'projects') {
       setSelectedSpecialList(null);
     }
-  }, [location.search, preferencesLoaded]);
+  }
 
   // Auto-open sidebar when arriving via openSidebar param (mobile + desktop)
   // Apply the user's default_view preference so the right tasks load
