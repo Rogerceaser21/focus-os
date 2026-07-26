@@ -843,7 +843,7 @@ const Meetings = () => {
     <div className="min-h-screen bg-background pb-20">
       {/* Header — floating glass pill (lg-pagehead) */}
       <div className="sticky top-0 z-10 lg-pagehead" data-meetings-tour-step="page">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="max-w-4xl mx-auto lg-gutter py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/app')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -875,7 +875,7 @@ const Meetings = () => {
           at page mount, never dies (white-flash law). data-state derives from
           state during render; inert + pointer-events keep it untabbable closed. */}
       <div
-        className="lg-reveal max-w-4xl mx-auto px-4 w-full"
+        className="lg-reveal max-w-4xl mx-auto lg-gutter w-full"
         data-state={showParticipants && recordingState === 'idle' ? 'open' : 'closed'}
         aria-hidden={!(showParticipants && recordingState === 'idle')}
         {...(showParticipants && recordingState === 'idle' ? {} : ({ inert: '' } as Record<string, string>))}
@@ -965,7 +965,7 @@ const Meetings = () => {
 
       {recordingState === 'recording' && (
         <div className={`lg-banner-in border-b ${isPaused ? 'bg-amber-500/10 border-amber-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
-          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="max-w-4xl mx-auto lg-gutter py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
                 {isPaused ? (
@@ -1025,7 +1025,7 @@ const Meetings = () => {
       {/* Processing Banner with Progress */}
       {recordingState === 'processing' && (
         <div className="lg-banner-in bg-primary/10 border-b border-primary/30">
-          <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto lg-gutter py-6">
             <div className="flex items-center gap-3 mb-3">
               <Loader2 className="h-6 w-6 animate-spin text-primary shrink-0" />
               <div className="flex-1">
@@ -1043,7 +1043,7 @@ const Meetings = () => {
       )}
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto lg-gutter py-6">
         {/* Orphaned session recovery banner */}
         {orphanedSession && recordingState === 'idle' && (
           <Card className="mb-4 border-amber-500/50 bg-amber-500/10">
