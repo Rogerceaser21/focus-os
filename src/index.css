@@ -625,13 +625,29 @@ All colors MUST be HSL.
 /* app shell: fixed viewport, panels scroll internally (mock .pw-shell) */
 .liquid-glass .lg-shell { height: 100dvh; overflow: hidden; }
 
-/* main column: pills stay put, only the content panel scrolls (mock .pw-main) */
-.liquid-glass .lg-maincol {
-  padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 84px);
-  gap: 10px;
+/* spacing tokens — ONE gutter, ONE stack gap, everywhere (padding sweep 2026-07-26).
+   Every shell surface (app column, Meetings/MeetingDetail columns, page-head pill)
+   derives its outer inset from --sp-gutter so screen edges align across pages. */
+.liquid-glass {
+  --sp-gutter: 14px;
+  --sp-gap: 10px;
 }
 @media (max-width: 999px) {
-  .liquid-glass .lg-maincol { padding: 10px 10px calc(env(safe-area-inset-bottom, 0px) + 78px); }
+  .liquid-glass { --sp-gutter: 10px; }
+}
+/* horizontal gutter utility for page columns outside the app shell (Meetings) */
+.liquid-glass .lg-gutter {
+  padding-left: var(--sp-gutter);
+  padding-right: var(--sp-gutter);
+}
+
+/* main column: pills stay put, only the content panel scrolls (mock .pw-main) */
+.liquid-glass .lg-maincol {
+  padding: var(--sp-gutter) var(--sp-gutter) calc(env(safe-area-inset-bottom, 0px) + 84px);
+  gap: var(--sp-gap);
+}
+@media (max-width: 999px) {
+  .liquid-glass .lg-maincol { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 78px); }
 }
 
 /* sidebar: pinned floating glass panel, own scroll, X to close (mock .pw-side) */
@@ -800,6 +816,34 @@ html.standalone.liquid-glass .lg-hero-col {
 /* Dock height exactly as Igor approved (his 1:56 reference shot). */
 html.standalone.liquid-glass .lg-dock {
   bottom: 6px !important;
+}
+/* Standalone bottom gap (padding sweep round 3): the webview under-reports
+   the bottom inset (env = 0) and the ICB is shorter than the screen, so the
+   browser constant leaves a ~50pt void above the dock. Constant tuned by
+   sim icon-app measurement so card-bottom -> dock-top = --sp-gap, same as
+   Safari. Dock itself untouched (locked). */
+html.standalone.liquid-glass .lg-maincol {
+  padding-bottom: 31px;
+}
+/* Meetings/MeetingDetail header pill: the shell's safe-area padding does not
+   apply on these pages, so the pill must clear the clock itself — same
+   visual line as the /app search pill in standalone. */
+html.standalone.liquid-glass .lg-pagehead {
+  margin-top: calc(env(safe-area-inset-top, 0px) + var(--sp-gutter));
+  top: calc(env(safe-area-inset-top, 0px) + var(--sp-gap)) !important;
+}
+/* Toasts (sonner, top-center on mobile) start below the notch/Dynamic Island */
+html.standalone [data-sonner-toaster][data-y-position='top'] {
+  top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
+}
+/* Projects drawer: the sheet is viewport-fixed so the shell's safe-area
+   padding never reaches it — clear the clock itself. Top edge aligns with
+   the shell content (inset + gap); bottom edge unchanged (14px), so only
+   the height compensates. Static geometry only — the persistent-layer
+   data-state transition pattern (white-flash law) is untouched. */
+html.standalone.liquid-glass .lg-side {
+  margin-top: calc(env(safe-area-inset-top, 0px) + var(--sp-gap));
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--sp-gap) - 14px);
 }
 html.standalone.liquid-glass div.fixed.bottom-24 {
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
@@ -1090,6 +1134,9 @@ html.standalone.liquid-glass .lg-editsheet {
   box-shadow: var(--gshadow);
   border-radius: 26px;
   padding: 6px 10px 12px;
+  /* shadcn TabsContent bakes in mt-2; the stack rhythm comes from the flex gap
+     (--sp-gap) alone, so the panel must not add its own margin on top of it */
+  margin-top: 0;
   overflow-y: auto;
   min-height: 0;
 }
@@ -1388,9 +1435,11 @@ html.standalone.liquid-glass .lg-editsheet {
   border-color: var(--chip-brd);
 }
 
-/* page headers (Meetings, MeetingDetail): floating glass bar */
+/* page headers (Meetings, MeetingDetail): floating glass bar.
+   Vertical margins are the shared rhythm tokens: gutter above (matches the
+   /app shell top inset), ONE stack gap below to the first card. */
 .liquid-glass .lg-pagehead {
-  margin: 14px;
+  margin: var(--sp-gutter) 0 var(--sp-gap);
   border: 1px solid var(--gbrd);
   border-radius: 999px;
   background: var(--gbg);
@@ -1401,8 +1450,14 @@ html.standalone.liquid-glass .lg-editsheet {
 }
 .liquid-glass .lg-pagehead button { border-radius: 999px; }
 
-/* page header pill matches the content column width, not the viewport */
-.liquid-glass .lg-pagehead { max-width: 896px; margin-left: auto; margin-right: auto; }
+/* page header pill matches the content column width, not the viewport — but
+   never touches the screen edge: below 896px+gutters it keeps the shared
+   --sp-gutter inset so its edges align with the /app shell pills */
+.liquid-glass .lg-pagehead {
+  width: min(896px, calc(100% - 2 * var(--sp-gutter)));
+  margin-left: auto;
+  margin-right: auto;
+}
 
 /* standalone glass card (new-meeting form etc.) — same material as lg-side */
 .liquid-glass .lg-glasscard {

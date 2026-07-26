@@ -18,8 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, MoreHorizontal, UserPlus } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import HeroSection from '@/components/HeroSection';
@@ -232,6 +231,7 @@ const Index = () => {
   
   const [fabExpanded, setFabExpanded] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -1915,6 +1915,190 @@ https://www.skyscanner.com`,
 
 
   
+  // Project action bar — ONE implementation shared by the list and grid
+  // branches (padding sweep 2026-07-26). The name never wraps: it truncates
+  // with the full remaining width. Mobile (<lg) shows Status + a single ⋯
+  // menu holding the owner actions; desktop keeps the full inline buttons.
+  const renderProjectBar = () => {
+    const currentProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : undefined;
+    if (!currentProject) return null;
+    const isCollaborator = (currentProject.isShared && currentProject.userId !== user?.id) ?? false;
+    const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+    return (
+      <div className={`w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+        <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+            <span className="hidden sm:inline shrink-0" style={{ color: currentProject.color }}>📁</span>
+
+            {isEditingProjectName && !isCollaborator ? (
+              <Input
+                autoFocus
+                value={editedProjectName}
+                onChange={(e) => setEditedProjectName(e.target.value)}
+                onBlur={handleSaveProjectName}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveProjectName();
+                  if (e.key === 'Escape') setIsEditingProjectName(false);
+                }}
+                className="font-semibold text-base h-auto py-1 px-2 flex-1 min-w-0"
+                style={{ color: currentProject.color }}
+              />
+            ) : (
+              <span
+                className={`font-semibold text-base truncate min-w-0 ${!isCollaborator ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
+                style={{ color: currentProject.color }}
+                onClick={!isCollaborator ? handleStartEditingProject : undefined}
+                data-projects-tour-step="project-name"
+                title={currentProject.name}
+              >
+                {currentProject.name}
+              </span>
+            )}
+            {isCollaborator && assignedByEmail && (
+              <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 shrink-0 max-w-[45%]">
+                <Share2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">Shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
+              </Badge>
+            )}
+            {!isCollaborator && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
+              <span className="shrink-0">
+                <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
+              </span>
+            )}
+            {!isCollaborator && selectedProjectId && (
+              <div className="hidden lg:block shrink-0">
+                <ProjectMembersBar
+                  projectId={selectedProjectId}
+                  isOwner={!isCollaborator}
+                  onInviteClick={() => setInviteDialogOpen(true)}
+                  refreshTrigger={memberRefreshTrigger}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Status Dropdown for Mobile/Tablet */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-1 border-2 h-9 px-2 sm:px-3 flex lg:hidden">
+                  <span className="text-sm hidden sm:inline">Status</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setActiveTab('all')}>
+                  All ({sortedTasks.filter(t => t.status !== 'completed').length})
+                  {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('todo')}>
+                  To Do ({sortedTasks.filter(t => t.status === 'todo').length})
+                  {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
+                  Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
+                  {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('completed')}>
+                  Done ({sortedTasks.filter(t => t.status === 'completed').length})
+                  {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {!isCollaborator && (
+              <>
+                {/* Desktop: full inline actions */}
+                <div className="hidden lg:flex items-center gap-2">
+                  <Button
+                    variant={isReorderMode ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setIsReorderMode(!isReorderMode)}
+                    className="gap-1"
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                    <span>{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}
+                  >
+                    <Mic className="h-4 w-4" />
+                    <span>Meetings</span>
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
+                    onClick={() => setShareProjectDialogOpen(true)}
+                  >
+                    <Share2 className="h-4 w-4" />
+                    <span>Share</span>
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    data-projects-tour-step="delete-button"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="ml-1">Delete</span>
+                  </Button>
+                </div>
+
+                {/* Mobile: one ⋯ menu holds the owner actions */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-2 h-9 px-2 flex lg:hidden"
+                      aria-label="Project actions"
+                      data-projects-tour-step="delete-button"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setIsReorderMode(!isReorderMode)}>
+                      <ArrowUpDown className="h-4 w-4 mr-2" />
+                      {isReorderMode ? 'Done Moving' : 'Move Tasks'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}>
+                      <Mic className="h-4 w-4 mr-2" />
+                      Meetings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setInviteDialogOpen(true)}>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Invite Member
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShareProjectDialogOpen(true)}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setDeleteConfirmOpen(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Project
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Show loading screen while auth is resolving
   if (authLoading) {
     return <AppBootSkeleton />;
@@ -2007,337 +2191,86 @@ https://www.skyscanner.com`,
                 </TabsTrigger>
               </TabsList>
 
-              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (() => {
-                const currentProject = projects.find(p => p.id === selectedProjectId);
-                const isCollaborator = (currentProject?.isShared && currentProject?.userId !== user?.id) ?? false;
-                const isSharedProject = currentProject?.isShared ?? false;
-                const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
-                  <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
-                    <div className="flex items-center gap-1.5 sm:gap-2 flex-1 flex-wrap">
-                      <span className="hidden sm:inline" style={{ color: currentProject?.color }}>📁</span>
+              {renderProjectBar()}
 
-                      {isEditingProjectName && !isCollaborator ? (
-                        <Input
-                          autoFocus
-                          value={editedProjectName}
-                          onChange={(e) => setEditedProjectName(e.target.value)}
-                          onBlur={handleSaveProjectName}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveProjectName();
-                            if (e.key === 'Escape') setIsEditingProjectName(false);
-                          }}
-                          className="font-semibold text-base h-auto py-1 px-2"
-                          style={{ color: currentProject?.color }}
-                        />
-                      ) : (
-                        <span 
-                          className={`font-semibold text-base ${!isCollaborator ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
-                          style={{ color: currentProject?.color }}
-                          onClick={!isCollaborator ? handleStartEditingProject : undefined}
-                          data-projects-tour-step="project-name"
-                        >
-                          {currentProject?.name}
+              {/* Special-view banner (Today / Past Due / Unassigned) — same glass
+                  pill as the project banner (lg-projbar), identity carried by
+                  icon + text colour, never by a background tint */}
+              {selectedSpecialList && (() => {
+                const cfg = {
+                  'today': { Icon: Calendar, label: 'Today', color: 'text-primary', share: true },
+                  'past-due': { Icon: AlertTriangle, label: 'Past Due', color: 'text-orange-500', share: false },
+                  'unassigned': { Icon: ListChecks, label: 'Unassigned Tasks', color: 'text-muted-foreground', share: true },
+                }[selectedSpecialList];
+                if (!cfg) return null;
+                const SpecialIcon = cfg.Icon;
+                return (
+                  <div className="w-full shrink-0 lg-projbar">
+                    <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
+                      <div className="flex items-center gap-2 flex-1">
+                        <SpecialIcon className={`h-5 w-5 ${cfg.color}`} />
+                        <span className={`font-semibold text-base ${cfg.color}`}>
+                          {cfg.label}
                         </span>
-                      )}
-                      {isCollaborator && assignedByEmail && (
-                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 w-fit">
-                          <Share2 className="h-3 w-3 shrink-0" />
-                          <span className="break-words">Shared by {assignerNameMap[assignedByEmail] || assignedByEmail}</span>
-                        </Badge>
-                      )}
-                      {!isCollaborator && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
-                        <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
-                      )}
-                      {!isCollaborator && selectedProjectId && (
-                        <ProjectMembersBar
-                          projectId={selectedProjectId}
-                          isOwner={!isCollaborator}
-                          onInviteClick={() => setInviteDialogOpen(true)}
-                          refreshTrigger={memberRefreshTrigger}
-                        />
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Status Dropdown for Mobile/Tablet */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="gap-1 border-2 h-9 px-2 sm:px-3 flex lg:hidden">
-                          <span className="text-sm hidden sm:inline">Status</span>
-                          <ChevronDown className="h-3 w-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setActiveTab('all')}>
-                          All ({sortedTasks.filter(t => t.status !== 'completed').length})
-                          {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setActiveTab('todo')}>
-                          To Do ({sortedTasks.filter(t => t.status === 'todo').length})
-                          {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
-                          Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
-                          {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setActiveTab('completed')}>
-                          Done ({sortedTasks.filter(t => t.status === 'completed').length})
-                          {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    
-                    {!isCollaborator && (
-                      <>
-                        <Button 
-                          variant={isReorderMode ? 'secondary' : 'ghost'}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant={isReorderMode ? "default" : "outline"}
                           size="sm"
                           onClick={() => setIsReorderMode(!isReorderMode)}
-                          className="gap-1 px-1.5 sm:px-3"
+                          className="gap-1"
                         >
                           <ArrowUpDown className="h-4 w-4" />
                           <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                          <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
                         </Button>
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 px-1.5 sm:px-3"
-                          onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}
-                        >
-                          <Mic className="h-4 w-4" />
-                          <span className="hidden lg:inline">Meetings</span>
-                        </Button>
+                        {cfg.share && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
+                            onClick={() => setShareProjectDialogOpen(true)}
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                        )}
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 px-1.5 sm:px-3 text-primary hover:text-primary/80 hover:bg-primary/10"
-                          onClick={() => setShareProjectDialogOpen(true)}
-                        >
-                          <Share2 className="h-4 w-4" />
-                          <span className="hidden lg:inline">Share</span>
-                        </Button>
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              data-projects-tour-step="delete-button"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="hidden lg:inline ml-1">Delete</span>
+                        {/* Status Dropdown for Mobile/Tablet */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
+                              <span className="text-sm">Status</span>
+                              <ChevronDown className="h-3 w-3" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Project?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                By selecting Yes, you understand that the project and all the tasks within the Project will be deleted permanently. This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={handleDeleteProject}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Yes, Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </>
-                    )}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setActiveTab('all')}>
+                              All ({sortedTasks.filter(t => t.status !== 'completed').length})
+                              {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setActiveTab('todo')}>
+                              To Do ({sortedTasks.filter(t => t.status === 'todo').length})
+                              {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
+                              Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
+                              {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setActiveTab('completed')}>
+                              Done ({sortedTasks.filter(t => t.status === 'completed').length})
+                              {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
                   </div>
-                </div>;
+                );
               })()}
 
-              {/* Today's To-Do Banner */}
-              {selectedSpecialList === 'today' && (
-                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
-                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
-                    <div className="flex items-center gap-2 flex-1">
-                      <Calendar className="h-5 w-5 text-primary" />
-                      <span className="font-semibold text-base text-primary">
-                        Today
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant={isReorderMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setIsReorderMode(!isReorderMode)}
-                        className="gap-1"
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                        <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                        <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
-                        onClick={() => setShareProjectDialogOpen(true)}
-                      >
-                        <Share2 className="h-4 w-4" />
-                      </Button>
-
-                      {/* Status Dropdown for Mobile/Tablet */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
-                            <span className="text-sm">Status</span>
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setActiveTab('all')}>
-                            All ({sortedTasks.filter(t => t.status !== 'completed').length})
-                            {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('todo')}>
-                            To Do ({sortedTasks.filter(t => t.status === 'todo').length})
-                            {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
-                            Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
-                            {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('completed')}>
-                            Done ({sortedTasks.filter(t => t.status === 'completed').length})
-                            {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Past Due Banner */}
-              {selectedSpecialList === 'past-due' && (
-                <div className="mt-4 w-full bg-orange-400/5 p-1 rounded-md border border-orange-400/20">
-                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
-                    <div className="flex items-center gap-2 flex-1">
-                      <AlertTriangle className="h-5 w-5 text-orange-400/80" />
-                      <span className="font-semibold text-base text-orange-400/80">
-                        Past Due
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant={isReorderMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setIsReorderMode(!isReorderMode)}
-                        className="gap-1"
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                        <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                        <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
-                      </Button>
-
-                      {/* Status Dropdown for Mobile/Tablet */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
-                            <span className="text-sm">Status</span>
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setActiveTab('all')}>
-                            All ({sortedTasks.filter(t => t.status !== 'completed').length})
-                            {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('todo')}>
-                            To Do ({sortedTasks.filter(t => t.status === 'todo').length})
-                            {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
-                            Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
-                            {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('completed')}>
-                            Done ({sortedTasks.filter(t => t.status === 'completed').length})
-                            {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedSpecialList === 'unassigned' && (
-                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
-                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
-                    <div className="flex items-center gap-2 flex-1">
-                      <ListChecks className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-semibold text-base text-muted-foreground">
-                        Unassigned Tasks
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant={isReorderMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setIsReorderMode(!isReorderMode)}
-                        className="gap-1"
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                        <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                        <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
-                        onClick={() => setShareProjectDialogOpen(true)}
-                      >
-                        <Share2 className="h-4 w-4" />
-                      </Button>
-
-                      {/* Status Dropdown for Mobile/Tablet */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
-                            <span className="text-sm">Status</span>
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setActiveTab('all')}>
-                            All ({sortedTasks.filter(t => t.status !== 'completed').length})
-                            {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('todo')}>
-                            To Do ({sortedTasks.filter(t => t.status === 'todo').length})
-                            {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
-                            Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
-                            {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('completed')}>
-                            Done ({sortedTasks.filter(t => t.status === 'completed').length})
-                            {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <TabsContent value="all" className="flex-1 min-h-0 lg-content">
+              <TabsContent value="all" className="flex-initial min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status !== 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2356,7 +2289,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="todo" className="flex-1 min-h-0 lg-content">
+              <TabsContent value="todo" className="flex-initial min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'todo')}
                   onUpdate={handleUpdateTask}
@@ -2375,7 +2308,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="in-progress" className="flex-1 min-h-0 lg-content">
+              <TabsContent value="in-progress" className="flex-initial min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'in-progress')}
                   onUpdate={handleUpdateTask}
@@ -2394,7 +2327,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="completed" className="flex-1 min-h-0 lg-content">
+              <TabsContent value="completed" className="flex-initial min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2428,136 +2361,24 @@ https://www.skyscanner.com`,
                 </TabsTrigger>
               </TabsList>
 
-              {selectedProjectId && projects.find(p => p.id === selectedProjectId) && (() => {
-                const currentProject2 = projects.find(p => p.id === selectedProjectId);
-                const isCollaborator2 = (currentProject2?.isShared && currentProject2?.userId !== user?.id) ?? false;
-                const isSharedProject2 = currentProject2?.isShared ?? false;
-                const assignedByEmail2 = isCollaborator2 ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
-                  <div className="flex items-center justify-between gap-2 px-3 py-2">
-                    <div className="flex flex-col gap-0.5 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span style={{ color: currentProject2?.color }}>📁</span>
-                        
-                        {isEditingProjectName && !isCollaborator2 ? (
-                          <Input
-                            autoFocus
-                            value={editedProjectName}
-                            onChange={(e) => setEditedProjectName(e.target.value)}
-                            onBlur={handleSaveProjectName}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveProjectName();
-                              if (e.key === 'Escape') setIsEditingProjectName(false);
-                            }}
-                            className="font-semibold text-base h-auto py-1 px-2"
-                            style={{ color: currentProject2?.color }}
-                          />
-                        ) : (
-                          <span 
-                            className={`font-semibold text-base ${!isCollaborator2 ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
-                            style={{ color: currentProject2?.color }}
-                            onClick={!isCollaborator2 ? handleStartEditingProject : undefined}
-                          >
-                            {currentProject2?.name}
-                          </span>
-                        )}
-                      </div>
-                      {isCollaborator2 && assignedByEmail2 && (
-                        <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 ml-7 mt-1 w-fit">
-                          <Share2 className="h-3 w-3 shrink-0" />
-                          <span className="break-words">Project shared by {assignerNameMap[assignedByEmail2] || assignedByEmail2}</span>
-                        </Badge>
-                      )}
-                      {!isCollaborator2 && selectedProjectId && senderProjectSharedMap[selectedProjectId] && (
-                        <div className="ml-7 mt-1">
-                          <ShareStatusPopover recipients={senderProjectSharedMap[selectedProjectId]} itemType="Project" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    {!isCollaborator2 && (
-                      <>
-                        <Button 
-                          variant={isReorderMode ? 'secondary' : 'ghost'}
-                          size="sm"
-                          onClick={() => setIsReorderMode(!isReorderMode)}
-                          className="gap-1"
-                        >
-                          <ArrowUpDown className="h-4 w-4" />
-                          <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                          <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
-                        </Button>
+              {renderProjectBar()}
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1"
-                          onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}
-                        >
-                          <Mic className="h-4 w-4" />
-                          <span className="hidden lg:inline">Meetings</span>
-                        </Button>
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
-                          onClick={() => setShareProjectDialogOpen(true)}
-                        >
-                          <Share2 className="h-4 w-4" />
-                          <span className="hidden lg:inline">Share</span>
-                        </Button>
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              Delete
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Project?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                By selecting Yes, you understand that the project and all the tasks within the Project will be deleted permanently. This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={handleDeleteProject}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Yes, Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </>
-                    )}
-                  </div>
-                </div>;
-              })()}
-
-              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
+              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
+              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
+              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
+              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
-            </Tabs> : viewMode === 'gantt' ? <div className="flex-1 min-h-0 lg-content">
+            </Tabs> : viewMode === 'gantt' ? <div className="flex-initial min-h-0 lg-content">
               <GanttChart 
                 tasks={sortedTasks}
                 allTasks={sortedTasks}
@@ -2576,7 +2397,7 @@ https://www.skyscanner.com`,
                 onAddTask={handleAddTask}
                 onOpenAddTask={() => handleAddTaskDialogOpen(true)}
               />
-            </div> : <div className="flex-1 min-h-0 lg-content">
+            </div> : <div className="flex-initial min-h-0 lg-content">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
             </div>}
               </div>
@@ -2762,6 +2583,28 @@ https://www.skyscanner.com`,
           onInviteSent={() => setMemberRefreshTrigger(prev => prev + 1)}
         />
       )}
+
+      {/* Delete-project confirm — one controlled instance serving both the
+          desktop Delete button and the mobile ⋯ menu item */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              By selecting Yes, you understand that the project and all the tasks within the Project will be deleted permanently. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProject}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarProvider>;
 };
 export default Index;

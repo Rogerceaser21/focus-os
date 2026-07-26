@@ -858,12 +858,12 @@ const MeetingDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <div className="sticky top-0 z-10 lg-pagehead">
-          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div className="max-w-4xl mx-auto lg-gutter py-3 flex items-center gap-3">
             <Skeleton className="h-10 w-10 rounded" />
             <Skeleton className="h-6 w-48" />
           </div>
         </div>
-        <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+        <div className="max-w-4xl mx-auto lg-gutter pb-6 space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-24 w-full rounded-lg" />
           <Skeleton className="h-32 w-full rounded-lg" />
@@ -881,7 +881,7 @@ const MeetingDetail = () => {
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <div className="sticky top-0 z-10 lg-pagehead">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="max-w-4xl mx-auto lg-gutter py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/meetings')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -938,7 +938,7 @@ const MeetingDetail = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-4xl mx-auto lg-gutter pb-6 space-y-6">
         {/* Participants */}
         {meeting.participants.length > 0 && (
           <Card>
