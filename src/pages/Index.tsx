@@ -2270,7 +2270,7 @@ https://www.skyscanner.com`,
                 );
               })()}
 
-              <TabsContent value="all" className="flex-1 min-h-0 lg-content">
+              <TabsContent value="all" className="flex-initial min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status !== 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2289,7 +2289,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="todo" className="flex-1 min-h-0 lg-content">
+              <TabsContent value="todo" className="flex-initial min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'todo')}
                   onUpdate={handleUpdateTask}
@@ -2308,7 +2308,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="in-progress" className="flex-1 min-h-0 lg-content">
+              <TabsContent value="in-progress" className="flex-initial min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'in-progress')}
                   onUpdate={handleUpdateTask}
@@ -2327,7 +2327,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="completed" className="flex-1 min-h-0 lg-content">
+              <TabsContent value="completed" className="flex-initial min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2363,22 +2363,22 @@ https://www.skyscanner.com`,
 
               {renderProjectBar()}
 
-              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
+              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
+              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
+              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
+              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
-            </Tabs> : viewMode === 'gantt' ? <div className="flex-1 min-h-0 lg-content">
+            </Tabs> : viewMode === 'gantt' ? <div className="flex-initial min-h-0 lg-content">
               <GanttChart 
                 tasks={sortedTasks}
                 allTasks={sortedTasks}
@@ -2397,7 +2397,7 @@ https://www.skyscanner.com`,
                 onAddTask={handleAddTask}
                 onOpenAddTask={() => handleAddTaskDialogOpen(true)}
               />
-            </div> : <div className="flex-1 min-h-0 lg-content">
+            </div> : <div className="flex-initial min-h-0 lg-content">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
             </div>}
               </div>
