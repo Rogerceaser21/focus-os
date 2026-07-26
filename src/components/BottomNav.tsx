@@ -58,7 +58,7 @@ const BottomNav = ({
   return (
     <>
       <div
-        className="fixed bottom-0 left-0 right-0 grid grid-cols-6 z-20 border-t border-border/30"
+        className="fixed bottom-0 left-0 right-0 grid grid-cols-6 z-20 border-t border-border/30 lg-dock"
         style={{
           background: 'hsl(var(--dock-background))',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
@@ -70,7 +70,7 @@ const BottomNav = ({
           icon={<FolderOpen className="w-5 h-5" />}
           label="Projects"
           onClick={() => {
-            if (isMobile && location.pathname === '/app' && onToggleSidebar) {
+            if (location.pathname === '/app' && onToggleSidebar) {
               onToggleSidebar();
             } else {
               navigate('/app?openSidebar=true');
@@ -148,10 +148,10 @@ const NavButton = ({
       active
         ? accent
           ? 'text-red-400'
-          : 'text-white'
+          : 'lg-dock-on text-foreground'
         : accent
           ? 'text-accent hover:text-red-400'
-          : 'text-muted-foreground hover:text-white'
+          : 'text-muted-foreground hover:text-foreground'
     }`}
   >
     {icon}

@@ -61,114 +61,334 @@ All colors MUST be HSL.
     --glass-shadow: 220 20% 20% / 0.08;
     --glass-blur: 16px;
     --glass-glow: 186 80% 50% / 0.15;
+
+    /* ------------------------------------------------------------------
+       Motion tokens — bimodal by design. Large surfaces GLIDE (420-480ms,
+       iOS sheet curve: Vaul / M3-emphasized lineage). Micro SNAPS
+       (140-200ms, strong ease-out). Nothing between 200ms and 420ms —
+       that middle band failed the feel gate (C+D wave, reverted 342c7e0).
+       No stagger on view switches, ever. Exits always shorter than
+       entrances (~0.65x). Sources: Vaul 500ms (0.32,0.72,0,1); M3
+       emphasized 400-500ms; Apple sheet spring response 0.3 damping 0.8;
+       Emil Kowalski curves + duration bands.
+       ------------------------------------------------------------------ */
+    --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);  /* micro: presses, fades, pills */
+    --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);       /* large surfaces (proven on .lg-side) */
+    --ease-move: cubic-bezier(0.77, 0, 0.175, 1);       /* on-screen movement/morphs, never enters */
+    --dur-micro: 140ms;        /* press feedback, hover tints, seg/tab pills */
+    --dur-quick: 200ms;        /* dropdown/popover enter, small fades */
+    --dur-quick-out: 150ms;    /* dropdown/popover exit */
+    --dur-panel-in: 420ms;     /* dialog / side-panel enter */
+    --dur-panel-out: 280ms;    /* dialog / side-panel exit */
+    --dur-reveal-in: 360ms;    /* inline grid-rows reveals (meeting card, banners) */
+    --dur-reveal-out: 280ms;
+    --dur-drawer-in: 380ms;    /* projects drawer — value-identical to shipped */
+    --dur-drawer-out: 260ms;
+    --dur-hero: 480ms;         /* signature edit-sheet rise — locked */
+    --dur-complete: 1000ms;    /* task completion ritual, matches unmount timers */
   }
 
-  /* Dark Mode */
-  .dark {
-    --background: 225 25% 6%;
-    --foreground: 0 0% 95%;
+  /* Liquid Glass theme — wallpaper-adaptive materials (see src/lib/wallpaper.tsx).
+     Default token set = frost (bright art wallpapers: Monet, Hokusai).
+     [data-wallpaper] variants switch the material to smoke (dark art) or solid (plain).
+     IMPORTANT: tokens stay OPAQUE (Tailwind alpha modifiers like bg-secondary/50
+     rewrite hsl(var(--x)) to hsl(var(--x) / .5); an alpha inside the token makes
+     that invalid CSS and the browser drops the fill entirely). Translucency and
+     blur are applied per-surface in the unlayered block at the end of this file. */
+  .liquid-glass {
+    --background: 205 25% 94%;
+    --foreground: 203 19% 18%;
 
-    --card: 225 20% 10%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 100%;
+    --card-foreground: 203 19% 18%;
 
-    --popover: 225 20% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 203 19% 18%;
 
-    --primary: 186 80% 55%;
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 225 20% 15%;
-    --secondary-foreground: 0 0% 85%;
+    --secondary: 204 20% 94%;
+    --secondary-foreground: 203 19% 22%;
 
-    --muted: 225 15% 14%;
-    --muted-foreground: 0 0% 60%;
+    --muted: 204 15% 90%;
+    --muted-foreground: 203 12% 36%;
 
-    --accent: 14 90% 65%;
+    --accent: 211 100% 50%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 358 75% 59%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 225 15% 18%;
-    --input: 225 15% 16%;
-    --ring: 186 80% 55%;
+    --border: 204 15% 82%;
+    --input: 204 15% 88%;
+    --ring: 211 100% 50%;
 
-    --success: 142 76% 50%;
+    --success: 135 63% 49%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 60%;
-    --info: 199 89% 58%;
+    --warning: 38 92% 50%;
+    --info: 199 89% 48%;
 
-    --sidebar-background: 225 20% 8%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 186 80% 55%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 203 19% 20%;
+    --sidebar-primary: 211 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 225 15% 14%;
-    --sidebar-accent-foreground: 0 0% 85%;
-    --sidebar-border: 225 15% 18%;
-    --sidebar-ring: 186 80% 55%;
+    --sidebar-accent: 204 20% 94%;
+    --sidebar-accent-foreground: 203 19% 20%;
+    --sidebar-border: 204 15% 84%;
+    --sidebar-ring: 211 100% 50%;
 
-    --dock-background: 225 30% 10%;
+    /* consumed directly via hsl(var()) with no modifier, alpha is safe here */
+    --dock-background: 0 0% 100% / 0.72;
 
-    /* Glass effect tokens - Dark mode */
-    --glass-background: 225 20% 12% / 0.7;
-    --glass-border: 0 0% 100% / 0.08;
-    --glass-shadow: 0 0% 0% / 0.4;
-    --glass-blur: 20px;
-    --glass-glow: 186 80% 55% / 0.2;
+    --glass-background: 0 0% 100% / 0.55;
+    --glass-border: 0 0% 100% / 0.62;
+    --glass-shadow: 203 42% 10% / 0.16;
+    --glass-blur: 26px;
+    --glass-glow: 211 100% 50% / 0.2;
+
+    --wallpaper-veil: linear-gradient(180deg, hsl(0 0% 100% / 0.08), hsl(0 0% 0% / 0.14));
+
+    /* material vars ported 1:1 from the mock (previewTheme BASE_CSS, frost) */
+    --t1: #22303a;
+    --t2: rgba(34, 48, 58, 0.55);
+    --t3: rgba(34, 48, 58, 0.35);
+    --gbg: linear-gradient(135deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.36) 100%);
+    --gbg-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.5) 100%);
+    --gbrd: rgba(255, 255, 255, 0.62);
+    --gshadow: 0 8px 32px rgba(10, 30, 40, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.85);
+    --lg-blur: 26px;
+    --lg-sat: 180%;
+    --row-line: rgba(34, 48, 58, 0.1);
+    --lg-hover: rgba(255, 255, 255, 0.45);
+    --chip: rgba(255, 255, 255, 0.55);
+    --chip-brd: rgba(255, 255, 255, 0.7);
   }
 
-  /* Cream Theme */
-  .cream {
-    --background: 38 30% 92%;
-    --foreground: 30 25% 13%;
+  /* Hokusai keeps frost but takes a deep-teal accent */
+  .liquid-glass[data-wallpaper='wave'] {
+    --primary: 193 81% 31%;
+    --accent: 193 81% 31%;
+    --ring: 193 81% 31%;
+    --sidebar-primary: 193 81% 31%;
+    --sidebar-ring: 193 81% 31%;
+    --glass-glow: 193 81% 31% / 0.2;
+  }
 
-    --card: 38 35% 96%;
-    --card-foreground: 30 25% 13%;
+  /* smoke — dark art (Van Gogh) */
+  .liquid-glass[data-wallpaper='starry'] {
+    --background: 228 32% 10%;
+    --foreground: 220 60% 97%;
+    --card: 227 25% 16%;
+    --card-foreground: 220 60% 97%;
+    --popover: 227 25% 14%;
+    --popover-foreground: 220 60% 97%;
+    --primary: 199 89% 74%;
+    --primary-foreground: 220 40% 10%;
+    --secondary: 227 22% 22%;
+    --secondary-foreground: 220 50% 92%;
+    --muted: 227 22% 20%;
+    --muted-foreground: 222 45% 78%;
+    --accent: 199 89% 74%;
+    --accent-foreground: 220 40% 10%;
+    --border: 227 18% 30%;
+    --input: 227 18% 26%;
+    --ring: 199 89% 74%;
+    --sidebar-background: 227 25% 15%;
+    --sidebar-foreground: 220 60% 95%;
+    --sidebar-primary: 199 89% 74%;
+    --sidebar-primary-foreground: 220 40% 10%;
+    --sidebar-accent: 227 22% 22%;
+    --sidebar-accent-foreground: 220 50% 92%;
+    --sidebar-border: 227 18% 28%;
+    --sidebar-ring: 199 89% 74%;
+    --dock-background: 227 28% 14% / 0.72;
+    --glass-background: 227 28% 18% / 0.45;
+    --glass-border: 0 0% 100% / 0.16;
+    --glass-shadow: 0 0% 0% / 0.5;
+    --glass-blur: 34px;
+    --glass-glow: 199 89% 74% / 0.25;
+    --wallpaper-veil: radial-gradient(120% 90% at 50% 0%, hsl(228 60% 6% / 0.32), hsl(228 55% 4% / 0.64) 80%);
 
-    --popover: 38 35% 96%;
-    --popover-foreground: 30 25% 13%;
+    /* material vars (mock smoke) */
+    --t1: rgba(238, 244, 255, 0.95);
+    --t2: rgba(214, 226, 255, 0.55);
+    --t3: rgba(214, 226, 255, 0.35);
+    --gbg: linear-gradient(135deg, rgba(44, 52, 78, 0.46) 0%, rgba(16, 20, 36, 0.42) 100%);
+    --gbg-strong: linear-gradient(135deg, rgba(54, 64, 94, 0.6) 0%, rgba(20, 24, 42, 0.55) 100%);
+    --gbrd: rgba(255, 255, 255, 0.16);
+    --gshadow: 0 16px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+    --lg-blur: 34px;
+    --lg-sat: 160%;
+    --row-line: rgba(214, 226, 255, 0.1);
+    --lg-hover: rgba(255, 255, 255, 0.06);
+    --chip: rgba(125, 211, 252, 0.12);
+    --chip-brd: rgba(125, 211, 252, 0.28);
+  }
 
-    --primary: 18 60% 45%;
-    --primary-foreground: 38 30% 96%;
+  /* solid — no art (Plain). Base colour comes from the user's colour picker
+     via --plain-color (set by WallpaperController); data-plain-tone flips the
+     token set to keep text readable on dark picks. */
+  .liquid-glass[data-wallpaper='plain'] {
+    --background: 220 14% 96%;
+    --foreground: 214 14% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 214 14% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 214 14% 12%;
+    --primary: 214 14% 10%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 92%;
+    --secondary-foreground: 214 14% 16%;
+    --muted: 220 14% 93%;
+    --muted-foreground: 214 10% 40%;
+    --accent: 214 14% 10%;
+    --accent-foreground: 0 0% 100%;
+    --border: 220 13% 87%;
+    --input: 220 13% 89%;
+    --ring: 214 14% 10%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 214 14% 14%;
+    --sidebar-primary: 214 14% 10%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 92%;
+    --sidebar-accent-foreground: 214 14% 14%;
+    --sidebar-border: 220 13% 87%;
+    --sidebar-ring: 214 14% 10%;
+    --dock-background: 0 0% 100% / 0.85;
+    --glass-background: 0 0% 100% / 0.78;
+    --glass-border: 222 33% 12% / 0.08;
+    --glass-shadow: 222 33% 12% / 0.07;
+    --glass-blur: 18px;
+    --glass-glow: 214 14% 10% / 0.1;
+    --wallpaper-veil: none;
 
-    --secondary: 35 20% 85%;
-    --secondary-foreground: 30 25% 18%;
+    /* material vars (mock solid) */
+    --t1: #1b1f24;
+    --t2: rgba(27, 31, 36, 0.5);
+    --t3: rgba(27, 31, 36, 0.32);
+    --gbg: rgba(255, 255, 255, 0.78);
+    --gbg-strong: rgba(255, 255, 255, 0.92);
+    --gbrd: rgba(20, 24, 40, 0.08);
+    --gshadow: 0 2px 16px rgba(20, 24, 40, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    --lg-blur: 18px;
+    --lg-sat: 120%;
+    --row-line: rgba(20, 24, 40, 0.07);
+    --lg-hover: rgba(20, 24, 40, 0.04);
+    --chip: rgba(20, 24, 40, 0.05);
+    --chip-brd: rgba(20, 24, 40, 0.07);
+  }
 
-    --muted: 35 18% 88%;
-    --muted-foreground: 30 18% 42%;
+  /* solid, dark tone — user picked a dark plain colour */
+  .liquid-glass[data-wallpaper='plain'][data-plain-tone='dark'] {
+    --background: 220 10% 12%;
+    --foreground: 220 20% 96%;
+    --card: 220 10% 18%;
+    --card-foreground: 220 20% 96%;
+    --popover: 220 10% 16%;
+    --popover-foreground: 220 20% 96%;
+    --primary: 220 20% 96%;
+    --primary-foreground: 220 10% 12%;
+    --secondary: 220 9% 24%;
+    --secondary-foreground: 220 15% 92%;
+    --muted: 220 9% 22%;
+    --muted-foreground: 220 12% 72%;
+    --accent: 220 20% 96%;
+    --accent-foreground: 220 10% 12%;
+    --border: 220 8% 32%;
+    --input: 220 8% 28%;
+    --ring: 220 20% 96%;
+    --sidebar-background: 220 10% 17%;
+    --sidebar-foreground: 220 20% 94%;
+    --sidebar-primary: 220 20% 96%;
+    --sidebar-primary-foreground: 220 10% 12%;
+    --sidebar-accent: 220 9% 24%;
+    --sidebar-accent-foreground: 220 15% 92%;
+    --sidebar-border: 220 8% 30%;
+    --sidebar-ring: 220 20% 96%;
+    --dock-background: 220 10% 15% / 0.85;
+    --glass-background: 220 10% 20% / 0.6;
+    --glass-border: 0 0% 100% / 0.14;
+    --glass-shadow: 0 0% 0% / 0.45;
+    --glass-blur: 18px;
+    --glass-glow: 220 20% 96% / 0.12;
+    --wallpaper-veil: none;
 
-    --accent: 350 45% 35%;
-    --accent-foreground: 38 30% 96%;
+    /* material vars (solid, dark tone) */
+    --t1: rgba(238, 242, 248, 0.95);
+    --t2: rgba(210, 220, 235, 0.55);
+    --t3: rgba(210, 220, 235, 0.35);
+    --gbg: rgba(24, 28, 35, 0.62);
+    --gbg-strong: rgba(34, 40, 49, 0.85);
+    --gbrd: rgba(255, 255, 255, 0.14);
+    --gshadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    --lg-blur: 18px;
+    --lg-sat: 120%;
+    --row-line: rgba(210, 220, 235, 0.1);
+    --lg-hover: rgba(255, 255, 255, 0.06);
+    --chip: rgba(255, 255, 255, 0.08);
+    --chip-brd: rgba(255, 255, 255, 0.14);
+  }
 
-    --destructive: 0 65% 48%;
-    --destructive-foreground: 38 30% 96%;
+  /* Root-canvas wallpaper copy — the backdrop-filter SAFETY NET, not the
+     visible wallpaper (body::before below paints over it everywhere).
+     iOS WebKit disables backdrop-filter on any element while it runs a
+     compositing-affecting animation (open WebKit bug 219729; exact white
+     flash repro in 315836); during that window the broken fallback samples
+     the ROOT CANVAS, not the separately-composited body::before image
+     layer. With only the cream EDGE_TONE colour on the canvas, every
+     animated glass surface (the Projects sheet open/close being the
+     device-verified case) flashed flat white in Safari browser mode. The
+     standalone icon-app never flashed because there the canvas itself
+     carries the artwork — this rule gives browser mode the same property.
+     Normal scroll attachment (see the Chromium note below); on scrollable
+     documents this layer sizes oddly, which is harmless — it is never
+     visible behind body::before and only exists to feed the broken
+     sampling path correct pixels. */
+  html.liquid-glass {
+    background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
+    background-size: cover, cover;
+    background-position: center, center;
+    background-repeat: no-repeat;
+  }
 
-    --border: 35 18% 78%;
-    --input: 35 18% 82%;
-    --ring: 18 60% 45%;
+  /* The wallpaper, painted on a viewport-fixed pseudo layer behind the app.
+     NOT background-attachment: fixed — Chromium fails to repaint fixed
+     attachment layers when the var(--wallpaper-url) custom property changes,
+     and iOS Safari does not support fixed attachment at all. */
+  html.liquid-glass body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
+    background-size: cover, cover;
+    background-position: center, center;
+  }
+  html.liquid-glass[data-wallpaper='plain'] body::before {
+    background-color: var(--plain-color, hsl(var(--background)));
+    background-image:
+      radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
+      radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
+  }
 
-    --success: 85 40% 38%;
-    --success-foreground: 38 30% 96%;
-    --warning: 32 70% 48%;
-    --info: 28 55% 50%;
-
-    --sidebar-background: 38 28% 94%;
-    --sidebar-foreground: 30 25% 18%;
-    --sidebar-primary: 18 60% 45%;
-    --sidebar-primary-foreground: 30 25% 13%;
-    --sidebar-accent: 35 20% 88%;
-    --sidebar-accent-foreground: 30 25% 13%;
-    --sidebar-border: 35 18% 80%;
-    --sidebar-ring: 18 60% 45%;
-
-    --dock-background: 30 20% 16%;
-
-    /* Glass effect tokens - Cream mode */
-    --glass-background: 38 35% 96% / 0.7;
-    --glass-border: 35 18% 78% / 0.5;
-    --glass-shadow: 30 20% 30% / 0.08;
-    --glass-blur: 16px;
-    --glass-glow: 18 60% 45% / 0.15;
+  /* Home-Screen (standalone) mode: the wallpaper runs under the iOS status
+     bar, whose clock/icons are white in black-translucent mode. A whisper of
+     dark fade keeps them readable over the light wallpapers.
+     html.standalone is set by main.tsx — iOS legacy web apps report
+     navigator.standalone and do NOT reliably match the display-mode media
+     query, so a class is the only dependable hook. */
+  html.standalone.liquid-glass body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(env(safe-area-inset-top, 0px) + 8px);
+    z-index: 90;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.28), transparent);
   }
 }
 
@@ -292,7 +512,13 @@ All colors MUST be HSL.
       0 8px 32px hsl(var(--glass-shadow)),
       0 0 0 1px hsl(var(--glass-border)),
       inset 0 1px 0 hsl(0 0% 100% / 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Scoped: `all` made every row animate its own reflow when the deferred
+       image backfill re-rendered the list (~1s after paint), and dragged
+       hover feedback to 300ms. Micro feedback = 140ms, feedback properties
+       only — never layout. */
+    transition: border-color var(--dur-micro) var(--ease-out-strong),
+                background-color var(--dur-micro) var(--ease-out-strong),
+                box-shadow var(--dur-micro) var(--ease-out-strong);
   }
 
   .glass-card:hover {
@@ -333,4 +559,901 @@ All colors MUST be HSL.
   background: linear-gradient(105deg, transparent, hsl(var(--primary) / 0.25), transparent);
   animation: highlight-sweep 0.9s ease-out forwards;
   pointer-events: none;
+}
+
+/* ============================================================================
+   Liquid Glass surface treatment. Unlayered on purpose: these must beat the
+   Tailwind utility layer. Tokens are opaque; translucency + frost live here.
+   ========================================================================= */
+
+/* page shells: thin veil so the wallpaper shows through */
+.liquid-glass .bg-background { background-color: hsl(var(--background) / 0.2); }
+.liquid-glass[data-wallpaper='starry'] .bg-background { background-color: hsl(var(--background) / 0.3); }
+/* plain: page shell fully transparent so the picked --plain-color shows through */
+.liquid-glass[data-wallpaper='plain'] .bg-background { background-color: transparent; }
+
+/* primary surfaces: translucent fill + real frost */
+.liquid-glass .bg-card,
+.liquid-glass .bg-popover,
+.liquid-glass .bg-sidebar {
+  background-color: hsl(var(--card) / 0.72);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border-color: hsl(var(--glass-border));
+}
+.liquid-glass .bg-popover { background-color: hsl(var(--popover) / 0.88); }
+.liquid-glass[data-wallpaper='starry'] .bg-card,
+.liquid-glass[data-wallpaper='starry'] .bg-sidebar { background-color: hsl(var(--card) / 0.6); }
+.liquid-glass[data-wallpaper='starry'] .bg-popover { background-color: hsl(var(--popover) / 0.88); }
+.liquid-glass[data-wallpaper='plain'] .bg-card,
+.liquid-glass[data-wallpaper='plain'] .bg-sidebar { background-color: hsl(var(--card) / 0.92); }
+.liquid-glass[data-wallpaper='plain'] .bg-popover { background-color: hsl(var(--popover) / 0.97); }
+
+/* secondary fills: translucent but NO blur (cheap, used on many small chips) */
+.liquid-glass .bg-secondary { background-color: hsl(var(--secondary) / 0.78); }
+.liquid-glass .bg-muted { background-color: hsl(var(--muted) / 0.65); }
+.liquid-glass[data-wallpaper='plain'] .bg-secondary { background-color: hsl(var(--secondary)); }
+.liquid-glass[data-wallpaper='plain'] .bg-muted { background-color: hsl(var(--muted)); }
+
+/* dialogs/sheets (shadcn paints them with bg-background): solid readable glass */
+.liquid-glass [role='dialog'] {
+  background-color: hsl(var(--popover) / 0.92);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border-color: hsl(var(--glass-border));
+}
+
+/* text that sits directly on the wallpaper (greetings, hero labels) */
+.liquid-glass .lg-onbg { color: #fff; text-shadow: 0 2px 24px rgba(0, 20, 30, 0.5), 0 1px 2px rgba(0, 20, 30, 0.3); }
+.liquid-glass[data-wallpaper='plain'] .lg-onbg { color: hsl(var(--foreground)); text-shadow: none; }
+
+/* ---------------------------------------------------------------------------
+   Structural: the /preview/app mock architecture, ported 1:1 (PreviewApp.tsx
+   + previewTheme.tsx are the source of truth). Material vars (--t1 … --chip-brd)
+   are defined per wallpaper in the token blocks above; accent = --primary.
+   -------------------------------------------------------------------------- */
+
+/* glass material primitive (mock .pw-glass) */
+.liquid-glass .lg-glass {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+}
+
+/* app shell: fixed viewport, panels scroll internally (mock .pw-shell) */
+.liquid-glass .lg-shell { height: 100dvh; overflow: hidden; }
+
+/* main column: pills stay put, only the content panel scrolls (mock .pw-main) */
+.liquid-glass .lg-maincol {
+  padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 84px);
+  gap: 10px;
+}
+@media (max-width: 999px) {
+  .liquid-glass .lg-maincol { padding: 10px 10px calc(env(safe-area-inset-bottom, 0px) + 78px); }
+}
+
+/* sidebar: pinned floating glass panel, own scroll, X to close (mock .pw-side) */
+.liquid-glass [data-sidebar='sidebar'] {
+  border-radius: 26px;
+  border: 1px solid var(--gbrd);
+  overflow: hidden;
+}
+.liquid-glass .lg-side {
+  /* !important on background/backdrop-filter: the mobile Projects panel is a
+     Radix Sheet whose base `sheetVariants()` class list (src/components/ui/sheet.tsx)
+     bakes in the generic `.glass-panel` utility (static frost, not wallpaper-aware).
+     `cn()` merges `lg-side` alongside it rather than replacing it, so both classes
+     land on the same element. Match the `border` override below (already !important
+     for the same reason) so the wallpaper-driven glass always wins, on both the
+     desktop div and the mobile Sheet, instead of racing on selector specificity. */
+  background: var(--gbg) !important;
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat)) !important;
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat)) !important;
+  border: 1px solid var(--gbrd) !important;
+  box-shadow: var(--gshadow);
+  border-radius: 26px;
+  margin: 14px 0 14px 14px;
+  height: calc(100dvh - 28px);
+  overflow: hidden;
+}
+/* fully vanish when collapsed (w-0) — no border/margin sliver */
+.liquid-glass .lg-side.w-0 { border: none !important; margin: 0; box-shadow: none; }
+
+/* --------------------------------------------------------------------------
+   iOS Safari white-flash fix for the mobile Projects panel — THE LAW:
+   NEVER run an animation on a layer while it is being created or destroyed.
+
+   Device-bisected 2026-07-09 with one-suspect-off switches on Igor's phone:
+   the flash persisted with backdrop-filter fully OFF and with the scroll
+   lock OFF, and vanished only with animation OFF. So the white was never
+   the blur, the overlay, the scroll lock, or the canvas sample — it is
+   Safari-browser painting a freshly created (or dying) compositing layer
+   BLANK WHITE before its content raster lands, whenever an animation runs
+   across the layer's birth/death. The standalone icon-app rasters in time,
+   which is why it never flashed; five earlier animation-flavour fixes all
+   failed because every Radix mount/unmount animation re-entered the window.
+
+   Mechanism here: the sheet is forceMounted (ProjectSidebar passes
+   forceMount; sheet.tsx threads it to Portal/Overlay/Content), so its layer
+   is created ONCE at app load, hidden, and never torn down. Open/close are
+   CSS TRANSITIONS on Radix's data-state attribute — animating an
+   already-rastered layer, which the bisect proved safe. Closed state hides
+   off-screen with pointer-events off; no visibility:hidden (that would let
+   WebKit drop the raster and reopen the birth window). Radix keeps
+   focus-trap/dismiss behaviour keyed to open state as normal. Scoped to
+   .lg-side[data-state] = only the projects sheet; other sheets/dialogs and
+   the desktop panel (no data-state) untouched. */
+.liquid-glass .lg-side[data-state] {
+  animation: none !important; /* kill tailwindcss-animate enter/exit entirely */
+}
+.liquid-glass .lg-side[data-state='open'] {
+  transform: translateX(0);
+  transition: transform var(--dur-drawer-in) var(--ease-sheet) !important;
+}
+.liquid-glass .lg-side[data-state='closed'] {
+  /* -100% - 60px clears the 14px margin + border glow/shadow spill */
+  transform: translateX(calc(-100% - 60px));
+  transition: transform var(--dur-drawer-out) var(--ease-sheet) !important;
+  pointer-events: none;
+}
+/* The transparent overlay also stays mounted; keep it inert while closed.
+   !important is load-bearing: the old Radix Overlay carried an inline
+   pointer-events:auto that beat this rule and ate every tap while closed
+   (device-probed 2026-07-11). The overlay is now a plain div (sheet.tsx
+   forceMount path) with no inline styles, but keep the !important so a
+   future swap back to a Radix-rendered overlay can't silently regress. */
+.liquid-glass .lg-side-overlay[data-state='closed'] {
+  pointer-events: none !important;
+  animation: none !important;
+}
+/* Grab-and-throw: while a finger owns the panel, CSS motion stands down —
+   the drag writes transform directly (1:1 tracking on the already-rastered
+   layer). Placed after the state rules; the extra attribute wins the tie.
+   pan-y keeps vertical list scrolling native while horizontal pans reach
+   the pointer handlers. */
+.liquid-glass .lg-side[data-state][data-dragging] {
+  transition: none !important;
+}
+.liquid-glass .lg-side[data-state] {
+  touch-action: pan-y;
+}
+
+/* Mobile Projects panel is a Radix Sheet: its SheetOverlay (sheet.tsx) is a
+   full-screen fixed div PAINTED BEHIND the panel with bg-background/60 +
+   backdrop-blur-sm. The panel's own backdrop-filter then samples that already
+   tinted/blurred layer (backdrop-filter samples everything painted underneath,
+   not just what's directly behind in the box model), compounding into a milky
+   wash on real devices — even though .lg-side's background/backdrop-filter
+   above are already correct. The desktop .lg-side div has no such overlay,
+   which is why it stays crisp. Fix: keep the overlay (click-outside-to-dismiss
+   still needs it) but make it paint nothing, so the panel's backdrop-filter
+   samples the crisp wallpaper, matching the desktop reference. Scoped to the
+   ONE SheetContent that opts in via overlayClassName="lg-side-overlay"
+   (ProjectSidebar.tsx) — no other Sheet/Dialog in the app passes this class,
+   so their overlays keep the normal dim+blur look. */
+.liquid-glass .lg-side-overlay {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Home-Screen (standalone) mode ONLY. Scoped to html.standalone, set by
+   main.tsx (iOS icon apps report navigator.standalone but do NOT reliably
+   match @media (display-mode: standalone), so a class is the dependable hook).
+   In Safari the class is absent, so browser rendering is untouched. Launched
+   from the icon, the insets are real (~59px top / ~34px bottom): the global
+   #root padding used to shift the whole app down and spill the bottom 93px
+   off-screen (record orb under the dock, panel edges exposed as seams).
+   Instead: no global shift; each fixed-viewport shell pads its own top, and
+   bottom-pinned elements lift by the bottom inset.
+   -------------------------------------------------------------------------- */
+html.standalone #root {
+  padding: 0;
+}
+/* The bottom home-indicator strip sits BELOW the layout viewport: fixed
+   layers (like body::before) are hard-clipped at that boundary — verified on
+   device — but the root element's own background paints the entire canvas,
+   strip included. So in standalone the <html> element IS the wallpaper layer:
+   its box is stretched 40px past the viewport so the cover-sized image
+   reaches the strip, body::before is disabled (single continuous image, no
+   seam), and body stays viewport-height so the document never scrolls. */
+html.standalone.liquid-glass {
+  /* +40px: Igor-approved framing (his 1:56 reference shot). The remaining
+     sliver below is hidden by the bottom-edge tone, not by more stretching. */
+  height: calc(100% + 40px);
+  background-image: var(--wallpaper-veil, none), var(--wallpaper-url, none);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat;
+}
+html.standalone.liquid-glass[data-wallpaper='plain'] {
+  background-color: var(--plain-color, hsl(var(--background)));
+  background-image:
+    radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
+    radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
+}
+html.standalone.liquid-glass body {
+  height: 100svh;
+  background-color: transparent;
+}
+html.standalone.liquid-glass body::before {
+  content: none;
+}
+/* app pages: content starts below the clock, wallpaper still runs behind it */
+html.standalone.liquid-glass .lg-shell {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+/* 8px instead of the browser's 40px (the inset already gives clearance);
+   bottom padding reserves the dock zone — the hero content is
+   bottom-anchored by flex spacers, so this is what actually lifts the
+   Record Meeting button clear of the dock. */
+html.standalone.liquid-glass .lg-hero-col {
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  /* generous: the same viewport quirk shortens the usable height by the
+     bottom inset, which ate the clearance measured in simulation */
+  padding-bottom: calc(110px + (2 * env(safe-area-inset-bottom, 0px)));
+  height: 100svh;
+}
+/* Dock height exactly as Igor approved (his 1:56 reference shot). */
+html.standalone.liquid-glass .lg-dock {
+  bottom: 6px !important;
+}
+html.standalone.liquid-glass div.fixed.bottom-24 {
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+/* floating panels + centred sheets stay clear of both insets */
+html.standalone.liquid-glass [data-side-panel] {
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+}
+html.standalone.liquid-glass .lg-editsheet {
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+}
+
+/* Mobile edit pane: slides up from the bottom edge of the screen like an iOS
+   sheet (and back down on close), instead of the default quick zoom. Keyframes
+   carry the Radix centering translate so the panel lands exactly where the
+   utility classes put it. */
+.liquid-glass .lg-editsheet[data-state='open'] {
+  animation: lg-sheet-in 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* 'forwards' keeps the pane parked off-screen for the brief gap between
+   animation end and React unmount (Index defers unmount by ~340ms). */
+.liquid-glass .lg-editsheet[data-state='closed'] {
+  animation: lg-sheet-out 300ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+@keyframes lg-sheet-in {
+  0%   { transform: translate(-50%, 100vh) scale(0.97); }
+  70%  { transform: translate(-50%, -51.2%) scale(1.004); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes lg-sheet-out {
+  from { transform: translate(-50%, -50%) scale(1); }
+  to   { transform: translate(-50%, 100vh) scale(0.98); }
+}
+
+/* Centred modal family (Add Task, Settings, Share, Invite, Send Summary,
+   Create Project, Brain Dump, delete confirms, Changes Needed): deliberate
+   arrival instead of the stock 200ms zoom pop. Keyframes carry the Radix
+   centering translate; 'forwards' on exit parks the panel until Radix
+   unmounts (it waits for animation end on data-state=closed). The mobile
+   edit sheet keeps its own lg-sheet keyframes: .liquid-glass .lg-editsheet
+   rules outrank .lg-modal by specificity. Durations/easing ride the motion
+   tokens so the ?tweaks panel can drive them live. */
+.lg-modal[data-state='open'] {
+  animation: lg-modal-in var(--dur-panel-in) var(--ease-sheet);
+}
+.lg-modal[data-state='closed'] {
+  animation: lg-modal-out var(--dur-panel-out) var(--ease-sheet) forwards;
+}
+/* Materialize (Apple: a glass surface is a MATERIAL arriving — animate blur
+   and scale together, not a plain fade): the panel condenses from a soft
+   unfocused ghost into crisp glass as it rises. filter is bounded to the
+   panel itself, one-shot, and rides the same sanctioned mount-animation
+   window the shipping dialogs already use. */
+@keyframes lg-modal-in {
+  0%   { transform: translate(-50%, -42%) scale(0.92); opacity: 0; filter: blur(14px); }
+  55%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; filter: blur(0); }
+}
+@keyframes lg-modal-out {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 1; filter: blur(0); }
+  to   { transform: translate(-50%, -47%) scale(0.95); opacity: 0; filter: blur(10px); }
+}
+/* Overlays fade in step with their panel — the dim must never die before
+   the surface it serves (opacity only; frost layers ride the root-canvas
+   safety net exactly as the shipping dialog pattern does). */
+.lg-overlay[data-state='open'] {
+  animation: lg-overlay-in var(--dur-panel-in) var(--ease-sheet);
+}
+.lg-overlay[data-state='closed'] {
+  animation: lg-overlay-out var(--dur-panel-out) var(--ease-sheet) forwards;
+}
+@keyframes lg-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lg-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* Task completion ritual: the TSX has always applied .animate-fade-out
+   (TaskListItem/TaskCard, isFading latch + 1000ms unmount timer) but no
+   keyframe ever existed — rows blinked out. Hold ~400ms so the tick
+   registers, then drift out; finishes as the existing timer unmounts the
+   row (timer stays 1000ms — do not tune --dur-complete without it).
+   Opacity+transform only: never animate row height (layout law). */
+.animate-fade-out {
+  animation: lg-task-complete var(--dur-complete) var(--ease-out-strong) forwards;
+  position: relative; overflow: hidden; /* hosts the success sweep */
+}
+@keyframes lg-task-complete {
+  0%, 40% { opacity: 1; transform: scale(1); }
+  100%    { opacity: 0; transform: scale(0.96); }
+}
+/* The authored completion moment, built from the app's own vocabulary:
+   a success-tinted glass sweep crosses the row (same mechanic as the
+   edit-highlight sweep) while a ring blooms off the checkbox — then the
+   row drifts away. Scoped to .animate-fade-out so it fires ONLY during a
+   live completion, never when completed rows merely mount (view switches
+   stay quiet by law). */
+.animate-fade-out::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: -40%; width: 35%;
+  background: linear-gradient(105deg, transparent, hsl(var(--success) / 0.35), transparent);
+  animation: highlight-sweep 0.7s ease-out forwards;
+  pointer-events: none;
+}
+.lg-tick { position: relative; }
+.animate-fade-out .lg-tick::before {
+  content: "";
+  position: absolute; inset: -2px; border-radius: 6px;
+  border: 1.5px solid hsl(var(--success));
+  animation: lg-tick-ring 600ms var(--ease-out-strong) forwards;
+  pointer-events: none;
+}
+@keyframes lg-tick-ring {
+  0%   { opacity: 0.9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2.1); }
+}
+/* Inline reveal (meeting participant card): persistent mount + grid-rows
+   0fr->1fr so the frost layer is born ONCE at page mount and never dies —
+   the white-flash law satisfied structurally. Content resolves just after
+   the space opens; no per-field stagger. Never visibility:hidden (raster
+   drop); closed state is inert via pointer-events + the inert attribute. */
+.lg-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-reveal-out) var(--ease-sheet);
+}
+.lg-reveal[data-state='open'] {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-reveal-in) var(--ease-sheet);
+}
+.lg-reveal-clip { overflow: hidden; min-height: 0; }
+.lg-reveal-content {
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity 180ms var(--ease-out-strong), transform 200ms var(--ease-out-strong);
+  pointer-events: none;
+}
+.lg-reveal[data-state='open'] .lg-reveal-content {
+  opacity: 1; transform: translateY(0);
+  transition: opacity 260ms var(--ease-out-strong) 80ms, transform 300ms var(--ease-sheet) 60ms;
+  pointer-events: auto;
+}
+
+/* Status banners (recording / processing): plain tinted divs, no frost —
+   mount-entrance is L1-safe. Exit is covered by the incoming surface. */
+.lg-banner-in { animation: lg-banner-enter var(--dur-reveal-in) var(--ease-sheet); }
+@keyframes lg-banner-enter { from { opacity: 0; transform: translateY(-8px); } }
+
+/* Checkbox tick pop — completion is the app's emotional peak; the tick
+   should land, not teleport (16px element, compositing-cheap). */
+.lg-tick [data-state] svg {
+  animation: lg-tick-in var(--dur-micro) var(--ease-out-strong);
+}
+@keyframes lg-tick-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+/* search / view switcher / density / add-task pill (mock .pw-row1) */
+.liquid-glass .lg-row1 {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+  border-radius: 999px;
+  padding: 8px 10px;
+}
+.liquid-glass .lg-search {
+  display: flex; align-items: center; gap: 8px;
+  border-radius: 999px; padding: 4px 8px;
+  color: var(--t2); font-size: 13px; min-width: 0;
+}
+.liquid-glass .lg-search input {
+  background: transparent; border: none; outline: none; box-shadow: none;
+  color: var(--t1); font-size: 13px; width: 100%;
+}
+.liquid-glass .lg-search input::placeholder { color: var(--t3); }
+
+/* segmented control (mock .pw-seg) — view switcher + density */
+.liquid-glass .lg-seg {
+  display: flex; gap: 2px; flex: none;
+  background: var(--chip); border: 1px solid var(--chip-brd);
+  border-radius: 999px; padding: 3px;
+}
+.liquid-glass .lg-seg button {
+  display: inline-flex; align-items: center; gap: 5px; border: none; cursor: pointer;
+  background: transparent; color: var(--t2); font-size: 12px; font-weight: 600;
+  border-radius: 999px; padding: 6px 11px;
+  /* active pill hands over with a crossfade, not a hard jump; content
+     panels stay INSTANT — pill styling only */
+  transition: color var(--dur-micro) var(--ease-out-strong),
+              background-color var(--dur-micro) var(--ease-out-strong),
+              box-shadow var(--dur-micro) var(--ease-out-strong);
+}
+.liquid-glass .lg-seg button.on {
+  background: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+  box-shadow: 0 2px 10px hsl(var(--primary) / 0.35);
+}
+@media (max-width: 999px) {
+  .liquid-glass .lg-seg:not(.lg-density) button span { display: none; }
+  .liquid-glass .lg-seg button { padding: 6px 9px; }
+  /* density buttons are text-only; below the label breakpoint drop the whole seg */
+  .liquid-glass .lg-density { display: none; }
+}
+
+/* pill buttons (mock .pw-btn / .pw-iconbtn) */
+.liquid-glass .lg-btn {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--gbrd);
+  background: var(--chip); color: var(--t1);
+  font-size: 12.5px; font-weight: 600; padding: 8px 12px;
+}
+.liquid-glass .lg-btn.acc {
+  background: hsl(var(--primary)); border-color: transparent;
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 4px 16px hsl(var(--primary) / 0.4);
+}
+.liquid-glass .lg-iconbtn {
+  width: 30px; height: 30px; flex: none; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--gbrd);
+  background: var(--chip); color: var(--t2);
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Press feedback — every pressable pill/dock button confirms the touch on
+   pointer-DOWN (Apple: respond on press, not release). Transform-only on
+   non-frost or persistently-composited elements; :active fires on touch so
+   no hover-gating needed. Subtle by law (0.96-0.97). */
+.liquid-glass .lg-btn,
+.liquid-glass .lg-iconbtn,
+.liquid-glass .lg-seg button,
+.liquid-glass .lg-dock button {
+  transition-property: color, background-color, box-shadow, transform;
+  transition-duration: var(--dur-micro);
+  transition-timing-function: var(--ease-out-strong);
+}
+.liquid-glass .lg-btn:active,
+.liquid-glass .lg-iconbtn:active,
+.liquid-glass .lg-seg button:active,
+.liquid-glass .lg-dock button:active {
+  transform: scale(0.96);
+}
+
+/* status tabs pill (mock .pw-tabs) */
+.liquid-glass .lg-tabs {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+  border-radius: 999px;
+  padding: 5px;
+  gap: 4px;
+}
+.liquid-glass .lg-tabs [data-state] {
+  border: none; background: transparent; color: var(--t2);
+  font-size: 13px; font-weight: 600; border-radius: 999px; padding: 8px 0;
+  box-shadow: none;
+  transition: color var(--dur-micro) var(--ease-out-strong),
+              background-color var(--dur-micro) var(--ease-out-strong),
+              box-shadow var(--dur-micro) var(--ease-out-strong);
+}
+.liquid-glass .lg-tabs [data-state='active'] {
+  background: var(--gbg-strong); color: var(--t1); box-shadow: var(--gshadow);
+}
+
+/* project action bar pill (mock .pw-projbar) */
+.liquid-glass .lg-projbar {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+/* inactive tab panels stay mounted; display utilities (grid) beat the UA [hidden]
+   rule, so force them off */
+.liquid-glass .lg-content[hidden],
+.liquid-glass .lg-content[data-state='inactive'] { display: none; }
+
+/* one big frosted content panel; the ONLY scrolling region (mock .pw-content) */
+.liquid-glass .lg-content {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+  border-radius: 26px;
+  padding: 6px 10px 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* priority group headers (mock .pw-phead) */
+.liquid-glass .lg-phead { padding: 14px 12px 6px; }
+.liquid-glass .lg-phead-line { background: var(--row-line); }
+.liquid-glass .lg-prio-urgent { color: #e5484d; }
+.liquid-glass .lg-prio-high { color: #f0883e; }
+.liquid-glass .lg-prio-medium { color: var(--t2); }
+.liquid-glass .lg-prio-low { color: var(--t3); }
+
+/* task rows: flat rows with hairline separators inside the panel (mock .pw-task) */
+.liquid-glass .lg-rows { gap: 0; }
+.liquid-glass .lg-rows > * { position: relative; }
+.liquid-glass .lg-rows > * + *::before {
+  content: ''; position: absolute; top: 0; left: 44px; right: 12px; height: 1px;
+  background: var(--row-line);
+}
+.liquid-glass .lg-content [data-task-card] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: 14px;
+  padding: 8px 10px;
+}
+.liquid-glass .lg-content [data-task-card]:hover { background: var(--lg-hover); }
+
+/* Grid task cards shed their OWN backdrop-filter: the frost is already carried
+   once by the .lg-content panel behind them (same radius, --glass-blur ==
+   --lg-blur in every theme), so the ~415 per-card compositing layers collapse
+   onto that single shared surface. The .glass-card tint, border and shadow (the
+   LOOK) are deliberately kept — only the now-redundant second blur is dropped.
+   A distinct marker (not [data-task-card]) is used so grid cards do NOT inherit
+   the flat-row list skin above; un-layered so it beats .glass-card in @layer. */
+.liquid-glass .lg-content .lg-grid-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* bottom nav becomes the floating capsule dock (mock .pw-dock; inline styles need !important) */
+.liquid-glass .lg-dock {
+  left: 50% !important;
+  right: auto !important;
+  bottom: 16px !important;
+  transform: translateX(-50%);
+  display: flex !important;
+  gap: 4px;
+  width: auto;
+  padding: 7px 9px !important;
+  margin: 0 !important;
+  border: 1px solid var(--gbrd) !important;
+  border-radius: 999px;
+  background: var(--gbg) !important;
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--gshadow);
+}
+.liquid-glass .lg-dock > button { min-width: 62px; padding: 6px; gap: 2px; color: var(--t2); }
+.liquid-glass .lg-dock > button span { font-size: 9.5px; font-weight: 700; }
+.liquid-glass .lg-dock > button.lg-dock-on { color: hsl(var(--primary)); }
+@media (max-width: 639px) {
+  .liquid-glass .lg-dock {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    transform: none;
+    justify-content: space-between;
+  }
+  .liquid-glass .lg-dock > button { min-width: 0; flex: 1; }
+}
+
+/* record FAB rides the dock line on wide screens, sits above the dock on phones */
+.liquid-glass [data-tour-step='menu-fab'] { bottom: 20px !important; right: 20px !important; }
+@media (max-width: 639px) {
+  .liquid-glass [data-tour-step='menu-fab'] { bottom: 92px !important; }
+}
+/* ---------------------------------------------------------------------------
+   Home hero + recording stage (ported from Preview.tsx HERO_CSS; the layout
+   states are CSS, the signature motion — orb glide, listening pulse — is GSAP
+   in Home.tsx). Class flip: .lg-hero-col gains .rec while a session runs.
+   -------------------------------------------------------------------------- */
+.liquid-glass .lg-hero-col {
+  position: relative; z-index: 1;
+  /* width 100% is load-bearing: the parent is a column flexbox, and margin
+     auto would otherwise disable stretch and collapse this to fit-content,
+     breaking the recording-stage geometry (orb glide, absolute stream) */
+  width: 100%;
+  max-width: 430px; margin: 0 auto; height: 100dvh;
+  display: flex; flex-direction: column;
+  padding: 40px 20px 0; overflow: hidden;
+  /* no max-width transition here — GSAP animates the recording-stage expansion */
+}
+
+/* up next card (leaves the flow while recording so the stream takes its slot) */
+.liquid-glass .lg-upnext {
+  margin-top: 24px; border-radius: 26px;
+  transition: opacity .35s ease, transform .35s ease;
+}
+.liquid-glass .lg-hero-col.rec .lg-upnext {
+  position: absolute; left: 20px; right: 20px;
+  opacity: 0; transform: translateY(8px) scale(.98); pointer-events: none;
+}
+.liquid-glass .lg-uphead { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 18px 2px; }
+.liquid-glass .lg-uphead .ttl { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--t2); }
+.liquid-glass .lg-uphead .cnt { font-size: 12px; color: var(--t3); }
+.liquid-glass .lg-utask { display: flex; align-items: center; gap: 12px; padding: 10px 18px; }
+.liquid-glass .lg-utask + .lg-utask { border-top: 1px solid var(--row-line); }
+.liquid-glass .lg-tick {
+  width: 23px; height: 23px; border-radius: 999px; flex: none;
+  border: 1.5px solid var(--t3); display: flex; align-items: center; justify-content: center;
+  background: transparent; color: transparent;
+}
+.liquid-glass .lg-tick.done { border-color: transparent; background: #34c759; color: #fff; }
+.liquid-glass .lg-utitle { font-size: 15px; font-weight: 500; color: var(--t1); line-height: 1.25; }
+.liquid-glass .lg-utitle.done { text-decoration: line-through; opacity: .45; }
+.liquid-glass .lg-umeta { font-size: 12px; color: var(--t2); display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.liquid-glass .lg-uchip {
+  font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; flex: none;
+  background: var(--chip); border: 1px solid var(--chip-brd); color: var(--t1);
+}
+.liquid-glass .lg-udot { width: 9px; height: 9px; border-radius: 999px; flex: none; }
+
+.liquid-glass .lg-hero-spacer { flex: 1; min-height: 16px; }
+
+/* orb + actions (GSAP glides this left on wide screens while recording) */
+.liquid-glass .lg-hero-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 108px; }
+.liquid-glass .lg-orb {
+  width: 118px; height: 118px; border-radius: 999px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--gbg); border: 1.5px solid var(--gbrd);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--gshadow), 0 16px 48px rgba(0, 0, 0, .18);
+}
+.liquid-glass .lg-orb-core {
+  width: 30px; height: 30px; border-radius: 999px;
+  background: radial-gradient(circle at 38% 32%, #ff5a52, #c81e1e 70%);
+  box-shadow: 0 2px 14px rgba(200, 30, 30, .55), inset 0 1px 2px rgba(255, 255, 255, .5);
+  transition: border-radius .3s ease;
+}
+/* core stays round while listening (no squared stop-symbol morph) */
+.liquid-glass .lg-recbtns { display: flex; gap: 8px; margin-top: 6px; }
+
+/* record FAB main button: same glass material as the Home orb */
+.liquid-glass .lg-fab-main {
+  background: var(--gbg);
+  border: 1.5px solid var(--gbrd);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--gshadow), 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+/* live task stream (brain dump) */
+.liquid-glass .lg-stream {
+  border-radius: 26px; padding: 4px 14px 12px; opacity: 0; max-height: 0; overflow: hidden;
+  margin-top: 0; transition: opacity .35s ease, max-height .45s ease, margin .3s ease;
+}
+.liquid-glass .rec .lg-stream { opacity: 1; max-height: 52vh; overflow-y: auto; margin-top: 24px; }
+.liquid-glass .lg-stream-listen { display: flex; align-items: center; gap: 12px; padding: 12px 6px 6px; }
+.liquid-glass .lg-mic {
+  width: 42px; height: 42px; border-radius: 999px; flex: none; position: relative;
+  background: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+  display: flex; align-items: center; justify-content: center;
+}
+.liquid-glass .lg-mic::before, .liquid-glass .lg-mic::after {
+  content: ''; position: absolute; inset: 0; border-radius: 999px;
+  border: 2px solid hsl(var(--primary)); animation: lg-ping 1.8s ease-out infinite;
+}
+.liquid-glass .lg-mic::after { animation-delay: .9s; }
+@keyframes lg-ping { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(1.9); opacity: 0; } }
+.liquid-glass .lg-stream-listen .lbl { font-size: 13.5px; font-weight: 600; color: var(--t1); }
+.liquid-glass .lg-stream-listen .sub { font-size: 11.5px; color: var(--t2); margin-top: 1px; }
+.liquid-glass .lg-sgroup { margin-top: 10px; }
+.liquid-glass .lg-sglabel {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; color: var(--t2);
+  padding: 2px 4px; display: flex; align-items: center; gap: 6px;
+}
+.liquid-glass .lg-stask {
+  display: flex; align-items: center; gap: 10px; padding: 9px 11px; margin-top: 6px;
+  border-radius: 14px; background: var(--gbg-strong); border: 1px solid var(--gbrd);
+  animation: lg-rise .4s cubic-bezier(.2, .9, .3, 1.2) both;
+}
+@keyframes lg-rise { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+.liquid-glass .lg-stask .tt { font-size: 13.5px; font-weight: 500; color: var(--t1); flex: 1; min-width: 0; }
+.liquid-glass .lg-schip {
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; flex: none;
+  background: var(--chip); border: 1px solid var(--chip-brd); color: var(--t2);
+}
+
+@media (min-width: 640px) {
+  .liquid-glass .lg-hero-col { max-width: 620px; padding: 64px 40px 0; }
+  .liquid-glass .lg-upnext { margin-top: 36px; }
+  .liquid-glass .lg-orb { width: 132px; height: 132px; }
+}
+/* wide screens: centred by default; recording opens the side-by-side stage */
+@media (min-width: 1000px) {
+  .liquid-glass .lg-hero-col { max-width: 640px; }
+  /* .rec expansion width is animated by GSAP in Home.tsx (geometry-aware) */
+  .liquid-glass .lg-orb { width: 150px; height: 150px; }
+  .liquid-glass .lg-orb-core { width: 36px; height: 36px; }
+  .liquid-glass .lg-stream {
+    position: absolute; right: 44px; top: 50%; width: 460px; max-height: none;
+    transform: translateY(-46%);
+  }
+  .liquid-glass .rec .lg-stream { max-height: 72vh; overflow-y: auto; margin-top: 0; }
+}
+
+/* short viewports: compress the hero so the dock never covers the actions */
+@media (max-height: 800px) {
+  .liquid-glass .lg-hero-col { padding-top: 20px; }
+  .liquid-glass .lg-upnext { margin-top: 16px; }
+  .liquid-glass .lg-upnext .lg-utask:nth-child(n + 3) { display: none; }
+  .liquid-glass .lg-orb { width: 118px; height: 118px; }
+  .liquid-glass .lg-hero-actions { margin-bottom: 92px; }
+}
+
+/* empty content panel: fully transparent so the wallpaper shows (fix: blank slab) */
+.liquid-glass .lg-content:not(:has(*)) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.liquid-glass .lg-content:not(:has(*))::after {
+  content: 'No tasks here yet';
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; min-height: 120px;
+  font-size: 13.5px; font-weight: 600;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0, 20, 30, 0.5), 0 1px 2px rgba(0, 20, 30, 0.3);
+}
+.liquid-glass[data-wallpaper='plain'] .lg-content:not(:has(*))::after {
+  color: hsl(var(--foreground)); opacity: 0.5; text-shadow: none;
+}
+
+/* iOS-style transient scrollbar on the task panel: permanent 5px gutter so no
+   layout shift; thumb only painted while scrolling (.lg-scrolling toggled by
+   the scroll listener in src/lib/transientScrollbar.ts), fades on idle */
+.liquid-glass .lg-content::-webkit-scrollbar { display: block !important; width: 5px; }
+.liquid-glass .lg-content::-webkit-scrollbar-track { background: transparent; }
+.liquid-glass .lg-content::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+.liquid-glass .lg-content.lg-scrolling::-webkit-scrollbar-thumb { background: var(--t3); }
+.liquid-glass .lg-content { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.liquid-glass .lg-content.lg-scrolling { scrollbar-color: var(--t3) transparent; }
+
+/* brain-dump review dialog: mock add-task-panel skin (glass rows, pill controls) */
+.liquid-glass .lg-review { border-radius: 28px; }
+.liquid-glass .lg-review [data-task-card] {
+  background: var(--gbg-strong);
+  border: 1px solid var(--gbrd);
+  border-radius: 16px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.liquid-glass .lg-review .border-l-2 { border-color: var(--row-line); }
+.liquid-glass .lg-review button { border-radius: 999px; }
+
+/* docked Add/Edit Task side panel becomes the mock's floating glass panel */
+.liquid-glass [data-side-panel] {
+  position: fixed;
+  top: 14px; right: 14px; bottom: 14px;
+  height: auto; width: 380px; z-index: 45;
+  border: 1px solid var(--gbrd) !important;
+  border-radius: 26px;
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--gshadow);
+  overflow: hidden;
+}
+
+/* dialog + panel form polish: mock pw-input / pw-choice look */
+.liquid-glass [role='dialog'],
+.liquid-glass [data-side-panel] { border-radius: 26px; }
+.liquid-glass [role='dialog'] input:not([type='color']):not([type='checkbox']),
+.liquid-glass [role='dialog'] textarea,
+.liquid-glass [data-side-panel] input:not([type='color']):not([type='checkbox']),
+.liquid-glass [data-side-panel] textarea {
+  border-radius: 14px;
+  background: var(--chip);
+  border-color: var(--chip-brd);
+}
+.liquid-glass [role='dialog'] button:not([role='checkbox']):not([role='radio']),
+.liquid-glass [data-side-panel] button:not([role='checkbox']):not([role='radio']) {
+  border-radius: 999px;
+}
+.liquid-glass [role='dialog'] [role='combobox'],
+.liquid-glass [data-side-panel] [role='combobox'] {
+  border-radius: 14px;
+  background: var(--chip);
+  border-color: var(--chip-brd);
+}
+
+/* page headers (Meetings, MeetingDetail): floating glass bar */
+.liquid-glass .lg-pagehead {
+  margin: 14px;
+  border: 1px solid var(--gbrd);
+  border-radius: 999px;
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--gshadow);
+  top: 10px !important;
+}
+.liquid-glass .lg-pagehead button { border-radius: 999px; }
+
+/* page header pill matches the content column width, not the viewport */
+.liquid-glass .lg-pagehead { max-width: 896px; margin-left: auto; margin-right: auto; }
+
+/* standalone glass card (new-meeting form etc.) — same material as lg-side */
+.liquid-glass .lg-glasscard {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+  border-radius: 26px;
+  margin-bottom: 16px;
+}
+.liquid-glass .lg-glasscard input {
+  border-radius: 14px;
+  background: var(--chip);
+  border-color: var(--chip-brd);
+}
+.liquid-glass .lg-glasscard button { border-radius: 999px; }
+
+/* --------------------------------------------------------------------------
+   Reduced motion: fewer and gentler, not zero (comprehension fades stay,
+   travel shrinks to quick fades). TARGETED, not a blanket * rule — a
+   blanket duration override would turn infinite loops (animate-spin,
+   lg-ping, border-pulse) into strobes. Durations shorten but never zero,
+   so data-state transitions still fire (white-flash law: surfaces must
+   keep their transition lifecycle; never visibility:hidden). */
+@media (prefers-reduced-motion: reduce) {
+  .lg-modal[data-state],
+  .lg-overlay[data-state],
+  .lg-banner-in,
+  .lg-tick [data-state] svg {
+    animation-duration: 120ms !important;
+  }
+  .animate-fade-out {
+    animation-duration: 400ms !important; /* still completes inside the 1s unmount timer */
+  }
+  .lg-reveal,
+  .lg-reveal-content,
+  .glass-card,
+  .liquid-glass .lg-seg button,
+  .liquid-glass .lg-tabs [data-state],
+  .liquid-glass .lg-btn,
+  .liquid-glass .lg-iconbtn,
+  .liquid-glass .lg-dock button {
+    transition-duration: 120ms !important;
+  }
+  .liquid-glass .lg-side[data-state='open'],
+  .liquid-glass .lg-side[data-state='closed'] {
+    transition-duration: 150ms !important;
+  }
+  .liquid-glass .lg-editsheet[data-state='open'],
+  .liquid-glass .lg-editsheet[data-state='closed'] {
+    animation-duration: 150ms !important;
+  }
 }

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,18 +13,12 @@ import { Shield } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { setTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
-
-  // Force cream theme on Auth page
-  useEffect(() => {
-    setTheme('cream');
-  }, [setTheme]);
 
   // Admin reset state
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
@@ -53,7 +46,7 @@ const Auth = () => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/home`,
+          redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
           skipBrowserRedirect: true,
         },
       });
@@ -68,7 +61,7 @@ const Auth = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/home`,
+          redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
         },
       });
       if (error) {
@@ -88,7 +81,7 @@ const Auth = () => {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/home`,
+        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
         data: {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
@@ -99,7 +92,7 @@ const Auth = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Account created! Logging you in...');
+      toast.success('Account created! Logging you in...', { duration: 1500 });
       navigate('/');
     }
   };
@@ -112,7 +105,7 @@ const Auth = () => {
     }
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}reset-password`,
     });
     setLoading(false);
     if (error) {
@@ -138,7 +131,7 @@ const Auth = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Welcome back!');
+      toast.success('Welcome back!', { duration: 1500 });
       navigate('/');
     }
   };

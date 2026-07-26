@@ -3,7 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#0c0a09" />
+    <!-- Updated at runtime by WallpaperController to match the active wallpaper;
+         this static value matches the default (Hokusai wave) for first paint. -->
+    <meta name="theme-color" content="#e3dcc6" />
+    <!-- Home-Screen (standalone) mode: no Safari chrome, wallpaper paints
+         edge-to-edge under the status bar. Just meta tags — deliberately no
+         service worker / manifest (the old PWA machinery stays dead). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Focus OS" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>Focus OS</title>
     <meta name="description" content="Focus OS means less stress">
     <meta name="author" content="ThoughtStream" />
@@ -60,6 +70,83 @@
           localStorage.setItem(storageKey, buildVersion);
           sessionStorage.removeItem(reloadKey);
         } catch(e) {}
+      })();
+    </script>
+    <script>
+      // TEMP freeze-hunt probe (remove after saga). Passive only: never blocks
+      // or redirects a tap; badge is pointer-events:none and outside #root.
+      // Auto-shows red the moment <body> pointer-events goes "none" (Radix
+      // modal lock) or a tap lands on the closed sheet overlay; ?diag=hit
+      // keeps the badge visible always (green = healthy).
+      (function () {
+        var forced = /[?&]diag=hit/.test(location.search);
+        var badge = null;
+        var lastTap = 'tap: none yet';
+        var lastTapBad = false;
+        function ensureBadge() {
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.setAttribute('style',
+              'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 64px);' +
+              'z-index:2147483647;pointer-events:none;font:11px/1.45 ui-monospace,Menlo,monospace;' +
+              'padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.85);color:#7CFC00;white-space:pre-wrap;');
+            document.body.appendChild(badge);
+          }
+          return badge;
+        }
+        function overlayInfo() {
+          var o = document.querySelector('.lg-side-overlay');
+          if (!o) return 'overlay: not in DOM';
+          return 'overlay state=' + o.getAttribute('data-state') +
+            ' cssPE=' + getComputedStyle(o).pointerEvents +
+            ' inlinePE=' + (o.style.pointerEvents || '-');
+        }
+        function report() {
+          var bodyPE = getComputedStyle(document.body).pointerEvents;
+          var locked = bodyPE === 'none';
+          var side = document.querySelector('.lg-side');
+          // Opt-in ONLY (?diag=hit). No auto-show: a body lock while a modal
+          // dialog is open is legitimate Radix behaviour, so auto-flagging it
+          // cries wolf during normal use (Igor's icon-app, 2026-07-17).
+          if (forced) {
+            var modalOpen = !!document.querySelector(
+              '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
+            var badLock = locked && !modalOpen;
+            var b = ensureBadge();
+            b.style.display = 'block';
+            b.textContent = 'FocusOS diag ' + new Date().toTimeString().slice(0, 8) +
+              '\nbody pointer-events = ' + bodyPE +
+              (locked ? (modalOpen ? '   (modal open - normal)' : '   << LOCKED') : '') +
+              '\n' + overlayInfo() +
+              '\nsheet state=' + (side ? side.getAttribute('data-state') : 'not in DOM') +
+              '\n' + lastTap;
+            b.style.color = (badLock || lastTapBad) ? '#ff5c5c' : '#7CFC00';
+          } else if (badge) {
+            // display:none, not just empty text — an emptied box still paints
+            // its black background (the "black line" Igor saw, 2026-07-17)
+            badge.textContent = '';
+            badge.style.display = 'none';
+          }
+        }
+        window.addEventListener('pointerdown', function (e) {
+          try {
+            var el = document.elementFromPoint(e.clientX, e.clientY);
+            var cls = el ? (el.className || el.tagName) : 'null';
+            if (cls && typeof cls !== 'string') cls = cls.baseVal || el.tagName;
+            var pe = el ? getComputedStyle(el).pointerEvents : '-';
+            var bodyPE = getComputedStyle(document.body).pointerEvents;
+            // Only flag an overlay hit when the overlay is CLOSED — tapping the
+            // OPEN overlay is the legitimate tap-outside-to-close gesture, not a
+            // dead tap. (A closed overlay eating a tap would be the real bug.)
+            var overlayClosedHit = /lg-side-overlay/.test(String(cls)) &&
+              el && el.getAttribute('data-state') === 'closed';
+            lastTapBad = bodyPE === 'none' || overlayClosedHit;
+            lastTap = 'tap: top=' + String(cls).slice(0, 70) + ' topPE=' + pe;
+            report();
+          } catch (err) { lastTap = 'tap probe error: ' + err.message; }
+        }, true);
+        setInterval(report, 1000);
+        window.addEventListener('load', report);
       })();
     </script>
     <div id="root"></div>

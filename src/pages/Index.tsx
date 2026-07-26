@@ -2,10 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query';
 import Fuse from 'fuse.js';
 
-import { useTheme } from 'next-themes';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { Task, Project, TaskPriority, TaskStatus } from '@/types/task';
 import { TaskCard } from '@/components/TaskCard';
@@ -34,14 +32,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
-import LightRays from '@/components/LightRays';
 import HeroSection from '@/components/HeroSection';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 import BottomNav from '@/components/BottomNav';
-import { useParticleAnimation } from '@/hooks/useParticleAnimation';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import SettingsDialog from '@/components/SettingsDialog';
 import { useUserPreferences, type UserPreferences } from '@/hooks/useUserPreferences';
@@ -56,65 +52,25 @@ import { InviteProjectMemberDialog } from '@/components/InviteProjectMemberDialo
 import { ProjectMembersBar } from '@/components/ProjectMembersBar';
 import { addDays } from 'date-fns';
 import RecordFAB from '@/components/RecordFAB';
-// Inline skeleton for the task list area shown while initialLoadComplete is false.
-const TaskListSkeleton = () => {
-  const dots = [
-    { color: '#B8572E', delay: 0 },
-    { color: '#81313F', delay: 0.16 },
-    { color: '#67883A', delay: 0.32 },
-  ];
+import {
+  fetchAllTasks as fetchAllTasksShared,
+  fetchCompletedTasks as fetchCompletedTasksShared,
+  fetchProjects as fetchProjectsShared,
+  fetchMemberProjectIds as fetchMemberIdsShared,
+  fetchTaskImages as fetchTaskImagesShared,
+  appDataKeys,
+  slimTaskRow,
+} from '@/lib/appDataFetchers';
+import { TaskListSkeleton, AppBootSkeleton, LoadErrorPanel } from '@/components/AppSkeletons';
 
-  return (
-    <div className="mt-6 flex items-center justify-center py-20 min-h-[200px]">
-      <div className="flex items-center gap-[11px]">
-        {dots.map((dot, i) => (
-          <motion.span
-            key={i}
-            className="inline-block rounded-full"
-            style={{ width: 14, height: 14, backgroundColor: dot.color }}
-            animate={{ y: [0, -14, 0], opacity: [0.45, 1, 0.45] }}
-            transition={{
-              duration: 1.1,
-              ease: 'easeInOut',
-              repeat: Infinity,
-              delay: dot.delay,
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// Projects FAB component for mobile - must be inside SidebarProvider
-const ProjectsFAB = () => {
-  const { toggleSidebar, openMobile } = useSidebar();
-  
-  // Hide when mobile sidebar is open
-  if (openMobile) return null;
-  
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15, delay: 0.2 }}
-      className="fixed left-6 z-[100]"
-      style={{ bottom: 'calc(44px + env(safe-area-inset-bottom))' }}
-    >
-      <button
-        onClick={toggleSidebar}
-        className="relative w-[50px] h-[50px] rounded-full p-[3px] shadow-lg"
-        style={{
-          background: 'conic-gradient(from 0deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)), hsl(var(--primary)))'
-        }}
-      >
-        <div className="w-full h-full rounded-full bg-card flex items-center justify-center">
-          <span className="text-2xl font-bold text-primary">P</span>
-        </div>
-      </button>
-    </motion.div>
-  );
+// Last successful non-empty open-task count per account — the "this account is not
+// actually empty" hint behind the vanish defence.
+const lastKnownOpenCount = (uid: string): number => {
+  try {
+    return Number(localStorage.getItem(`focusos-open-count-${uid}`) || '0');
+  } catch {
+    return 0;
+  }
 };
 
 // BottomNav wrapper that provides sidebar toggle - must be inside SidebarProvider
@@ -217,7 +173,21 @@ const Index = () => {
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  // Both latches are STATE on purpose: these blocks run during render, and React may
+  // discard+replay a transition render (react-router navigations). A ref mutation
+  // survives the discard while the queued state updates do not — the replay would
+  // skip the block and drop the apply entirely (caught 2026-07-25: stuck selection).
+  const [appliedSearch, setAppliedSearch] = useState<string | null>(null);
+  const [warmStartDone, setWarmStartDone] = useState(false);
   const [openSidebarRequested, setOpenSidebarRequested] = useState(false);
+  // One-shot latch for the ?openSidebar handshake. The effect that consumes the
+  // param re-runs on every `projects` change (the two-wave projects apply)
+  // while the URL-strip navigate(replace) is still in flight — async, so
+  // location.search still carries openSidebar=true on those interim re-runs.
+  // Without this latch each re-run re-raises setOpenSidebarRequested(true) and
+  // can reopen the drawer. Latched on consume, cleared once the param leaves the
+  // URL, so a fresh navigation with ?openSidebar=true is still handled once.
+  const openSidebarHandledRef = useRef(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
   const [isReorderMode, setIsReorderMode] = useState(false);
@@ -226,6 +196,21 @@ const Index = () => {
   const [showTaskTour, setShowTaskTour] = useState(false);
   const [taskTourTask, setTaskTourTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  // Mobile edit pane closes in two steps: open=false plays the slide-down
+  // exit animation, THEN the component unmounts. Unmounting immediately
+  // (editingTask=null) would skip the animation entirely.
+  const [editClosing, setEditClosing] = useState(false);
+  const closeEditPane = () => {
+    if (isMobile) {
+      setEditClosing(true);
+      setTimeout(() => {
+        setEditingTask(null);
+        setEditClosing(false);
+      }, 340);
+    } else {
+      setEditingTask(null);
+    }
+  };
   const [editHighlight, setEditHighlight] = useState<{ target: 'images' | 'dates'; nonce: number } | null>(null);
   useEffect(() => { if (!editingTask) setEditHighlight(null); }, [editingTask]);
   const handleEditTaskImages = (task: Task) => {
@@ -249,9 +234,13 @@ const Index = () => {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const allTasksRef = useRef<Task[]>([]);
   useEffect(() => { allTasksRef.current = allTasks; }, [allTasks]);
+  // Accepted-membership project ids (shared projects the current user can see).
+  // Held in a ref so the zero-arg fetch functions read the latest set without threading.
+  const memberProjectIdsRef = useRef<string[]>([]);
   const [senderSharedMap, setSenderSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
   const [senderProjectSharedMap, setSenderProjectSharedMap] = useState<Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>>>({});
   const [assignerNameMap, setAssignerNameMap] = useState<Record<string, string>>({});
@@ -264,13 +253,6 @@ const Index = () => {
   const [lastProcessedTourStep, setLastProcessedTourStep] = useState<number | null>(null);
   
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences(user?.id);
-  const { setTheme, theme } = useTheme();
-  const isCream = theme === 'cream';
-  const { triggerParticles, containerRef } = useParticleAnimation({
-    particleCount: 12,
-    colors: ['#4FD1C5', '#3B82F6', '#06B6D4'],
-    animationDuration: 0.6
-  });
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
@@ -284,7 +266,12 @@ const Index = () => {
   useEffect(() => {
     const handleClickOutside = (event: PointerEvent) => {
       const target = event.target as HTMLElement;
-      
+
+      // An open dropdown swallows this click to dismiss itself (Radix disables
+      // page pointer-events, so the target reports as <body>) — never collapse
+      // cards on the same click.
+      if (document.querySelector('[data-radix-popper-content-wrapper]')) return;
+
       // Check if click is outside all task cards
       const isOutsideTaskCard = !target.closest('[data-task-card]');
       
@@ -337,27 +324,20 @@ const Index = () => {
     googleCalendarEventId: dbTask.google_calendar_event_id ?? undefined,
   }), []);
 
-  // Fetch projects (lightweight - just names for sidebar)
-  const fetchProjects = useCallback(async () => {
-    // Retry with backoff to survive cold-start auth races on mobile Safari
-    const delays = [0, 300, 800, 1500];
-    let data: any = null;
-    let error: any = null;
-    for (let i = 0; i < delays.length; i++) {
-      if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
-      const res = await (supabase as any).from('focusos_projects').select('*').order('created_at', {
-        ascending: false
-      });
-      data = res.data;
-      error = res.error;
-      if (!error) break;
-    }
-    if (error) {
-      console.error('[Index] fetchProjects failed after retries:', error);
-      toast.error('Failed to load projects');
-      return;
-    }
-    setProjects(data.map(p => ({
+  // --- App-load fetches: explicit own/shared filters. RLS stays the security net;
+  // these filters exist purely to give Postgres an indexable predicate (user_id /
+  // project_id) instead of scanning every user's rows. "Shared" = projects where the
+  // current user is an accepted member; those ids gate the shared task/project queries
+  // and mirror the two RLS SELECT policies (own OR accepted-member) exactly. ---
+
+  // The own/shared/merge/member-id read logic now lives once in src/lib/appDataFetchers
+  // (fetchAllTasksShared / fetchCompletedTasksShared / fetchProjectsShared /
+  // fetchMemberIdsShared / fetchTaskImagesShared), single-flighted under the shared query
+  // keys so Index, ProjectSidebar and the /home prefetch collapse to one request each and
+  // a cross-route remount within staleTime re-reads cache instead of the network.
+
+  const applyProjectRows = useCallback((rows: any[]) => {
+    setProjects(rows.map((p: any) => ({
       id: p.id,
       name: p.name,
       color: p.color,
@@ -370,37 +350,59 @@ const Index = () => {
     })));
   }, []);
 
-  // Phase 2: Fetch ALL tasks in background
-  const fetchAllTasks = useCallback(async () => {
+  // The shared task fetchers now return the NON-completed (open) set only; completed rows
+  // arrive separately (hydrateCompletedTasks) and share this same state. A fresh open-only
+  // apply therefore PRESERVES any completed tasks already merged in — replacing the whole
+  // list would blank the Done tab on every resync/refetch.
+  const applyTaskRows = useCallback((rows: any[]) => {
+    const openTasks = rows.map(transformDbTask);
+    // A transient auth/RLS race can return 0 open rows; don't blank a list that already
+    // holds open tasks. (0 open is legitimate for an all-completed account, whose state
+    // holds only completed rows — that case is allowed through.)
+    const hadOpen = allTasksRef.current.some(t => t.status !== 'completed');
+    if (openTasks.length === 0 && hadOpen) {
+      console.warn('[Index] open-task fetch returned 0 rows while open tasks exist — ignoring to avoid blanking the list (transient auth/RLS race)');
+      return;
+    }
+    const openIds = new Set(openTasks.map(t => t.id));
+    const keptCompleted = allTasksRef.current.filter(
+      t => t.status === 'completed' && !openIds.has(t.id),
+    );
+    if (openTasks.length > 0) {
+      setLoadFailed(false);
+      if (user) {
+        try { localStorage.setItem(`focusos-open-count-${user.id}`, String(openTasks.length)); } catch { /* no-op */ }
+      }
+    }
+    setAllTasks([...openTasks, ...keptCompleted]);
+  }, [transformDbTask, user]);
+
+  // Event-driven projects refetch (post-mutation / tour). `fresh: true` bypasses the
+  // 5-min stale cache so a just-created/renamed/deleted project is reflected; the
+  // fetcher still refreshes memberships first (fresh) and dedupes concurrent callers.
+  const fetchProjects = useCallback(async () => {
+    if (!user) return;
     try {
-      const delays = [0, 300, 800, 1500];
-      let data: any = null;
-      let error: any = null;
-      for (let i = 0; i < delays.length; i++) {
-        if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
-        const res = await (supabase as any)
-          .from('focusos_tasks')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1000);
-        data = res.data;
-        error = res.error;
-        if (!error) break;
-      }
-      if (error) {
-        console.warn('[Index] fetchAllTasks failed after retries:', error);
-        return;
-      }
-      const transformedTasks = data.map(transformDbTask);
-      if (transformedTasks.length === 0 && allTasksRef.current.length > 0) {
-        console.warn('[Index] fetchAllTasks returned 0 rows while tasks exist — ignoring to avoid blanking the list (transient auth/RLS race)');
-        return;
-      }
-      setAllTasks(transformedTasks);
+      memberProjectIdsRef.current = await fetchMemberIdsShared(queryClient, user.id, { fresh: true });
+      const rows = await fetchProjectsShared(queryClient, user.id, { fresh: true });
+      applyProjectRows(rows);
+    } catch (error) {
+      console.error('[Index] fetchProjects failed:', error);
+      toast.error('Failed to load projects');
+    }
+  }, [user, queryClient, applyProjectRows]);
+
+  // Event-driven full task refetch (resync / post-mutation / tour). Fresh, single-flight.
+  const fetchAllTasks = useCallback(async () => {
+    if (!user) return;
+    try {
+      memberProjectIdsRef.current = await fetchMemberIdsShared(queryClient, user.id, { fresh: true });
+      const rows = await fetchAllTasksShared(queryClient, user.id, { fresh: true });
+      applyTaskRows(rows);
     } catch (error) {
       console.error('Error fetching all tasks:', error);
     }
-  }, [transformDbTask]);
+  }, [user, queryClient, applyTaskRows]);
 
   // Build shared item maps from raw data (used by both cache and fetch paths)
   const buildSharedMaps = useCallback(async (sharedItems: any[]) => {
@@ -480,64 +482,167 @@ const Index = () => {
     }
   }, [projectRefreshTrigger, initialLoadComplete, fetchProjects]);
 
-  // Phase 1: Initial fast load - try warm cache first, then fetch
+  // Initial load — routed through the shared single-flight fetchers. Once user +
+  // preferences are available, tasks and projects load in PARALLEL under the shared
+  // keys; the task list unblocks the instant the tasks query resolves, never gated on
+  // projects. An in-flight /home prefetch under the same key is REUSED (single flight),
+  // not raced, and a warm getQueryData hit short-circuits to an instant no-network paint.
   useEffect(() => {
     const loadInitialData = async () => {
-      if (user && preferences && !initialLoadComplete) {
-        try {
-          // Check if data was prefetched on the Home screen
-          const cachedTasks = queryClient.getQueryData(['focusos-all-tasks', user.id]) as any[] | undefined;
-          const cachedProjects = queryClient.getQueryData(['focusos-projects', user.id]) as any[] | undefined;
+      if (!(user && preferences && !initialLoadComplete)) return;
+      try {
+        const cachedTasks = queryClient.getQueryData(appDataKeys.tasks(user.id)) as any[] | undefined;
+        const cachedProjects = queryClient.getQueryData(appDataKeys.projects(user.id)) as any[] | undefined;
 
-          if (cachedTasks && cachedTasks.length > 0 && cachedProjects) {
-            // Warm cache hit — use prefetched data instantly (no network)
-            const transformedTasks = cachedTasks.map(transformDbTask);
-            setAllTasks(transformedTasks);
-            setFullDataLoaded(true);
+        if (cachedTasks && cachedTasks.length > 0 && cachedProjects) {
+          // Warm cache hit — use prefetched data instantly (no network).
+          applyTaskRows(cachedTasks);
+          setFullDataLoaded(true);
+          applyProjectRows(cachedProjects);
 
-            setProjects(cachedProjects.map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              color: p.color,
-              isShared: p.is_shared ?? false,
-              userId: p.user_id,
-              timer: { totalSeconds: 0, isRunning: false }
-            })));
-
-            // Also seed shared items from cache
-            const cachedShared = queryClient.getQueryData(['focusos-sender-shared-items', user.id]) as any[] | undefined;
-            if (cachedShared) {
-              buildSharedMaps(cachedShared);
-            }
-          } else {
-            // No cache — fetch projects; Phase 2 will populate tasks.
-            await fetchProjects();
+          // Also seed shared items from cache
+          const cachedShared = queryClient.getQueryData(['focusos-sender-shared-items', user.id]) as any[] | undefined;
+          if (cachedShared) {
+            buildSharedMaps(cachedShared);
           }
-        } catch (err) {
-          console.error('[Index] Initial data load failed:', err);
-        } finally {
-          setInitialLoadComplete(true);
+
+          // Warm the member-id ref so image hydration + later refetches include shared rows
+          // (single-flight — reuses the request the prefetch already made).
+          fetchMemberIdsShared(queryClient, user.id)
+            .then((ids) => { memberProjectIdsRef.current = ids; })
+            .catch(() => {});
+        } else {
+          // Cold (or prefetch-in-flight) load. fetchQuery under the shared keys reuses an
+          // in-flight prefetch rather than firing a duplicate request.
+          const tasksP = fetchAllTasksShared(queryClient, user.id)
+            .then((rows) => {
+              if (rows.length === 0 && lastKnownOpenCount(user.id) > 0) {
+                // The 07-24 vanish defence: this account is known to hold open tasks, so
+                // an empty read is a failure, not truth. Evict the poisoned cache entry
+                // (it was stored as a FRESH success) so Retry genuinely refetches.
+                queryClient.removeQueries({ queryKey: appDataKeys.tasks(user.id) });
+                setLoadFailed(true);
+                return;
+              }
+              applyTaskRows(rows);
+              setFullDataLoaded(true);
+            })
+            .catch((err) => {
+              console.error('[Index] tasks load failed:', err);
+              setLoadFailed(true);
+            });
+
+          const projectsP = fetchProjectsShared(queryClient, user.id)
+            .then((rows) => { applyProjectRows(rows); })
+            .catch(() => { toast.error('Failed to load projects'); });
+
+          // Warm the member-id ref (single-flight — reuses the request the task/project
+          // fetchers already triggered) for image hydration and later refetches.
+          fetchMemberIdsShared(queryClient, user.id)
+            .then((ids) => { memberProjectIdsRef.current = ids; })
+            .catch(() => {});
+
+          // Sender shared-item decorations are non-critical — load alongside, never gate.
+          fetchSenderSharedItems();
+
+          await Promise.all([tasksP, projectsP]);
         }
+      } catch (err) {
+        console.error('[Index] Initial data load failed:', err);
+      } finally {
+        setInitialLoadComplete(true);
       }
     };
     loadInitialData();
-  }, [user, preferences, initialLoadComplete, fetchProjects, queryClient, transformDbTask]);
+  }, [user, preferences, initialLoadComplete, queryClient, applyTaskRows, applyProjectRows, buildSharedMaps, fetchSenderSharedItems]);
 
-  // Phase 2: Background load - all remaining tasks + sender shared items
-  useEffect(() => {
-    const loadRemainingData = async () => {
-      if (initialLoadComplete && user && !fullDataLoaded) {
-        try {
-          await Promise.all([fetchAllTasks(), fetchSenderSharedItems()]);
-        } catch (err) {
-          console.error('[Index] Background data load failed:', err);
-        } finally {
-          setFullDataLoaded(true);
+  // ---- Deferred hydration of the two halves the critical-path load omits: completed
+  // tasks and inline images. Both run once after first paint (fullDataLoaded) and both
+  // single-flight through the shared cache, so a cross-route remount within staleTime
+  // re-applies from cache instead of re-hitting the network. ----
+
+  // Images already fetched this session (id -> images), covering open AND completed rows.
+  // Lets a completed merge that lands before or after the image pass still pick up images.
+  const hydratedImagesRef = useRef<Map<string, string[]> | null>(null);
+
+  // Merge the completed set into allTasks. Existing state wins on id (keeps optimistic
+  // edits and already-hydrated images on open tasks); freshly merged completed rows pick
+  // up any images the image pass already fetched. Single-flight + 5-min cache via the
+  // shared key, so a remount does not re-hit the network within staleTime.
+  const hydrateCompletedTasks = useCallback(async (opts?: { fresh?: boolean }) => {
+    if (!user) return;
+    try {
+      const rows = await fetchCompletedTasksShared(queryClient, user.id, { fresh: opts?.fresh });
+      if (!rows.length) return;
+      setAllTasks(prev => {
+        const byId = new Map(prev.map(t => [t.id, t] as const));
+        for (const raw of rows) {
+          if (byId.has(raw.id)) continue; // existing state wins
+          const t = transformDbTask(raw);
+          const imgs = hydratedImagesRef.current?.get(t.id);
+          byId.set(t.id, imgs && imgs.length > 0 ? { ...t, images: imgs } : t);
         }
+        return Array.from(byId.values());
+      });
+    } catch (err) {
+      console.warn('[Index] completed-task hydration failed:', err);
+    }
+  }, [user, queryClient, transformDbTask]);
+
+  // Fetch completed tasks lazily, just after first paint. The Done count pill and Done tab
+  // are always present in list/grid, so the default view effectively shows a completed
+  // section — hence deferred-after-paint (like image hydration) rather than blocking login.
+  const completedHydratedRef = useRef(false);
+  useEffect(() => {
+    if (!user || !fullDataLoaded || completedHydratedRef.current) return;
+    const run = () => {
+      if (completedHydratedRef.current) return;
+      completedHydratedRef.current = true;
+      hydrateCompletedTasks();
+    };
+    const handle = window.setTimeout(run, 800);
+    return () => window.clearTimeout(handle);
+  }, [user, fullDataLoaded, hydrateCompletedTasks]);
+
+  // Deferred image hydration. The task-list load path (own/shared fetches + warm prefetch
+  // cache) deliberately omits the heavy `images` column so the list paints fast; this
+  // backfills images ~1s after the list is up, off the critical path. Routed through the
+  // shared cache key (fetchTaskImagesShared) so an /app remount within staleTime re-applies
+  // from cache instead of re-pulling the images. Runs once per mount, patches only tasks
+  // whose images array is still empty (never clobbers an edit that landed in between).
+  const imagesHydratedRef = useRef(false);
+  // True once hydration has APPLIED (or proven there is nothing to hydrate). Gates
+  // whether an empty images array on a task update means "removed" or "not loaded
+  // yet" — before this flips, writing [] would wipe a task's stored images.
+  const imagesReadyRef = useRef(false);
+  useEffect(() => {
+    if (!user || !fullDataLoaded || imagesHydratedRef.current) return;
+
+    const run = async () => {
+      // Guard the actual work (not just the scheduling) so a double-invoked effect
+      // (React strict mode) hydrates exactly once.
+      if (imagesHydratedRef.current) return;
+      imagesHydratedRef.current = true;
+      try {
+        const imagesById = await fetchTaskImagesShared(queryClient, user.id);
+        hydratedImagesRef.current = imagesById;
+        if (imagesById.size === 0) { imagesReadyRef.current = true; return; }
+        // Fill images only where the current task has none, so a task the user edited
+        // between the slim load and now is never overwritten.
+        setAllTasks(prev => prev.map(t =>
+          (t.images && t.images.length > 0) || !imagesById.has(t.id)
+            ? t
+            : { ...t, images: imagesById.get(t.id)! }
+        ));
+        imagesReadyRef.current = true;
+      } catch (err) {
+        console.warn('[Index] image hydration failed:', err);
       }
     };
-    loadRemainingData();
-  }, [initialLoadComplete, user, fullDataLoaded, fetchAllTasks, fetchSenderSharedItems]);
+
+    const handle = window.setTimeout(run, 1000);
+    return () => window.clearTimeout(handle);
+  }, [user, fullDataLoaded, queryClient]);
 
   // Resolve assigner emails to names for shared project headers
   useEffect(() => {
@@ -613,9 +718,114 @@ const Index = () => {
     };
   }, [user, resyncTasks]);
 
+  // Resume refetch: after the tab has been hidden a while, in-memory data may have drifted
+  // (missed realtime events, an expired-then-refreshed token). On return to visible after
+  // >60s hidden, invalidate the shared queries and refetch tasks/projects/member-ids/
+  // preferences once. Single-flight under the shared keys collapses this with any
+  // concurrent trigger (e.g. the resync above), so it never storms.
+  const hiddenSinceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.id;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenSinceRef.current = Date.now();
+        return;
+      }
+      const hiddenFor = hiddenSinceRef.current ? Date.now() - hiddenSinceRef.current : 0;
+      hiddenSinceRef.current = null;
+      if (hiddenFor < 60_000) return;
+
+      // Preferences has an active observer (useUserPreferences) — invalidate refetches it.
+      queryClient.invalidateQueries({ queryKey: appDataKeys.preferences(uid) });
+      // Tasks / projects / member-ids are fetched imperatively — force a fresh
+      // single-flight refetch and re-apply to local state (applyTaskRows keeps its
+      // don't-blank-a-populated-list guard).
+      fetchMemberIdsShared(queryClient, uid, { fresh: true })
+        .then((ids) => { memberProjectIdsRef.current = ids; })
+        .catch(() => {});
+      // Open then completed, in order: the fresh open apply drops a task that moved
+      // open->completed while hidden, then the completed re-merge re-adds it as completed
+      // (hydrateCompletedTasks keeps existing state on id, so it must run second).
+      (async () => {
+        try {
+          const rows = await fetchAllTasksShared(queryClient, uid, { fresh: true });
+          applyTaskRows(rows);
+        } catch {
+          /* keep prior state */
+        }
+        await hydrateCompletedTasks({ fresh: true });
+      })();
+      fetchProjectsShared(queryClient, uid, { fresh: true })
+        .then((rows) => applyProjectRows(rows))
+        .catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [user, queryClient, applyTaskRows, applyProjectRows, hydrateCompletedTasks]);
+
   // Realtime subscription for tasks - keeps all sessions in sync
   useEffect(() => {
     if (!user) return;
+    const uid = user.id;
+
+    // Preserve locally-hydrated images when a realtime row carries none: the slim task-list
+    // load omits `images`, so a realtime payload for a row hydrated this session can arrive
+    // image-less. Take the incoming as-is once the image pass has run (imagesReadyRef) or
+    // the payload actually carries images; otherwise keep the existing/hydrated images.
+    const preserveImages = (incoming: Task, existing: Task | undefined): Task => {
+      if ((incoming.images && incoming.images.length > 0) || imagesReadyRef.current) return incoming;
+      const preserved = (existing?.images && existing.images.length > 0)
+        ? existing.images
+        : hydratedImagesRef.current?.get(incoming.id);
+      return preserved && preserved.length > 0 ? { ...incoming, images: preserved } : incoming;
+    };
+
+    // Mirror a realtime row into the raw-row caches so a later cache read (nav remount)
+    // reflects it. A status change moves the row between the open and completed caches.
+    // Slim the row first (never leak `images` into the hot task-list cache); only patch a
+    // cache that already holds data — fabricating one would mark it fresh and starve the
+    // real fetch that populates it (completed is lazily hydrated).
+    const patchCaches = (raw: any, deleted: boolean) => {
+      const openKey = appDataKeys.tasks(uid);
+      const completedKey = appDataKeys.completedTasks(uid);
+      if (deleted) {
+        queryClient.setQueryData(openKey, (prev: any[] | undefined) => prev ? prev.filter((r: any) => r.id !== raw.id) : prev);
+        queryClient.setQueryData(completedKey, (prev: any[] | undefined) => prev ? prev.filter((r: any) => r.id !== raw.id) : prev);
+        return;
+      }
+      const slim = slimTaskRow(raw);
+      const completed = slim.status === 'completed';
+      const targetKey = completed ? completedKey : openKey;
+      const otherKey = completed ? openKey : completedKey;
+      queryClient.setQueryData(targetKey, (prev: any[] | undefined) => {
+        if (!prev) return prev;
+        const idx = prev.findIndex((r: any) => r.id === slim.id);
+        if (idx === -1) return [slim, ...prev];
+        const next = prev.slice();
+        next[idx] = slim;
+        return next;
+      });
+      queryClient.setQueryData(otherKey, (prev: any[] | undefined) => prev ? prev.filter((r: any) => r.id !== slim.id) : prev);
+    };
+
+    // INSERT/UPDATE share one upsert: replace by id, else append. Handles a completed row
+    // absent from state (a completed-task UPDATE), so the Done set stays live without a
+    // refetch. Never seed an empty list mid-cold-load — the initial load will populate it.
+    const upsertTask = (raw: any) => {
+      const incoming = transformDbTask(raw);
+      setAllTasks(prev => {
+        const idx = prev.findIndex(t => t.id === incoming.id);
+        if (idx === -1) {
+          if (prev.length === 0) return prev;
+          return [...prev, preserveImages(incoming, undefined)];
+        }
+        const next = prev.slice();
+        next[idx] = preserveImages(incoming, prev[idx]);
+        return next;
+      });
+      patchCaches(raw, false);
+    };
 
     const channel = supabase
       .channel(`tasks-${user.id}`)
@@ -628,11 +838,7 @@ const Index = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          const newTask = transformDbTask(payload.new);
-          setAllTasks(prev => {
-            if (prev.length === 0 || prev.some(t => t.id === newTask.id)) return prev;
-            return [...prev, newTask];
-          });
+          upsertTask(payload.new);
         }
       )
       .on(
@@ -644,10 +850,10 @@ const Index = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          const updatedTask = transformDbTask(payload.new);
-          setAllTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
-          // Trigger sidebar refresh for shared project visibility
-          setProjectRefreshTrigger(prev => prev + 1);
+          // No projectRefreshTrigger bump: the sidebar recomputes shared-project
+          // visibility off its own tasks channel, and the auto-eject effect handles the
+          // currently-viewed shared project off this allTasks change.
+          upsertTask(payload.new);
         }
       )
       .on(
@@ -661,6 +867,7 @@ const Index = () => {
         (payload) => {
           const deletedTaskId = (payload.old as any).id;
           setAllTasks(prev => prev.filter(t => t.id !== deletedTaskId));
+          patchCaches({ id: deletedTaskId }, true);
         }
       )
       .subscribe((status, err) => {
@@ -698,64 +905,102 @@ const Index = () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(sharedItemsChannel);
     };
-  }, [user, transformDbTask, fetchSenderSharedItems]);
+  }, [user, transformDbTask, fetchSenderSharedItems, queryClient]);
 
-  // Apply user preferences on load
-  useEffect(() => {
+  // Resolve the view BEFORE anything paints — state adjusted DURING render (the
+  // react.dev "you might not need an effect" pattern). The old post-paint effect let the
+  // first content render use the hardcoded defaults (grid, no filter), which mounted the
+  // full unfiltered task set for a visible burst (the 07-25 422-card flash + ~1s freeze)
+  // before tearing it down. Setting state here re-renders synchronously pre-commit, so a
+  // wrong view can never reach the screen. Runs once per mount (preferencesLoaded latch);
+  // deliberately does NOT wait for projects — a project-id view applies optimistically and
+  // the effect below corrects a deleted project once projects have loaded.
+  if (user && preferences && !preferencesLoaded) {
+    setAppliedSearch(window.location.search);
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
 
-    if (preferences && !preferencesLoaded && projects.length > 0 && !selectedProjectId && !selectedSpecialList) {
-      // If URL has a view param, use it (from Home nav)
-      if (viewParam === 'past-due' || viewParam === 'today' || viewParam === 'unassigned') {
-        setSelectedSpecialList(viewParam);
-        setSelectedProjectId(null);
-      } else if (viewParam === 'projects') {
-        // Just load default project view
-        setSelectedSpecialList(null);
-      } else if (viewParam && projects.some(p => p.id === viewParam)) {
-        // Direct project id deep-link (e.g. from Convert-to-Project in MeetingDetail)
-        setSelectedProjectId(viewParam);
-        setSelectedSpecialList(null);
-      } else if (preferences.default_view === 'today') {
-        setSelectedSpecialList('today');
-        setSelectedProjectId(null);
-      } else if (preferences.default_view === 'unassigned') {
-        setSelectedSpecialList('unassigned');
-        setSelectedProjectId(null);
-      } else {
-        // It's a project ID - check if it still exists
-        const projectExists = projects.some(p => p.id === preferences.default_view);
-        if (projectExists) {
-          setSelectedProjectId(preferences.default_view);
-          setSelectedSpecialList(null);
-        } else {
-          // Fallback to today if project was deleted
-          setSelectedSpecialList('today');
-          setSelectedProjectId(null);
-        }
-      }
-      
-      // Apply display mode
-      const modeMap: Record<string, 'list' | 'grid' | 'gantt' | 'time-tracking'> = {
-        'list': 'list',
-        'grid': 'grid',
-        'gantt': 'gantt',
-        'time': 'time-tracking'
-      };
-      setViewMode(modeMap[preferences.default_display_mode] || 'list');
-      
-      // Apply task filter
-      setActiveTab(preferences.default_task_filter);
-      
-      // Apply theme
-      if (preferences.theme) {
-        setTheme(preferences.theme);
-      }
-      
-      setPreferencesLoaded(true);
+    if (viewParam === 'past-due' || viewParam === 'today' || viewParam === 'unassigned') {
+      setSelectedSpecialList(viewParam);
+      setSelectedProjectId(null);
+    } else if (viewParam === 'projects') {
+      setSelectedSpecialList(null);
+    } else if (viewParam) {
+      // Deep-linked project id — apply optimistically, existence re-checked below.
+      setSelectedProjectId(viewParam);
+      setSelectedSpecialList(null);
+    } else if (preferences.default_view === 'today') {
+      setSelectedSpecialList('today');
+      setSelectedProjectId(null);
+    } else if (preferences.default_view === 'unassigned') {
+      setSelectedSpecialList('unassigned');
+      setSelectedProjectId(null);
+    } else if (preferences.default_view && preferences.default_view !== 'home') {
+      // Project-id default — optimistic, corrected below if the project is gone.
+      setSelectedProjectId(preferences.default_view);
+      setSelectedSpecialList(null);
+    } else {
+      setSelectedSpecialList('today');
+      setSelectedProjectId(null);
     }
-  }, [preferences, preferencesLoaded, projects]);
+
+    // Apply display mode
+    const modeMap: Record<string, 'list' | 'grid' | 'gantt' | 'time-tracking'> = {
+      'list': 'list',
+      'grid': 'grid',
+      'gantt': 'gantt',
+      'time': 'time-tracking'
+    };
+    setViewMode(modeMap[preferences.default_display_mode] || 'list');
+
+    // Apply task filter
+    setActiveTab(preferences.default_task_filter);
+
+    setPreferencesLoaded(true);
+  }
+
+  // Retry after a failed/suspicious initial load — re-arms the initial-load effect;
+  // the poisoned cache entry was evicted at detection time, so this refetches for real.
+  const handleRetryLoad = useCallback(() => {
+    setLoadFailed(false);
+    setInitialLoadComplete(false);
+  }, []);
+
+  // Warm-cache start DURING render (flicker fault A, 2026-07-25): the warm apply used
+  // to happen in the post-paint initial-load effect, so every /app re-entry painted the
+  // (now opaque) skeleton for ~4 frames while the data sat ready in the cache. Applying
+  // the cached rows here commits them before first paint — the skeleton renders only on
+  // genuinely cold loads. The initial-load effect still runs afterwards: its warm branch
+  // re-applies the same rows (idempotent) and handles shared maps / member ids.
+  if (user && !initialLoadComplete && !warmStartDone) {
+    setWarmStartDone(true);
+    const warmTasks = queryClient.getQueryData(appDataKeys.tasks(user.id)) as any[] | undefined;
+    const warmProjects = queryClient.getQueryData(appDataKeys.projects(user.id)) as any[] | undefined;
+    if (warmTasks && warmTasks.length > 0 && warmProjects) {
+      setAllTasks(warmTasks.map(transformDbTask));
+      setProjects(warmProjects.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        isShared: p.is_shared ?? false,
+        userId: p.user_id,
+        timer: { totalSeconds: 0, isRunning: false },
+      })));
+      setFullDataLoaded(true);
+    }
+  }
+
+  // Deleted/unavailable project fallback: an optimistically-applied project id (deep link
+  // or stale default_view) falls back to Today once the real project list has loaded and
+  // does not contain it. Guarded on a non-empty list so a transient empty apply can never
+  // false-trigger it.
+  useEffect(() => {
+    if (!initialLoadComplete || !selectedProjectId || projects.length === 0) return;
+    if (!projects.some(p => p.id === selectedProjectId)) {
+      setSelectedSpecialList('today');
+      setSelectedProjectId(null);
+    }
+  }, [initialLoadComplete, projects, selectedProjectId]);
 
   useEffect(() => {
     if (!preferences) return;
@@ -768,9 +1013,13 @@ const Index = () => {
     setExpandedTaskIds(new Set());
   }, [isMobile, preferences?.default_task_card_view, preferences?.default_task_card_view_mobile]);
 
-  // React to URL search param changes (e.g. from BottomNav clicks)
-  useEffect(() => {
-    if (!preferencesLoaded) return;
+  // React to URL search param changes (BottomNav clicks) DURING render — the old
+  // post-paint effect let one stale-list frame slip through on every in-app view
+  // switch (flicker fault B, 2026-07-25: Past Due list under a ?view=today URL for
+  // 19ms). Latched on the actual search string, so in-app selections that don't
+  // change the URL are never clobbered.
+  if (preferencesLoaded && appliedSearch !== location.search) {
+    setAppliedSearch(location.search);
     const urlParams = new URLSearchParams(location.search);
     const viewParam = urlParams.get('view');
     if (viewParam === 'past-due' || viewParam === 'today' || viewParam === 'unassigned') {
@@ -779,14 +1028,28 @@ const Index = () => {
     } else if (viewParam === 'projects') {
       setSelectedSpecialList(null);
     }
-  }, [location.search, preferencesLoaded]);
+  }
 
   // Auto-open sidebar when arriving via openSidebar param (mobile + desktop)
   // Apply the user's default_view preference so the right tasks load
   useEffect(() => {
     if (!preferencesLoaded || !preferences) return;
     const urlParams = new URLSearchParams(location.search);
-    if (urlParams.get('openSidebar') === 'true') {
+    const wantsOpen = urlParams.get('openSidebar') === 'true';
+
+    // Reset the latch once the param has left the URL (strip committed), so the
+    // NEXT arrival with ?openSidebar=true is handled afresh.
+    if (!wantsOpen) {
+      openSidebarHandledRef.current = false;
+      return;
+    }
+
+    // Already consumed this arrival — a `projects` re-run before the strip
+    // commits must not re-raise the open request (would reopen the drawer).
+    if (openSidebarHandledRef.current) return;
+    openSidebarHandledRef.current = true;
+
+    {
       // Apply the user's default_view to select the right project/list
       const dv = preferences.default_view;
       if (dv === 'today') {
@@ -1239,7 +1502,11 @@ https://www.skyscanner.com`,
     }
 
     // Optimistic update: Update local state immediately to prevent list jumping
-    setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
+    setAllTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id
+      ? ((updatedTask.images && updatedTask.images.length > 0) || imagesReadyRef.current
+          ? updatedTask
+          : { ...updatedTask, images: task.images })
+      : task));
 
     // Update database in background
     const {
@@ -1252,7 +1519,10 @@ https://www.skyscanner.com`,
       start_date: updatedTask.startDate?.toISOString(),
       end_date: updatedTask.endDate?.toISOString(),
       due_date: updatedTask.dueDate?.toISOString(),
-      images: updatedTask.images || [],
+      // Pre-hydration an empty array means "images not loaded yet", not "removed" —
+      // omit the column so a save in that window can't wipe stored images.
+      ...((updatedTask.images && updatedTask.images.length > 0) || imagesReadyRef.current
+        ? { images: updatedTask.images || [] } : {}),
       timer_total_seconds: updatedTask.timer.totalSeconds,
       timer_is_running: updatedTask.timer.isRunning,
       timer_start_time: updatedTask.timer.startTime,
@@ -1647,26 +1917,12 @@ https://www.skyscanner.com`,
   
   // Show loading screen while auth is resolving
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <AppBootSkeleton />;
   }
   
   // Auth resolved but no user — show spinner while useEffect redirects
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Redirecting...</p>
-        </div>
-      </div>
-    );
+    return <AppBootSkeleton />;
   }
 
   // User exists but preferences still loading — keep full-screen spinner until
@@ -1674,152 +1930,80 @@ https://www.skyscanner.com`,
   // preferences exist, render the shell immediately and skeleton the task area
   // while initialLoadComplete is still false.
   if (prefsLoading || !preferences) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading your tasks...</p>
-        </div>
-      </div>
-    );
+    return <AppBootSkeleton />;
   }
 
   return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} openSidebarRequested={openSidebarRequested} onOpenSidebarHandled={handleOpenSidebarHandled} />
-      <div className="min-h-screen flex w-full relative">
-        {!isCream && <div ref={containerRef} className="dock-particle-container" />}
-        {!isCream && <LightRays raysOrigin="top-center" raysColor="#2b12e2" raysSpeed={0.8} lightSpread={1.2} rayLength={2.5} pulsating={false} fadeDistance={1.2} saturation={1.0} followMouse={true} mouseInfluence={0.15} noiseAmount={0.05} distortion={0.1} />}
-        {!isCream && <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/50 to-background/70 pointer-events-none z-[1]" />}
-
-        <div className="flex flex-1 relative w-full flex-col">
-          <div className="flex flex-1 relative">
+      <div className="h-screen flex w-full relative overflow-hidden lg-shell">
+        <div className="flex flex-1 relative w-full flex-col min-h-0">
+          <div className="flex flex-1 relative min-h-0">
             {/* Sidebar */}
             <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => { setProjectRefreshTrigger(prev => prev + 1); fetchTasks(); }} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : undefined} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : undefined} isTourActive={showProjectsTour} userId={user?.id} senderProjectSharedMap={senderProjectSharedMap} />
 
             {/* Main Content */}
-            <div className="flex-1 relative z-10 overflow-x-hidden overflow-y-auto">
-              <div
-                className="container mx-auto py-4 sm:py-6 lg:py-8 px-2 sm:px-4"
-                style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 128px)' }}
-              >
+            <div className="flex-1 relative z-10 min-w-0 flex flex-col min-h-0 overflow-x-hidden">
+              <div className="flex flex-col flex-1 min-h-0 w-full lg-maincol">
 
-          {/* Actions Bar */}
-          <div className="flex flex-row gap-2 sm:gap-3 items-center mb-4 sm:mb-6">
-            <SidebarTrigger className="relative z-10 min-h-[44px] min-w-[44px] hidden md:flex shrink-0" />
-            <div className="relative flex-[2] md:flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hidden lg:block" />
-              <Input placeholder="Search" value={searchInput} onChange={e => setSearchInput(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10 lg:hidden" />
-              <Input placeholder="Search tasks..." value={searchInput} onChange={e => setSearchInput(e.target.value)} className="pl-3 sm:pl-9 bg-card/80 backdrop-blur-sm border-2 h-10 hidden lg:block" />
+          {/* Actions Bar — mock .pw-row1: search + view seg + density seg + Add Task */}
+          <div className="flex flex-row gap-2 items-center shrink-0 lg-row1">
+            <div className="lg-search relative flex-1">
+              <Search className="h-3.5 w-3.5 shrink-0" />
+              <input placeholder="Search tasks…" value={searchInput} onChange={e => setSearchInput(e.target.value)} />
             </div>
-            <div className="flex gap-2">
-              {/* Mobile/Tablet: Display Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-1 border-2 h-10 px-3 flex lg:hidden">
-                <span className="text-sm">Display</span>
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem onClick={() => setViewMode('list')}>
-                    <LayoutList className="h-4 w-4 mr-2" />
-                    List
-                    {viewMode === 'list' && <Check className="h-4 w-4 ml-auto" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setViewMode('grid')}>
-                    <LayoutGrid className="h-4 w-4 mr-2" />
-                    Grid
-                    {viewMode === 'grid' && <Check className="h-4 w-4 ml-auto" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setViewMode('gantt')}>
-                    <GanttChartSquare className="h-4 w-4 mr-2" />
-                    Gantt
-                    {viewMode === 'gantt' && <Check className="h-4 w-4 ml-auto" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setViewMode('time-tracking')}>
-                    <Clock className="h-4 w-4 mr-2" />
-                    Time Tracking
-                    {viewMode === 'time-tracking' && <Check className="h-4 w-4 ml-auto" />}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Desktop: Individual Buttons */}
-              <div className="hidden lg:flex gap-2">
-                <Button variant={viewMode === 'list' ? 'default' : 'outline'} onClick={() => setViewMode('list')} className="gap-2 border-2">
-                  <LayoutList className="h-4 w-4" />
-                  <span>List</span>
-                </Button>
-                <Button variant={viewMode === 'grid' ? 'default' : 'outline'} onClick={() => setViewMode('grid')} className="gap-2 border-2">
-                  <LayoutGrid className="h-4 w-4" />
-                  <span>Grid</span>
-                </Button>
-                <Button variant={viewMode === 'gantt' ? 'default' : 'outline'} onClick={() => setViewMode('gantt')} className="gap-2 border-2">
-                  <GanttChartSquare className="h-4 w-4" />
-                  <span>Gantt</span>
-                </Button>
-                <Button variant={viewMode === 'time-tracking' ? 'default' : 'outline'} onClick={() => setViewMode('time-tracking')} className="gap-2 border-2">
-                  <Clock className="h-4 w-4" />
-                  <span>Time</span>
-                </Button>
+            <div className="lg-seg">
+              <button type="button" className={viewMode === 'list' ? 'on' : ''} onClick={() => setViewMode('list')}>
+                <LayoutList className="h-[13px] w-[13px]" /><span>List</span>
+              </button>
+              <button type="button" className={viewMode === 'grid' ? 'on' : ''} onClick={() => setViewMode('grid')}>
+                <LayoutGrid className="h-[13px] w-[13px]" /><span>Grid</span>
+              </button>
+              <button type="button" className={viewMode === 'gantt' ? 'on' : ''} onClick={() => setViewMode('gantt')}>
+                <GanttChartSquare className="h-[13px] w-[13px]" /><span>Gantt</span>
+              </button>
+              <button type="button" className={viewMode === 'time-tracking' ? 'on' : ''} onClick={() => setViewMode('time-tracking')}>
+                <Clock className="h-[13px] w-[13px]" /><span>Time</span>
+              </button>
+            </div>
+            {viewMode === 'list' && (
+              <div className="lg-seg lg-density">
+                <button type="button" className={globalCardView === 'full' ? 'on' : ''} onClick={() => { setGlobalCardView('full'); setExpandedTaskIds(new Set()); }}>
+                  <span>Full</span>
+                </button>
+                <button type="button" className={globalCardView === 'compact' ? 'on' : ''} onClick={() => { setGlobalCardView('compact'); setExpandedTaskIds(new Set()); }}>
+                  <span>Compact</span>
+                </button>
+                <button type="button" className={globalCardView === 'minimal' ? 'on' : ''} onClick={() => { setGlobalCardView('minimal'); setExpandedTaskIds(new Set()); }}>
+                  <span>Minimal</span>
+                </button>
               </div>
-
-              {viewMode === 'list' && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="outline"
-                      aria-label={`View: ${globalCardView}`}
-                      className="gap-2 border-2 h-10 px-2 lg:px-3"
-                    >
-                      <Eye className="h-4 w-4" />
-                      <span className="hidden lg:inline">
-                        {globalCardView === 'full' ? 'Full' : globalCardView === 'compact' ? 'Compact' : 'Minimal'}
-                      </span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onClick={() => { setGlobalCardView('full'); setExpandedTaskIds(new Set()); }}>
-                      <Check className={`h-4 w-4 mr-2 ${globalCardView === 'full' ? 'opacity-100' : 'opacity-0'}`} />
-                      Full
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setGlobalCardView('compact'); setExpandedTaskIds(new Set()); }}>
-                      <Check className={`h-4 w-4 mr-2 ${globalCardView === 'compact' ? 'opacity-100' : 'opacity-0'}`} />
-                      Compact
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setGlobalCardView('minimal'); setExpandedTaskIds(new Set()); }}>
-                      <Check className={`h-4 w-4 mr-2 ${globalCardView === 'minimal' ? 'opacity-100' : 'opacity-0'}`} />
-                      Minimal
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              <Button
-                aria-label="Add task"
-                className="gap-2 border-2 shadow-lg shadow-primary/20 px-2 lg:px-3"
-                data-task-tour-step="add-task-button"
-                onClick={() => handleAddTaskDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                <span className="hidden lg:inline">Add Task</span>
-              </Button>
-            </div>
+            )}
+            <button
+              type="button"
+              aria-label="Add task"
+              className="lg-btn acc shrink-0"
+              data-task-tour-step="add-task-button"
+              onClick={() => handleAddTaskDialogOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline">Add Task</span>
+            </button>
           </div>
 
           {/* Main Content */}
-          {!fullDataLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="w-full hidden lg:grid grid-cols-4 h-auto">
+          {loadFailed ? <LoadErrorPanel onRetry={handleRetryLoad} /> : !fullDataLoaded || !preferencesLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
+              <TabsList className="w-full grid grid-cols-4 h-auto shrink-0 lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
+                  All ({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
                 <TabsTrigger value="todo" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">To Do </span>({sortedTasks.filter(t => t.status === 'todo').length})
+                  To Do ({sortedTasks.filter(t => t.status === 'todo').length})
                 </TabsTrigger>
                 <TabsTrigger value="in-progress" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Progress </span>({sortedTasks.filter(t => t.status === 'in-progress').length})
+                  Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
                 </TabsTrigger>
                 <TabsTrigger value="completed" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Done </span>({sortedTasks.filter(t => t.status === 'completed').length})
+                  Done ({sortedTasks.filter(t => t.status === 'completed').length})
                 </TabsTrigger>
               </TabsList>
 
@@ -1828,11 +2012,11 @@ https://www.skyscanner.com`,
                 const isCollaborator = (currentProject?.isShared && currentProject?.userId !== user?.id) ?? false;
                 const isSharedProject = currentProject?.isShared ?? false;
                 const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                return <div className={`w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-1 flex-wrap">
                       <span className="hidden sm:inline" style={{ color: currentProject?.color }}>📁</span>
-                      
+
                       {isEditingProjectName && !isCollaborator ? (
                         <Input
                           autoFocus
@@ -2153,7 +2337,7 @@ https://www.skyscanner.com`,
                 </div>
               )}
 
-              <TabsContent value="all" className="mt-6">
+              <TabsContent value="all" className="flex-1 min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status !== 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2172,7 +2356,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="todo" className="mt-6">
+              <TabsContent value="todo" className="flex-1 min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'todo')}
                   onUpdate={handleUpdateTask}
@@ -2191,7 +2375,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="in-progress" className="mt-6">
+              <TabsContent value="in-progress" className="flex-1 min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'in-progress')}
                   onUpdate={handleUpdateTask}
@@ -2210,7 +2394,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
 
-              <TabsContent value="completed" className="mt-6">
+              <TabsContent value="completed" className="flex-1 min-h-0 lg-content">
                 <DraggableTaskList
                   tasks={sortedTasks.filter(t => t.status === 'completed')}
                   onUpdate={handleUpdateTask}
@@ -2228,19 +2412,19 @@ https://www.skyscanner.com`,
                   isReorderMode={isReorderMode}
                 />
               </TabsContent>
-            </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="w-full grid grid-cols-4 h-auto">
+            </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
+              <TabsList className="w-full grid grid-cols-4 h-auto shrink-0 lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">All </span>({sortedTasks.filter(t => t.status !== 'completed').length})
+                  All ({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
                 <TabsTrigger value="todo" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">To Do </span>({sortedTasks.filter(t => t.status === 'todo').length})
+                  To Do ({sortedTasks.filter(t => t.status === 'todo').length})
                 </TabsTrigger>
                 <TabsTrigger value="in-progress" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Progress </span>({sortedTasks.filter(t => t.status === 'in-progress').length})
+                  Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
                 </TabsTrigger>
                 <TabsTrigger value="completed" className="text-xs sm:text-sm py-2 sm:py-1.5">
-                  <span className="hidden sm:inline">Done </span>({sortedTasks.filter(t => t.status === 'completed').length})
+                  Done ({sortedTasks.filter(t => t.status === 'completed').length})
                 </TabsTrigger>
               </TabsList>
 
@@ -2249,7 +2433,7 @@ https://www.skyscanner.com`,
                 const isCollaborator2 = (currentProject2?.isShared && currentProject2?.userId !== user?.id) ?? false;
                 const isSharedProject2 = currentProject2?.isShared ?? false;
                 const assignedByEmail2 = isCollaborator2 ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
-                return <div className={`mt-4 w-full bg-muted p-1 rounded-md border ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+                return <div className={`w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
                   <div className="flex items-center justify-between gap-2 px-3 py-2">
                     <div className="flex flex-col gap-0.5 flex-1">
                       <div className="flex items-center gap-2">
@@ -2358,22 +2542,22 @@ https://www.skyscanner.com`,
                 </div>;
               })()}
 
-              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+              <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+              <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+              <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
 
-              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+              <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-1 min-h-0 lg-content">
                 {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
               </TabsContent>
-            </Tabs> : viewMode === 'gantt' ? <div className="mt-6">
+            </Tabs> : viewMode === 'gantt' ? <div className="flex-1 min-h-0 lg-content">
               <GanttChart 
                 tasks={sortedTasks}
                 allTasks={sortedTasks}
@@ -2392,7 +2576,7 @@ https://www.skyscanner.com`,
                 onAddTask={handleAddTask}
                 onOpenAddTask={() => handleAddTaskDialogOpen(true)}
               />
-            </div> : <div className="mt-6">
+            </div> : <div className="flex-1 min-h-0 lg-content">
               <TimeTrackingChart tasks={sortedTasks} projects={projects} />
             </div>}
               </div>
@@ -2437,7 +2621,7 @@ https://www.skyscanner.com`,
 
         {/* Radial FAB - compact (double-tap to return home) */}
         {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
-          <RecordFAB compact onBrainDump={() => setDialogOpen(true)} />
+          <RecordFAB onBrainDump={() => navigate('/home?braindump=1')} />
         )}
       </div>
       
@@ -2495,16 +2679,16 @@ https://www.skyscanner.com`,
       {isMobile && editingTask && (
         <EditTaskDialog
           task={editingTask}
-          open={!!editingTask}
+          open={!!editingTask && !editClosing}
           highlight={editHighlight}
           onOpenChange={(open) => {
             if (!open && !showTaskTour && !showProjectsTour) {
-              setEditingTask(null);
+              closeEditPane();
             }
           }}
           onUpdateTask={async (updatedTask) => {
             await handleUpdateTask(updatedTask);
-            setEditingTask(null);
+            closeEditPane();
           }}
           projects={projects}
           currentUserId={user?.id}

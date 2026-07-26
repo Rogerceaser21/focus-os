@@ -106,6 +106,14 @@ export function useBrainDumpLive() {
     newProjectsRef.current = new Map();
 
     try {
+      // 0. Mic API only exists in secure contexts (https or localhost); a plain
+      // http LAN address (e.g. http://192.168.x.x:8080) has no mediaDevices.
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error(
+          'Microphone unavailable on this address. Open the app via localhost or the HTTPS site — browsers only allow mic access on secure pages.'
+        );
+      }
+
       // 1. Get API key from edge function
       const { data, error } = await supabase.functions.invoke('focusos-get-brain-dump-config');
       if (error || !data?.apiKey) {

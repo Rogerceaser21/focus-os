@@ -15,16 +15,28 @@ import NotFound from "./pages/NotFound";
 import ImportTasks from "./pages/ImportTasks";
 import GoogleConnected from "./pages/GoogleConnected";
 import SharedAction from "./pages/SharedAction";
+import Preview from "./pages/Preview";
+import PreviewApp from "./pages/PreviewApp";
+// DEV-ONLY drawer reproduction harness (routes gated by import.meta.env.DEV below).
+import DrawerRepro from "./pages/DrawerRepro";
+import MotionTweaks from "./components/dev/MotionTweaks";
 
 
 const queryClient = new QueryClient();
 
+// ?tweaks anywhere in the query string mounts the motion-tuning panel
+// (works on the deployed Pages build too — that is the point: Igor tunes
+// on his phone). Evaluated once at module load; no effects, no state.
+const showMotionTweaks =
+  typeof window !== "undefined" && new URLSearchParams(window.location.search).has("tweaks");
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       
       <Toaster />
       <Sonner />
+      {showMotionTweaks && <MotionTweaks />}
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/home" element={<Home />} />
@@ -37,6 +49,18 @@ const App = () => (
         <Route path="/import-tasks" element={<ImportTasks />} />
         <Route path="/google-connected" element={<GoogleConnected />} />
         <Route path="/respond" element={<SharedAction />} />
+        <Route path="/preview" element={<Preview />} />
+        <Route path="/preview/app" element={<PreviewApp />} />
+        {/* DEV-ONLY: mobile Projects drawer reproduction harness (see
+            DrawerRepro.tsx + tests/drawer.spec.ts). Distinct keys force a
+            remount when navigating between the two, mirroring the real app's
+            /meetings -> /app route change. Not reachable in production. */}
+        {import.meta.env.DEV && (
+          <>
+            <Route path="/dev/drawer-repro" element={<DrawerRepro key="repro" />} />
+            <Route path="/dev/drawer-away" element={<DrawerRepro key="away" />} />
+          </>
+        )}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

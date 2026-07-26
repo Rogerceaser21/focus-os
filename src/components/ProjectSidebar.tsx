@@ -1,9 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  fetchProjects as fetchProjectsShared,
+  fetchMemberProjectIds as fetchMemberIdsShared,
+  fetchMeetingsList as fetchMeetingsListShared,
+  fetchSharedItems as fetchSharedItemsShared,
+  fetchProjectInvitations as fetchProjectInvitationsShared,
+} from '@/lib/appDataFetchers';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList, Users, Clock, EyeOff } from 'lucide-react';
+import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList, Users, Clock, EyeOff, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ShareStatusPopover, SharedRecipient } from './ShareStatusPopover';
 import { useNavigate } from 'react-router-dom';
@@ -12,14 +21,9 @@ import { toast } from 'sonner';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { TourLoadingOverlay } from './TourLoadingOverlay';
 import AnimatedList from './AnimatedList';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
 import Fuse from 'fuse.js';
 import { SidebarScrollArea } from './SidebarScrollArea';
-import {
-  Sheet,
-  SheetContent,
-} from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +78,20 @@ export const ProjectSidebar = ({
   const [sidebarSearchInput, setSidebarSearchInput] = useState('');
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState('');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  // Timestamp of the last successful projects load — used to skip the redundant
+  // TOKEN_REFRESHED refire (see the auth-state effect below).
+  const lastFetchAtRef = useRef(0);
+  // Once-per-load latch for the heavy Google-RSVP edge sync (see syncRsvpThenRefresh).
+  const rsvpSyncedRef = useRef(false);
+  // Full set of this user's shared projects (id/name/color, pre active-filter). Kept so the
+  // realtime task handler can (a) test whether a changed task belongs to a shared project
+  // and (b) re-run the active-filter without a full fetchProjects. Includes projects hidden
+  // by the filter, so a task reopening in a hidden project can bring it back.
+  const sharedProjectsAllRef = useRef<{ id: string; name: string; color: string }[]>([]);
+  // Debounce timer + latest-closure ref for the targeted shared-visibility recompute.
+  const sharedVisibilityDebounceRef = useRef<number | null>(null);
+  const recomputeSharedVisibilityRef = useRef<() => void>(() => {});
 
   // Debounce sidebar search
   useEffect(() => {
@@ -93,16 +111,38 @@ export const ProjectSidebar = ({
     fetchProjectInvitations();
   }, [projectRefreshTrigger, userId]);
 
-  // Recover from cold-start auth races (mobile Safari): refetch projects when
-  // Supabase finishes restoring/refreshing the session after initial mount.
+  // Deferred RSVP sync: 3s pushes the 2.5-11s edge call past the login critical path
+  // (first task card paints ~2.8s). Once per load via rsvpSyncedRef.
+  useEffect(() => {
+    if (!userId) return;
+    const t = window.setTimeout(syncRsvpThenRefresh, 3000);
+    return () => window.clearTimeout(t);
+  }, [userId]);
+
+  // React to Supabase auth events after mount.
   useEffect(() => {
     if (!userId) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-        fetchProjects();
-        fetchMeetings();
-        fetchSharedItems();
-        fetchProjectInvitations();
+      if (event === 'SIGNED_IN') {
+        // A real sign-in must always (re)load, even right after a load. New session ->
+        // allow one fresh RSVP sync too (still deferred off the sign-in interaction).
+        fetchProjects({ fresh: true });
+        fetchMeetings({ fresh: true });
+        fetchSharedItems({ fresh: true });
+        fetchProjectInvitations({ fresh: true });
+        rsvpSyncedRef.current = false;
+        window.setTimeout(syncRsvpThenRefresh, 3000);
+      } else if (event === 'TOKEN_REFRESHED') {
+        // TOKEN_REFRESHED fires ~2s into almost every cold start and used to refire
+        // the whole fetch set — a duplicate-request storm. The initial mount load,
+        // now backed by the shared fetcher's empty-success retry, already recovers a
+        // latched-empty sidebar (task ed4851e3), so skip this refire when a load
+        // completed recently.
+        if (Date.now() - lastFetchAtRef.current < 60_000) return;
+        fetchProjects({ fresh: true });
+        fetchMeetings({ fresh: true });
+        fetchSharedItems({ fresh: true });
+        fetchProjectInvitations({ fresh: true });
       }
     });
     return () => subscription.unsubscribe();
@@ -128,7 +168,7 @@ export const ProjectSidebar = ({
           toast.info(`📬 New item shared with you`, {
             description: `"${newItem.item_title}" from ${senderDisplay}`,
           });
-          fetchSharedItems();
+          fetchSharedItems({ fresh: true });
         }
       )
       // Listen for updates too (when status changes to 'accepted' — notify sender)
@@ -151,7 +191,7 @@ export const ProjectSidebar = ({
           if (updated.completed_at && !old?.completed_at) {
             // Don't show toast here — queued from state
           }
-          fetchSharedItems();
+          fetchSharedItems({ fresh: true });
         }
       )
       .subscribe();
@@ -161,7 +201,13 @@ export const ProjectSidebar = ({
     };
   }, [userId]);
 
-  // Realtime: re-fetch shared projects when any of this user's tasks change (status updates)
+  // Realtime: keep shared-project visibility live when this user's tasks change (status /
+  // change-request updates). No full fetchProjects / fetchSharedItems fan-out per event —
+  // the sidebar needs task data only for the shared-project active-filter. Recompute that
+  // filter (one slim task read) debounced ~2s, and only when the changed task belongs to a
+  // shared project. (DELETE's default replica identity omits project_id, so a delete can't
+  // be targeted; an emptied shared project stays visible under the no-tasks rule and the
+  // next fetchProjects self-heals, so this is acceptable.)
   useEffect(() => {
     if (!userId) return;
 
@@ -176,16 +222,26 @@ export const ProjectSidebar = ({
           filter: `user_id=eq.${userId}`,
         },
         (payload: any) => {
-          // Re-fetch projects to update shared project visibility
-          fetchProjects();
-          // Also re-fetch shared items in case a change_request was created
-          fetchSharedItems();
+          const projectId = payload.new?.project_id ?? payload.old?.project_id;
+          if (!projectId) return;
+          if (!sharedProjectsAllRef.current.some((p) => p.id === projectId)) return;
+          if (sharedVisibilityDebounceRef.current !== null) {
+            window.clearTimeout(sharedVisibilityDebounceRef.current);
+          }
+          sharedVisibilityDebounceRef.current = window.setTimeout(() => {
+            sharedVisibilityDebounceRef.current = null;
+            recomputeSharedVisibilityRef.current();
+          }, 2000);
         }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(taskChannel);
+      if (sharedVisibilityDebounceRef.current !== null) {
+        window.clearTimeout(sharedVisibilityDebounceRef.current);
+        sharedVisibilityDebounceRef.current = null;
+      }
     };
   }, [userId]);
 
@@ -282,27 +338,27 @@ export const ProjectSidebar = ({
     }
   }, [sharedItems, userId]);
 
-  const fetchProjects = async () => {
-    // Retry with backoff to survive cold-start auth races on mobile Safari
-    const delays = [0, 300, 800, 1500];
-    let data: any = null;
-    let error: any = null;
-    for (let i = 0; i < delays.length; i++) {
-      if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
-      const res = await (supabase as any)
-        .from('focusos_projects')
-        .select('*')
-        .order('created_at', { ascending: false });
-      data = res.data;
-      error = res.error;
-      if (!error) break;
-    }
-
-    if (error) {
+  // Route projects through the shared single-flight fetcher so this sidebar and Index's
+  // list share ONE request (same key), with the own/shared merge + empty-success retry
+  // living in one place. `fresh` forces a network refetch for event-driven callers
+  // (create / accept invite / realtime) that must not read the stale snapshot; the mount
+  // load omits it so an in-flight Index/prefetch load is reused. The is_shared split and
+  // the shared-task visibility filter below are unchanged.
+  const fetchProjects = async (opts?: { fresh?: boolean }) => {
+    if (!userId) return;
+    let data: any[];
+    try {
+      if (opts?.fresh) {
+        // Refresh memberships first so a just-accepted invite's shared project is included.
+        await fetchMemberIdsShared(queryClient, userId, { fresh: true });
+      }
+      data = await fetchProjectsShared(queryClient, userId, { fresh: opts?.fresh });
+    } catch (error) {
       console.error('[ProjectSidebar] fetchProjects failed after retries:', error);
       toast.error('Failed to load projects');
       return;
     }
+    lastFetchAtRef.current = Date.now();
 
     // Split into own projects and shared projects
     const ownProjects = data.filter((p: any) => !p.is_shared);
@@ -314,72 +370,92 @@ export const ProjectSidebar = ({
       timer: { totalSeconds: 0, isRunning: false }
     })));
 
-    // For shared projects, filter out those where ALL tasks are completed
-    if (shared.length > 0) {
-      const sharedIds = shared.map((p: any) => p.id);
-      const { data: sharedTasks } = await (supabase as any)
-        .from('focusos_tasks')
-        .select('id, project_id, status, change_request_message')
-        .in('project_id', sharedIds);
+    // Stash the full shared set for the realtime targeted recompute, then apply the
+    // active-visibility filter (shared task read + hide-when-all-done) via the shared path.
+    sharedProjectsAllRef.current = shared.map((p: any) => ({ id: p.id, name: p.name, color: p.color }));
+    await recomputeSharedVisibility();
+  };
 
-      const activeShared = shared.filter((p: any) => {
-        const projectTasks = (sharedTasks || []).filter((t: any) => t.project_id === p.id);
-        // Show if no tasks yet, or if any task is actively visible (not completed AND no pending change request)
-        const visibleActiveTasks = projectTasks.filter((t: any) => t.status !== 'completed' && !t.change_request_message);
-        return projectTasks.length === 0 || visibleActiveTasks.length > 0;
-      });
-
-      setSharedProjects(activeShared.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        color: p.color,
-        timer: { totalSeconds: 0, isRunning: false }
-      })));
-    } else {
+  // Light shared-project active-visibility filter: for the current shared set, read the
+  // slim task rows and show a project only if it has no tasks yet or at least one task that
+  // is not completed and has no pending change request. Extracted from fetchProjects so the
+  // realtime task handler can re-run just this (one small query) instead of a full refetch.
+  const recomputeSharedVisibility = async () => {
+    const shared = sharedProjectsAllRef.current;
+    if (shared.length === 0) {
       setSharedProjects([]);
+      return;
+    }
+    const sharedIds = shared.map((p) => p.id);
+    const { data: sharedTasks } = await (supabase as any)
+      .from('focusos_tasks')
+      .select('id, project_id, status, change_request_message')
+      .in('project_id', sharedIds);
+
+    const activeShared = shared.filter((p) => {
+      const projectTasks = (sharedTasks || []).filter((t: any) => t.project_id === p.id);
+      const visibleActiveTasks = projectTasks.filter((t: any) => t.status !== 'completed' && !t.change_request_message);
+      return projectTasks.length === 0 || visibleActiveTasks.length > 0;
+    });
+
+    setSharedProjects(activeShared.map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      timer: { totalSeconds: 0, isRunning: false }
+    })));
+  };
+  // Keep the realtime handler (subscribed once, deps [userId]) pointed at the latest closure.
+  useEffect(() => { recomputeSharedVisibilityRef.current = recomputeSharedVisibility; });
+
+  // Meetings / shared-items / invitations route through the shared single-flight keys so
+  // a mount (cross-route remount included) reads cache within staleTime instead of the
+  // network. Event-driven callers (SIGNED_IN, TOKEN_REFRESHED, realtime, accept/decline/
+  // create/acknowledge/cancel) pass { fresh: true } to bypass the stale snapshot.
+  const fetchMeetings = async (opts?: { fresh?: boolean }) => {
+    if (!userId) return;
+    try {
+      const data = await fetchMeetingsListShared(queryClient, userId, { fresh: opts?.fresh });
+      setMeetings(data);
+    } catch (error) {
+      console.error('[ProjectSidebar] fetchMeetings failed after retries:', error);
     }
   };
 
-  const fetchMeetings = async () => {
-    const { data, error } = await (supabase as any)
-      .from('focusos_meetings')
-      .select('id, title')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setMeetings(data.map(m => ({ id: m.id, title: m.title })));
-    }
-  };
-
-  const fetchSharedItems = async () => {
-    // Best-effort: sync Google RSVPs into sender's pending shared items
-    // before reading. Silent — never blocks UI on failure.
+  // Google-RSVP edge sync: 2.5-11s live-measured, so it must never run inline on a
+  // read path. Deferred + once per load (see the scheduling effect); on completion the
+  // shared-items read re-runs to reconcile whatever the sync changed.
+  const syncRsvpThenRefresh = async () => {
+    if (rsvpSyncedRef.current) return;
+    rsvpSyncedRef.current = true;
     try {
       await (supabase as any).functions.invoke('focusos-sync-shared-rsvp');
     } catch (e) {
-      // ignore; we still render whatever is in the table
+      return; // sync failed; the table read already painted whatever exists
     }
-    const { data, error } = await (supabase as any)
-      .from('focusos_shared_items')
-      .select('*')
-      .in('status', ['pending', 'accepted'])
-      .order('created_at', { ascending: false });
+    fetchSharedItems({ fresh: true });
+  };
 
-    if (!error && data) {
+  const fetchSharedItems = async (opts?: { fresh?: boolean }) => {
+    if (!userId) return;
+    try {
+      const data = await fetchSharedItemsShared(queryClient, userId, { fresh: opts?.fresh });
       setSharedItems(data);
+    } catch (error) {
+      console.error('[ProjectSidebar] fetchSharedItems failed after retries:', error);
     }
   };
 
-  const fetchProjectInvitations = async () => {
+  const fetchProjectInvitations = async (opts?: { fresh?: boolean }) => {
     if (!userId) return;
-    const { data, error } = await (supabase as any)
-      .from('focusos_project_members')
-      .select('id, project_id, invited_by, invited_email, role, status')
-      .eq('user_id', userId)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
-
-    if (!error && data && data.length > 0) {
+    let data: any[];
+    try {
+      data = await fetchProjectInvitationsShared(queryClient, userId, { fresh: opts?.fresh });
+    } catch (error) {
+      console.error('[ProjectSidebar] fetchProjectInvitations failed after retries:', error);
+      return;
+    }
+    if (data && data.length > 0) {
       // Fetch project names
       const projectIds = data.map((i: any) => i.project_id);
       const { data: projectsData } = await (supabase as any)
@@ -438,7 +514,7 @@ export const ProjectSidebar = ({
               description: `You've been invited to collaborate on a project`,
             });
           }
-          fetchProjectInvitations();
+          fetchProjectInvitations({ fresh: true });
         }
       )
       .subscribe();
@@ -458,8 +534,8 @@ export const ProjectSidebar = ({
         return;
       }
       toast.success('Project invitation accepted!');
-      fetchProjectInvitations();
-      fetchProjects();
+      fetchProjectInvitations({ fresh: true });
+      fetchProjects({ fresh: true });
       // Trigger parent to refetch tasks so the shared project's tasks are loaded
       onProjectCreated?.();
     } catch (err) {
@@ -478,7 +554,7 @@ export const ProjectSidebar = ({
       });
       if (error) throw error;
       toast.success('Invitation declined');
-      fetchProjectInvitations();
+      fetchProjectInvitations({ fresh: true });
     } catch (err) {
       console.error('Decline invite error:', err);
       toast.error('Failed to decline invitation');
@@ -502,16 +578,16 @@ export const ProjectSidebar = ({
       toast.success(isChangeRequest ? 'Changes accepted — task is back in your project!' : 'Item accepted and added to your data!', { duration: 1500 });
       
       // Refresh data
-      await fetchProjects();
-      await fetchSharedItems();
-      await fetchMeetings();
+      await fetchProjects({ fresh: true });
+      await fetchSharedItems({ fresh: true });
+      await fetchMeetings({ fresh: true });
       
       // Navigate to the accepted item
       if (acceptedItem?.item_type === 'meeting' && data?.recipientTaskId) {
         // Navigate to the cloned meeting
         setTimeout(() => {
           navigate(`/meetings/${data.recipientTaskId}`);
-          if (isActuallyMobile) setOpenMobile(false);
+          if (isMobile) setOpenMobile(false);
         }, 800);
       } else if (acceptedItem?.project_name) {
         setTimeout(async () => {
@@ -525,7 +601,7 @@ export const ProjectSidebar = ({
           if (matchedProject) {
             onSelectProject(matchedProject.id);
             onSelectSpecialList(null);
-            if (isActuallyMobile) setOpenMobile(false);
+            if (isMobile) setOpenMobile(false);
           }
         }, 1200);
       }
@@ -545,7 +621,7 @@ export const ProjectSidebar = ({
       });
       if (error) throw error;
       toast.success('Item declined');
-      fetchSharedItems();
+      fetchSharedItems({ fresh: true });
     } catch (err) {
       console.error('Decline error:', err);
       toast.error('Failed to decline shared item');
@@ -561,7 +637,7 @@ export const ProjectSidebar = ({
         .from('focusos_shared_items')
         .update({ sender_acknowledged: true })
         .eq('id', sharedItemId);
-      fetchSharedItems();
+      fetchSharedItems({ fresh: true });
     } catch (err) {
       console.error('Acknowledge error:', err);
     }
@@ -574,7 +650,7 @@ export const ProjectSidebar = ({
         .from('focusos_shared_items')
         .update({ completion_acknowledged: true })
         .eq('id', sharedItemId);
-      fetchSharedItems();
+      fetchSharedItems({ fresh: true });
     } catch (err) {
       console.error('Acknowledge completion error:', err);
     }
@@ -589,7 +665,7 @@ export const ProjectSidebar = ({
         .update({ status: 'cancelled' })
         .eq('id', sharedItemId);
       toast.success('Shared item cancelled');
-      fetchSharedItems();
+      fetchSharedItems({ fresh: true });
     } catch (err) {
       console.error('Cancel error:', err);
       toast.error('Failed to cancel shared item');
@@ -630,7 +706,7 @@ export const ProjectSidebar = ({
     }
 
     toast.success('Project created!');
-    fetchProjects();
+    fetchProjects({ fresh: true });
     setIsCreateOpen(false);
     onProjectCreated?.();
   };
@@ -645,8 +721,107 @@ export const ProjectSidebar = ({
     onSelectProject(null);
   };
 
+  // Single source of truth for mobile detection: read isMobile from the
+  // SidebarProvider context (which itself calls useIsMobile()) instead of
+  // calling useIsMobile() a second time here. Two independent hook instances
+  // both start at `false` and flip to `true` in their own effect after mount;
+  // relying on only one keeps this component's branch (plain div vs Sheet)
+  // always in lockstep with the provider's `open`/`sidebarOpen` state, so
+  // there's no window where the desktop-styled div and the mobile Sheet can
+  // both exist/mount back-to-back for the same view.
   const { open: sidebarOpen, setOpen: setSidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
-  const isActuallyMobile = useIsMobile();
+
+  // Ghost-click latch for the mobile drawer overlay. The overlay closes the
+  // drawer only when ONE gesture both starts (pointerdown) and ends (click) on
+  // it. A ghost click — the trailing synthesized click of the SAME tap that
+  // navigated Home -> /app and opened the drawer — arrives on the freshly
+  // mounted overlay with NO matching pointerdown, so it must not close the
+  // just-opened drawer. (Igor video 2026-07-18.)
+  const overlayPointerDownRef = useRef(false);
+
+  // Grab-and-throw: drag the open drawer left to close it, Apple-style
+  // (1:1 tracking, rubber-band past the resting point, velocity release).
+  // Gesture tracking is imperative by design — direct transform writes on
+  // the persistent panel layer at pointer speed; React state is touched
+  // only for the final open/close decision. The panel layer already exists
+  // (white-flash law), so dragging animates an already-rastered layer.
+  const dragPanelRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{
+    tracking: boolean;
+    claimed: boolean;
+    startX: number;
+    startY: number;
+    shift: number;
+    history: { x: number; t: number }[];
+  }>({ tracking: false, claimed: false, startX: 0, startY: 0, shift: 0, history: [] });
+
+  const DRAWER_W = 280;
+
+  const endDrag = (panel: HTMLDivElement, close: boolean) => {
+    const d = dragRef.current;
+    d.tracking = false;
+    if (!d.claimed) return;
+    d.claimed = false;
+    // Swallow the trailing synthesized click so a drag can never "tap" a
+    // project row it happened to end on (same family as the overlay's
+    // ghost-click latch).
+    const swallow = (e: MouseEvent) => { e.stopPropagation(); e.preventDefault(); };
+    panel.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => panel.removeEventListener('click', swallow, { capture: true } as EventListenerOptions), 400);
+    if (close) setOpenMobile(false);
+    // Release on the next frame: the data-state rule becomes the transform
+    // target again, and its transition animates from the finger's last
+    // position (transitions retarget from the current computed value).
+    requestAnimationFrame(() => {
+      panel.style.transform = '';
+      panel.removeAttribute('data-dragging');
+    });
+  };
+
+  const onPanelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!openMobile || e.pointerType === 'mouse') return;
+    const d = dragRef.current;
+    d.tracking = true;
+    d.claimed = false;
+    d.startX = e.clientX;
+    d.startY = e.clientY;
+    d.shift = 0;
+    d.history = [{ x: e.clientX, t: e.timeStamp }];
+  };
+
+  const onPanelPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    const panel = dragPanelRef.current;
+    if (!d.tracking || !panel) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.claimed) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { d.tracking = false; return; } // it's a scroll
+      if (Math.abs(dx) <= 10 || Math.abs(dx) <= Math.abs(dy)) return; // undecided
+      d.claimed = true;
+      panel.setPointerCapture(e.pointerId);
+      panel.setAttribute('data-dragging', '');
+    }
+    // Leftward follows 1:1; rightward rubber-bands (there is nothing there).
+    const shift = dx < 0 ? dx : (dx * DRAWER_W * 0.55) / (DRAWER_W + 0.55 * dx);
+    d.shift = shift;
+    panel.style.transform = `translateX(${shift}px)`;
+    d.history.push({ x: e.clientX, t: e.timeStamp });
+    if (d.history.length > 6) d.history.shift();
+  };
+
+  const onPanelPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    const panel = dragPanelRef.current;
+    if (!panel || !d.tracking) return;
+    if (!d.claimed) { d.tracking = false; return; }
+    const first = d.history[0];
+    const last = d.history[d.history.length - 1];
+    const dt = Math.max(1, last.t - first.t);
+    const vx = (last.x - first.x) / dt; // px/ms, negative = leftward
+    const close = vx < -0.5 || (d.shift < -DRAWER_W * 0.35 && vx < 0.05);
+    endDrag(panel, close);
+  };
 
   const [launchingTourLabel, setLaunchingTourLabel] = useState<string | null>(null);
 
@@ -674,7 +849,7 @@ export const ProjectSidebar = ({
 
     setLaunchingTourLabel(labelMap[tourType]);
 
-    if (isActuallyMobile) {
+    if (isMobile) {
       setOpenMobile(false);
     } else {
       try { setSidebarOpen?.(false); } catch { /* no-op if context unavailable */ }
@@ -693,10 +868,41 @@ export const ProjectSidebar = ({
     }, startDelay);
   };
 
+  // Hygiene: whenever the drawer is (re)closed, clear the overlay gesture latch
+  // so a stale pointerdown can never authorise a later ghost click. Pairs with
+  // the ghost-click guard on the overlay onClick below (Igor video 2026-07-18).
+  useEffect(() => {
+    if (!openMobile) overlayPointerDownRef.current = false;
+  }, [openMobile]);
+
+  // Escape-to-close for the mobile drawer. Gated on openMobile so the listener
+  // only exists while the drawer is open. Radix Dialog gave this for free before
+  // the normal-mobile branch dropped Radix (see the portal comment below).
+  useEffect(() => {
+    if (!isMobile || !openMobile) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenMobile(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isMobile, openMobile, setOpenMobile]);
+
   const sidebarContent = (
     <>
       <div className="border-b p-4 flex-shrink-0">
-        <h2 className="font-semibold text-lg mb-3">Projects</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-lg">Projects</h2>
+          {!isMobile && (
+            <button
+              type="button"
+              aria-label="Close sidebar"
+              className="lg-iconbtn h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         <div className="flex gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -713,7 +919,7 @@ export const ProjectSidebar = ({
                 Home Tour
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
-                if (isActuallyMobile) setOpenMobile(false);
+                if (isMobile) setOpenMobile(false);
                 navigate('/meetings?tour=meetings');
               }}>
                 Meetings Tour
@@ -742,7 +948,7 @@ export const ProjectSidebar = ({
           className="w-full gap-2 mt-2 border-primary/50 text-primary hover:bg-primary/10 hover:border-primary"
           onClick={() => {
             navigate('/meetings');
-            if (isActuallyMobile) setOpenMobile(false);
+            if (isMobile) setOpenMobile(false);
           }}
         >
           <Mic className="h-4 w-4" />
@@ -778,7 +984,7 @@ export const ProjectSidebar = ({
                       onClick={() => {
                         handleSelectProject(project.id);
                         setSidebarSearchInput('');
-                        if (isActuallyMobile) setOpenMobile(false);
+                        if (isMobile) setOpenMobile(false);
                       }}
                     >
                       <Folder className="h-4 w-4" style={{ color: project.color }} />
@@ -800,7 +1006,7 @@ export const ProjectSidebar = ({
                       onClick={() => {
                         navigate(`/meetings/${meeting.id}`);
                         setSidebarSearchInput('');
-                        if (isActuallyMobile) setOpenMobile(false);
+                        if (isMobile) setOpenMobile(false);
                       }}
                     >
                       <Mic className="h-4 w-4 text-primary" />
@@ -824,7 +1030,7 @@ export const ProjectSidebar = ({
                 className="w-full justify-start gap-2"
                 onClick={() => {
                   handleSelectSpecial('today');
-                  if (isActuallyMobile) setOpenMobile(false);
+                  if (isMobile) setOpenMobile(false);
                 }}
               >
                 <Calendar className="h-4 w-4" />
@@ -836,7 +1042,7 @@ export const ProjectSidebar = ({
                 className="w-full justify-start gap-2 text-orange-400/80 hover:text-orange-400"
                 onClick={() => {
                   handleSelectSpecial('past-due');
-                  if (isActuallyMobile) setOpenMobile(false);
+                  if (isMobile) setOpenMobile(false);
                 }}
               >
                 <Calendar className="h-4 w-4" />
@@ -848,7 +1054,7 @@ export const ProjectSidebar = ({
                 className="w-full justify-start gap-2"
                 onClick={() => {
                   handleSelectSpecial('unassigned');
-                  if (isActuallyMobile) setOpenMobile(false);
+                  if (isMobile) setOpenMobile(false);
                 }}
               >
                 <ListTodo className="h-4 w-4" />
@@ -1111,7 +1317,7 @@ export const ProjectSidebar = ({
                       className="w-full justify-start gap-2"
                       onClick={() => {
                         handleSelectProject(project.id);
-                        if (isActuallyMobile) setOpenMobile(false);
+                        if (isMobile) setOpenMobile(false);
                       }}
                     >
                       <Folder className="h-4 w-4" style={{ color: project.color }} />
@@ -1141,7 +1347,7 @@ export const ProjectSidebar = ({
                           className="w-full justify-start gap-2"
                           onClick={() => {
                             handleSelectProject(project.id);
-                            if (isActuallyMobile) setOpenMobile(false);
+                            if (isMobile) setOpenMobile(false);
                           }}
                         >
                           <Folder
@@ -1178,7 +1384,7 @@ export const ProjectSidebar = ({
 
   // On mobile, use Sheet overlay - dialog is OUTSIDE the Sheet
   // BUT when tour is active, use a simple fixed div to avoid Radix focus/event trapping
-  if (isActuallyMobile) {
+  if (isMobile) {
     if (isTourActive) {
       // Tour mode: Bypass Sheet entirely, use simple fixed positioning
       return (
@@ -1189,7 +1395,7 @@ export const ProjectSidebar = ({
           {/* Sidebar content */}
           <div 
             className={`
-              fixed inset-y-0 left-0 z-50 w-[280px] bg-card/95 backdrop-blur-sm border-r
+              fixed inset-y-0 left-0 z-50 w-[280px] lg-side
               transform transition-transform duration-300 ease-in-out flex flex-col
               ${openMobile ? 'translate-x-0' : '-translate-x-full'}
             `}
@@ -1203,17 +1409,67 @@ export const ProjectSidebar = ({
       );
     }
     
-    // Normal mode: Use Sheet
+    // Normal mode: plain-div portal (NOT a Radix Sheet).
+    //
+    // Why not Radix: the drawer is opened by a PLAIN button (BottomNav's Projects
+    // tab -> toggleSidebar), not a SheetTrigger. A forceMounted Radix Sheet keeps
+    // its DismissableLayer mounted and listening while closed, and on TOUCH it
+    // defers its outside-dismiss to a one-shot document click listener. React's
+    // root onClick (toggle -> open) runs first, the document listener (onDismiss
+    // -> onOpenChange(false)) runs second, so every open/reopen tap is cancelled.
+    // A forceMounted Radix layer cannot be BOTH permanently mounted AND quiet
+    // while closed. Device-diagnosed 2026-07-11. The tour branch above already
+    // proved a plain fixed div works; this mirrors it.
+    //
+    // Why a portal to document.body: ancestor elements carry backdrop-filter,
+    // which makes them the containing block for position:fixed — a fixed child
+    // would otherwise be trapped inside the filtered ancestor's box. Portalling
+    // to <body> escapes that so the panel/overlay pin to the viewport.
+    //
+    // WHITE-FLASH LAW: the overlay and panel are PERMANENTLY rendered (never
+    // conditionally mounted, never visibility:hidden), so their compositing
+    // layers are born once and never torn down. Open/close is driven ONLY by the
+    // .lg-side / .lg-side-overlay [data-state] CSS transforms in index.css —
+    // animating an already-rastered layer, which the 2026-07-09 device bisect
+    // proved is the only Safari-safe path (a layer animated across its
+    // birth/death paints blank white for a frame).
     return (
       <>
-        <Sheet open={openMobile} onOpenChange={setOpenMobile}>
-          <SheetContent 
-            side="left" 
-            className="w-[280px] p-0 bg-card/50 backdrop-blur-sm flex flex-col"
-          >
-            {sidebarContent}
-          </SheetContent>
-        </Sheet>
+        {createPortal(
+          <>
+            <div
+              data-state={openMobile ? 'open' : 'closed'}
+              className="fixed inset-0 z-50 lg-side-overlay"
+              // Tap-outside-to-close, but ONLY when the gesture both started and
+              // ended on this overlay. onPointerDown latches the start; onClick
+              // closes only if that latch is set, then resets it. A ghost click
+              // (the navigating tap's trailing synthesized click, whose
+              // pointerdown fired on the previous page before this overlay
+              // existed) has no latch, so it can never self-close the drawer.
+              // (Igor video 2026-07-18.)
+              onPointerDown={() => { overlayPointerDownRef.current = true; }}
+              onClick={() => {
+                if (!overlayPointerDownRef.current) return;
+                overlayPointerDownRef.current = false;
+                setOpenMobile(false);
+              }}
+            />
+            <div
+              ref={dragPanelRef}
+              role="dialog"
+              aria-label="Projects"
+              data-state={openMobile ? 'open' : 'closed'}
+              className="fixed inset-y-0 left-0 h-full z-50 w-[280px] p-0 lg-side flex flex-col gap-4"
+              onPointerDown={onPanelPointerDown}
+              onPointerMove={onPanelPointerMove}
+              onPointerUp={onPanelPointerUp}
+              onPointerCancel={onPanelPointerUp}
+            >
+              {sidebarContent}
+            </div>
+          </>,
+          document.body,
+        )}
         {createDialog}
         <TourLoadingOverlay label={launchingTourLabel} />
       </>
@@ -1224,7 +1480,7 @@ export const ProjectSidebar = ({
   return (
     <div 
       className={`
-        border-r bg-background flex flex-col h-screen
+        border-r bg-background flex flex-col h-screen lg-side
         transition-all duration-300 ease-in-out relative z-20
         ${sidebarOpen ? 'w-[280px] opacity-100' : 'w-0 opacity-0 overflow-hidden'}
       `}

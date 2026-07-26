@@ -29,12 +29,12 @@ function buildMeetingEmailHtml(
 
   const outlineSections = summary.outline.map((s) => `
       <tr><td style="padding:0 0 12px;">
-        <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#292119;">${escapeHtml(s.heading)}</p>
+        <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#1b1f24;">${escapeHtml(s.heading)}</p>
         <table cellpadding="0" cellspacing="0" width="100%">
           ${s.points.map((p) => `
           <tr><td style="padding:2px 0;">
             <table cellpadding="0" cellspacing="0"><tr>
-              <td style="vertical-align:top;padding-right:8px;padding-top:7px;"><div style="width:6px;height:6px;border-radius:50%;background:#B8572E;"></div></td>
+              <td style="vertical-align:top;padding-right:8px;padding-top:7px;"><div style="width:6px;height:6px;border-radius:50%;background:#0f7490;"></div></td>
               <td style="font-size:13px;color:#6E6256;line-height:1.5;">${escapeHtml(p)}</td>
             </tr></table>
           </td></tr>`).join("")}
@@ -43,7 +43,7 @@ function buildMeetingEmailHtml(
 
   const recordingBlock = recordingUrl ? `
   <tr><td style="padding:20px 30px 0;" align="center">
-    <a href="${recordingUrl}" style="display:inline-block;padding:11px 26px;background:#FBF7F1;border:1px solid #B8572E;color:#B8572E;font-size:13px;font-weight:600;border-radius:10px;text-decoration:none;">Download recording</a>
+    <a href="${recordingUrl}" style="display:inline-block;padding:11px 26px;background:#ffffff;border:1px solid #0f7490;color:#0f7490;font-size:13px;font-weight:600;border-radius:10px;text-decoration:none;">Download recording</a>
   </td></tr>` : "";
 
   return `
@@ -53,29 +53,29 @@ function buildMeetingEmailHtml(
 <body style="margin:0;padding:0;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;padding:40px 20px;">
 <tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#FBF7F1;border:1px solid #E7DCCB;border-radius:16px;overflow:hidden;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border:1px solid #E7DCCB;border-radius:16px;overflow:hidden;">
   <tr><td style="padding:30px 30px 0;">
     <table cellpadding="0" cellspacing="0" align="center"><tr>
       <td style="vertical-align:middle;padding-right:9px;"><img src="${logoUrl}" width="28" height="28" alt="" style="display:block;border:0;"></td>
-      <td style="vertical-align:middle;font-size:16px;font-weight:600;color:#292119;">Focus<span style="color:#B8572E;"> OS</span></td>
+      <td style="vertical-align:middle;font-size:16px;font-weight:600;color:#1b1f24;">Focus<span style="color:#0f7490;"> OS</span></td>
     </tr></table>
     <div style="border-top:1px solid #ECE3D6;margin:18px 0 0;"></div>
   </td></tr>
   <tr><td style="padding:18px 30px 0;">
-    <div style="font-size:20px;font-weight:600;color:#292119;">Meeting notes shared with you</div>
+    <div style="font-size:20px;font-weight:600;color:#1b1f24;">Meeting notes shared with you</div>
     <p style="margin:6px 0 0;font-size:14px;color:#6E6256;">${escapeHtml(senderName)} shared meeting notes with you</p>
   </td></tr>
   <tr><td style="padding:18px 30px 0;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#F3ECE0;border:1px solid #E7DCCB;border-radius:12px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#F3ECE0;border:1px solid #E7DCCB;border-radius:20px;">
       <tr><td style="padding:16px 18px;">
-        <p style="margin:0 0 8px;font-size:17px;font-weight:600;color:#292119;">${escapeHtml(meeting.title)}</p>
+        <p style="margin:0 0 8px;font-size:17px;font-weight:600;color:#1b1f24;">${escapeHtml(meeting.title)}</p>
         <span style="font-size:12px;color:#9C9082;">${date}</span>${duration ? `<span style="font-size:12px;color:#9C9082;"> &nbsp;&middot;&nbsp; ${duration}</span>` : ""}
       </td></tr>
     </table>
   </td></tr>
   ${userNote ? `
   <tr><td style="padding:14px 30px 0;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF9F0;border:1px solid #E7DCCB;border-radius:12px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF9F0;border:1px solid #E7DCCB;border-radius:20px;">
       <tr><td style="padding:16px 18px;">
         <p style="margin:0;font-size:14px;color:#4A4138;line-height:1.6;white-space:pre-wrap;">${escapeHtml(userNote)}</p>
       </td></tr>

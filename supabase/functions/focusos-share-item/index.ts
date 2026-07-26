@@ -49,42 +49,42 @@ function buildShareEmailHtml(p: {
 }) {
   const typeLabel = p.itemType.charAt(0).toUpperCase() + p.itemType.slice(1);
   const projectLine = p.projectName
-    ? `<p style="margin:6px 0 0;font-size:13px;color:#6b5b4b;">Project: ${escapeHtml(p.projectName)}</p>`
+    ? `<p style="margin:6px 0 0;font-size:13px;color:#5b6470;">Project: ${escapeHtml(p.projectName)}</p>`
     : "";
 
   const dueLine = p.dueDate
-    ? `<p style="margin:6px 0 0;font-size:13px;color:#6b5b4b;">Due: ${escapeHtml(fmtDate(p.dueDate) || p.dueDate)}</p>`
+    ? `<p style="margin:6px 0 0;font-size:13px;color:#5b6470;">Due: ${escapeHtml(fmtDate(p.dueDate) || p.dueDate)}</p>`
     : "";
 
   const descriptionBlock = p.description
-    ? `<p style="margin:14px 0 0;font-size:14px;line-height:1.55;color:#292119;white-space:pre-wrap;">${escapeHtml(p.description)}</p>`
+    ? `<p style="margin:14px 0 0;font-size:14px;line-height:1.55;color:#1b1f24;white-space:pre-wrap;">${escapeHtml(p.description)}</p>`
     : "";
 
   const chipStyle = (bg: string, fg: string) =>
     `display:inline-block;padding:4px 10px;margin:0 6px 6px 0;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;background:${bg};color:${fg};`;
 
   const priorityColors: Record<string, [string, string]> = {
-    urgent: ["#81313F", "#ffffff"],
-    high: ["#B8572E", "#ffffff"],
-    medium: ["#E0C26A", "#292119"],
-    low: ["#67883A", "#ffffff"],
+    urgent: ["#e5484d", "#ffffff"],
+    high: ["#f0883e", "#ffffff"],
+    medium: ["#d7dee6", "#1b1f24"],
+    low: ["#34c759", "#ffffff"],
   };
   const statusColors: Record<string, [string, string]> = {
-    todo: ["#E7DECF", "#292119"],
-    in_progress: ["#B8572E", "#ffffff"],
-    completed: ["#67883A", "#ffffff"],
-    blocked: ["#81313F", "#ffffff"],
+    todo: ["#e8edf2", "#1b1f24"],
+    in_progress: ["#0f7490", "#ffffff"],
+    completed: ["#34c759", "#ffffff"],
+    blocked: ["#e5484d", "#ffffff"],
   };
 
   const priorityChip = p.priority
     ? (() => {
-        const [bg, fg] = priorityColors[p.priority.toLowerCase()] || ["#E7DECF", "#292119"];
+        const [bg, fg] = priorityColors[p.priority.toLowerCase()] || ["#e8edf2", "#1b1f24"];
         return `<span style="${chipStyle(bg, fg)}">${escapeHtml(p.priority)}</span>`;
       })()
     : "";
   const statusChip = p.status
     ? (() => {
-        const [bg, fg] = statusColors[p.status.toLowerCase()] || ["#E7DECF", "#292119"];
+        const [bg, fg] = statusColors[p.status.toLowerCase()] || ["#e8edf2", "#1b1f24"];
         return `<span style="${chipStyle(bg, fg)}">${escapeHtml(p.status.replace(/_/g, " "))}</span>`;
       })()
     : "";
@@ -111,30 +111,30 @@ function buildShareEmailHtml(p: {
     ? (hasAccount ? p.appUrl : `https://focusos.tech/respond?token=${p.shareToken}&action=complete`)
     : null;
 
-  const btnBase = `display:inline-block;padding:8px 14px;font-size:12px;font-weight:600;border-radius:6px;text-decoration:none;`;
+  const btnBase = `display:inline-block;padding:8px 14px;font-size:12px;font-weight:600;border-radius:999px;text-decoration:none;`;
 
   let actionButtonsHtml = "";
   if (hasAccount) {
     actionButtonsHtml = `
       <tr><td align="center" style="padding:16px 24px 20px;">
         <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr>
-          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(acceptUrl)}" style="${btnBase}background:#67883A;color:#ffffff;">Accept</a></td>
-          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(rejectUrl)}" style="${btnBase}background:#81313F;color:#ffffff;">Reject</a></td>
-          ${completedUrl ? `<td style="padding:0 4px 4px 0;"><a href="${escapeHtml(completedUrl)}" style="${btnBase}background:#B8572E;color:#ffffff;">Completed</a></td>` : ""}
-          <td style="padding:0 0 4px 0;"><a href="${escapeHtml(p.appUrl)}" style="${btnBase}background:#2c2418;color:#ffffff;">View in Focus OS</a></td>
+          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(acceptUrl)}" style="${btnBase}background:#34c759;color:#ffffff;">Accept</a></td>
+          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(rejectUrl)}" style="${btnBase}background:#e5484d;color:#ffffff;">Reject</a></td>
+          ${completedUrl ? `<td style="padding:0 4px 4px 0;"><a href="${escapeHtml(completedUrl)}" style="${btnBase}background:#0f7490;color:#ffffff;">Completed</a></td>` : ""}
+          <td style="padding:0 0 4px 0;"><a href="${escapeHtml(p.appUrl)}" style="${btnBase}background:#16191d;color:#ffffff;">View in Focus OS</a></td>
         </tr></table>
-        <p style="margin:8px 0 0;font-size:11px;color:#6b5b4b;">Log in to Focus OS to action this.</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#5b6470;">Log in to Focus OS to action this.</p>
       </td></tr>`;
   } else {
     actionButtonsHtml = `
       <tr><td align="center" style="padding:16px 24px 20px;">
         <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr>
-          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(acceptUrl)}" style="${btnBase}background:#67883A;color:#ffffff;">Accept</a></td>
-          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(rejectUrl)}" style="${btnBase}background:#81313F;color:#ffffff;">Reject</a></td>
-          ${completedUrl ? `<td style="padding:0 4px 4px 0;"><a href="${escapeHtml(completedUrl)}" style="${btnBase}background:#B8572E;color:#ffffff;">Completed</a></td>` : ""}
-          <td style="padding:0 0 4px 0;"><a href="${escapeHtml(p.appUrl)}" style="${btnBase}background:#2c2418;color:#ffffff;">View in Focus OS</a></td>
+          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(acceptUrl)}" style="${btnBase}background:#34c759;color:#ffffff;">Accept</a></td>
+          <td style="padding:0 4px 4px 0;"><a href="${escapeHtml(rejectUrl)}" style="${btnBase}background:#e5484d;color:#ffffff;">Reject</a></td>
+          ${completedUrl ? `<td style="padding:0 4px 4px 0;"><a href="${escapeHtml(completedUrl)}" style="${btnBase}background:#0f7490;color:#ffffff;">Completed</a></td>` : ""}
+          <td style="padding:0 0 4px 0;"><a href="${escapeHtml(p.appUrl)}" style="${btnBase}background:#16191d;color:#ffffff;">View in Focus OS</a></td>
         </tr></table>
-        <p style="margin:8px 0 0;font-size:11px;color:#6b5b4b;">No login required.</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#5b6470;">No login required.</p>
       </td></tr>`;
   }
 
@@ -142,19 +142,19 @@ function buildShareEmailHtml(p: {
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#292119;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#eef2f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1b1f24;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f6;padding:40px 20px;">
 <tr><td align="center">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
   ${logoHeader}
   <tr><td style="padding-bottom:24px;">
-    <h1 style="margin:0;font-size:22px;color:#292119;font-weight:700;letter-spacing:-0.01em;">${typeLabel} shared with you</h1>
-    <p style="margin:8px 0 0;font-size:14px;color:#6b5b4b;">${escapeHtml(p.senderName)} has shared a ${escapeHtml(p.itemType)} with you</p>
+    <h1 style="margin:0;font-size:22px;color:#1b1f24;font-weight:700;letter-spacing:-0.01em;">${typeLabel} shared with you</h1>
+    <p style="margin:8px 0 0;font-size:14px;color:#5b6470;">${escapeHtml(p.senderName)} has shared a ${escapeHtml(p.itemType)} with you</p>
   </td></tr>
   <tr><td>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FBF7F1;border:1px solid rgba(41,33,25,0.08);border-radius:12px;overflow:hidden;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid rgba(20,24,40,0.08);border-radius:20px;overflow:hidden;">
       <tr><td style="padding:24px;">
-        <p style="margin:0;font-size:17px;font-weight:600;color:#292119;line-height:1.35;">${escapeHtml(p.itemTitle)}</p>
+        <p style="margin:0;font-size:17px;font-weight:600;color:#1b1f24;line-height:1.35;">${escapeHtml(p.itemTitle)}</p>
         ${projectLine}
         ${dueLine}
         ${chipsBlock}
@@ -163,8 +163,8 @@ function buildShareEmailHtml(p: {
       ${actionButtonsHtml}
     </table>
   </td></tr>
-  <tr><td style="padding-top:16px;border-top:1px solid rgba(41,33,25,0.1);">
-    <p style="margin:0;font-size:11px;color:#6b5b4b;text-align:center;">
+  <tr><td style="padding-top:16px;border-top:1px solid rgba(20,24,40,0.1);">
+    <p style="margin:0;font-size:11px;color:#5b6470;text-align:center;">
       Sent via Focus OS
     </p>
   </td></tr>

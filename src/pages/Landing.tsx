@@ -1,19 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
-import { useTheme } from 'next-themes';
+import { AppBootSkeleton } from '@/components/AppSkeletons';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 
 const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { setTheme } = useTheme();
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Force cream theme on Landing page
-  useEffect(() => {
-    setTheme('cream');
-  }, [setTheme]);
 
   const handlePlay = () => {
     if (videoRef.current) {
@@ -27,12 +21,10 @@ const Landing = () => {
     }
   }, [user, loading, navigate]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
+  // Auth restoring OR logged-in (about to bounce to /home): show the boot skeleton
+  // instead of bare 'Loading...' text / a one-frame marketing flash (fix 4).
+  if (loading || user) {
+    return <AppBootSkeleton />;
   }
 
   return (

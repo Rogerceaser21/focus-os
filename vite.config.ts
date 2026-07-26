@@ -5,6 +5,9 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // GitHub Pages serves the app from /<repo>/; the Pages workflow sets
+  // VITE_BASE. Local dev and Lovable builds stay at "/".
+  base: process.env.VITE_BASE || "/",
   server: {
     host: "::",
     port: 8080,

@@ -70,21 +70,40 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
         <AnimatePresence>
           {fabExpanded && (
             <motion.button
-              initial={{ opacity: 0, y: 0, scale: 0.5 }}
+              initial={{ opacity: 0, y: 0, scale: 0.8 }}
               animate={{ opacity: 1, y: -66, scale: 1 }}
-              exit={{ opacity: 0, y: 0, scale: 0.5 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              exit={{ opacity: 0, y: 0, scale: 0.8, transition: { duration: 0.15, ease: 'easeOut' } }}
+              transition={{ type: 'spring', duration: 0.45, bounce: 0.25 }}
               className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
               onClick={() => {
                 setFabExpanded(false);
                 onBrainDump();
               }}
             >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18h6" />
-                <path d="M10 22h4" />
-                <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
-              </svg>
+              {/* mini orb — same visual language as the Home brain-dump orb */}
+              <span
+                aria-hidden
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 999,
+                  background: 'radial-gradient(circle at 40% 35%, #ffffff, #e3e6ea)',
+                  border: '1.5px solid rgba(20, 24, 40, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <span
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: 999,
+                    background: 'radial-gradient(circle at 38% 32%, #ff5a52, #c81e1e 70%)',
+                    boxShadow: '0 1px 4px rgba(200, 30, 30, 0.5)',
+                  }}
+                />
+              </span>
             </motion.button>
           )}
         </AnimatePresence>
@@ -93,10 +112,10 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
         <AnimatePresence>
           {fabExpanded && (
             <motion.button
-              initial={{ opacity: 0, x: 0, scale: 0.5 }}
+              initial={{ opacity: 0, x: 0, scale: 0.8 }}
               animate={{ opacity: 1, x: -66, scale: 1 }}
-              exit={{ opacity: 0, x: 0, scale: 0.5 }}
-              transition={{ duration: 0.2, ease: 'easeOut', delay: 0.05 }}
+              exit={{ opacity: 0, x: 0, scale: 0.8, transition: { duration: 0.15, ease: 'easeOut' } }}
+              transition={{ type: 'spring', duration: 0.45, bounce: 0.25, delay: 0.05 }}
               className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
               onClick={() => {
                 setFabExpanded(false);
@@ -120,10 +139,9 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
         {/* Main record button */}
         <motion.button
           animate={{ rotate: fabExpanded ? 45 : 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ type: 'spring', duration: 0.4, bounce: 0.3 }}
           onClick={handleMainClick}
-          className="relative w-[56px] h-[56px] rounded-full shadow-lg flex items-center justify-center border-[3.5px] border-foreground/70"
-          style={{ background: 'hsl(var(--card))' }}
+          className="relative w-[56px] h-[56px] rounded-full flex items-center justify-center lg-fab-main"
         >
           <div
             className="rounded-full transition-all duration-200"

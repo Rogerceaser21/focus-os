@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ImageViewer } from '@/components/ImageViewer';
 import { ShareItemDialog } from '@/components/ShareItemDialog';
+import { ShareStatusPopover } from '@/components/ShareStatusPopover';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
 import { SidePanel } from '@/components/SidePanel';
+import { ScrollHintArea } from '@/components/ScrollHintArea';
 import { uploadTaskImage, getImageDisplayUrl } from '@/lib/taskImageStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { HandoffToAIDialog } from '@/components/HandoffToAIDialog';
@@ -281,7 +283,9 @@ export const EditTaskDialog = ({
   };
 
   const panelTitle = (
-    <div className="flex items-center gap-2">
+    // pr-9 keeps the trailing bin icon clear of the dialog's built-in X close;
+    // flex-wrap lets the share chip drop to its own line on narrow screens.
+    <div className="flex items-center gap-2 flex-wrap pr-9">
       <span>Edit Task</span>
       <Button
         variant="outline"
@@ -307,39 +311,15 @@ export const EditTaskDialog = ({
         task={{ ...task, title, description, priority, status, startDate, endDate, dueDate, projectId: selectedProjectId || undefined }}
         synced={!!task.googleCalendarEventId}
       />
-      {onDeleteTask && !isReceivedSharedTask && !isCollaboratorOnProject && (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-              title="Delete task"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete this task?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={async () => {
-                  await onDeleteTask(task);
-                  onOpenChange(false);
-                }}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Yes, Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      {/* On phones the share-status chip lives here instead of on the task row */}
+      {isMobile && task.sharedRecipients && task.sharedRecipients.length > 0 && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ShareStatusPopover
+            recipients={task.sharedRecipients}
+            itemType="Task"
+            allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
+          />
+        </div>
       )}
     </div>
   );
@@ -521,14 +501,53 @@ export const EditTaskDialog = ({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => onOpenChange(false)}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} data-task-tour-step="save-button" disabled={uploading}>
-          {uploading ? 'Uploading...' : 'Save Changes'}
-        </Button>
-      </div>
+    </div>
+  );
+
+  // Pinned outside the scroll area in every container so Cancel/Save are
+  // always reachable without scrolling. Delete sits far left, red.
+  const formFooter = (
+    <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/50 flex-shrink-0">
+      {onDeleteTask && !isReceivedSharedTask && !isCollaboratorOnProject && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 mr-auto text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Delete task"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  await onDeleteTask(task);
+                  onOpenChange(false);
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Yes, Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+      <Button variant="outline" onClick={() => onOpenChange(false)}>
+        Cancel
+      </Button>
+      <Button onClick={handleSubmit} data-task-tour-step="save-button" disabled={uploading}>
+        {uploading ? 'Uploading...' : 'Save Changes'}
+      </Button>
     </div>
   );
 
@@ -563,11 +582,12 @@ export const EditTaskDialog = ({
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-full mx-0 sm:mx-auto p-4 sm:p-6">
-            <DialogHeader>
+          <DialogContent className="lg-editsheet sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>{panelTitle}</DialogTitle>
             </DialogHeader>
-            {formContent}
+            <ScrollHintArea>{formContent}</ScrollHintArea>
+            {formFooter}
           </DialogContent>
         </Dialog>
         {extras}
@@ -579,11 +599,12 @@ export const EditTaskDialog = ({
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-full mx-0 sm:mx-auto p-4 sm:p-6">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>{panelTitle}</DialogTitle>
             </DialogHeader>
-            {formContent}
+            <ScrollHintArea>{formContent}</ScrollHintArea>
+            {formFooter}
           </DialogContent>
         </Dialog>
         {extras}
@@ -594,7 +615,7 @@ export const EditTaskDialog = ({
   return (
     <>
       {open && (
-        <SidePanel open={open} onClose={() => onOpenChange(false)} title={panelTitle} className="border-r border-l-0">
+        <SidePanel open={open} onClose={() => onOpenChange(false)} title={panelTitle} className="border-r border-l-0" footer={formFooter}>
           {formContent}
         </SidePanel>
       )}

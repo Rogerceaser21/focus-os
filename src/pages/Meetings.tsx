@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchProjects as fetchProjectsShared, appDataKeys, APP_DATA_STALE_TIME, APP_DATA_GC_TIME } from '@/lib/appDataFetchers';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -89,9 +90,23 @@ const Meetings = () => {
       return () => clearTimeout(t);
     }
   }, [tourParam, preferences]);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  // Synchronous warm start: read the shared meetings cache DURING the first render so a
+  // cache-hit visit never paints the skeleton (loading=true + post-paint effect used to
+  // flash it on every visit). Computed once — useState initializer, not per-render.
+  const [warmMeetings] = useState<Meeting[] | null>(() => {
+    if (!user || projectId) return null;
+    const cached = queryClient.getQueryData(['focusos-meetings', user.id]) as any[] | undefined;
+    if (!cached) return null;
+    return cached.map((m: any) => ({
+      ...m,
+      action_items: Array.isArray(m.action_items) ? m.action_items : [],
+      processing_status: m.processing_status || 'done',
+      processing_error: m.processing_error || null,
+    }));
+  });
+  const [meetings, setMeetings] = useState<Meeting[]>(warmMeetings ?? []);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(warmMeetings === null);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
 
   // Recording state
@@ -167,6 +182,10 @@ const Meetings = () => {
           }))
         );
         setLoading(false);
+        // Cached list painted instantly; refresh it quietly behind the render. Within
+        // staleTime the fetchQuery serves cache (zero network); past it this refetches
+        // so a long-lived (60-min gcTime) entry can never show old meetings for long.
+        fetchMeetings({ quiet: true });
       } else {
         fetchMeetings();
       }
@@ -314,7 +333,7 @@ const Meetings = () => {
         toast.error(`Processing failed: ${procError || 'Unknown error'}`);
         setProcessingMeetingId(null);
         setRecordingState('idle');
-        fetchMeetings();
+        fetchMeetings({ fresh: true });
       }
     };
 
@@ -327,9 +346,17 @@ const Meetings = () => {
     };
   }, [processingMeetingId, navigate]);
 
+  // Route through the shared projects cache so an /app <-> /meetings switch within
+  // staleTime serves from cache instead of re-hitting the network. The shared fetcher
+  // returns full own+shared rows; map to the id/name/color shape this page uses.
   const fetchProjects = async () => {
-    const { data } = await (supabase as any).from('focusos_projects').select('id, name, color');
-    if (data) setProjects(data);
+    if (!user) return;
+    try {
+      const rows = await fetchProjectsShared(queryClient, user.id);
+      setProjects(rows.map((p: any) => ({ id: p.id, name: p.name, color: p.color })));
+    } catch (error) {
+      console.error('[Meetings] fetchProjects failed:', error);
+    }
   };
 
   const checkOrphanedSessions = async () => {
@@ -410,40 +437,78 @@ const Meetings = () => {
     setOrphanedSession(null);
   };
 
-  const fetchMeetings = async () => {
-    setLoading(true);
-    let query = (supabase as any)
-      .from('focusos_meetings')
-      .select('*')
-      .order('created_at', { ascending: false });
+  // Map raw meeting rows into state and, if any are still processing, arm the stuck-meeting
+  // poller. Shared by the cached (unfiltered) and the direct (project-filtered) read paths.
+  const applyMeetings = (data: any[] | null | undefined) => {
+    if (!data) return;
+    setMeetings(
+      data.map(m => ({
+        ...m,
+        action_items: Array.isArray(m.action_items) ? m.action_items : [],
+        processing_status: (m as any).processing_status || 'done',
+        processing_error: (m as any).processing_error || null,
+      }))
+    );
 
+    // Safety net: if any meetings are still in-flight, ping the poller
+    // so it picks back up if its chain ever died.
+    const inFlight = data.some((m: any) =>
+      m.processing_status === 'transcribing' || m.processing_status === 'summarizing'
+    );
+    if (inFlight) {
+      supabase.functions
+        .invoke('focusos-poll-stuck-meetings', { body: { chainCount: 0 } })
+        .catch((e) => console.warn('arm-on-load poller invoke failed:', e?.message));
+    }
+  };
+
+  const fetchMeetings = async (opts?: { fresh?: boolean; quiet?: boolean }) => {
+    // quiet: background refresh behind an already-rendered cached list — never
+    // flip the skeleton back on.
+    if (!opts?.quiet) setLoading(true);
+
+    // A project-filtered view is a strict subset of the full list, so it is read directly
+    // and never cached under the shared meetings key (a later unfiltered read would
+    // otherwise serve the subset).
     if (projectId) {
-      query = query.eq('project_id', projectId);
+      const { data, error } = await (supabase as any)
+        .from('focusos_meetings')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+      if (!error) applyMeetings(data);
+      setLoading(false);
+      return;
     }
 
-    const { data, error } = await query;
-    if (!error && data) {
-      setMeetings(
-        data.map(m => ({
-          ...m,
-          action_items: Array.isArray(m.action_items) ? m.action_items : [],
-          processing_status: (m as any).processing_status || 'done',
-          processing_error: (m as any).processing_error || null,
-        }))
-      );
-
-      // Safety net: if any meetings are still in-flight, ping the poller
-      // so it picks back up if its chain ever died.
-      const inFlight = data.some((m: any) =>
-        m.processing_status === 'transcribing' || m.processing_status === 'summarizing'
-      );
-      if (inFlight) {
-        supabase.functions
-          .invoke('focusos-poll-stuck-meetings', { body: { chainCount: 0 } })
-          .catch((e) => console.warn('arm-on-load poller invoke failed:', e?.message));
-      }
+    if (!user) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    try {
+      // Single-flight through the shared cache: within staleTime this serves the cached rows
+      // with no network (the /app <-> /meetings visit path); `fresh` forces a refetch for the
+      // post-mutation callers (processing-error, delete) that must not read the stale snapshot.
+      const data = await queryClient.fetchQuery({
+        queryKey: appDataKeys.meetings(user.id),
+        queryFn: async () => {
+          const { data, error } = await (supabase as any)
+            .from('focusos_meetings')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          return data || [];
+        },
+        staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+        gcTime: APP_DATA_GC_TIME,
+      });
+      applyMeetings(data);
+    } catch (err) {
+      console.error('[Meetings] fetchMeetings failed:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -752,7 +817,7 @@ const Meetings = () => {
       });
       if (error) throw error;
       toast.success('Meeting deleted');
-      fetchMeetings();
+      fetchMeetings({ fresh: true });
     } catch (err) {
       console.error('Delete error:', err);
       toast.error('Failed to delete meeting');
@@ -776,8 +841,8 @@ const Meetings = () => {
   return (
     <>
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10" data-meetings-tour-step="page">
+      {/* Header — floating glass pill (lg-pagehead) */}
+      <div className="sticky top-0 z-10 lg-pagehead" data-meetings-tour-step="page">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/app')}>
             <ArrowLeft className="h-5 w-5" />
@@ -805,10 +870,19 @@ const Meetings = () => {
         </div>
       </div>
 
-      {/* Participant Setup */}
-      {showParticipants && recordingState === 'idle' && (
-        <div className="border-b bg-card/50">
-          <div className="max-w-4xl mx-auto px-4 py-4 space-y-3">
+      {/* Participant Setup — floating glass card, same material as the sidebar.
+          Persistently mounted + grid-rows reveal: the frost layer is born once
+          at page mount, never dies (white-flash law). data-state derives from
+          state during render; inert + pointer-events keep it untabbable closed. */}
+      <div
+        className="lg-reveal max-w-4xl mx-auto px-4 w-full"
+        data-state={showParticipants && recordingState === 'idle' ? 'open' : 'closed'}
+        aria-hidden={!(showParticipants && recordingState === 'idle')}
+        {...(showParticipants && recordingState === 'idle' ? {} : ({ inert: '' } as Record<string, string>))}
+      >
+        <div className="lg-reveal-clip">
+        <div className="lg-reveal-content">
+          <div className="lg-glasscard px-5 py-4 space-y-3 mb-1">
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Meeting Name
@@ -886,10 +960,11 @@ const Meetings = () => {
             </div>
           </div>
         </div>
-      )}
+        </div>
+      </div>
 
       {recordingState === 'recording' && (
-        <div className={`border-b ${isPaused ? 'bg-amber-500/10 border-amber-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
+        <div className={`lg-banner-in border-b ${isPaused ? 'bg-amber-500/10 border-amber-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
           <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -949,7 +1024,7 @@ const Meetings = () => {
 
       {/* Processing Banner with Progress */}
       {recordingState === 'processing' && (
-        <div className="bg-primary/10 border-b border-primary/30">
+        <div className="lg-banner-in bg-primary/10 border-b border-primary/30">
           <div className="max-w-4xl mx-auto px-4 py-6">
             <div className="flex items-center gap-3 mb-3">
               <Loader2 className="h-6 w-6 animate-spin text-primary shrink-0" />
@@ -1195,7 +1270,7 @@ const Meetings = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    <RecordFAB compact onBrainDump={() => setBrainDumpOpen(true)} />
+    <RecordFAB onBrainDump={() => navigate('/home?braindump=1')} />
     {user && (
       <BrainDumpLiveDialog
         open={brainDumpOpen}

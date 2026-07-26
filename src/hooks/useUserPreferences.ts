@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useTheme } from 'next-themes';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import {
+  APP_DATA_STALE_TIME,
+  APP_DATA_GC_TIME,
+  appDataKeys,
+  loadPreferences,
+  ensureDefaultPreferences,
+} from '@/lib/appDataFetchers';
 
 export interface UserPreferences {
   id: string;
@@ -12,7 +18,8 @@ export interface UserPreferences {
   default_task_filter: 'all' | 'todo' | 'in-progress' | 'completed';
   default_task_card_view: 'full' | 'compact' | 'minimal';
   default_task_card_view_mobile: 'full' | 'compact' | 'minimal';
-  theme: 'dark' | 'light' | 'cream';
+  /** Legacy column. Liquid Glass is the only theme now; the DB value is ignored. */
+  theme: string;
   has_completed_onboarding: boolean;
   has_completed_task_tour: boolean;
   has_completed_projects_tour: boolean;
@@ -27,78 +34,47 @@ export interface UserPreferences {
   updated_at: string;
 }
 
+// Preferences read through a single shared query key. Every hook instance (Index,
+// BottomNav, and one per TaskCard / TaskListItem / dialog) subscribes to the SAME
+// cache entry, so N instances collapse to ONE request and every write (setQueryData)
+// propagates to all of them. Replaces the old per-instance useState + fetch-on-mount,
+// which fetched focusos_user_preferences once per mounted instance.
 export const useUserPreferences = (userId?: string | null) => {
-  const { setTheme } = useTheme();
   const queryClient = useQueryClient();
-  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
-  const [loading, setLoading] = useState(true);
+  const prefKey = appDataKeys.preferences(userId ?? '');
 
-  const fetchPreferences = async (uid: string) => {
-    const delays = [0, 300, 800, 1500];
-    let data: any = null;
-    let error: any = null;
-    for (let i = 0; i < delays.length; i++) {
-      if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
-      const res = await (supabase as any)
-        .from('focusos_user_preferences')
-        .select('*')
-        .eq('user_id', uid)
-        .maybeSingle();
-      data = res.data;
-      error = res.error;
-      if (!error) break;
-    }
-    if (error) {
-      console.warn('Failed to load preferences after retries:', error);
-    } else if (!data) {
-      await createDefaultPreferences(uid);
-    } else {
-      setPreferences(data as UserPreferences);
-      if (data.theme) setTheme(data.theme);
-    }
-    setLoading(false);
-  };
+  const { data, isLoading } = useQuery({
+    queryKey: prefKey,
+    queryFn: () => loadPreferences(userId as string),
+    enabled: !!userId,
+    staleTime: APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
+  });
 
-  const createDefaultPreferences = async (uid: string) => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('focusos_user_preferences')
-        .insert({
-          user_id: uid,
-          default_view: 'today',
-          default_display_mode: 'list',
-          default_task_filter: 'all',
-          default_task_card_view: 'compact',
-          default_task_card_view_mobile: 'minimal',
-          theme: 'cream',
-          has_completed_onboarding: false,
-          has_completed_task_tour: false,
-          has_completed_projects_tour: false,
-          has_completed_home_tour: false,
-          has_completed_meetings_tour: false
-        })
-        .select()
-        .single();
+  const preferences = (data ?? null) as UserPreferences | null;
 
-      if (error) throw error;
-      setPreferences(data as UserPreferences);
-    } catch (error) {
-      console.error('Error creating default preferences:', error);
+  // Brand-new account: loadPreferences resolved to null (no row). Create the default
+  // row exactly once — single-flight across every instance via the module guard.
+  useEffect(() => {
+    if (!userId) return;
+    if (data === null) {
+      ensureDefaultPreferences(queryClient, userId).catch((error) =>
+        console.error('Error creating default preferences:', error),
+      );
     }
-  };
+  }, [userId, data, queryClient]);
 
   const markOnboardingComplete = async () => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await (supabase as any)
+      const { data: updated, error } = await (supabase as any)
         .from('focusos_user_preferences')
         .update({ has_completed_onboarding: true })
         .eq('user_id', userId)
         .select()
         .single();
-
       if (error) throw error;
-      setPreferences(data as UserPreferences);
+      queryClient.setQueryData(prefKey, updated);
     } catch (error) {
       console.error('Error marking onboarding complete:', error);
     }
@@ -107,15 +83,14 @@ export const useUserPreferences = (userId?: string | null) => {
   const markTaskTourComplete = async () => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await (supabase as any)
+      const { data: updated, error } = await (supabase as any)
         .from('focusos_user_preferences')
         .update({ has_completed_task_tour: true })
         .eq('user_id', userId)
         .select()
         .single();
-
       if (error) throw error;
-      setPreferences(data as UserPreferences);
+      queryClient.setQueryData(prefKey, updated);
     } catch (error) {
       console.error('Error marking task tour complete:', error);
     }
@@ -124,15 +99,14 @@ export const useUserPreferences = (userId?: string | null) => {
   const markHomeTourComplete = async () => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await (supabase as any)
+      const { data: updated, error } = await (supabase as any)
         .from('focusos_user_preferences')
         .update({ has_completed_home_tour: true })
         .eq('user_id', userId)
         .select()
         .single();
-
       if (error) throw error;
-      setPreferences(data as UserPreferences);
+      queryClient.setQueryData(prefKey, updated);
     } catch (error) {
       console.error('Error marking home tour complete:', error);
     }
@@ -141,22 +115,24 @@ export const useUserPreferences = (userId?: string | null) => {
   const markMeetingsTourComplete = async () => {
     if (!userId) return null;
 
-    const previousPreferences = preferences;
-    setPreferences(current => current ? { ...current, has_completed_meetings_tour: true } : current);
+    const previous = queryClient.getQueryData(prefKey) as UserPreferences | null;
+    // Optimistic — flip locally so the tour dismisses instantly.
+    queryClient.setQueryData(prefKey, (current: any) =>
+      current ? { ...current, has_completed_meetings_tour: true } : current,
+    );
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data: updated, error } = await (supabase as any)
         .from('focusos_user_preferences')
         .update({ has_completed_meetings_tour: true })
         .eq('user_id', userId)
         .select()
         .single();
-
       if (error) throw error;
-      setPreferences(data as UserPreferences);
-      return data as UserPreferences;
+      queryClient.setQueryData(prefKey, updated);
+      return updated as UserPreferences;
     } catch (error) {
-      if (previousPreferences) setPreferences(previousPreferences);
+      if (previous) queryClient.setQueryData(prefKey, previous);
       console.error('Error marking meetings tour complete:', error);
       return null;
     }
@@ -165,15 +141,14 @@ export const useUserPreferences = (userId?: string | null) => {
   const markProjectsTourComplete = async () => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await (supabase as any)
+      const { data: updated, error } = await (supabase as any)
         .from('focusos_user_preferences')
         .update({ has_completed_projects_tour: true })
         .eq('user_id', userId)
         .select()
         .single();
-
       if (error) throw error;
-      setPreferences(data as UserPreferences);
+      queryClient.setQueryData(prefKey, updated);
     } catch (error) {
       console.error('Error marking projects tour complete:', error);
     }
@@ -182,16 +157,14 @@ export const useUserPreferences = (userId?: string | null) => {
   const updatePreferences = async (updates: Partial<UserPreferences>) => {
     if (!userId || !preferences) return;
     try {
-      const { data, error } = await (supabase as any)
+      const { data: updated, error } = await (supabase as any)
         .from('focusos_user_preferences')
         .update(updates)
         .eq('user_id', userId)
         .select()
         .single();
-
       if (error) throw error;
-
-      setPreferences(data as UserPreferences);
+      queryClient.setQueryData(prefKey, updated);
       toast.success('Preferences saved successfully');
     } catch (error) {
       console.error('Error updating preferences:', error);
@@ -199,22 +172,14 @@ export const useUserPreferences = (userId?: string | null) => {
     }
   };
 
-  useEffect(() => {
-    if (userId) {
-      const cached = queryClient.getQueryData(['focusos-preferences', userId]);
-      if (cached) {
-        setPreferences(cached as UserPreferences);
-        if ((cached as any).theme) setTheme((cached as any).theme);
-        setLoading(false);
-        fetchPreferences(userId);
-      } else {
-        setLoading(true);
-        fetchPreferences(userId);
-      }
-    } else {
-      setLoading(false);
-    }
-  }, [userId, queryClient]);
-
-  return { preferences, loading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete, markHomeTourComplete, markMeetingsTourComplete };
+  return {
+    preferences,
+    loading: isLoading,
+    updatePreferences,
+    markOnboardingComplete,
+    markTaskTourComplete,
+    markProjectsTourComplete,
+    markHomeTourComplete,
+    markMeetingsTourComplete,
+  };
 };
