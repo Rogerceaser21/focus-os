@@ -1,8 +1,12 @@
 name: Deploy to GitHub Pages
 
+# Two channels, one Pages site:
+#   /focus-os/          <- DEPLOYED: builds from main (only Igor-approved versions)
+#   /focus-os/preview/  <- PREVIEW: builds from the work branch, every push
+# Any push to either branch rebuilds BOTH channels so they stay consistent.
 on:
   push:
-    branches: [redesign/liquid-glass]
+    branches: [main, redesign/liquid-glass]
   workflow_dispatch:
 
 permissions:
@@ -19,23 +23,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: deployed
+      - uses: actions/checkout@v4
+        with:
+          ref: redesign/liquid-glass
+          path: preview
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            deployed/package-lock.json
+            preview/package-lock.json
       - run: npm ci
+        working-directory: deployed
       - run: npm run build
+        working-directory: deployed
         env:
-          VITE_BASE: /connect-your-code/
-      # SPA fallback: GitHub Pages serves 404.html for unknown paths, which
-      # loads the app and lets react-router resolve the route.
-      - run: cp dist/index.html dist/404.html
+          VITE_BASE: /focus-os/
+      - run: npm ci
+        working-directory: preview
+      - run: npm run build
+        working-directory: preview
+        env:
+          VITE_BASE: /focus-os/preview/
+      - name: Assemble site (deployed at root, latest preview under /preview)
+        run: |
+          mkdir site
+          cp -R deployed/dist/. site/
+          mkdir -p site/preview
+          cp -R preview/dist/. site/preview/
+          # SPA fallback: Pages serves the root 404.html for ALL unknown paths.
+          # Deployed deep links keep the index-copy fallback; preview deep
+          # links bounce to the preview home first.
+          cp site/index.html site/404.html
+          sed -i 's|<head>|<head><script>if(location.pathname.indexOf("/focus-os/preview/")===0)location.replace("/focus-os/preview/");</script>|' site/404.html
       - uses: actions/configure-pages@v5
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site
   deploy:
     needs: build
     runs-on: ubuntu-latest
