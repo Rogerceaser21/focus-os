@@ -863,7 +863,7 @@ const MeetingDetail = () => {
             <Skeleton className="h-6 w-48" />
           </div>
         </div>
-        <div className="max-w-4xl mx-auto lg-gutter py-6 space-y-4">
+        <div className="max-w-4xl mx-auto lg-gutter pb-6 space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-24 w-full rounded-lg" />
           <Skeleton className="h-32 w-full rounded-lg" />
@@ -938,7 +938,7 @@ const MeetingDetail = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto lg-gutter py-6 space-y-6">
+      <div className="max-w-4xl mx-auto lg-gutter pb-6 space-y-6">
         {/* Participants */}
         {meeting.participants.length > 0 && (
           <Card>

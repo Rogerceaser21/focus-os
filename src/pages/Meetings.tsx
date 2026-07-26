@@ -1043,7 +1043,7 @@ const Meetings = () => {
       )}
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto lg-gutter py-6">
+      <div className="max-w-4xl mx-auto lg-gutter pb-6">
         {/* Orphaned session recovery banner */}
         {orphanedSession && recordingState === 'idle' && (
           <Card className="mb-4 border-amber-500/50 bg-amber-500/10">
