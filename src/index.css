@@ -836,6 +836,15 @@ html.standalone.liquid-glass .lg-pagehead {
 html.standalone [data-sonner-toaster][data-y-position='top'] {
   top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
 }
+/* Projects drawer: the sheet is viewport-fixed so the shell's safe-area
+   padding never reaches it — clear the clock itself. Top edge aligns with
+   the shell content (inset + gap); bottom edge unchanged (14px), so only
+   the height compensates. Static geometry only — the persistent-layer
+   data-state transition pattern (white-flash law) is untouched. */
+html.standalone.liquid-glass .lg-side {
+  margin-top: calc(env(safe-area-inset-top, 0px) + var(--sp-gap));
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--sp-gap) - 14px);
+}
 html.standalone.liquid-glass div.fixed.bottom-24 {
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 }
