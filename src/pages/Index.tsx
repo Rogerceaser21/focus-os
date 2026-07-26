@@ -2155,187 +2155,82 @@ https://www.skyscanner.com`,
                 </div>;
               })()}
 
-              {/* Today's To-Do Banner */}
-              {selectedSpecialList === 'today' && (
-                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
-                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
-                    <div className="flex items-center gap-2 flex-1">
-                      <Calendar className="h-5 w-5 text-primary" />
-                      <span className="font-semibold text-base text-primary">
-                        Today
-                      </span>
-                    </div>
+              {/* Special-view banner (Today / Past Due / Unassigned) — same glass
+                  pill as the project banner (lg-projbar), identity carried by
+                  icon + text colour, never by a background tint */}
+              {selectedSpecialList && (() => {
+                const cfg = {
+                  'today': { Icon: Calendar, label: 'Today', color: 'text-primary', share: true },
+                  'past-due': { Icon: AlertTriangle, label: 'Past Due', color: 'text-orange-500', share: false },
+                  'unassigned': { Icon: ListChecks, label: 'Unassigned Tasks', color: 'text-muted-foreground', share: true },
+                }[selectedSpecialList];
+                if (!cfg) return null;
+                const SpecialIcon = cfg.Icon;
+                return (
+                  <div className="w-full shrink-0 lg-projbar">
+                    <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
+                      <div className="flex items-center gap-2 flex-1">
+                        <SpecialIcon className={`h-5 w-5 ${cfg.color}`} />
+                        <span className={`font-semibold text-base ${cfg.color}`}>
+                          {cfg.label}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant={isReorderMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setIsReorderMode(!isReorderMode)}
-                        className="gap-1"
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                        <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                        <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant={isReorderMode ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setIsReorderMode(!isReorderMode)}
+                          className="gap-1"
+                        >
+                          <ArrowUpDown className="h-4 w-4" />
+                          <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                          <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
+                        </Button>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
-                        onClick={() => setShareProjectDialogOpen(true)}
-                      >
-                        <Share2 className="h-4 w-4" />
-                      </Button>
-
-                      {/* Status Dropdown for Mobile/Tablet */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
-                            <span className="text-sm">Status</span>
-                            <ChevronDown className="h-3 w-3" />
+                        {cfg.share && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
+                            onClick={() => setShareProjectDialogOpen(true)}
+                          >
+                            <Share2 className="h-4 w-4" />
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setActiveTab('all')}>
-                            All ({sortedTasks.filter(t => t.status !== 'completed').length})
-                            {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('todo')}>
-                            To Do ({sortedTasks.filter(t => t.status === 'todo').length})
-                            {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
-                            Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
-                            {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('completed')}>
-                            Done ({sortedTasks.filter(t => t.status === 'completed').length})
-                            {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                        )}
+
+                        {/* Status Dropdown for Mobile/Tablet */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
+                              <span className="text-sm">Status</span>
+                              <ChevronDown className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setActiveTab('all')}>
+                              All ({sortedTasks.filter(t => t.status !== 'completed').length})
+                              {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setActiveTab('todo')}>
+                              To Do ({sortedTasks.filter(t => t.status === 'todo').length})
+                              {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
+                              Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
+                              {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setActiveTab('completed')}>
+                              Done ({sortedTasks.filter(t => t.status === 'completed').length})
+                              {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Past Due Banner */}
-              {selectedSpecialList === 'past-due' && (
-                <div className="mt-4 w-full bg-orange-400/5 p-1 rounded-md border border-orange-400/20">
-                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
-                    <div className="flex items-center gap-2 flex-1">
-                      <AlertTriangle className="h-5 w-5 text-orange-400/80" />
-                      <span className="font-semibold text-base text-orange-400/80">
-                        Past Due
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant={isReorderMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setIsReorderMode(!isReorderMode)}
-                        className="gap-1"
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                        <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                        <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
-                      </Button>
-
-                      {/* Status Dropdown for Mobile/Tablet */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
-                            <span className="text-sm">Status</span>
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setActiveTab('all')}>
-                            All ({sortedTasks.filter(t => t.status !== 'completed').length})
-                            {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('todo')}>
-                            To Do ({sortedTasks.filter(t => t.status === 'todo').length})
-                            {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
-                            Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
-                            {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('completed')}>
-                            Done ({sortedTasks.filter(t => t.status === 'completed').length})
-                            {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedSpecialList === 'unassigned' && (
-                <div className="mt-4 w-full bg-muted p-1 rounded-md border">
-                  <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2">
-                    <div className="flex items-center gap-2 flex-1">
-                      <ListChecks className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-semibold text-base text-muted-foreground">
-                        Unassigned Tasks
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant={isReorderMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setIsReorderMode(!isReorderMode)}
-                        className="gap-1"
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                        <span className="hidden lg:inline">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                        <span className="lg:hidden">{isReorderMode ? 'Done' : 'Move'}</span>
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
-                        onClick={() => setShareProjectDialogOpen(true)}
-                      >
-                        <Share2 className="h-4 w-4" />
-                      </Button>
-
-                      {/* Status Dropdown for Mobile/Tablet */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
-                            <span className="text-sm">Status</span>
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setActiveTab('all')}>
-                            All ({sortedTasks.filter(t => t.status !== 'completed').length})
-                            {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('todo')}>
-                            To Do ({sortedTasks.filter(t => t.status === 'todo').length})
-                            {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
-                            Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
-                            {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setActiveTab('completed')}>
-                            Done ({sortedTasks.filter(t => t.status === 'completed').length})
-                            {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <TabsContent value="all" className="flex-1 min-h-0 lg-content">
                 <DraggableTaskList
@@ -2434,7 +2329,7 @@ https://www.skyscanner.com`,
                 const isSharedProject2 = currentProject2?.isShared ?? false;
                 const assignedByEmail2 = isCollaborator2 ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
                 return <div className={`w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
-                  <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
                     <div className="flex flex-col gap-0.5 flex-1">
                       <div className="flex items-center gap-2">
                         <span style={{ color: currentProject2?.color }}>📁</span>
