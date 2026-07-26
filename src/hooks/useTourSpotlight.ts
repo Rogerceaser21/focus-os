@@ -55,10 +55,21 @@ export function useTourSpotlight(
       }
     };
 
+    // A tour target can exist twice in the DOM with only one instance visible
+    // per breakpoint (e.g. the desktop Delete button vs the mobile ⋯ menu that
+    // holds Delete). Spotlight the first VISIBLE match, not the first match.
+    const findVisible = (): Element | null => {
+      const matches = document.querySelectorAll(selector);
+      for (const el of matches) {
+        if (el.getClientRects().length > 0) return el;
+      }
+      return matches[0] ?? null;
+    };
+
     const start = Date.now();
     const tryFind = () => {
       if (cancelled) return;
-      const el = document.querySelector(selector);
+      const el = findVisible();
       if (el) {
         attachToTarget(el);
         return;
@@ -78,7 +89,7 @@ export function useTourSpotlight(
 
     // Watch DOM for the target reappearing/moving (dialogs mounting, etc.)
     mutationObs = new MutationObserver(() => {
-      const el = document.querySelector(selector);
+      const el = findVisible();
       if (el && el !== currentTarget) {
         resizeObs?.disconnect();
         attachToTarget(el);

@@ -55,7 +55,7 @@ const taskRowPastDue = () => ({
 
 const projectRow = (userId: string) => ({
   id: PROJECT_ID,
-  name: 'Probe project',
+  name: 'Probe project with an extremely long name that must truncate not wrap',
   color: '#B8572E',
   is_shared: false,
   user_id: userId,
@@ -171,6 +171,8 @@ const APP_TARGETS = [
 
 const MEETINGS_TARGETS = [
   { name: 'pagehead', selector: '.lg-pagehead' },
+  { name: 'reveal', selector: '.lg-reveal' },
+  { name: 'revealContent', selector: '.lg-reveal-content' },
   { name: 'pagehead_inner', selector: '.lg-pagehead > div' },
   { name: 'column', selector: '.max-w-4xl.mx-auto' },
   { name: 'glasscard', selector: '.lg-glasscard' },
