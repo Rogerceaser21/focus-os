@@ -625,13 +625,29 @@ All colors MUST be HSL.
 /* app shell: fixed viewport, panels scroll internally (mock .pw-shell) */
 .liquid-glass .lg-shell { height: 100dvh; overflow: hidden; }
 
-/* main column: pills stay put, only the content panel scrolls (mock .pw-main) */
-.liquid-glass .lg-maincol {
-  padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 84px);
-  gap: 10px;
+/* spacing tokens — ONE gutter, ONE stack gap, everywhere (padding sweep 2026-07-26).
+   Every shell surface (app column, Meetings/MeetingDetail columns, page-head pill)
+   derives its outer inset from --sp-gutter so screen edges align across pages. */
+.liquid-glass {
+  --sp-gutter: 14px;
+  --sp-gap: 10px;
 }
 @media (max-width: 999px) {
-  .liquid-glass .lg-maincol { padding: 10px 10px calc(env(safe-area-inset-bottom, 0px) + 78px); }
+  .liquid-glass { --sp-gutter: 10px; }
+}
+/* horizontal gutter utility for page columns outside the app shell (Meetings) */
+.liquid-glass .lg-gutter {
+  padding-left: var(--sp-gutter);
+  padding-right: var(--sp-gutter);
+}
+
+/* main column: pills stay put, only the content panel scrolls (mock .pw-main) */
+.liquid-glass .lg-maincol {
+  padding: var(--sp-gutter) var(--sp-gutter) calc(env(safe-area-inset-bottom, 0px) + 84px);
+  gap: var(--sp-gap);
+}
+@media (max-width: 999px) {
+  .liquid-glass .lg-maincol { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 78px); }
 }
 
 /* sidebar: pinned floating glass panel, own scroll, X to close (mock .pw-side) */
@@ -1090,6 +1106,9 @@ html.standalone.liquid-glass .lg-editsheet {
   box-shadow: var(--gshadow);
   border-radius: 26px;
   padding: 6px 10px 12px;
+  /* shadcn TabsContent bakes in mt-2; the stack rhythm comes from the flex gap
+     (--sp-gap) alone, so the panel must not add its own margin on top of it */
+  margin-top: 0;
   overflow-y: auto;
   min-height: 0;
 }
@@ -1401,8 +1420,14 @@ html.standalone.liquid-glass .lg-editsheet {
 }
 .liquid-glass .lg-pagehead button { border-radius: 999px; }
 
-/* page header pill matches the content column width, not the viewport */
-.liquid-glass .lg-pagehead { max-width: 896px; margin-left: auto; margin-right: auto; }
+/* page header pill matches the content column width, not the viewport — but
+   never touches the screen edge: below 896px+gutters it keeps the shared
+   --sp-gutter inset so its edges align with the /app shell pills */
+.liquid-glass .lg-pagehead {
+  width: min(896px, calc(100% - 2 * var(--sp-gutter)));
+  margin-left: auto;
+  margin-right: auto;
+}
 
 /* standalone glass card (new-meeting form etc.) — same material as lg-side */
 .liquid-glass .lg-glasscard {
