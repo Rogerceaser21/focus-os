@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
@@ -55,6 +55,7 @@ function dueLabel(iso: string | null): string | null {
 
 const Home = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const [subtitleIndex, setSubtitleIndex] = useState(0);
@@ -209,7 +210,17 @@ const Home = () => {
     markHomeTourComplete();
   }, [markHomeTourComplete]);
 
-  const handleTasksCreated = useCallback(() => navigate('/app'), [navigate]);
+  // Brain Dump wrote new rows straight to Postgres. The shared /app caches are patched by
+  // the dialog itself; Home's own cards are separate useQuery-observed keys, and Home is
+  // still mounted while the dialog saves, so invalidating them refetches live (an observed
+  // key is safe to invalidate — no fabrication, no starved fetch).
+  const handleTasksCreated = useCallback(() => {
+    if (user) {
+      queryClient.invalidateQueries({ queryKey: ['focusos-home-upnext', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['focusos-home-projects', user.id] });
+    }
+    navigate('/app');
+  }, [navigate, queryClient, user]);
 
   // Stop the live session; captured tasks go to the review dialog for edit + save
   const finishSession = useCallback(() => {

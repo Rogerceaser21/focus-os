@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2, Check, X, AlertCircle, Calendar, FolderPlus, FolderOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { appDataKeys, mergeByIdDesc, slimTaskRow } from '@/lib/appDataFetchers';
 import { toast } from 'sonner';
 import { TaskListItem } from '@/components/TaskListItem';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -35,6 +37,7 @@ export const BrainDumpLiveDialog = ({
   meetingId,
 }: BrainDumpLiveDialogProps) => {
   const { tasks, connectionState, start, stop, updateTask, removeTask, resetTasks, setInitialTasks } = useBrainDumpLive();
+  const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -168,6 +171,15 @@ export const BrainDumpLiveDialog = ({
           .single();
         if (projectError) throw projectError;
         newProjectIds.set(key, project.id);
+        // Mirror the new project into the shared projects cache. /app seeds DURING RENDER
+        // from these caches (Index.tsx warm start), and nothing else writes them from
+        // /home — without this the next /app paint shows the pre-insert snapshot for the
+        // whole 60-min gcTime. Only patch a cache that already holds data: fabricating one
+        // would mark it fresh and starve the real fetch. mergeByIdDesc dedupes by id and
+        // keeps created_at desc — the order loadProjects produces.
+        queryClient.setQueryData(appDataKeys.projects(user.id), (prev: any[] | undefined) =>
+          prev ? mergeByIdDesc([project, ...prev]) : prev,
+        );
       }
 
       // Build task inserts
@@ -205,6 +217,16 @@ export const BrainDumpLiveDialog = ({
         .insert(tasksToInsert)
         .select();
       if (tasksError) throw tasksError;
+
+      // Same guarded patch for the open-task list cache (new rows are status 'todo', so
+      // appDataKeys.completedTasks is deliberately left alone). slimTaskRow FIRST: the
+      // bare .select() above returns the heavy inline-base64 `images` column, which must
+      // never enter the hot task-list cache the slim load exists to avoid.
+      if (insertedRows && insertedRows.length > 0) {
+        queryClient.setQueryData(appDataKeys.tasks(user.id), (prev: any[] | undefined) =>
+          prev ? mergeByIdDesc([...insertedRows.map(slimTaskRow), ...prev]) : prev,
+        );
+      }
 
       toast.success(`Added ${tasks.length} task${tasks.length > 1 ? 's' : ''}`);
 
