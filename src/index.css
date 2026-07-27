@@ -1266,6 +1266,50 @@ html.standalone.liquid-glass .lg-editsheet {
 
 /* orb + actions (GSAP glides this left on wide screens while recording) */
 .liquid-glass .lg-hero-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 108px; }
+
+/* ── Recording-stage bottom budget (Fix A, 2026-07-27) ───────────────────────
+   Idle Home is untouched (v39 geometry, Igor-verified) — every rule here is
+   .rec-scoped. While recording, the DOUBLE-BOOKED bottom reservation is
+   replaced by ONE budget derived from the dock, which hands the reclaimed
+   pixels back to the only shrinkable flex item, .lg-stream.
+
+     was (standalone): padding-bottom calc(110 + 2*env(34)) = 178
+                       PLUS .lg-hero-actions margin-bottom 108  =  286px
+                       reserved for a dock band that is only 68px tall
+                       -> ~218px of dead wallpaper, stream starved to ~1 row.
+     now:              dock bottom offset + dock height + --sp-gap clearance,
+                       counted ONCE.
+
+   Dock height is 62px MEASURED (.lg-dock's `padding: 7px 9px !important` beats
+   BottomNav's inline safe-area padding, so the band is icon 20 + gap 4 + label
+   14 + 2*12 py-3 + 2*7 = 62). The 74px in the Fix A brief was 12px high.
+
+   env(safe-area-inset-bottom) deliberately does NOT appear: the dock's own 6px
+   offset already sits inside the home-indicator band (Igor's approved framing,
+   dock locked), so adding env() on top IS the double count being removed.
+
+   Standalone subtracts the ICB shortfall. In an iOS home-screen webapp the
+   fixed dock is laid out against the LARGE viewport (100lvh = 852pt on a
+   393x852 phone) while this column is 100svh (= 793pt), so 59pt of the budget
+   already sits below the column's bottom edge. (100lvh - 100svh) measures that
+   shortfall live and evaluates to 0 wherever the two viewports agree (desktop,
+   Chromium, the Playwright rig), so one declaration is correct everywhere:
+       6 + 62 + 10 - 59 = 19px
+   (the v39 padding sweep landed on 31px for .lg-maincol with the same method
+   and the same 59pt shortfall — it just clears a 74px-tall band of pill + dock.)
+   -------------------------------------------------------------------------- */
+.liquid-glass .lg-hero-col.rec { --lg-rec-bottom: calc(16px + 62px + var(--sp-gap, 10px)); }
+@media (max-width: 639px) {
+  /* phones: the dock drops to bottom:10px (see the .lg-dock override above) */
+  .liquid-glass .lg-hero-col.rec { --lg-rec-bottom: calc(10px + 62px + var(--sp-gap, 10px)); }
+}
+html.standalone.liquid-glass .lg-hero-col.rec {
+  --lg-rec-bottom: calc(6px + 62px + var(--sp-gap, 10px) - (100lvh - 100svh));
+  padding-bottom: 0; /* the 110 + 2*env reservation is what we are replacing */
+}
+/* 0,3,0 — beats both the base rule and the max-height:800px variant (0,2,0),
+   so the interaction is order-independent and predictable. */
+.liquid-glass .lg-hero-col.rec .lg-hero-actions { margin-bottom: var(--lg-rec-bottom); }
 .liquid-glass .lg-orb {
   width: 118px; height: 118px; border-radius: 999px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -1297,7 +1341,54 @@ html.standalone.liquid-glass .lg-editsheet {
   border-radius: 26px; padding: 4px 14px 12px; opacity: 0; max-height: 0; overflow: hidden;
   margin-top: 0; transition: opacity .35s ease, max-height .45s ease, margin .3s ease;
 }
-.liquid-glass .rec .lg-stream { opacity: 1; max-height: 52vh; overflow-y: auto; margin-top: 24px; }
+.liquid-glass .rec .lg-stream { opacity: 1; max-height: 52vh; overflow-y: auto; margin-top: 16px; }
+/* while recording the spacer's floor is surrendered too — with the greeting and
+   orb fixed, every reclaimed pixel goes straight to the stream (+16 with the
+   8px margin trim above = ~one more visible task row on a 393x852 phone) */
+.liquid-glass .lg-hero-col.rec .lg-hero-spacer { min-height: 0; }
+
+/* ── Stream floor while recording (Fix A, 2026-07-27) ────────────────────────
+   overflow-y:auto gives this card an automatic minimum size of 0 (CSS Flexbox
+   §4.5), and it is the ONLY shrinkable item in the 100svh hero column — so it
+   absorbed the whole layout deficit and collapsed to ~1 visible row. The
+   reclaimed bottom budget above is what actually feeds it; this floor is the
+   guard rail that stops any future deficit starving it again.
+
+     target  = 6 task rows. MEASURED: header 60 + group (label 20 + 10 margin)
+               + 6 x (row 45 + 6 margin) = 396 -> floor 380px, which is the
+               brief's target and all a 393x852 icon-app can actually spare.
+     ceiling = what the column can genuinely spare, so the floor can never push
+               the greeting or the orb off a short screen. MEASURED siblings
+               while .rec = greeting 84 + stream margin-top 16 + spacer 0
+               (both .rec-trimmed above; idle keeps 24/16)
+               + actions 205 (orb 118 + 2x12 gap + label 20 + 6 recbtns margin
+               + buttons 37)                                            = 329
+                 + column padding-top (40 browser / 8 + safe-top standalone)
+                 + --lg-rec-bottom (88 desktop / 82 phone / 78-shortfall
+                   standalone)
+               worst case 451 -> subtract 460 for ~9px of font/rounding slack.
+   Static geometry only: NO new transition or animation on this card. It already
+   animates max-height + opacity and nothing else may join them (white-flash
+   law: never animate while a compositing layer is being built or destroyed). */
+.liquid-glass .lg-hero-col.rec .lg-stream { min-height: min(380px, calc(100svh - 432px)); }
+@media (min-width: 640px) {
+  /* padding-top 64 and a 132px orb push the worst case to ~495 */
+  .liquid-glass .lg-hero-col.rec .lg-stream { min-height: min(380px, calc(100svh - 477px)); }
+}
+
+/* jump-to-latest pill: shown only while the user has scrolled up off the newest
+   task. Sticky inside the scroll box, plain tinted material — the same surface
+   as .lg-stask on purpose: NO backdrop-filter may be introduced inside the
+   stream (white-flash law) and no new compositing layer with it. */
+.liquid-glass .lg-stream-jump {
+  position: sticky; bottom: 0; z-index: 2;
+  display: flex; align-items: center; gap: 6px;
+  width: fit-content; margin: 6px auto 0; padding: 6px 12px;
+  border-radius: 999px; cursor: pointer;
+  background: var(--gbg-strong); border: 1px solid var(--gbrd); color: var(--t1);
+  font-size: 11.5px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+}
 .liquid-glass .lg-stream-listen { display: flex; align-items: center; gap: 12px; padding: 12px 6px 6px; }
 .liquid-glass .lg-mic {
   width: 42px; height: 42px; border-radius: 999px; flex: none; position: relative;
@@ -1323,6 +1414,8 @@ html.standalone.liquid-glass .lg-editsheet {
   animation: lg-rise .4s cubic-bezier(.2, .9, .3, 1.2) both;
 }
 @keyframes lg-rise { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+/* reduced-motion swap for lg-rise (see the prefers-reduced-motion block below) */
+@keyframes lg-fade-in { from { opacity: 0; } to { opacity: 1; } }
 .liquid-glass .lg-stask .tt { font-size: 13.5px; font-weight: 500; color: var(--t1); flex: 1; min-width: 0; }
 .liquid-glass .lg-schip {
   font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; flex: none;
@@ -1345,6 +1438,9 @@ html.standalone.liquid-glass .lg-editsheet {
     transform: translateY(-46%);
   }
   .liquid-glass .rec .lg-stream { max-height: 72vh; overflow-y: auto; margin-top: 0; }
+  /* the panel is absolute here — lifted clean out of the flex flow — so the
+     mobile floor must not apply (it would force a 380px slab for one task) */
+  .liquid-glass .lg-hero-col.rec .lg-stream { min-height: 0; }
 }
 
 /* short viewports: compress the hero so the dock never covers the actions */
@@ -1510,5 +1606,20 @@ html.standalone.liquid-glass .lg-editsheet {
   .liquid-glass .lg-editsheet[data-state='open'],
   .liquid-glass .lg-editsheet[data-state='closed'] {
     animation-duration: 150ms !important;
+  }
+  /* Live brain-dump stream (Fix A, 2026-07-27). Rows still announce themselves,
+     but with a fade only — no travel, no scale. The mic halo SLOWS rather than
+     stops: it is an infinite loop, and a near-zero duration would strobe it.
+     The card keeps its open/close transition (shortened), because the surface
+     must keep its lifecycle — never visibility:hidden, never zero. */
+  .liquid-glass .lg-stask {
+    animation: lg-fade-in 140ms ease-out both !important;
+  }
+  .liquid-glass .lg-mic::before,
+  .liquid-glass .lg-mic::after {
+    animation-duration: 3.2s !important;
+  }
+  .liquid-glass .lg-stream {
+    transition-duration: 160ms !important;
   }
 }

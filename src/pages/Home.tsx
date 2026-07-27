@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 
 if (import.meta.env.DEV) (window as any).__gsap = gsap;
-import { Video, HelpCircle, Check, Mic, Square, Calendar, FolderOpen, Plus } from 'lucide-react';
+import { Video, HelpCircle, Check, Mic, Square, Calendar, FolderOpen, Plus, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +16,7 @@ import BottomNav from '@/components/BottomNav';
 import { HomeTour } from '@/components/HomeTour';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { useBrainDumpLive, type BrainDumpTask, type ProjectInfo } from '@/hooks/useBrainDumpLive';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
 
 const SUBTITLES = [
 "Ready to capture your thoughts?",
@@ -37,6 +38,44 @@ interface UpNextTask {
   status: string;
   due_date: string | null;
   project_id: string | null;
+}
+
+/* ── ?fakedump=N — URL-param-gated dev/demo affordance ───────────────────────
+   Same gate shape as ?tweaks (App.tsx): read straight off the query string,
+   completely inert without the param, zero cost to the normal path. With it,
+   Home enters the recording VISUAL state and N synthetic tasks stream in at
+   700ms intervals — no microphone, no Gemini, no network — which is both the
+   Playwright driver (tests/braindump-stream.spec.ts) and the sim / deployed
+   preview demo path. It also bypasses the /auth redirect (and only that), so
+   the stage is reachable on a signed-out device. */
+const FAKE_DUMP_TITLES = [
+  'Draft the Q3 board update',
+  'Call the plumber about the leak',
+  'Book flights for the Dubai trip',
+  'Review the new pricing page copy',
+  'Send the invoice to Marcus',
+  'Order a replacement laptop charger',
+  'Prep the Monday stand-up agenda',
+  'Chase the signed contract from legal',
+  'Renew the domain before it lapses',
+  'Write up the retro notes',
+];
+const FAKE_DUMP_PRIORITIES = ['high', 'medium', 'low'] as const;
+const FAKE_DUMP_PROJECT = 'Kitchen Reno';
+
+/** Synthetic stream row. The first half go to Today and the rest to one new
+ *  project, so the groups fill in RUNS — every new task therefore appends at
+ *  the end of the DOM, exactly like a real dump, which is what the follow
+ *  behaviour has to cope with. */
+function makeFakeTask(index: number, total: number): BrainDumpTask {
+  const toToday = index <= Math.ceil(total / 2);
+  return {
+    id: `fake-${index}`,
+    title: `${index}. ${FAKE_DUMP_TITLES[(index - 1) % FAKE_DUMP_TITLES.length]}`,
+    priority: FAKE_DUMP_PRIORITIES[index % FAKE_DUMP_PRIORITIES.length],
+    destination: toToday ? 'today' : 'new-project',
+    projectName: toToday ? undefined : FAKE_DUMP_PROJECT,
+  };
 }
 
 function dueLabel(iso: string | null): string | null {
@@ -67,7 +106,24 @@ const Home = () => {
   // Live brain-dump session runs inline on the hero (the approved recording stage):
   // the orb glides left and captured tasks stream in on the right while you talk.
   const { tasks: liveTasks, connectionState, start, stop, resetTasks } = useBrainDumpLive();
-  const rec = connectionState === 'connecting' || connectionState === 'listening';
+
+  // ?fakedump=N (see makeFakeTask above): synthetic stream, no mic / no network.
+  const fakeDumpCount = useMemo(() => {
+    const raw = searchParams.get('fakedump');
+    if (raw === null) return 0;
+    const n = Number.parseInt(raw, 10);
+    if (Number.isNaN(n)) return 8; // bare ?fakedump (or junk) -> the default demo
+    return n > 0 ? Math.min(n, 40) : 0; // ?fakedump=0 -> explicitly off
+  }, [searchParams]);
+  const fakeDump = fakeDumpCount > 0;
+  const [fakeTasks, setFakeTasks] = useState<BrainDumpTask[]>([]);
+
+  const rec = fakeDump || connectionState === 'connecting' || connectionState === 'listening';
+  const streamTasks = fakeDump ? fakeTasks : liveTasks;
+
+  // Follow the newest task while the user is at the bottom; never yank them back
+  // if they have scrolled up (iOS Safari has no overflow-anchor — see the hook).
+  const stream = useStickToBottom<HTMLDivElement, HTMLDivElement>(streamTasks.length, rec);
 
   const colRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -79,8 +135,24 @@ const Home = () => {
   usePrefetchAppData(user?.id);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate('/auth');
-  }, [user, authLoading, navigate]);
+    // ?fakedump bypasses ONLY this redirect, so the demo stage renders signed out.
+    if (!authLoading && !user && !fakeDump) navigate('/auth');
+  }, [user, authLoading, navigate, fakeDump]);
+
+  // Synthetic tasks arrive one every 700ms until N. Re-running (strict mode's
+  // double-invoke, or a param change) resets the list first, so no duplicates.
+  useEffect(() => {
+    if (!fakeDump) return;
+    setFakeTasks([]);
+    let issued = 0;
+    const timer = window.setInterval(() => {
+      issued += 1;
+      const n = issued;
+      setFakeTasks((prev) => (prev.length >= fakeDumpCount ? prev : [...prev, makeFakeTask(n, fakeDumpCount)]));
+      if (issued >= fakeDumpCount) window.clearInterval(timer);
+    }, 700);
+    return () => window.clearInterval(timer);
+  }, [fakeDump, fakeDumpCount]);
 
 
   // Home data via React Query with staleTime: switching /app <-> /home within staleTime
@@ -236,6 +308,7 @@ const Home = () => {
     if (orbRef.current) {
       gsap.fromTo(orbRef.current, { scale: 0.92 }, { scale: 1, duration: 0.6, ease: 'elastic.out(1, 0.4)' });
     }
+    if (fakeDump) return; // demo stage: the orb presses, nothing is captured
     if (rec) {
       finishSession();
       return;
@@ -249,25 +322,25 @@ const Home = () => {
       msg += error?.message || 'Please try again.';
       toast.error(msg);
     }
-  }, [rec, start, projects, finishSession]);
+  }, [rec, start, projects, finishSession, fakeDump]);
 
   // Group the live stream by destination, mirroring the review dialog's grouping
   const streamGroups = useMemo(() => {
     const groups: Record<string, { label: string; icon: 'today' | 'existing' | 'new'; tasks: BrainDumpTask[] }> = {};
-    for (const task of liveTasks) {
+    for (const task of streamTasks) {
       let key: string, label: string, icon: 'today' | 'existing' | 'new';
       if (task.destination === 'today') {
         key = '__today__';label = "TODAY'S TO-DO";icon = 'today';
       } else if (task.destination === 'existing-project') {
         key = `existing:${task.projectId}`;label = (task.projectName || 'Project').toUpperCase();icon = 'existing';
       } else {
-        key = `new:${(task.projectName || '').toLowerCase().trim()}`;label = `🆕 NEW PROJECT: ${(task.projectName || 'New Project').toUpperCase()}`;icon = 'new';
+        key = `new:${(task.projectName || '').toLowerCase().trim()}`;label = `NEW PROJECT: ${(task.projectName || 'New Project').toUpperCase()}`;icon = 'new';
       }
       if (!groups[key]) groups[key] = { label, icon, tasks: [] };
       groups[key].tasks.push(task);
     }
     return groups;
-  }, [liveTasks]);
+  }, [streamTasks]);
 
   const projectColor = (id: string | null | undefined) =>
   projects.find((p) => p.id === id)?.color || '#8a94a6';
@@ -278,7 +351,7 @@ const Home = () => {
     </div>;
   }
 
-  if (!user) {
+  if (!user && !fakeDump) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Redirecting...</div>
@@ -293,7 +366,7 @@ const Home = () => {
         {/* Greeting */}
         <div className="text-center">
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground lg-onbg">
-            {getGreeting()}{firstName ? `, ${firstName}` : ''}
+            {getGreeting()}{firstName ? `, ${firstName}` : fakeDump ? ', Igor' : ''}
           </h1>
           <div className="h-8 mt-3 relative">
             <AnimatePresence mode="wait">
@@ -336,7 +409,7 @@ const Home = () => {
           </div>}
 
         {/* Live brain-dump stream — takes the card's slot; right column on wide screens */}
-        <div className="lg-stream lg-glass">
+        <div className="lg-stream lg-glass" ref={stream.scrollRef}>
           <div className="lg-stream-listen">
             <div className="lg-mic"><Mic size={18} /></div>
             <div>
@@ -344,21 +417,32 @@ const Home = () => {
               <div className="sub">Tasks appear here as you talk.</div>
             </div>
           </div>
-          {Object.entries(streamGroups).map(([key, group]) =>
-          <div key={key} className="lg-sgroup">
-              <div className="lg-sglabel">
-                {group.icon === 'today' && <Calendar size={11} />}
-                {group.icon === 'existing' && <FolderOpen size={11} />}
-                {group.icon === 'new' && <Plus size={11} />}
-                {group.label}
-              </div>
-              {group.tasks.map((t) =>
-            <div key={t.id} className="lg-stask">
-                  <span className="lg-udot" style={{ background: t.destination === 'today' ? '#e5484d' : projectColor(t.projectId) }} />
-                  <span className="tt">{t.title}</span>
-                  <span className="lg-schip">{t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}</span>
-                </div>)}
-            </div>)}
+          {/* role="log" = implicit polite live region: rows are announced as they
+              land. Unstyled wrapper on purpose — it exists so the ResizeObserver
+              has the growing content to watch, and must not alter the box. */}
+          <div className="lg-stream-list" role="log" ref={stream.contentRef}>
+            {Object.entries(streamGroups).map(([key, group]) =>
+            <div key={key} className="lg-sgroup">
+                <div className="lg-sglabel">
+                  {group.icon === 'today' && <Calendar size={11} />}
+                  {group.icon === 'existing' && <FolderOpen size={11} />}
+                  {group.icon === 'new' && <Plus size={11} />}
+                  {group.label}
+                </div>
+                {group.tasks.map((t) =>
+              <div key={t.id} className="lg-stask">
+                    <span className="lg-udot" style={{ background: t.destination === 'today' ? '#e5484d' : projectColor(t.projectId) }} />
+                    <span className="tt">{t.title}</span>
+                    <span className="lg-schip">{t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}</span>
+                  </div>)}
+              </div>)}
+          </div>
+          {/* Only while the user has scrolled away from the newest task. Outside
+              the log region so it is never announced as stream content. */}
+          {!stream.pinned && stream.overflowing &&
+          <button type="button" className="lg-stream-jump" onClick={stream.jumpToLatest}>
+              <ArrowDown size={12} />Jump to latest
+            </button>}
         </div>
 
         <div className="lg-hero-spacer" />
@@ -381,7 +465,7 @@ const Home = () => {
           <div className="lg-recbtns">
               <button className="lg-btn" onClick={finishSession}><Square size={12} />Stop</button>
               <button className="lg-btn acc" onClick={finishSession}>
-                <Check size={14} />Save All Tasks ({liveTasks.length})
+                <Check size={14} />Save All Tasks ({streamTasks.length})
               </button>
             </div> :
 
@@ -410,7 +494,10 @@ const Home = () => {
 
       <HomeTour isOpen={tourOpen} onComplete={handleTourComplete} />
 
-      {/* Review + save: the existing dialog machinery, fed by the inline session */}
+      {/* Review + save: the existing dialog machinery, fed by the inline session.
+          `user &&` only ever matters in the signed-out ?fakedump demo — on the
+          real path the guard above guarantees a user for the whole mount. */}
+      {user &&
       <BrainDumpLiveDialog
         open={brainDumpOpen}
         onOpenChange={(open) => {
@@ -420,7 +507,7 @@ const Home = () => {
         userId={user.id}
         projects={projects}
         initialTasks={reviewTasks}
-        onTasksCreated={handleTasksCreated} />
+        onTasksCreated={handleTasksCreated} />}
 
     </div>);
 
