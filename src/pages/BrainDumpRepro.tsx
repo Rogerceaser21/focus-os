@@ -1,4 +1,5 @@
-// DEV-ONLY reproduction harness for the Brain Dump save path.
+// DEV-ONLY reproduction harness for the Brain Dump save path (and, under
+// ?mocklive=1, for the live TRANSPORT — see BrainDumpTransportHarness below).
 //
 // Routed only when import.meta.env.DEV (see App.tsx). It mirrors Home.tsx's
 // brain-dump surface — usePrefetchAppData warming the shared /app caches, the same
@@ -9,13 +10,13 @@
 // brain-dump wiring: whatever Home hands the dialog and does on onTasksCreated, this does.
 import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
-import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
+import { useBrainDumpLive, type BrainDumpTask, type ProjectInfo } from '@/hooks/useBrainDumpLive';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 
@@ -41,11 +42,55 @@ const REPRO_TASKS: BrainDumpTask[] = [
   },
 ];
 
+/* ── Live TRANSPORT harness (?mocklive=1) ────────────────────────────────────
+   Drives useBrainDumpLive with window.__mockLiveSession set, so start() skips
+   getUserMedia, the config edge function and ai.live.connect entirely: no
+   Gemini, no microphone, no Supabase session needed. The spec
+   (tests/braindump-live-transport.spec.ts) pushes wire messages through
+   window.__brainDumpLiveMock and reads the resulting list off these testids. */
+const TRANSPORT_PROJECTS: ProjectInfo[] = [{ id: 'proj-alpha', name: 'Alpha' }];
+
+const BrainDumpTransportHarness = () => {
+  const { tasks, connectionState, reconnecting, start, stop } = useBrainDumpLive();
+  const [startError, setStartError] = useState('');
+
+  const handleStart = useCallback(async () => {
+    setStartError('');
+    try {
+      await start(TRANSPORT_PROJECTS);
+    } catch (err: unknown) {
+      setStartError(err instanceof Error ? err.message : String(err));
+    }
+  }, [start]);
+
+  return (
+    <div className="p-6 space-y-3">
+      <div data-testid="transport-ready">ready</div>
+      <div>
+        <button data-testid="transport-start" onClick={handleStart}>start</button>
+        <button data-testid="transport-stop" onClick={stop}>stop</button>
+      </div>
+      <div data-testid="transport-state">{connectionState}</div>
+      <div data-testid="transport-reconnecting">{reconnecting ? 'yes' : 'no'}</div>
+      <div data-testid="transport-error">{startError}</div>
+      <ol data-testid="transport-tasks">
+        {tasks.map((t) => (
+          <li key={t.id} data-testid="transport-task" data-task-id={t.id} data-destination={t.destination}>
+            {t.title}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+};
+
 const BrainDumpRepro = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [open, setOpen] = useState(true);
+  const mockLive = searchParams.get('mocklive') === '1';
 
   // Same silent warm-up Home runs, so the shared /app caches hold a baseline set
   // before Save All Tasks is clicked — the exact precondition the bug needs.
@@ -76,6 +121,10 @@ const BrainDumpRepro = () => {
   // (same DEV-only window-exposure precedent as Home.tsx's __gsap). Idempotent
   // assignment, so it is safe during render.
   if (import.meta.env.DEV) (window as any).__qc = queryClient;
+
+  // Transport mode needs no auth and no dialog — every hook above still ran, so
+  // the branch is only in the returned tree.
+  if (mockLive) return <BrainDumpTransportHarness />;
 
   return (
     <div className="p-6">
