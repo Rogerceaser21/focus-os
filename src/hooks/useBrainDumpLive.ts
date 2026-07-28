@@ -173,7 +173,7 @@ function parseDurationMs(value: unknown): number | null {
 type LiveCallbacks = {
   onopen: () => void;
   onmessage: (message: any) => void;
-  onclose: () => void;
+  onclose: (e?: any) => void;
   onerror: (err: any) => void;
 };
 
@@ -1091,11 +1091,15 @@ SILENT MODE:
         // rather than stranding it.
         armIdleTimer();
       },
-      onclose: () => {
+      onclose: (e?: any) => {
         if (connectSeqRef.current !== seq) return;
-        console.log('Gemini Live session closed');
+        // The CloseEvent's code/reason is the server naming its objection —
+        // the 3.1 connect-close loop was undiagnosable without it (2026-07-28).
+        console.log('Gemini Live session closed', e?.code, e?.reason);
         brainDumpDebug.socketCloses += 1;
-        brainDumpDebug.lastCloseInfo = `close @${new Date().toISOString().slice(11, 19)}`;
+        brainDumpDebug.lastCloseInfo =
+          `close ${e?.code ?? '?'} ${e?.reason ?? ''}`.trim().slice(0, 160) +
+          ` @${new Date().toISOString().slice(11, 19)}`;
         sessionRef.current = null;
         if (activeRef.current && !intentionalStopRef.current) {
           scheduleReconnect('socket-closed');
