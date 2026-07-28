@@ -683,7 +683,10 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     const session = sessionRef.current;
     if (session) {
       brainDumpDebug.chunksSentLive += 1;
-      session.sendRealtimeInput({ media: pcmBlob });
+      // 3.1 closes 1007 on the legacy `media` field ("realtime_input.media_chunks
+      // is deprecated. Use audio, video, or text instead." — sim-caught
+      // 2026-07-28). The default model keeps its proven wire shape untouched.
+      session.sendRealtimeInput(m31Enabled() ? { audio: pcmBlob } : { media: pcmBlob });
       return;
     }
     brainDumpDebug.chunksBuffered += 1;
@@ -966,7 +969,8 @@ SILENT MODE:
       if (bufferedAudioRef.current.length > 0) {
         const buffered = bufferedAudioRef.current;
         bufferedAudioRef.current = [];
-        for (const media of buffered) session.sendRealtimeInput({ media });
+        // Same model-conditional wire shape as handleAudioChunk (1007 on 3.1).
+        for (const media of buffered) session.sendRealtimeInput(m31Enabled() ? { audio: media } : { media });
       }
       if (pendingToolResponsesRef.current.length > 0) {
         const pending = pendingToolResponsesRef.current;
