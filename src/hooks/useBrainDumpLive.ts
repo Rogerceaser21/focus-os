@@ -93,62 +93,64 @@ const BISECT_DISABLE_IDLE_STOP = false;
    One-line revert if a live call ever misbehaves on this model. */
 const USE_NON_BLOCKING_TOOLS = true;
 
-/* ── ?m31=1 — the model A/B switch (production, param-gated) ─────────────────
-   gemini-3.1-flash-live-preview is Google's own "migrate immediately" target
-   for our default model: it fixes the documented 1-in-5-10 WS-1008 kill at
-   tool dispatch, and its tool-calling is the generation built for per-turn
-   emission — the batch-at-end arrival Igor sees on the current model is that
-   model's documented behaviour, not ours. Param-gated so ONE build A/Bs both
-   models on a real phone with zero redeploys; the ?debug=1 overlay names the
-   live model. 3.1 Live tools are SYNC-ONLY, so NON_BLOCKING declarations and
-   SILENT scheduling are dropped whenever this switch is on (they degrade
-   silently there — Ramble teardown trail, 2026-07-28). */
+/* ── The v50 stack: gemini-3.1-flash-live-preview + NO_INTERRUPTION, DEFAULT ──
+   Igor's device verdict 2026-07-28 evening: the ?ni=1&m31=1 arm was the first
+   build that behaved ("this is the one"), so it IS the behaviour now. 3.1 is
+   Google's own "migrate immediately" target for the old native-audio preview:
+   no 1-in-5-10 WS-1008 kill at tool dispatch, per-turn tool emission. Its
+   tools are SYNC-ONLY, so NON_BLOCKING declarations and SILENT scheduling are
+   dropped with it, and audio ships as the `audio` field (3.1 closes 1007 on
+   the legacy `media` field).
+   ROLLBACK, no deploy needed: ?m31=0 = old model + NON_BLOCKING/SILENT +
+   legacy wire field; ?ni=0 = barge-in interruption back on. Both pinned in
+   tests/braindump-live-transport.spec.ts. */
 const MODEL_31 = 'gemini-3.1-flash-live-preview';
 
-/* Flags are captured ONCE at module load — the router redirect (/preview/?m31=1
-   -> /preview/home) STRIPS the query string, which silently turned Igor's whole
-   2026-07-28 A/B into two default-model runs (no debug overlay in his shots =
-   params already gone). Module load happens while the entry URL is still
-   intact, so this snapshot survives any later navigation. A live param still
-   wins when present, and '0' explicitly disables. */
+/* Flags are captured ONCE at module load — the router redirect (/preview/?m31=0
+   -> /preview/home) STRIPS the query string, which silently voided a whole
+   device A/B on 2026-07-28 (no debug overlay in the screenshots = params
+   already gone). Module load happens while the entry URL is still intact, so
+   this snapshot survives any later navigation. A live param still wins when
+   present; '1' forces on, '0' forces off, absent = the flag's default. */
 const initialParams = typeof window !== 'undefined'
   ? new URLSearchParams(window.location.search)
   : new URLSearchParams();
 
-function flagEnabled(name: string): boolean {
-  if (typeof window === 'undefined') return false;
+function flagEnabled(name: string, defaultOn: boolean): boolean {
+  if (typeof window === 'undefined') return defaultOn;
   const live = new URLSearchParams(window.location.search).get(name);
   if (live === '1') return true;
   if (live === '0') return false;
-  return initialParams.get(name) === '1';
+  const initial = initialParams.get(name);
+  if (initial === '1') return true;
+  if (initial === '0') return false;
+  return defaultOn;
 }
 
 function m31Enabled(): boolean {
-  return flagEnabled('m31');
+  return flagEnabled('m31', true);
 }
 /** NON_BLOCKING + SILENT apply only where the model supports them. */
 function nonBlockingTools(): boolean {
   return USE_NON_BLOCKING_TOOLS && !m31Enabled();
 }
 
-/* ── ?ni=1 — NO_INTERRUPTION A/B (production, param-gated) ───────────────────
+/* ── NO_INTERRUPTION, DEFAULT since v50 (?ni=0 restores barge-in) ────────────
    Device-diagnosed 2026-07-28 (Igor's ?debug=1 screenshot: socket 1/0/0,
    audio healthy, toolCalls:3 for 4 spoken tasks): with default barge-in
    handling, the user STARTING THE NEXT TASK interrupts the generation that
    carries the previous task's tool call — calls only survive once the user
-   stops entirely, which is exactly the batch-at-end arrival, on BOTH models.
+   stops entirely, which was exactly the batch-at-end arrival, on BOTH models.
    NO_INTERRUPTION lets each pause's generation finish while speech continues.
-   Param-gated and composable with ?m31=1: the default wire config stays
-   byte-identical; the transport spec pins both modes. This is a mechanism
-   switch, not VAD threshold tuning — the P1/F1 ban on unmeasured tuning
-   values stands. */
+   This is a mechanism switch, not VAD threshold tuning — the P1/F1 ban on
+   unmeasured tuning values stands. */
 function niEnabled(): boolean {
-  return flagEnabled('ni');
+  return flagEnabled('ni', true);
 }
 
-/** The overlay flag rides the same redirect-proof snapshot. */
+/** The overlay flag rides the same redirect-proof snapshot. Default OFF. */
 export function debugFlagEnabled(): boolean {
-  return flagEnabled('debug');
+  return flagEnabled('debug', false);
 }
 
 /* Audio capture lives in src/lib/brainDumpAudio.ts — ONE page-lifetime

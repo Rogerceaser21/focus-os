@@ -192,7 +192,7 @@ test.describe('brain dump live transport', () => {
     await expect(page.getByTestId('transport-state')).toHaveText('idle');
   });
 
-  test('every tool response is scheduled SILENT for the NON_BLOCKING declarations', async ({ page }) => {
+  test('default tool responses carry no scheduling — the v50 stack is sync-only', async ({ page }) => {
     await boot(page);
 
     await emit(page, addBuyMilk('call-1'));
@@ -200,25 +200,27 @@ test.describe('brain dump live transport', () => {
 
     const { toolResponses } = await harness(page);
     expect(toolResponses).toHaveLength(1);
-    expect(toolResponses[0].functionResponses.scheduling).toBe('SILENT');
+    expect(toolResponses[0].functionResponses.scheduling).toBeUndefined();
   });
 
   /* ── REVERT GUARD (2026-07-28): the P1/F1 tuning wave failed Igor's feel
-     gate twice, so the connect payload is back to the v40 wire behaviour and
-     THIS SPEC PINS IT THERE. No VAD config, no compression config, no
-     experimental prompt register may ship again without device-measured
-     numbers from the PCM-injection rig — if you are editing these assertions
-     to re-add one, bring the measurements. Configs under autopsy live in git:
-     1a059a6 (P1), 89c35bf (F1). ────────────────────────────────────────── */
+     gate twice, so VAD THRESHOLDS and compression stay at server defaults and
+     THIS SPEC PINS THEM THERE. The v50 stack adds exactly ONE mechanism
+     switch on top (activityHandling NO_INTERRUPTION — Igor-blessed on device)
+     and nothing else. No VAD thresholds, no compression, no experimental
+     prompt register may ship again without measured numbers — if you are
+     editing these assertions to re-add one, bring the measurements. Configs
+     under autopsy live in git: 1a059a6 (P1), 89c35bf (F1). ──────────────── */
 
-  test('the connect config is v40-clean: no VAD overrides, no compression', async ({ page }) => {
+  test('the connect config is v50-clean: NO_INTERRUPTION only, no VAD thresholds, no compression', async ({ page }) => {
     await boot(page);
 
     const { connects } = await harness(page);
     expect(connects).toHaveLength(1);
 
-    // Server defaults, exactly as v40 shipped them. Every value the tuning
-    // wave sent here made the felt latency worse on the real device.
+    // The one blessed mechanism switch...
+    expect((connects[0] as any).activityHandling).toBe('NO_INTERRUPTION');
+    // ...and NOTHING from the failed tuning wave.
     expect(connects[0].vad).toBeNull();
     expect(connects[0].compression).toBeNull();
 
@@ -402,23 +404,14 @@ test.describe('brain dump live transport', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // ?m31=1 — the model A/B switch (Deploy B, 2026-07-28). One build, two
-  // models: default stays gemini-2.5-flash-native-audio-preview-12-2025 with
-  // NON_BLOCKING/SILENT tools; the param flips to gemini-3.1-flash-live-preview
-  // whose tools are SYNC-ONLY, so behavior and scheduling must BOTH vanish.
+  // THE v50 STACK (Igor-blessed on device, 2026-07-28 evening): DEFAULT is
+  // gemini-3.1-flash-live-preview + sync-only tools + NO_INTERRUPTION. The
+  // legacy stack stays reachable with ?m31=0 / ?ni=0 — rollback needs a URL,
+  // not a deploy. Both directions pinned here.
   // ---------------------------------------------------------------------------
 
-  test('?m31=1 connects the 3.1 model with sync-only tools', async ({ page }) => {
-    await page.route('**/*.supabase.co/**', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
-    );
-    await page.addInitScript(() => {
-      (window as any).__mockLiveSession = true;
-    });
-    await page.goto('/dev/braindump-repro?mocklive=1&m31=1');
-    await expect(page.getByTestId('transport-ready')).toHaveText('ready');
-    await page.getByTestId('transport-start').click();
-    await expect(page.getByTestId('transport-state')).toHaveText('listening');
+  test('the DEFAULT is the v50 stack: 3.1 model, sync-only tools, NO_INTERRUPTION', async ({ page }) => {
+    await boot(page);
 
     await emit(page, addBuyMilk('call-1'));
     await expect(page.getByTestId('transport-task')).toHaveCount(1);
@@ -428,39 +421,48 @@ test.describe('brain dump live transport', () => {
     // Sync-only: no NON_BLOCKING on any declaration, no SILENT on any echo.
     expect((connects[0] as any).toolBehaviors).toEqual([]);
     expect(toolResponses[0].functionResponses.scheduling).toBeUndefined();
+    expect((connects[0] as any).activityHandling).toBe('NO_INTERRUPTION');
   });
 
-  test('without the params the default model, NON_BLOCKING tools and barge-in are untouched', async ({ page }) => {
-    await boot(page);
-    const { connects } = await harness(page);
-    expect(connects[0].model).toBe('gemini-2.5-flash-native-audio-preview-12-2025');
-    expect((connects[0] as any).toolBehaviors).toEqual(['NON_BLOCKING']);
-    expect((connects[0] as any).activityHandling).toBeNull();
-  });
-
-  // ?ni=1 — NO_INTERRUPTION barge-in switch (device-diagnosed: default
-  // interruption cancels the generation carrying the previous task's tool
-  // call whenever the user starts the next task -> batch-at-end arrival).
-  test('?ni=1 ships NO_INTERRUPTION and nothing else; composes with ?m31=1', async ({ page }) => {
+  test('?m31=0&ni=0 restores the legacy stack: old model, NON_BLOCKING/SILENT, barge-in', async ({ page }) => {
     await page.route('**/*.supabase.co/**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
     );
     await page.addInitScript(() => {
       (window as any).__mockLiveSession = true;
     });
-    await page.goto('/dev/braindump-repro?mocklive=1&ni=1&m31=1');
+    await page.goto('/dev/braindump-repro?mocklive=1&m31=0&ni=0');
+    await expect(page.getByTestId('transport-ready')).toHaveText('ready');
+    await page.getByTestId('transport-start').click();
+    await expect(page.getByTestId('transport-state')).toHaveText('listening');
+
+    await emit(page, addBuyMilk('call-1'));
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    const { connects, toolResponses } = await harness(page);
+    expect(connects[0].model).toBe('gemini-2.5-flash-native-audio-preview-12-2025');
+    expect((connects[0] as any).toolBehaviors).toEqual(['NON_BLOCKING']);
+    expect(toolResponses[0].functionResponses.scheduling).toBe('SILENT');
+    expect((connects[0] as any).activityHandling).toBeNull();
+  });
+
+  test('?ni=0 alone strips NO_INTERRUPTION but keeps the 3.1 model', async ({ page }) => {
+    await page.route('**/*.supabase.co/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    );
+    await page.addInitScript(() => {
+      (window as any).__mockLiveSession = true;
+    });
+    await page.goto('/dev/braindump-repro?mocklive=1&ni=0');
     await expect(page.getByTestId('transport-ready')).toHaveText('ready');
     await page.getByTestId('transport-start').click();
     await expect(page.getByTestId('transport-state')).toHaveText('listening');
 
     const { connects } = await harness(page);
-    expect((connects[0] as any).activityHandling).toBe('NO_INTERRUPTION');
-    // The mechanism switch must NOT smuggle VAD thresholds or compression back in.
+    expect((connects[0] as any).activityHandling).toBeNull();
     expect(connects[0].vad).toBeNull();
     expect(connects[0].compression).toBeNull();
-    // Composition: the 3.1 arm still applies alongside.
     expect(connects[0].model).toBe('gemini-3.1-flash-live-preview');
-    expect((connects[0] as any).toolBehaviors).toEqual([]);
   });
 
   test('a title that normalises to empty never dedups against anything', async ({ page }) => {
