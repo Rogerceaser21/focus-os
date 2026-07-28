@@ -1,21 +1,23 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 
 if (import.meta.env.DEV) (window as any).__gsap = gsap;
-import { Video, HelpCircle, Check, Mic, Square, Calendar, FolderOpen, Plus } from 'lucide-react';
+import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
+import { saveBrainDumpTasks } from '@/lib/brainDumpSave';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
 import { HomeTour } from '@/components/HomeTour';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { useBrainDumpLive, type BrainDumpTask, type ProjectInfo } from '@/hooks/useBrainDumpLive';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
 
 const SUBTITLES = [
 "Ready to capture your thoughts?",
@@ -39,6 +41,53 @@ interface UpNextTask {
   project_id: string | null;
 }
 
+/* ── ?fakedump=N — URL-param-gated dev/demo affordance ───────────────────────
+   Same gate shape as ?tweaks (App.tsx): read straight off the query string,
+   completely inert without the param, zero cost to the normal path. With it,
+   Home enters the recording VISUAL state and N synthetic tasks stream in at
+   700ms intervals — no microphone, no Gemini, no network — which is both the
+   Playwright driver (tests/braindump-stream.spec.ts) and the sim / deployed
+   preview demo path. It also bypasses the /auth redirect (and only that), so
+   the stage is reachable on a signed-out device. */
+const FAKE_DUMP_TITLES = [
+  'Draft the Q3 board update',
+  'Call the plumber about the leak',
+  'Book flights for the Dubai trip',
+  'Review the new pricing page copy',
+  'Send the invoice to Marcus',
+  'Order a replacement laptop charger',
+  'Prep the Monday stand-up agenda',
+  'Chase the signed contract from legal',
+  'Renew the domain before it lapses',
+  'Write up the retro notes',
+];
+const FAKE_DUMP_PRIORITIES = ['high', 'medium', 'low'] as const;
+const FAKE_DUMP_PROJECT = 'Kitchen Reno';
+
+/* BISECT switch (house law) — flip to true and "Save All (N)" falls back to the
+   old behaviour (stop + open the review dialog) instead of writing directly.
+   tests/braindump-direct-save.spec.ts then FAILS on its "/app shows both titles"
+   assertion, because the run never leaves /home. Restore to false -> green. */
+const BISECT_DISABLE_DIRECT_SAVE = false;
+
+/** ~3s arm window on the two-step Discard, then it relaxes back to "Discard". */
+const DISCARD_ARM_MS = 3000;
+
+/** Synthetic stream row. The first half go to Today and the rest to one new
+ *  project, so the groups fill in RUNS — every new task therefore appends at
+ *  the end of the DOM, exactly like a real dump, which is what the follow
+ *  behaviour has to cope with. */
+function makeFakeTask(index: number, total: number): BrainDumpTask {
+  const toToday = index <= Math.ceil(total / 2);
+  return {
+    id: `fake-${index}`,
+    title: `${index}. ${FAKE_DUMP_TITLES[(index - 1) % FAKE_DUMP_TITLES.length]}`,
+    priority: FAKE_DUMP_PRIORITIES[index % FAKE_DUMP_PRIORITIES.length],
+    destination: toToday ? 'today' : 'new-project',
+    projectName: toToday ? undefined : FAKE_DUMP_PROJECT,
+  };
+}
+
 function dueLabel(iso: string | null): string | null {
   if (!iso) return null;
   const due = new Date(iso);
@@ -55,18 +104,45 @@ function dueLabel(iso: string | null): string | null {
 
 const Home = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const [subtitleIndex, setSubtitleIndex] = useState(0);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [reviewTasks, setReviewTasks] = useState<BrainDumpTask[] | undefined>(undefined);
+  // Direct-save (no review dialog) spinner + the two-step Discard latch.
+  const [isSaving, setIsSaving] = useState(false);
+  const [discardArmed, setDiscardArmed] = useState(false);
+  const discardTimerRef = useRef<number | null>(null);
   const { preferences, markHomeTourComplete } = useUserPreferences(user?.id);
 
   // Live brain-dump session runs inline on the hero (the approved recording stage):
   // the orb glides left and captured tasks stream in on the right while you talk.
   const { tasks: liveTasks, connectionState, start, stop, resetTasks } = useBrainDumpLive();
-  const rec = connectionState === 'connecting' || connectionState === 'listening';
+
+  // ?fakedump=N (see makeFakeTask above): synthetic stream, no mic / no network.
+  const fakeDumpCount = useMemo(() => {
+    const raw = searchParams.get('fakedump');
+    if (raw === null) return 0;
+    const n = Number.parseInt(raw, 10);
+    if (Number.isNaN(n)) return 8; // bare ?fakedump (or junk) -> the default demo
+    return n > 0 ? Math.min(n, 40) : 0; // ?fakedump=0 -> explicitly off
+  }, [searchParams]);
+  const fakeDump = fakeDumpCount > 0;
+  const [fakeTasks, setFakeTasks] = useState<BrainDumpTask[]>([]);
+
+  const rec = fakeDump || connectionState === 'connecting' || connectionState === 'listening';
+  const streamTasks = fakeDump ? fakeTasks : liveTasks;
+
+  // DERIVED during render, never corrected after paint (render-phase law): the
+  // latch alone does not decide the label — leaving the stage or emptying the
+  // list disarms it in the same frame it happens, with no effect to catch up.
+  const discardHot = discardArmed && rec && streamTasks.length > 0;
+
+  // Follow the newest task while the user is at the bottom; never yank them back
+  // if they have scrolled up (iOS Safari has no overflow-anchor — see the hook).
+  const stream = useStickToBottom<HTMLDivElement, HTMLDivElement>(streamTasks.length, rec);
 
   const colRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -78,8 +154,24 @@ const Home = () => {
   usePrefetchAppData(user?.id);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate('/auth');
-  }, [user, authLoading, navigate]);
+    // ?fakedump bypasses ONLY this redirect, so the demo stage renders signed out.
+    if (!authLoading && !user && !fakeDump) navigate('/auth');
+  }, [user, authLoading, navigate, fakeDump]);
+
+  // Synthetic tasks arrive one every 700ms until N. Re-running (strict mode's
+  // double-invoke, or a param change) resets the list first, so no duplicates.
+  useEffect(() => {
+    if (!fakeDump) return;
+    setFakeTasks([]);
+    let issued = 0;
+    const timer = window.setInterval(() => {
+      issued += 1;
+      const n = issued;
+      setFakeTasks((prev) => (prev.length >= fakeDumpCount ? prev : [...prev, makeFakeTask(n, fakeDumpCount)]));
+      if (issued >= fakeDumpCount) window.clearInterval(timer);
+    }, 700);
+    return () => window.clearInterval(timer);
+  }, [fakeDump, fakeDumpCount]);
 
 
   // Home data via React Query with staleTime: switching /app <-> /home within staleTime
@@ -209,22 +301,112 @@ const Home = () => {
     markHomeTourComplete();
   }, [markHomeTourComplete]);
 
-  const handleTasksCreated = useCallback(() => navigate('/app'), [navigate]);
+  // Brain Dump wrote new rows straight to Postgres. The shared /app caches are patched by
+  // the dialog itself; Home's own cards are separate useQuery-observed keys, and Home is
+  // still mounted while the dialog saves, so invalidating them refetches live (an observed
+  // key is safe to invalidate — no fabrication, no starved fetch).
+  const handleTasksCreated = useCallback(() => {
+    if (user) {
+      queryClient.invalidateQueries({ queryKey: ['focusos-home-upnext', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['focusos-home-projects', user.id] });
+    }
+    navigate('/app');
+  }, [navigate, queryClient, user]);
 
-  // Stop the live session; captured tasks go to the review dialog for edit + save
+  const disarmDiscard = useCallback(() => {
+    if (discardTimerRef.current !== null) {
+      window.clearTimeout(discardTimerRef.current);
+      discardTimerRef.current = null;
+    }
+    setDiscardArmed(false);
+  }, []);
+
+  // Teardown only — the arm window must not outlive the page.
+  useEffect(() => () => {
+    if (discardTimerRef.current !== null) window.clearTimeout(discardTimerRef.current);
+  }, []);
+
+  // Stop the live session; captured tasks go to the review dialog for edit + save.
+  // This is "Edit Tasks", and it stays the orb's behaviour too.
   const finishSession = useCallback(() => {
+    disarmDiscard();
     stop();
     if (liveTasks.length > 0) {
       setReviewTasks(liveTasks.map((t) => ({ ...t })));
       setBrainDumpOpen(true);
     }
     resetTasks();
-  }, [stop, liveTasks, resetTasks]);
+  }, [stop, liveTasks, resetTasks, disarmDiscard]);
+
+  /* Save All (N) — the DIRECT exit: write straight through the shared saver (the
+     same inserts + cache patches the review dialog uses) and land on /app. The
+     dialog is skipped entirely; nothing is re-fetched, because saveBrainDumpTasks
+     patched the shared caches /app seeds from during render.
+     On failure NOTHING is torn down: the session is still live and the captured
+     list is still on screen, so a retry costs the user nothing. */
+  const handleSaveAllDirect = useCallback(async () => {
+    if (fakeDump) return;                      // demo stage: never touches the network
+    if (isSaving || liveTasks.length === 0) return;
+    if (BISECT_DISABLE_DIRECT_SAVE) { finishSession(); return; }
+
+    const captured = liveTasks.map((t) => ({ ...t }));
+    disarmDiscard();
+    setIsSaving(true);
+    try {
+      await saveBrainDumpTasks({ queryClient, tasks: captured });
+      stop();
+      resetTasks();
+      toast.success(`Added ${captured.length} task${captured.length > 1 ? 's' : ''}`);
+      // Home's own cards are useQuery-observed, so invalidating them refetches live
+      // (no fabrication, no starved fetch) — identical to handleTasksCreated.
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: ['focusos-home-upnext', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['focusos-home-projects', user.id] });
+      }
+      navigate('/app');
+    } catch (error: any) {
+      toast.error('Failed to save tasks', { description: error?.message });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [fakeDump, isSaving, liveTasks, disarmDiscard, queryClient, stop, resetTasks, user, navigate, finishSession]);
+
+  /* Discard — two-step, in place. First tap arms the button (label flips for
+     DISCARD_ARM_MS), second tap throws the capture away. No window.confirm, no
+     modal layer: nothing new mounts, so no compositing layer is born or killed
+     mid-animation (iOS Safari white-flash law). With an empty list there is
+     nothing to lose, so it is a plain stop. */
+  const handleDiscard = useCallback(() => {
+    if (fakeDump) { setFakeTasks([]); disarmDiscard(); return; } // demo: reset the fake stream
+    if (isSaving) return;
+    if (liveTasks.length === 0) { disarmDiscard(); stop(); resetTasks(); return; }
+    if (!discardArmed) {
+      if (discardTimerRef.current !== null) window.clearTimeout(discardTimerRef.current);
+      discardTimerRef.current = window.setTimeout(() => {
+        discardTimerRef.current = null;
+        setDiscardArmed(false);
+      }, DISCARD_ARM_MS);
+      setDiscardArmed(true);
+      return;
+    }
+    disarmDiscard();
+    stop();
+    resetTasks();
+  }, [fakeDump, isSaving, liveTasks, discardArmed, disarmDiscard, stop, resetTasks]);
+
+  const handleEditTasks = useCallback(() => {
+    if (fakeDump) return; // demo stage: never opens the review dialog
+    if (isSaving) return;
+    finishSession();
+  }, [fakeDump, isSaving, finishSession]);
 
   const handleOrbTap = useCallback(async () => {
     if (orbRef.current) {
       gsap.fromTo(orbRef.current, { scale: 0.92 }, { scale: 1, duration: 0.6, ease: 'elastic.out(1, 0.4)' });
     }
+    disarmDiscard();
+    if (fakeDump) return; // demo stage: the orb presses, nothing is captured
+    if (isSaving) return; // a direct save is already in flight
     if (rec) {
       finishSession();
       return;
@@ -238,28 +420,34 @@ const Home = () => {
       msg += error?.message || 'Please try again.';
       toast.error(msg);
     }
-  }, [rec, start, projects, finishSession]);
+  }, [rec, start, projects, finishSession, fakeDump, isSaving, disarmDiscard]);
 
   // Group the live stream by destination, mirroring the review dialog's grouping
   const streamGroups = useMemo(() => {
     const groups: Record<string, { label: string; icon: 'today' | 'existing' | 'new'; tasks: BrainDumpTask[] }> = {};
-    for (const task of liveTasks) {
+    for (const task of streamTasks) {
       let key: string, label: string, icon: 'today' | 'existing' | 'new';
       if (task.destination === 'today') {
         key = '__today__';label = "TODAY'S TO-DO";icon = 'today';
       } else if (task.destination === 'existing-project') {
         key = `existing:${task.projectId}`;label = (task.projectName || 'Project').toUpperCase();icon = 'existing';
       } else {
-        key = `new:${(task.projectName || '').toLowerCase().trim()}`;label = `🆕 NEW PROJECT: ${(task.projectName || 'New Project').toUpperCase()}`;icon = 'new';
+        key = `new:${(task.projectName || '').toLowerCase().trim()}`;label = `NEW PROJECT: ${(task.projectName || 'New Project').toUpperCase()}`;icon = 'new';
       }
       if (!groups[key]) groups[key] = { label, icon, tasks: [] };
       groups[key].tasks.push(task);
     }
     return groups;
-  }, [liveTasks]);
+  }, [streamTasks]);
 
   const projectColor = (id: string | null | undefined) =>
   projects.find((p) => p.id === id)?.color || '#8a94a6';
+
+  // DEV-only: hand the specs the live QueryClient so they can read the shared
+  // caches directly (same precedent as __gsap above and BrainDumpRepro.tsx).
+  // Idempotent assignment, so it is safe during render, and import.meta.env.DEV
+  // is the literal `false` in a production build — the line is dead-code-stripped.
+  if (import.meta.env.DEV) (window as any).__qc = queryClient;
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-background">
@@ -267,7 +455,7 @@ const Home = () => {
     </div>;
   }
 
-  if (!user) {
+  if (!user && !fakeDump) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Redirecting...</div>
@@ -282,7 +470,7 @@ const Home = () => {
         {/* Greeting */}
         <div className="text-center">
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground lg-onbg">
-            {getGreeting()}{firstName ? `, ${firstName}` : ''}
+            {getGreeting()}{firstName ? `, ${firstName}` : fakeDump ? ', Igor' : ''}
           </h1>
           <div className="h-8 mt-3 relative">
             <AnimatePresence mode="wait">
@@ -325,7 +513,7 @@ const Home = () => {
           </div>}
 
         {/* Live brain-dump stream — takes the card's slot; right column on wide screens */}
-        <div className="lg-stream lg-glass">
+        <div className="lg-stream lg-glass" ref={stream.scrollRef}>
           <div className="lg-stream-listen">
             <div className="lg-mic"><Mic size={18} /></div>
             <div>
@@ -333,21 +521,32 @@ const Home = () => {
               <div className="sub">Tasks appear here as you talk.</div>
             </div>
           </div>
-          {Object.entries(streamGroups).map(([key, group]) =>
-          <div key={key} className="lg-sgroup">
-              <div className="lg-sglabel">
-                {group.icon === 'today' && <Calendar size={11} />}
-                {group.icon === 'existing' && <FolderOpen size={11} />}
-                {group.icon === 'new' && <Plus size={11} />}
-                {group.label}
-              </div>
-              {group.tasks.map((t) =>
-            <div key={t.id} className="lg-stask">
-                  <span className="lg-udot" style={{ background: t.destination === 'today' ? '#e5484d' : projectColor(t.projectId) }} />
-                  <span className="tt">{t.title}</span>
-                  <span className="lg-schip">{t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}</span>
-                </div>)}
-            </div>)}
+          {/* role="log" = implicit polite live region: rows are announced as they
+              land. Unstyled wrapper on purpose — it exists so the ResizeObserver
+              has the growing content to watch, and must not alter the box. */}
+          <div className="lg-stream-list" role="log" ref={stream.contentRef}>
+            {Object.entries(streamGroups).map(([key, group]) =>
+            <div key={key} className="lg-sgroup">
+                <div className="lg-sglabel">
+                  {group.icon === 'today' && <Calendar size={11} />}
+                  {group.icon === 'existing' && <FolderOpen size={11} />}
+                  {group.icon === 'new' && <Plus size={11} />}
+                  {group.label}
+                </div>
+                {group.tasks.map((t) =>
+              <div key={t.id} className="lg-stask">
+                    <span className="lg-udot" style={{ background: t.destination === 'today' ? '#e5484d' : projectColor(t.projectId) }} />
+                    <span className="tt">{t.title}</span>
+                    <span className="lg-schip">{t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}</span>
+                  </div>)}
+              </div>)}
+          </div>
+          {/* Only while the user has scrolled away from the newest task. Outside
+              the log region so it is never announced as stream content. */}
+          {!stream.pinned && stream.overflowing &&
+          <button type="button" className="lg-stream-jump" onClick={stream.jumpToLatest}>
+              <ArrowDown size={12} />Jump to latest
+            </button>}
         </div>
 
         <div className="lg-hero-spacer" />
@@ -364,13 +563,26 @@ const Home = () => {
             <div className="lg-orb-core" ref={coreRef} />
           </button>
           <span className="text-sm font-medium text-center text-muted-foreground lg-onbg">
-            {rec ? 'Listening… tap the orb or Stop when done' : 'Tap to capture your thoughts into tasks'}
+            {rec ? 'Listening… tap the orb to review, or pick below' : 'Tap to capture your thoughts into tasks'}
           </span>
           {rec ?
+          /* Three exits, ONE row (Fix A budget: a second row costs ~45px the
+             393x852 icon-app does not have). Left to right = destructive,
+             neutral, primary — the house order, acc last. */
           <div className="lg-recbtns">
-              <button className="lg-btn" onClick={finishSession}><Square size={12} />Stop</button>
-              <button className="lg-btn acc" onClick={finishSession}>
-                <Check size={14} />Save All Tasks ({liveTasks.length})
+              <button
+              className={`lg-btn${discardHot ? ' warn' : ''}`}
+              onClick={handleDiscard}
+              disabled={isSaving}
+              aria-label={discardHot ? `Confirm discarding ${streamTasks.length} captured tasks` : 'Discard captured tasks'}>
+                <Trash2 size={13} />{discardHot ? `Sure? (${streamTasks.length})` : 'Discard'}
+              </button>
+              <button className="lg-btn" onClick={handleEditTasks} disabled={isSaving || streamTasks.length === 0}>
+                <Pencil size={13} />Edit Tasks
+              </button>
+              <button className="lg-btn acc" onClick={handleSaveAllDirect} disabled={isSaving || streamTasks.length === 0}>
+                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                {isSaving ? 'Saving…' : `Save All (${streamTasks.length})`}
               </button>
             </div> :
 
@@ -389,7 +601,7 @@ const Home = () => {
       <button
         onClick={() => setTourOpen(true)}
         aria-label="Take the Home tour"
-        className="fixed right-4 z-30 flex items-center justify-center w-10 h-10 rounded-full border border-border bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-md"
+        className="lg-helpfab fixed right-4 z-30 flex items-center justify-center w-10 h-10 rounded-full border border-border bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-md"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}>
 
         <HelpCircle className="w-5 h-5" />
@@ -399,7 +611,10 @@ const Home = () => {
 
       <HomeTour isOpen={tourOpen} onComplete={handleTourComplete} />
 
-      {/* Review + save: the existing dialog machinery, fed by the inline session */}
+      {/* Review + save: the existing dialog machinery, fed by the inline session.
+          `user &&` only ever matters in the signed-out ?fakedump demo — on the
+          real path the guard above guarantees a user for the whole mount. */}
+      {user &&
       <BrainDumpLiveDialog
         open={brainDumpOpen}
         onOpenChange={(open) => {
@@ -409,7 +624,7 @@ const Home = () => {
         userId={user.id}
         projects={projects}
         initialTasks={reviewTasks}
-        onTasksCreated={handleTasksCreated} />
+        onTasksCreated={handleTasksCreated} />}
 
     </div>);
 

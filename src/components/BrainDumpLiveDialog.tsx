@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2, Check, X, AlertCircle, Calendar, FolderPlus, FolderOpen } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { saveBrainDumpTasks } from '@/lib/brainDumpSave';
 import { toast } from 'sonner';
 import { TaskListItem } from '@/components/TaskListItem';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -35,6 +35,7 @@ export const BrainDumpLiveDialog = ({
   meetingId,
 }: BrainDumpLiveDialogProps) => {
   const { tasks, connectionState, start, stop, updateTask, removeTask, resetTasks, setInitialTasks } = useBrainDumpLive();
+  const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -141,70 +142,14 @@ export const BrainDumpLiveDialog = ({
     setIsSaving(true);
 
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error('User not authenticated');
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // Collect unique new project names to create
-      const newProjectNames = new Map<string, string>();
-      for (const task of tasks) {
-        if (task.destination === 'new-project' && task.projectName) {
-          const key = task.projectName.toLowerCase().trim();
-          if (!newProjectNames.has(key)) {
-            newProjectNames.set(key, task.projectName);
-          }
-        }
-      }
-
-      // Create new projects
-      const newProjectIds = new Map<string, string>(); // normalized name -> id
-      for (const [key, name] of newProjectNames) {
-        const { data: project, error: projectError } = await (supabase as any)
-          .from('focusos_projects')
-          .insert({ name: name.trim(), user_id: user.id, color: '#3b82f6' })
-          .select()
-          .single();
-        if (projectError) throw projectError;
-        newProjectIds.set(key, project.id);
-      }
-
-      // Build task inserts
-      const tasksToInsert = tasks.map(task => {
-        let projectId: string | null = null;
-
-        if (task.destination === 'existing-project' && task.projectId) {
-          projectId = task.projectId;
-        } else if (task.destination === 'new-project' && task.projectName) {
-          projectId = newProjectIds.get(task.projectName.toLowerCase().trim()) || null;
-        }
-
-        // Dates: explicit Gemini-extracted dates take priority; fall back to today for today-tasks
-        const explicitDueDate = task.dueDate ? new Date(task.dueDate).toISOString() : null;
-        const fallbackDueDate = task.destination === 'today' && !explicitDueDate ? today.toISOString() : null;
-
-        return {
-          title: task.title.trim(),
-          description: task.description?.trim() || null,
-          priority: task.priority,
-          status: 'todo' as const,
-          user_id: user.id,
-          project_id: projectId,
-          due_date: explicitDueDate || fallbackDueDate,
-          ...(task.startDate ? { start_date: new Date(task.startDate).toISOString() } : {}),
-          ...(task.endDate ? { end_date: new Date(task.endDate).toISOString() } : {}),
-          ...(meetingId ? { meeting_id: meetingId } : {}),
-          timer_total_seconds: 0,
-          timer_is_running: false,
-        };
+      // Inserts + BOTH shared-cache patches live in src/lib/brainDumpSave.ts, so
+      // Home's direct "Save All" writes through the identical path (Deploy 1).
+      // Everything below is this dialog's own choreography.
+      const { insertedRows, newProjectIds } = await saveBrainDumpTasks({
+        queryClient,
+        tasks,
+        meetingId,
       });
-
-      const { data: insertedRows, error: tasksError } = await (supabase as any)
-        .from('focusos_tasks')
-        .insert(tasksToInsert)
-        .select();
-      if (tasksError) throw tasksError;
 
       toast.success(`Added ${tasks.length} task${tasks.length > 1 ? 's' : ''}`);
 
@@ -214,7 +159,7 @@ export const BrainDumpLiveDialog = ({
       }
 
       handleClose();
-      onTasksCreated(insertedRows ?? []);
+      onTasksCreated(insertedRows);
     } catch (error: any) {
       toast.error('Failed to save tasks', { description: error.message });
     } finally {
@@ -268,11 +213,13 @@ export const BrainDumpLiveDialog = ({
     projectId: t.projectId,
   });
 
+  // Group-label icons ride the live stream's .lg-sglabel scale (size 11), not
+  // the old h-4 Tailwind size that dwarfed the label.
   const getGroupIcon = (icon: 'today' | 'existing' | 'new') => {
     switch (icon) {
-      case 'today': return <Calendar className="h-4 w-4 text-primary" />;
-      case 'existing': return <FolderOpen className="h-4 w-4 text-primary" />;
-      case 'new': return <FolderPlus className="h-4 w-4 text-accent-foreground" />;
+      case 'today': return <Calendar size={11} className="text-primary" />;
+      case 'existing': return <FolderOpen size={11} className="text-primary" />;
+      case 'new': return <FolderPlus size={11} className="text-primary" />;
     }
   };
 
@@ -284,64 +231,73 @@ export const BrainDumpLiveDialog = ({
     <>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6 lg-review"
+        className="max-w-3xl max-h-[90vh] overflow-y-auto px-5 sm:px-6 py-5 sm:py-6 lg-review focus:outline-none"
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader className="sr-only">
-          <DialogTitle>Brain Dump</DialogTitle>
-          <DialogDescription>Just start talking. AI will listen, extract tasks, and route them automatically.</DialogDescription>
+        {/* Real, visible header row (was sr-only, with the title duplicated as an
+            ad-hoc bold span further down): house title + count chip + sub-line. */}
+        <DialogHeader className="space-y-1 pr-9 text-left">
+          <div className="flex items-center gap-2.5">
+            <DialogTitle className="lg-review-title">
+              {isDone ? 'Review & Edit Tasks' : 'Brain Dump'}
+            </DialogTitle>
+            {tasks.length > 0 && (
+              <span className="lg-schip">
+                {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <DialogDescription className="lg-review-sub">
+            {isDone
+              ? 'Check each task, drop anything you do not need, then save them all.'
+              : 'Just start talking. AI will listen, extract tasks, and route them automatically.'}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Header Cards — shown when not done, OR when done but user wants to keep talking */}
+        <div className="space-y-5">
+          {/* Controls — shown when not done, OR when done but user wants to keep talking */}
           {!isDone && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Left Card: Title + Controls */}
-              <div className="glass-card rounded-2xl p-5 flex flex-col justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">Brain Dump</h2>
-                  <p className="text-sm text-muted-foreground mt-1">Just start talking. AI will listen, extract tasks, and route them automatically.</p>
-                </div>
-                <div>
-                  {connectionState === 'idle' && (
-                    <Button onClick={handleStart} size="lg" className="w-full">
-                      <Mic className="mr-2 h-5 w-5" />
-                      I'm Ready
-                    </Button>
-                  )}
-                  {isConnecting && (
-                    <Button disabled size="lg" className="w-full">
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Connecting...
-                    </Button>
-                  )}
-                  {isListening && (
-                    <Button onClick={handleDone} variant="destructive" size="lg" className="w-full">
-                      <MicOff className="mr-2 h-5 w-5" />
-                      I'm Done
-                    </Button>
-                  )}
-                  {isError && (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-2 text-sm text-destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        Connection failed
-                      </div>
-                      <Button onClick={handleStart} size="lg" className="w-full">
-                        <Mic className="mr-2 h-5 w-5" />
-                        Try Again
-                      </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Left Card: Controls */}
+              <div className="lg-review-card flex flex-col justify-center gap-3">
+                {connectionState === 'idle' && (
+                  <button type="button" onClick={handleStart} className="lg-btn acc w-full">
+                    <Mic className="mr-2 h-4 w-4" />
+                    I'm Ready
+                  </button>
+                )}
+                {isConnecting && (
+                  <button type="button" disabled className="lg-btn acc w-full">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Connecting...
+                  </button>
+                )}
+                {isListening && (
+                  <button type="button" onClick={handleDone} className="lg-btn danger w-full">
+                    <MicOff className="mr-2 h-4 w-4" />
+                    I'm Done
+                  </button>
+                )}
+                {isError && (
+                  <>
+                    <div className="flex items-center justify-center gap-2 text-[12.5px] font-semibold text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      Connection failed
                     </div>
-                  )}
-                </div>
+                    <button type="button" onClick={handleStart} className="lg-btn acc w-full">
+                      <Mic className="mr-2 h-4 w-4" />
+                      Try Again
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Right Card: Listening Animation */}
-              <div className="glass-card rounded-2xl p-5 flex flex-col items-center justify-center min-h-[140px]">
+              <div className="lg-review-card flex flex-col items-center justify-center min-h-[124px]">
                 {isListening ? (
-                  <div className="flex flex-col items-center gap-4">
+                  <div className="flex flex-col items-center gap-3">
                     <div className="flex items-center gap-1.5">
                       {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
                         <motion.div
@@ -357,56 +313,43 @@ export const BrainDumpLiveDialog = ({
                         />
                       ))}
                     </div>
-                    <span className="text-sm text-muted-foreground animate-pulse">
+                    <span className="lg-review-sub animate-pulse">
                       Listening… speak freely
                     </span>
                     {tasks.length > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {tasks.length} task{tasks.length !== 1 ? 's' : ''} extracted so far
+                      <span className="lg-schip">
+                        {tasks.length} task{tasks.length !== 1 ? 's' : ''} so far
                       </span>
                     )}
                   </div>
                 ) : isConnecting ? (
                   <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <span className="text-sm text-muted-foreground">Setting up…</span>
+                    <Loader2 className="h-7 w-7 animate-spin text-primary" />
+                    <span className="lg-review-sub">Setting up…</span>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-3 text-muted-foreground/40">
-                    <Mic className="h-10 w-10" />
-                    <span className="text-sm">Waiting to start…</span>
+                  <div className="flex flex-col items-center gap-3" style={{ color: 'var(--t3)' }}>
+                    <Mic className="h-8 w-8" />
+                    <span className="text-[13px] font-semibold">Waiting to start…</span>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Grouped Task List */}
+          {/* Grouped Task List — destination sections in the live stream's
+              group-label register, rows hung off a hairline rail. */}
           {tasks.length > 0 && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-bold">
-                  {isDone ? 'Review & Edit Tasks' : 'Tasks Found'}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {tasks.length} task{tasks.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-
+            <div className="space-y-4">
               {Object.entries(groupedTasks).map(([groupKey, group]) => (
-                <div key={groupKey} className="space-y-2">
-                  <div className="flex items-center gap-2 px-1">
+                <div key={groupKey}>
+                  <div className="lg-sglabel">
                     {getGroupIcon(group.icon)}
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {group.icon === 'new' && '🆕 '}
-                      {group.label}
-                    </span>
-                    <span className="text-xs text-muted-foreground/60">
-                      ({group.tasks.length})
-                    </span>
+                    <span>{group.label}</span>
+                    <span className="n">{group.tasks.length}</span>
                   </div>
 
-                  <div className="space-y-2 pl-2 border-l-2 border-muted/30">
+                  <div className="lg-review-rows space-y-2">
                     <AnimatePresence initial={false}>
                       {group.tasks.map((task) => (
                         <motion.div
@@ -415,7 +358,7 @@ export const BrainDumpLiveDialog = ({
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, x: -100 }}
                           transition={{ duration: 0.3, ease: 'easeOut' }}
-                          className="relative group pb-1"
+                          className="relative group"
                         >
                           <TaskListItem
                             task={toPreviewTask(task)}
@@ -426,14 +369,15 @@ export const BrainDumpLiveDialog = ({
                             onTaskClick={() => {}}
                           />
                           {isDone && (
-                            <Button
+                            <button
+                              type="button"
                               onClick={() => removeTask(task.id)}
-                              variant="destructive"
-                              size="sm"
-                              className="absolute bottom-1 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
+                              title="Remove task"
+                              aria-label={`Remove ${task.title}`}
+                              className="lg-review-del opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                             >
-                              <X className="h-4 w-4" />
-                            </Button>
+                              <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            </button>
                           )}
                         </motion.div>
                       ))}
@@ -446,11 +390,13 @@ export const BrainDumpLiveDialog = ({
 
           {/* Save Controls (after stopping) */}
           {isDone && tasks.length > 0 && (
-            <div className="flex flex-col gap-3 pt-4 border-t">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button
+            <div className="flex flex-col gap-2.5">
+              <hr className="lg-review-rule" />
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <button
+                  type="button"
                   onClick={handleSave}
-                  className="w-full sm:flex-1"
+                  className="lg-btn acc w-full sm:flex-1"
                   disabled={isSaving || tasks.length === 0}
                 >
                   {isSaving ? (
@@ -464,34 +410,34 @@ export const BrainDumpLiveDialog = ({
                       Save All Tasks
                     </>
                   )}
-                </Button>
-                <Button onClick={handleClose} variant="outline" disabled={isSaving} className="w-full sm:w-auto">
+                </button>
+                <button type="button" onClick={handleClose} disabled={isSaving} className="lg-btn w-full sm:w-auto">
                   Cancel
-                </Button>
+                </button>
               </div>
-              {/* Keep Talking button */}
-              <Button
+              {/* Keep Talking — quiet ghost, house type */}
+              <button
+                type="button"
                 onClick={handleKeepTalking}
-                variant="ghost"
                 disabled={isSaving}
-                className="w-full text-muted-foreground hover:text-foreground"
+                className="lg-review-ghost"
               >
-                <Mic className="mr-2 h-4 w-4" />
+                <Mic className="mr-1.5 h-3.5 w-3.5" />
                 Keep Talking — add more tasks
-              </Button>
+              </button>
             </div>
           )}
 
           {/* Empty state after stopping with no tasks */}
           {isDone && tasks.length === 0 && (
-            <div className="text-center py-8 space-y-4">
-              <p className="text-sm text-muted-foreground">
+            <div className="text-center py-6 space-y-3">
+              <p className="lg-review-sub">
                 No tasks were extracted. Try speaking more clearly about specific tasks.
               </p>
-              <Button onClick={handleKeepTalking}>
+              <button type="button" onClick={handleKeepTalking} className="lg-btn acc mx-auto">
                 <Mic className="mr-2 h-4 w-4" />
                 Try Again
-              </Button>
+              </button>
             </div>
           )}
         </div>

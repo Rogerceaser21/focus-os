@@ -17,7 +17,10 @@ const Landing = () => {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/home');
+      // Forward the query string: the Pages 404 fallback strips deep-link paths,
+      // so params (?fakedump, future deep-link args) arrive on the ROOT url and
+      // would otherwise die in this redirect.
+      navigate('/home' + window.location.search);
     }
   }, [user, loading, navigate]);
 

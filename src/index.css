@@ -595,8 +595,14 @@ All colors MUST be HSL.
 .liquid-glass[data-wallpaper='plain'] .bg-secondary { background-color: hsl(var(--secondary)); }
 .liquid-glass[data-wallpaper='plain'] .bg-muted { background-color: hsl(var(--muted)); }
 
-/* dialogs/sheets (shadcn paints them with bg-background): solid readable glass */
-.liquid-glass [role='dialog'] {
+/* dialogs/sheets (shadcn paints them with bg-background): solid readable glass.
+   role='alertdialog' is the SAME house surface — Radix gives AlertDialog its own
+   role, so before 2026-07-28 every delete-confirm missed this rule and fell back
+   to bare `bg-background`, which .liquid-glass thins to 0.2 alpha (see the
+   .bg-background veil above): the panel read as near-transparent and its
+   description text overlapped the list behind it. */
+.liquid-glass [role='dialog'],
+.liquid-glass [role='alertdialog'] {
   background-color: hsl(var(--popover) / 0.92);
   backdrop-filter: blur(28px) saturate(160%);
   -webkit-backdrop-filter: blur(28px) saturate(160%);
@@ -1060,6 +1066,27 @@ html.standalone.liquid-glass .lg-editsheet {
   color: hsl(var(--primary-foreground));
   box-shadow: 0 4px 16px hsl(var(--primary) / 0.4);
 }
+/* armed state of the two-step Discard (recording stage). Literal colour, not a
+   token: it is the same red as the Today dot in the live stream, and an
+   alpha-in-token would be invalid CSS (see the shadcn token gotcha). */
+.liquid-glass .lg-btn.warn {
+  background: rgba(229, 72, 77, 0.16); border-color: rgba(229, 72, 77, 0.55); color: #e5484d;
+}
+/* destructive PRIMARY (confirm-delete, "I'm Done"): .acc's shape in the same
+   literal red as .warn. Specificity is deliberate — it has to outrank the
+   `bg-destructive` utilities consumers still pass on AlertDialogAction. */
+.liquid-glass .lg-btn.danger {
+  background: #e5484d; border-color: transparent; color: #fff;
+  box-shadow: 0 4px 16px rgba(229, 72, 77, 0.35);
+}
+/* Keyboard ring in the house accent — the pills are plain <button>s now (the
+   confirm dialog dropped buttonVariants), so without this they fall back to the
+   UA's blue focus ring, which is off-system. Pointer presses never match
+   :focus-visible, so the ring only appears for keyboard users. */
+.liquid-glass .lg-btn:focus { outline: none; }
+.liquid-glass .lg-btn:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.liquid-glass .lg-btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+.liquid-glass .lg-btn:disabled:active { transform: none; }
 .liquid-glass .lg-iconbtn {
   width: 30px; height: 30px; flex: none; cursor: pointer;
   border-radius: 999px; border: 1px solid var(--gbrd);
@@ -1242,6 +1269,23 @@ html.standalone.liquid-glass .lg-editsheet {
   position: absolute; left: 20px; right: 20px;
   opacity: 0; transform: translateY(8px) scale(.98); pointer-events: none;
 }
+
+/* ── Tour FAB vs the recording exits (Deploy 1, 2026-07-28) ──────────────────
+   The tour FAB is fixed in the same bottom band as .lg-recbtns, and the stage
+   now offers THREE exits (Discard / Edit Tasks / Save All) — on a 393px phone
+   those pills fill the band, so the FAB would sit on top of the primary button
+   (guarded by tests/braindump-stream.spec.ts). While recording there is no tour
+   to take anyway, so it slides out of the way.
+
+   Same treatment as .lg-upnext above and for the same reason: the element is
+   NEVER unmounted and NEVER visibility:hidden — it carries a backdrop-filter,
+   and its compositing layer has to survive the stage transition (iOS Safari
+   white-flash law: no layer may be born or destroyed while things animate).
+   Persistent layer + a transform/opacity state change, nothing else. */
+.liquid-glass .lg-helpfab { transition: opacity .35s ease, transform .35s ease; }
+.liquid-glass .lg-hero-col.rec ~ .lg-helpfab {
+  opacity: 0; transform: translateX(72px); pointer-events: none;
+}
 .liquid-glass .lg-uphead { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 18px 2px; }
 .liquid-glass .lg-uphead .ttl { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--t2); }
 .liquid-glass .lg-uphead .cnt { font-size: 12px; color: var(--t3); }
@@ -1266,6 +1310,50 @@ html.standalone.liquid-glass .lg-editsheet {
 
 /* orb + actions (GSAP glides this left on wide screens while recording) */
 .liquid-glass .lg-hero-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 108px; }
+
+/* ── Recording-stage bottom budget (Fix A, 2026-07-27) ───────────────────────
+   Idle Home is untouched (v39 geometry, Igor-verified) — every rule here is
+   .rec-scoped. While recording, the DOUBLE-BOOKED bottom reservation is
+   replaced by ONE budget derived from the dock, which hands the reclaimed
+   pixels back to the only shrinkable flex item, .lg-stream.
+
+     was (standalone): padding-bottom calc(110 + 2*env(34)) = 178
+                       PLUS .lg-hero-actions margin-bottom 108  =  286px
+                       reserved for a dock band that is only 68px tall
+                       -> ~218px of dead wallpaper, stream starved to ~1 row.
+     now:              dock bottom offset + dock height + --sp-gap clearance,
+                       counted ONCE.
+
+   Dock height is 62px MEASURED (.lg-dock's `padding: 7px 9px !important` beats
+   BottomNav's inline safe-area padding, so the band is icon 20 + gap 4 + label
+   14 + 2*12 py-3 + 2*7 = 62). The 74px in the Fix A brief was 12px high.
+
+   env(safe-area-inset-bottom) deliberately does NOT appear: the dock's own 6px
+   offset already sits inside the home-indicator band (Igor's approved framing,
+   dock locked), so adding env() on top IS the double count being removed.
+
+   Standalone subtracts the ICB shortfall. In an iOS home-screen webapp the
+   fixed dock is laid out against the LARGE viewport (100lvh = 852pt on a
+   393x852 phone) while this column is 100svh (= 793pt), so 59pt of the budget
+   already sits below the column's bottom edge. (100lvh - 100svh) measures that
+   shortfall live and evaluates to 0 wherever the two viewports agree (desktop,
+   Chromium, the Playwright rig), so one declaration is correct everywhere:
+       6 + 62 + 10 - 59 = 19px
+   (the v39 padding sweep landed on 31px for .lg-maincol with the same method
+   and the same 59pt shortfall — it just clears a 74px-tall band of pill + dock.)
+   -------------------------------------------------------------------------- */
+.liquid-glass .lg-hero-col.rec { --lg-rec-bottom: calc(16px + 62px + var(--sp-gap, 10px)); }
+@media (max-width: 639px) {
+  /* phones: the dock drops to bottom:10px (see the .lg-dock override above) */
+  .liquid-glass .lg-hero-col.rec { --lg-rec-bottom: calc(10px + 62px + var(--sp-gap, 10px)); }
+}
+html.standalone.liquid-glass .lg-hero-col.rec {
+  --lg-rec-bottom: calc(6px + 62px + var(--sp-gap, 10px) - (100lvh - 100svh));
+  padding-bottom: 0; /* the 110 + 2*env reservation is what we are replacing */
+}
+/* 0,3,0 — beats both the base rule and the max-height:800px variant (0,2,0),
+   so the interaction is order-independent and predictable. */
+.liquid-glass .lg-hero-col.rec .lg-hero-actions { margin-bottom: var(--lg-rec-bottom); }
 .liquid-glass .lg-orb {
   width: 118px; height: 118px; border-radius: 999px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -1281,7 +1369,15 @@ html.standalone.liquid-glass .lg-editsheet {
   transition: border-radius .3s ease;
 }
 /* core stays round while listening (no squared stop-symbol morph) */
-.liquid-glass .lg-recbtns { display: flex; gap: 8px; margin-top: 6px; }
+/* Discard / Edit Tasks / Save All — deliberately ONE row (the Fix A vertical
+   budget below has ~37px of slack at 393x852, and a second row costs ~45px).
+   flex-wrap is the guard rail only: on a viewport too narrow for three pills the
+   row wraps instead of overflowing the column, which `overflow: hidden` would
+   otherwise clip. */
+.liquid-glass .lg-recbtns {
+  display: flex; gap: 8px; margin-top: 6px;
+  flex-wrap: wrap; justify-content: center; max-width: 100%;
+}
 
 /* record FAB main button: same glass material as the Home orb */
 .liquid-glass .lg-fab-main {
@@ -1297,7 +1393,54 @@ html.standalone.liquid-glass .lg-editsheet {
   border-radius: 26px; padding: 4px 14px 12px; opacity: 0; max-height: 0; overflow: hidden;
   margin-top: 0; transition: opacity .35s ease, max-height .45s ease, margin .3s ease;
 }
-.liquid-glass .rec .lg-stream { opacity: 1; max-height: 52vh; overflow-y: auto; margin-top: 24px; }
+.liquid-glass .rec .lg-stream { opacity: 1; max-height: 52vh; overflow-y: auto; margin-top: 16px; }
+/* while recording the spacer's floor is surrendered too — with the greeting and
+   orb fixed, every reclaimed pixel goes straight to the stream (+16 with the
+   8px margin trim above = ~one more visible task row on a 393x852 phone) */
+.liquid-glass .lg-hero-col.rec .lg-hero-spacer { min-height: 0; }
+
+/* ── Stream floor while recording (Fix A, 2026-07-27) ────────────────────────
+   overflow-y:auto gives this card an automatic minimum size of 0 (CSS Flexbox
+   §4.5), and it is the ONLY shrinkable item in the 100svh hero column — so it
+   absorbed the whole layout deficit and collapsed to ~1 visible row. The
+   reclaimed bottom budget above is what actually feeds it; this floor is the
+   guard rail that stops any future deficit starving it again.
+
+     target  = 6 task rows. MEASURED: header 60 + group (label 20 + 10 margin)
+               + 6 x (row 45 + 6 margin) = 396 -> floor 380px, which is the
+               brief's target and all a 393x852 icon-app can actually spare.
+     ceiling = what the column can genuinely spare, so the floor can never push
+               the greeting or the orb off a short screen. MEASURED siblings
+               while .rec = greeting 84 + stream margin-top 16 + spacer 0
+               (both .rec-trimmed above; idle keeps 24/16)
+               + actions 205 (orb 118 + 2x12 gap + label 20 + 6 recbtns margin
+               + buttons 37)                                            = 329
+                 + column padding-top (40 browser / 8 + safe-top standalone)
+                 + --lg-rec-bottom (88 desktop / 82 phone / 78-shortfall
+                   standalone)
+               worst case 451 -> subtract 460 for ~9px of font/rounding slack.
+   Static geometry only: NO new transition or animation on this card. It already
+   animates max-height + opacity and nothing else may join them (white-flash
+   law: never animate while a compositing layer is being built or destroyed). */
+.liquid-glass .lg-hero-col.rec .lg-stream { min-height: min(380px, calc(100svh - 432px)); }
+@media (min-width: 640px) {
+  /* padding-top 64 and a 132px orb push the worst case to ~495 */
+  .liquid-glass .lg-hero-col.rec .lg-stream { min-height: min(380px, calc(100svh - 477px)); }
+}
+
+/* jump-to-latest pill: shown only while the user has scrolled up off the newest
+   task. Sticky inside the scroll box, plain tinted material — the same surface
+   as .lg-stask on purpose: NO backdrop-filter may be introduced inside the
+   stream (white-flash law) and no new compositing layer with it. */
+.liquid-glass .lg-stream-jump {
+  position: sticky; bottom: 0; z-index: 2;
+  display: flex; align-items: center; gap: 6px;
+  width: fit-content; margin: 6px auto 0; padding: 6px 12px;
+  border-radius: 999px; cursor: pointer;
+  background: var(--gbg-strong); border: 1px solid var(--gbrd); color: var(--t1);
+  font-size: 11.5px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+}
 .liquid-glass .lg-stream-listen { display: flex; align-items: center; gap: 12px; padding: 12px 6px 6px; }
 .liquid-glass .lg-mic {
   width: 42px; height: 42px; border-radius: 999px; flex: none; position: relative;
@@ -1323,6 +1466,8 @@ html.standalone.liquid-glass .lg-editsheet {
   animation: lg-rise .4s cubic-bezier(.2, .9, .3, 1.2) both;
 }
 @keyframes lg-rise { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+/* reduced-motion swap for lg-rise (see the prefers-reduced-motion block below) */
+@keyframes lg-fade-in { from { opacity: 0; } to { opacity: 1; } }
 .liquid-glass .lg-stask .tt { font-size: 13.5px; font-weight: 500; color: var(--t1); flex: 1; min-width: 0; }
 .liquid-glass .lg-schip {
   font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; flex: none;
@@ -1345,6 +1490,9 @@ html.standalone.liquid-glass .lg-editsheet {
     transform: translateY(-46%);
   }
   .liquid-glass .rec .lg-stream { max-height: 72vh; overflow-y: auto; margin-top: 0; }
+  /* the panel is absolute here — lifted clean out of the flex flow — so the
+     mobile floor must not apply (it would force a 380px slab for one task) */
+  .liquid-glass .lg-hero-col.rec .lg-stream { min-height: 0; }
 }
 
 /* short viewports: compress the hero so the dock never covers the actions */
@@ -1386,18 +1534,95 @@ html.standalone.liquid-glass .lg-editsheet {
 .liquid-glass .lg-content { scrollbar-width: thin; scrollbar-color: transparent transparent; }
 .liquid-glass .lg-content.lg-scrolling { scrollbar-color: var(--t3) transparent; }
 
-/* brain-dump review dialog: mock add-task-panel skin (glass rows, pill controls) */
-.liquid-glass .lg-review { border-radius: 28px; }
+/* brain-dump review dialog: mock add-task-panel skin (glass rows, pill controls).
+   Radius/material come from the shared [role='dialog'] rules — nothing special
+   here, that is the point of the 2026-07-28 congruence pass. Rows are FLAT
+   tinted cards: NO backdrop-filter may be introduced inside the panel (frost on
+   the panel only — white-flash law), exactly as .lg-stask does in the stream. */
 .liquid-glass .lg-review [data-task-card] {
   background: var(--gbg-strong);
   border: 1px solid var(--gbrd);
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-.liquid-glass .lg-review .border-l-2 { border-color: var(--row-line); }
 .liquid-glass .lg-review button { border-radius: 999px; }
+/* flat tinted card for the recording-stage controls — same material as the
+   rows, again with NO backdrop-filter of its own. */
+.liquid-glass .lg-review-card {
+  background: var(--gbg-strong); border: 1px solid var(--gbrd);
+  border-radius: 18px; padding: 14px;
+}
+.liquid-glass .lg-review .lg-btn { padding: 10px 16px; font-size: 13px; justify-content: center; }
+/* Neutral pills sit on a near-opaque dialog panel, where the white-glass
+   --gbrd edge disappears: swap in the theme-aware hairline so Cancel still
+   reads as a control next to the filled primary. */
+.liquid-glass .lg-review .lg-btn:not(.acc):not(.danger):not(.warn),
+.liquid-glass .lg-alert .lg-btn:not(.acc):not(.danger):not(.warn) {
+  border-color: var(--row-line);
+}
+
+/* header row: house title + count chip, replacing the old sr-only header and
+   the ad-hoc bold spans that made this surface read as a foreign menu. */
+.liquid-glass .lg-review-title {
+  font-size: 19px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--t1); line-height: 1.2;
+}
+.liquid-glass .lg-review-sub { font-size: 13px; line-height: 1.45; color: var(--t2); }
+.liquid-glass .lg-review-rule { height: 1px; background: var(--row-line); border: 0; }
+
+/* destination sections: same group label as the live stream (.lg-sglabel),
+   rows hung off a hairline rail in the shared row-line tint. */
+.liquid-glass .lg-review .lg-sglabel { padding: 0 2px 2px; }
+.liquid-glass .lg-review .lg-sglabel .n { color: var(--t3); font-weight: 600; letter-spacing: 0; }
+.liquid-glass .lg-review-rows {
+  border-left: 1px solid var(--row-line);
+  padding-left: 10px; margin-left: 4px;
+}
+
+/* per-row delete: the house icon pill, tinted to the shared red only on press
+   so the row stays quiet at rest. */
+.liquid-glass .lg-review-del {
+  /* bottom-right: TaskListItem parks its own edit pencil top-right, and the two
+     glyphs overlapped into an unreadable smudge when this sat up there. */
+  position: absolute; bottom: 8px; right: 8px; z-index: 10;
+  width: 26px; height: 26px; padding: 0;
+  /* row-line, not --gbrd: the rows are near-opaque here, so the white glass
+     border of the pill family would vanish into them. */
+  border-radius: 999px; border: 1px solid var(--row-line);
+  background: transparent; color: var(--t2);
+  display: flex; align-items: center; justify-content: center;
+}
+.liquid-glass .lg-review-del:active { color: #e5484d; border-color: rgba(229, 72, 77, 0.55); }
+@media (hover: hover) {
+  .liquid-glass .lg-review-del:hover { color: #e5484d; border-color: rgba(229, 72, 77, 0.55); }
+}
+/* quiet ghost action (Keep Talking) — house type, no pill chrome until pressed */
+.liquid-glass .lg-review-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 8px 12px; border-radius: 999px;
+  background: transparent; border: 1px solid transparent;
+  font-size: 12.5px; font-weight: 600; color: var(--t2); cursor: pointer;
+}
+.liquid-glass .lg-review-ghost:active { background: var(--chip); color: var(--t1); }
+@media (hover: hover) {
+  .liquid-glass .lg-review-ghost:hover { background: var(--chip); color: var(--t1); }
+}
+
+/* ---------------------------------------------------------------------------
+   Confirm dialogs (Radix AlertDialog). Panel material + 26px radius + pill
+   buttons all come from the shared [role='alertdialog'] rules above; this only
+   adds the house shadow, the type scale and the destructive action pill. The
+   materialize animation and its reduced-motion shortening are already inherited
+   from .lg-modal / .lg-overlay — no new animation is introduced here.
+   -------------------------------------------------------------------------- */
+.liquid-glass .lg-alert { box-shadow: var(--gshadow); }
+.liquid-glass .lg-alert-title {
+  font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: var(--t1);
+}
+.liquid-glass .lg-alert-desc { font-size: 13.5px; line-height: 1.5; color: var(--t2); }
+.liquid-glass .lg-alert .lg-btn { justify-content: center; padding: 9px 16px; height: auto; }
 
 /* docked Add/Edit Task side panel becomes the mock's floating glass panel */
 .liquid-glass [data-side-panel] {
@@ -1413,8 +1638,11 @@ html.standalone.liquid-glass .lg-editsheet {
   overflow: hidden;
 }
 
-/* dialog + panel form polish: mock pw-input / pw-choice look */
+/* dialog + panel form polish: mock pw-input / pw-choice look.
+   [role='alertdialog'] rides every rule here for the same reason as the
+   material rule above — confirms are dialogs, not a parallel family. */
 .liquid-glass [role='dialog'],
+.liquid-glass [role='alertdialog'],
 .liquid-glass [data-side-panel] { border-radius: 26px; }
 .liquid-glass [role='dialog'] input:not([type='color']):not([type='checkbox']),
 .liquid-glass [role='dialog'] textarea,
@@ -1425,6 +1653,7 @@ html.standalone.liquid-glass .lg-editsheet {
   border-color: var(--chip-brd);
 }
 .liquid-glass [role='dialog'] button:not([role='checkbox']):not([role='radio']),
+.liquid-glass [role='alertdialog'] button:not([role='checkbox']):not([role='radio']),
 .liquid-glass [data-side-panel] button:not([role='checkbox']):not([role='radio']) {
   border-radius: 999px;
 }
@@ -1510,5 +1739,20 @@ html.standalone.liquid-glass .lg-editsheet {
   .liquid-glass .lg-editsheet[data-state='open'],
   .liquid-glass .lg-editsheet[data-state='closed'] {
     animation-duration: 150ms !important;
+  }
+  /* Live brain-dump stream (Fix A, 2026-07-27). Rows still announce themselves,
+     but with a fade only — no travel, no scale. The mic halo SLOWS rather than
+     stops: it is an infinite loop, and a near-zero duration would strobe it.
+     The card keeps its open/close transition (shortened), because the surface
+     must keep its lifecycle — never visibility:hidden, never zero. */
+  .liquid-glass .lg-stask {
+    animation: lg-fade-in 140ms ease-out both !important;
+  }
+  .liquid-glass .lg-mic::before,
+  .liquid-glass .lg-mic::after {
+    animation-duration: 3.2s !important;
+  }
+  .liquid-glass .lg-stream {
+    transition-duration: 160ms !important;
   }
 }

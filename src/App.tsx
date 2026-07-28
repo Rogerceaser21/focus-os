@@ -17,8 +17,9 @@ import GoogleConnected from "./pages/GoogleConnected";
 import SharedAction from "./pages/SharedAction";
 import Preview from "./pages/Preview";
 import PreviewApp from "./pages/PreviewApp";
-// DEV-ONLY drawer reproduction harness (routes gated by import.meta.env.DEV below).
+// DEV-ONLY reproduction harnesses (routes gated by import.meta.env.DEV below).
 import DrawerRepro from "./pages/DrawerRepro";
+import BrainDumpRepro from "./pages/BrainDumpRepro";
 import MotionTweaks from "./components/dev/MotionTweaks";
 
 
@@ -59,6 +60,10 @@ const App = () => (
           <>
             <Route path="/dev/drawer-repro" element={<DrawerRepro key="repro" />} />
             <Route path="/dev/drawer-away" element={<DrawerRepro key="away" />} />
+            {/* DEV-ONLY: Brain Dump save-path harness (see BrainDumpRepro.tsx +
+                tests/braindump-save.spec.ts). Mirrors Home's brain-dump wiring
+                with pre-loaded tasks, so Save All Tasks runs with no mic. */}
+            <Route path="/dev/braindump-repro" element={<BrainDumpRepro />} />
           </>
         )}
         <Route path="*" element={<NotFound />} />
