@@ -1250,8 +1250,12 @@ const Meetings = () => {
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            {/* Plain buttons, not AlertDialogAction (either choice keeps the
+                dialog's own close path) — given the house pill classes so the
+                three-action row matches every other confirm. */}
             <Button
               variant="outline"
+              className="lg-btn"
               disabled={deleting}
               onClick={() => handleDeleteMeeting(false)}
             >
@@ -1260,6 +1264,7 @@ const Meetings = () => {
             </Button>
             <Button
               variant="destructive"
+              className="lg-btn danger"
               disabled={deleting}
               onClick={() => handleDeleteMeeting(true)}
             >

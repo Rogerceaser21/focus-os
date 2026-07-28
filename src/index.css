@@ -595,8 +595,14 @@ All colors MUST be HSL.
 .liquid-glass[data-wallpaper='plain'] .bg-secondary { background-color: hsl(var(--secondary)); }
 .liquid-glass[data-wallpaper='plain'] .bg-muted { background-color: hsl(var(--muted)); }
 
-/* dialogs/sheets (shadcn paints them with bg-background): solid readable glass */
-.liquid-glass [role='dialog'] {
+/* dialogs/sheets (shadcn paints them with bg-background): solid readable glass.
+   role='alertdialog' is the SAME house surface — Radix gives AlertDialog its own
+   role, so before 2026-07-28 every delete-confirm missed this rule and fell back
+   to bare `bg-background`, which .liquid-glass thins to 0.2 alpha (see the
+   .bg-background veil above): the panel read as near-transparent and its
+   description text overlapped the list behind it. */
+.liquid-glass [role='dialog'],
+.liquid-glass [role='alertdialog'] {
   background-color: hsl(var(--popover) / 0.92);
   backdrop-filter: blur(28px) saturate(160%);
   -webkit-backdrop-filter: blur(28px) saturate(160%);
@@ -1066,6 +1072,19 @@ html.standalone.liquid-glass .lg-editsheet {
 .liquid-glass .lg-btn.warn {
   background: rgba(229, 72, 77, 0.16); border-color: rgba(229, 72, 77, 0.55); color: #e5484d;
 }
+/* destructive PRIMARY (confirm-delete, "I'm Done"): .acc's shape in the same
+   literal red as .warn. Specificity is deliberate — it has to outrank the
+   `bg-destructive` utilities consumers still pass on AlertDialogAction. */
+.liquid-glass .lg-btn.danger {
+  background: #e5484d; border-color: transparent; color: #fff;
+  box-shadow: 0 4px 16px rgba(229, 72, 77, 0.35);
+}
+/* Keyboard ring in the house accent — the pills are plain <button>s now (the
+   confirm dialog dropped buttonVariants), so without this they fall back to the
+   UA's blue focus ring, which is off-system. Pointer presses never match
+   :focus-visible, so the ring only appears for keyboard users. */
+.liquid-glass .lg-btn:focus { outline: none; }
+.liquid-glass .lg-btn:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 .liquid-glass .lg-btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
 .liquid-glass .lg-btn:disabled:active { transform: none; }
 .liquid-glass .lg-iconbtn {
@@ -1515,18 +1534,95 @@ html.standalone.liquid-glass .lg-hero-col.rec {
 .liquid-glass .lg-content { scrollbar-width: thin; scrollbar-color: transparent transparent; }
 .liquid-glass .lg-content.lg-scrolling { scrollbar-color: var(--t3) transparent; }
 
-/* brain-dump review dialog: mock add-task-panel skin (glass rows, pill controls) */
-.liquid-glass .lg-review { border-radius: 28px; }
+/* brain-dump review dialog: mock add-task-panel skin (glass rows, pill controls).
+   Radius/material come from the shared [role='dialog'] rules — nothing special
+   here, that is the point of the 2026-07-28 congruence pass. Rows are FLAT
+   tinted cards: NO backdrop-filter may be introduced inside the panel (frost on
+   the panel only — white-flash law), exactly as .lg-stask does in the stream. */
 .liquid-glass .lg-review [data-task-card] {
   background: var(--gbg-strong);
   border: 1px solid var(--gbrd);
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-.liquid-glass .lg-review .border-l-2 { border-color: var(--row-line); }
 .liquid-glass .lg-review button { border-radius: 999px; }
+/* flat tinted card for the recording-stage controls — same material as the
+   rows, again with NO backdrop-filter of its own. */
+.liquid-glass .lg-review-card {
+  background: var(--gbg-strong); border: 1px solid var(--gbrd);
+  border-radius: 18px; padding: 14px;
+}
+.liquid-glass .lg-review .lg-btn { padding: 10px 16px; font-size: 13px; justify-content: center; }
+/* Neutral pills sit on a near-opaque dialog panel, where the white-glass
+   --gbrd edge disappears: swap in the theme-aware hairline so Cancel still
+   reads as a control next to the filled primary. */
+.liquid-glass .lg-review .lg-btn:not(.acc):not(.danger):not(.warn),
+.liquid-glass .lg-alert .lg-btn:not(.acc):not(.danger):not(.warn) {
+  border-color: var(--row-line);
+}
+
+/* header row: house title + count chip, replacing the old sr-only header and
+   the ad-hoc bold spans that made this surface read as a foreign menu. */
+.liquid-glass .lg-review-title {
+  font-size: 19px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--t1); line-height: 1.2;
+}
+.liquid-glass .lg-review-sub { font-size: 13px; line-height: 1.45; color: var(--t2); }
+.liquid-glass .lg-review-rule { height: 1px; background: var(--row-line); border: 0; }
+
+/* destination sections: same group label as the live stream (.lg-sglabel),
+   rows hung off a hairline rail in the shared row-line tint. */
+.liquid-glass .lg-review .lg-sglabel { padding: 0 2px 2px; }
+.liquid-glass .lg-review .lg-sglabel .n { color: var(--t3); font-weight: 600; letter-spacing: 0; }
+.liquid-glass .lg-review-rows {
+  border-left: 1px solid var(--row-line);
+  padding-left: 10px; margin-left: 4px;
+}
+
+/* per-row delete: the house icon pill, tinted to the shared red only on press
+   so the row stays quiet at rest. */
+.liquid-glass .lg-review-del {
+  /* bottom-right: TaskListItem parks its own edit pencil top-right, and the two
+     glyphs overlapped into an unreadable smudge when this sat up there. */
+  position: absolute; bottom: 8px; right: 8px; z-index: 10;
+  width: 26px; height: 26px; padding: 0;
+  /* row-line, not --gbrd: the rows are near-opaque here, so the white glass
+     border of the pill family would vanish into them. */
+  border-radius: 999px; border: 1px solid var(--row-line);
+  background: transparent; color: var(--t2);
+  display: flex; align-items: center; justify-content: center;
+}
+.liquid-glass .lg-review-del:active { color: #e5484d; border-color: rgba(229, 72, 77, 0.55); }
+@media (hover: hover) {
+  .liquid-glass .lg-review-del:hover { color: #e5484d; border-color: rgba(229, 72, 77, 0.55); }
+}
+/* quiet ghost action (Keep Talking) — house type, no pill chrome until pressed */
+.liquid-glass .lg-review-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 8px 12px; border-radius: 999px;
+  background: transparent; border: 1px solid transparent;
+  font-size: 12.5px; font-weight: 600; color: var(--t2); cursor: pointer;
+}
+.liquid-glass .lg-review-ghost:active { background: var(--chip); color: var(--t1); }
+@media (hover: hover) {
+  .liquid-glass .lg-review-ghost:hover { background: var(--chip); color: var(--t1); }
+}
+
+/* ---------------------------------------------------------------------------
+   Confirm dialogs (Radix AlertDialog). Panel material + 26px radius + pill
+   buttons all come from the shared [role='alertdialog'] rules above; this only
+   adds the house shadow, the type scale and the destructive action pill. The
+   materialize animation and its reduced-motion shortening are already inherited
+   from .lg-modal / .lg-overlay — no new animation is introduced here.
+   -------------------------------------------------------------------------- */
+.liquid-glass .lg-alert { box-shadow: var(--gshadow); }
+.liquid-glass .lg-alert-title {
+  font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: var(--t1);
+}
+.liquid-glass .lg-alert-desc { font-size: 13.5px; line-height: 1.5; color: var(--t2); }
+.liquid-glass .lg-alert .lg-btn { justify-content: center; padding: 9px 16px; height: auto; }
 
 /* docked Add/Edit Task side panel becomes the mock's floating glass panel */
 .liquid-glass [data-side-panel] {
@@ -1542,8 +1638,11 @@ html.standalone.liquid-glass .lg-hero-col.rec {
   overflow: hidden;
 }
 
-/* dialog + panel form polish: mock pw-input / pw-choice look */
+/* dialog + panel form polish: mock pw-input / pw-choice look.
+   [role='alertdialog'] rides every rule here for the same reason as the
+   material rule above — confirms are dialogs, not a parallel family. */
 .liquid-glass [role='dialog'],
+.liquid-glass [role='alertdialog'],
 .liquid-glass [data-side-panel] { border-radius: 26px; }
 .liquid-glass [role='dialog'] input:not([type='color']):not([type='checkbox']),
 .liquid-glass [role='dialog'] textarea,
@@ -1554,6 +1653,7 @@ html.standalone.liquid-glass .lg-hero-col.rec {
   border-color: var(--chip-brd);
 }
 .liquid-glass [role='dialog'] button:not([role='checkbox']):not([role='radio']),
+.liquid-glass [role='alertdialog'] button:not([role='checkbox']):not([role='radio']),
 .liquid-glass [data-side-panel] button:not([role='checkbox']):not([role='radio']) {
   border-radius: 999px;
 }

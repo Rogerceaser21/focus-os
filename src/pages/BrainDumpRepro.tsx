@@ -16,6 +16,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { useBrainDumpLive, type BrainDumpTask, type ProjectInfo } from '@/hooks/useBrainDumpLive';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
@@ -84,6 +96,76 @@ const BrainDumpTransportHarness = () => {
   );
 };
 
+/* ── Confirm-dialog harness (?confirm=1 | ?confirm=2) ────────────────────────
+   Renders the SHARED Radix AlertDialog (src/components/ui/alert-dialog.tsx)
+   over a stack of dummy rows — the exact framing of the screenshot that flagged
+   the see-through panel. Needs no auth and touches no data: nothing is wired to
+   a delete. confirm=1 is the two-action delete-task shape (TaskListItem,
+   TaskCard, EditTaskDialog, Index); confirm=2 is the THREE-action meeting shape
+   (Meetings, MeetingDetail), which is the layout most at risk from a restyle. */
+const ConfirmHarness = ({ variant }: { variant: '1' | '2' }) => (
+  <div className="p-4 space-y-2">
+    <div data-testid="confirm-ready">ready</div>
+    {['Draft the Q3 handover note', 'Chase the vendor invoice', 'Book the studio for Thursday',
+      'Review the onboarding copy', 'Send the recap to the team', 'Rebuild the pricing sheet'].map((t) => (
+      <div key={t} className="lg-stask"><span className="tt">{t}</span><span className="lg-schip">todo</span></div>
+    ))}
+    {/* Opened by a TAP, exactly like the real delete X — an auto-open dialog
+        takes programmatic focus with no prior pointer event, which makes the
+        Cancel pill match :focus-visible and paint a ring users never see. */}
+    <AlertDialog>
+      <AlertDialogTrigger className="lg-btn danger">Delete task</AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{variant === '2' ? 'Delete Meeting' : 'Delete this task?'}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {variant === '2'
+              ? 'This will permanently delete the meeting recording, transcript, and all metadata. What would you like to do with associated action items/tasks?'
+              : 'This will permanently delete the task and remove it from all recipients you shared it with. This action cannot be undone.'}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {variant === '2' ? (
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button variant="outline" className="lg-btn">Keep Tasks &amp; Delete Meeting</Button>
+            <Button variant="destructive" className="lg-btn danger">Delete Everything</Button>
+          </AlertDialogFooter>
+        ) : (
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        )}
+      </AlertDialogContent>
+    </AlertDialog>
+  </div>
+);
+
+/* ── Review-dialog harness (?review=1) ───────────────────────────────────────
+   The same BrainDumpLiveDialog the save harness drives, but with no auth and no
+   caches: `userId` is inert in the component (nothing reads it) and the tasks
+   come straight from initialTasks, so this renders the review surface on a
+   device that has no session. Screenshot-only; Save/Cancel are never clicked
+   here and the spec suite keeps using the signed-in path above. */
+const ReviewHarness = () => {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="p-4">
+      <div data-testid="review-ready">ready</div>
+      <BrainDumpLiveDialog
+        open={open}
+        onOpenChange={setOpen}
+        userId="00000000-0000-4000-8000-000000000000"
+        projects={[{ id: 'proj-alpha', name: 'Alpha' }]}
+        onTasksCreated={() => {}}
+        initialTasks={REPRO_TASKS}
+      />
+    </div>
+  );
+};
+
 const BrainDumpRepro = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -91,6 +173,7 @@ const BrainDumpRepro = () => {
   const [searchParams] = useSearchParams();
   const [open, setOpen] = useState(true);
   const mockLive = searchParams.get('mocklive') === '1';
+  const confirmVariant = searchParams.get('confirm');
 
   // Same silent warm-up Home runs, so the shared /app caches hold a baseline set
   // before Save All Tasks is clicked — the exact precondition the bug needs.
@@ -122,9 +205,11 @@ const BrainDumpRepro = () => {
   // assignment, so it is safe during render.
   if (import.meta.env.DEV) (window as any).__qc = queryClient;
 
-  // Transport mode needs no auth and no dialog — every hook above still ran, so
-  // the branch is only in the returned tree.
+  // Transport / confirm modes need no auth and no dialog — every hook above
+  // still ran, so the branch is only in the returned tree.
   if (mockLive) return <BrainDumpTransportHarness />;
+  if (confirmVariant === '1' || confirmVariant === '2') return <ConfirmHarness variant={confirmVariant} />;
+  if (searchParams.get('review') === '1') return <ReviewHarness />;
 
   return (
     <div className="p-6">
