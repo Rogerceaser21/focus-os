@@ -432,19 +432,19 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     const getCurrentTasksSummary = (tasksState: BrainDumpTask[]) =>
       tasksState.map(t => ({ task_id: t.id, title: t.title, priority: t.priority, destination: t.destination, projectName: t.projectName }));
 
-    // DEDUPLICATION GUARD: Check if a task with a very similar title already exists.
-    // If so, merge/update instead of creating a duplicate. This prevents the LLM
-    // from re-creating tasks during "Keep Talking" sessions.
+    // DEDUPLICATION GUARD: only an EXACT title match (after normalisation) counts
+    // as a duplicate — that still catches the model literally re-creating a task
+    // after a reconnect replay, which is what this guard exists for. It used to
+    // also match on substring containment, which silently swallowed legitimately
+    // distinct tasks ("Call mum" ate "Call mum about the car") while echoing
+    // success to the model so it never retried — device-confirmed 2026-07-28.
+    // A title that normalises to '' (all punctuation, or a non-Latin script such
+    // as Arabic) must never dedup at all: '' used to substring-match EVERY task.
     const findDuplicateTask = (title: string): BrainDumpTask | undefined => {
       const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
       const normalizedTitle = normalize(title);
-      return base.find(t => {
-        const existing = normalize(t.title);
-        // Exact match after normalization, or one contains the other
-        return existing === normalizedTitle
-          || existing.includes(normalizedTitle)
-          || normalizedTitle.includes(existing);
-      });
+      if (!normalizedTitle) return undefined;
+      return base.find(t => normalize(t.title) === normalizedTitle);
     };
 
     if (fc.name === 'add_task_to_today') {

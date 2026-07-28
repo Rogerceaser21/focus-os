@@ -323,4 +323,98 @@ test.describe('brain dump live transport', () => {
     await expect(page.getByTestId('transport-idle-stopped')).toHaveText('no');
     await expect(page.getByTestId('transport-state')).toHaveText('listening');
   });
+
+  // ---------------------------------------------------------------------------
+  // TITLE DEDUP (device-confirmed regression, 2026-07-28): the guard used to
+  // match on substring containment, so "Call mum about the car" was silently
+  // merged into "Call mum" — and the echo claimed success, so the model never
+  // retried. Igor proved it on his phone: 4 spoken tasks, 2 cards. The guard is
+  // now EXACT-match only. These specs pin all three behaviours: distinct-but-
+  // overlapping titles land, same-batch overlaps land, true re-creations merge.
+  // ---------------------------------------------------------------------------
+
+  test('overlapping titles are distinct tasks, not duplicates', async ({ page }) => {
+    await boot(page);
+
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-1', name: 'add_task_to_today', args: { title: 'Call mum', priority: 'medium' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    // The Igor scenario, across two turns: a superset title must be a NEW card.
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-2', name: 'add_task_to_today', args: { title: 'Call mum about the car', priority: 'medium' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(2);
+
+    const { toolResponses } = await harness(page);
+    const second = toolResponses.find((r) => r.functionResponses.id === 'call-2');
+    // The model is told the truth: a fresh task, not a swallowed "duplicate".
+    expect(second?.functionResponses.response.note).toBeUndefined();
+    expect(second?.functionResponses.response.current_tasks).toHaveLength(2);
+  });
+
+  test('overlapping titles in the SAME batch both land (Fix C same-tick path)', async ({ page }) => {
+    await boot(page);
+
+    // One wire message, two functionCalls: since Fix C the second call sees the
+    // row the first just made, which is exactly where substring dedup used to
+    // eat tasks spoken in one breath.
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-1', name: 'add_task_to_today', args: { title: 'Email Sarah', priority: 'medium' } },
+          { id: 'call-2', name: 'add_task_to_today', args: { title: 'Email Sarah the invoice', priority: 'medium' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(2);
+  });
+
+  test('an exact re-created title still merges instead of duplicating', async ({ page }) => {
+    await boot(page);
+
+    await emit(page, addBuyMilk('call-1'));
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    // Different fc.id (so transport dedup does not apply), same title modulo
+    // case/punctuation — the reconnect-replay shape this guard exists for.
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-9', name: 'add_task_to_today', args: { title: 'buy milk!', priority: 'high' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    const { toolResponses } = await harness(page);
+    const merged = toolResponses.find((r) => r.functionResponses.id === 'call-9');
+    expect(merged?.functionResponses.response.note).toBe('duplicate_prevented_updated_existing');
+  });
+
+  test('a title that normalises to empty never dedups against anything', async ({ page }) => {
+    await boot(page);
+
+    // Non-Latin scripts (e.g. Arabic) normalise to '' under the [a-z0-9] filter.
+    // Pre-fix, '' substring-matched EVERY task, so the first such title ate all
+    // the rest. Two distinct Arabic titles must produce two cards.
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-1', name: 'add_task_to_today', args: { title: 'اتصل بأمي', priority: 'medium' } },
+          { id: 'call-2', name: 'add_task_to_today', args: { title: 'جدد جواز السفر', priority: 'medium' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(2);
+  });
 });
