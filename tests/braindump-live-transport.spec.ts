@@ -430,11 +430,37 @@ test.describe('brain dump live transport', () => {
     expect(toolResponses[0].functionResponses.scheduling).toBeUndefined();
   });
 
-  test('without the param the default model and NON_BLOCKING declarations are untouched', async ({ page }) => {
+  test('without the params the default model, NON_BLOCKING tools and barge-in are untouched', async ({ page }) => {
     await boot(page);
     const { connects } = await harness(page);
     expect(connects[0].model).toBe('gemini-2.5-flash-native-audio-preview-12-2025');
     expect((connects[0] as any).toolBehaviors).toEqual(['NON_BLOCKING']);
+    expect((connects[0] as any).activityHandling).toBeNull();
+  });
+
+  // ?ni=1 — NO_INTERRUPTION barge-in switch (device-diagnosed: default
+  // interruption cancels the generation carrying the previous task's tool
+  // call whenever the user starts the next task -> batch-at-end arrival).
+  test('?ni=1 ships NO_INTERRUPTION and nothing else; composes with ?m31=1', async ({ page }) => {
+    await page.route('**/*.supabase.co/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    );
+    await page.addInitScript(() => {
+      (window as any).__mockLiveSession = true;
+    });
+    await page.goto('/dev/braindump-repro?mocklive=1&ni=1&m31=1');
+    await expect(page.getByTestId('transport-ready')).toHaveText('ready');
+    await page.getByTestId('transport-start').click();
+    await expect(page.getByTestId('transport-state')).toHaveText('listening');
+
+    const { connects } = await harness(page);
+    expect((connects[0] as any).activityHandling).toBe('NO_INTERRUPTION');
+    // The mechanism switch must NOT smuggle VAD thresholds or compression back in.
+    expect(connects[0].vad).toBeNull();
+    expect(connects[0].compression).toBeNull();
+    // Composition: the 3.1 arm still applies alongside.
+    expect(connects[0].model).toBe('gemini-3.1-flash-live-preview');
+    expect((connects[0] as any).toolBehaviors).toEqual([]);
   });
 
   test('a title that normalises to empty never dedups against anything', async ({ page }) => {

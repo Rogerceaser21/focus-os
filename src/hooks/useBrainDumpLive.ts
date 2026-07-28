@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  GoogleGenAI, Modality, Type, Behavior, FunctionResponseScheduling,
+  GoogleGenAI, Modality, Type, Behavior, FunctionResponseScheduling, ActivityHandling,
 } from '@google/genai';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -113,6 +113,22 @@ function nonBlockingTools(): boolean {
   return USE_NON_BLOCKING_TOOLS && !m31Enabled();
 }
 
+/* ── ?ni=1 — NO_INTERRUPTION A/B (production, param-gated) ───────────────────
+   Device-diagnosed 2026-07-28 (Igor's ?debug=1 screenshot: socket 1/0/0,
+   audio healthy, toolCalls:3 for 4 spoken tasks): with default barge-in
+   handling, the user STARTING THE NEXT TASK interrupts the generation that
+   carries the previous task's tool call — calls only survive once the user
+   stops entirely, which is exactly the batch-at-end arrival, on BOTH models.
+   NO_INTERRUPTION lets each pause's generation finish while speech continues.
+   Param-gated and composable with ?m31=1: the default wire config stays
+   byte-identical; the transport spec pins both modes. This is a mechanism
+   switch, not VAD threshold tuning — the P1/F1 ban on unmeasured tuning
+   values stands. */
+function niEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('ni') === '1';
+}
+
 /* Audio capture lives in src/lib/brainDumpAudio.ts — ONE page-lifetime
    AudioContext at the hardware rate, AudioWorklet capture, 16k resample in
    code. The per-session `new AudioContext({sampleRate:16000})` + close() churn
@@ -186,6 +202,8 @@ type MockConnectRecord = {
   /** Distinct `behavior` values across the declarations — ['NON_BLOCKING'] in
    *  default mode, [] under ?m31=1 (3.1 tools are sync-only). */
   toolBehaviors: string[];
+  /** realtimeInputConfig.activityHandling — null by default, 'NO_INTERRUPTION' under ?ni=1. */
+  activityHandling: string | null;
   vad: Record<string, unknown> | null;
   compression: Record<string, unknown> | null;
   systemInstructionChars: number;
@@ -229,6 +247,7 @@ function connectMockLiveSession(params: { model: string; config: any; callbacks:
         .map((d: any) => d.behavior)
         .filter(Boolean) as string[],
     )],
+    activityHandling: params.config?.realtimeInputConfig?.activityHandling ?? null,
     vad: params.config?.realtimeInputConfig?.automaticActivityDetection ?? null,
     compression: params.config?.contextWindowCompression ?? null,
     systemInstructionChars: typeof params.config?.systemInstruction === 'string'
@@ -951,12 +970,16 @@ SILENT MODE:
       // goAway be picked up mid-sentence instead of starting a blank session.
       sessionResumption: options.resumeHandle ? { handle: options.resumeHandle } : {},
 
-      /* NO realtimeInputConfig and NO contextWindowCompression — REVERTED to the
-         v40 wire behaviour (server defaults) 2026-07-28 after the P1/F1 tuning
-         wave failed Igor's feel gate twice. Every VAD/compression value we sent
-         made the felt latency WORSE on his device; the configs live in git
-         (1a059a6 / 89c35bf) and nothing returns here without device-measured
-         numbers from the PCM-injection rig first. */
+      /* NO automaticActivityDetection thresholds and NO contextWindowCompression
+         — REVERTED to the v40 wire behaviour (server defaults) 2026-07-28 after
+         the P1/F1 tuning wave failed Igor's feel gate twice. Every VAD threshold
+         we sent made the felt latency WORSE on his device; the configs live in
+         git (1a059a6 / 89c35bf) and no THRESHOLD returns here without measured
+         numbers. ?ni=1 below is a different animal: a barge-in MECHANISM switch
+         (see niEnabled), param-gated so the default stays byte-identical. */
+      ...(niEnabled() && {
+        realtimeInputConfig: { activityHandling: ActivityHandling.NO_INTERRUPTION },
+      }),
     };
 
     // Flush what the gap collected, oldest first, then the echoes this socket
