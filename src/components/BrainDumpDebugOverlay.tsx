@@ -12,13 +12,14 @@
  * static, always-mounted-while-enabled box, but stay boring anyway).
  */
 import { useEffect, useState } from 'react';
-import { brainDumpDebug } from '@/hooks/useBrainDumpLive';
+import { brainDumpDebug, debugFlagEnabled } from '@/hooks/useBrainDumpLive';
 
 declare const __BUILD_ID__: string;
 
 export function BrainDumpDebugOverlay() {
-  const enabled = typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('debug') === '1';
+  // Redirect-proof: the router strips the query on /preview/ -> /home, so the
+  // flag is snapshotted at module load (see useBrainDumpLive.debugFlagEnabled).
+  const enabled = debugFlagEnabled();
 
   const [snapshot, setSnapshot] = useState<Record<string, unknown> | null>(null);
 

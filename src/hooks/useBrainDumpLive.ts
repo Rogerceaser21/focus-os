@@ -104,9 +104,27 @@ const USE_NON_BLOCKING_TOOLS = true;
    SILENT scheduling are dropped whenever this switch is on (they degrade
    silently there — Ramble teardown trail, 2026-07-28). */
 const MODEL_31 = 'gemini-3.1-flash-live-preview';
-function m31Enabled(): boolean {
+
+/* Flags are captured ONCE at module load — the router redirect (/preview/?m31=1
+   -> /preview/home) STRIPS the query string, which silently turned Igor's whole
+   2026-07-28 A/B into two default-model runs (no debug overlay in his shots =
+   params already gone). Module load happens while the entry URL is still
+   intact, so this snapshot survives any later navigation. A live param still
+   wins when present, and '0' explicitly disables. */
+const initialParams = typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search)
+  : new URLSearchParams();
+
+function flagEnabled(name: string): boolean {
   if (typeof window === 'undefined') return false;
-  return new URLSearchParams(window.location.search).get('m31') === '1';
+  const live = new URLSearchParams(window.location.search).get(name);
+  if (live === '1') return true;
+  if (live === '0') return false;
+  return initialParams.get(name) === '1';
+}
+
+function m31Enabled(): boolean {
+  return flagEnabled('m31');
 }
 /** NON_BLOCKING + SILENT apply only where the model supports them. */
 function nonBlockingTools(): boolean {
@@ -125,8 +143,12 @@ function nonBlockingTools(): boolean {
    switch, not VAD threshold tuning — the P1/F1 ban on unmeasured tuning
    values stands. */
 function niEnabled(): boolean {
-  if (typeof window === 'undefined') return false;
-  return new URLSearchParams(window.location.search).get('ni') === '1';
+  return flagEnabled('ni');
+}
+
+/** The overlay flag rides the same redirect-proof snapshot. */
+export function debugFlagEnabled(): boolean {
+  return flagEnabled('debug');
 }
 
 /* Audio capture lives in src/lib/brainDumpAudio.ts — ONE page-lifetime
