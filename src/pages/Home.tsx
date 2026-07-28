@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 
 if (import.meta.env.DEV) (window as any).__gsap = gsap;
-import { Video, HelpCircle, Check, Mic, Square, Calendar, FolderOpen, Plus, ArrowDown } from 'lucide-react';
+import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
+import { saveBrainDumpTasks } from '@/lib/brainDumpSave';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
 import { HomeTour } from '@/components/HomeTour';
@@ -63,6 +64,15 @@ const FAKE_DUMP_TITLES = [
 const FAKE_DUMP_PRIORITIES = ['high', 'medium', 'low'] as const;
 const FAKE_DUMP_PROJECT = 'Kitchen Reno';
 
+/* BISECT switch (house law) — flip to true and "Save All (N)" falls back to the
+   old behaviour (stop + open the review dialog) instead of writing directly.
+   tests/braindump-direct-save.spec.ts then FAILS on its "/app shows both titles"
+   assertion, because the run never leaves /home. Restore to false -> green. */
+const BISECT_DISABLE_DIRECT_SAVE = false;
+
+/** ~3s arm window on the two-step Discard, then it relaxes back to "Discard". */
+const DISCARD_ARM_MS = 3000;
+
 /** Synthetic stream row. The first half go to Today and the rest to one new
  *  project, so the groups fill in RUNS — every new task therefore appends at
  *  the end of the DOM, exactly like a real dump, which is what the follow
@@ -101,6 +111,10 @@ const Home = () => {
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [reviewTasks, setReviewTasks] = useState<BrainDumpTask[] | undefined>(undefined);
+  // Direct-save (no review dialog) spinner + the two-step Discard latch.
+  const [isSaving, setIsSaving] = useState(false);
+  const [discardArmed, setDiscardArmed] = useState(false);
+  const discardTimerRef = useRef<number | null>(null);
   const { preferences, markHomeTourComplete } = useUserPreferences(user?.id);
 
   // Live brain-dump session runs inline on the hero (the approved recording stage):
@@ -120,6 +134,11 @@ const Home = () => {
 
   const rec = fakeDump || connectionState === 'connecting' || connectionState === 'listening';
   const streamTasks = fakeDump ? fakeTasks : liveTasks;
+
+  // DERIVED during render, never corrected after paint (render-phase law): the
+  // latch alone does not decide the label — leaving the stage or emptying the
+  // list disarms it in the same frame it happens, with no effect to catch up.
+  const discardHot = discardArmed && rec && streamTasks.length > 0;
 
   // Follow the newest task while the user is at the bottom; never yank them back
   // if they have scrolled up (iOS Safari has no overflow-anchor — see the hook).
@@ -294,21 +313,100 @@ const Home = () => {
     navigate('/app');
   }, [navigate, queryClient, user]);
 
-  // Stop the live session; captured tasks go to the review dialog for edit + save
+  const disarmDiscard = useCallback(() => {
+    if (discardTimerRef.current !== null) {
+      window.clearTimeout(discardTimerRef.current);
+      discardTimerRef.current = null;
+    }
+    setDiscardArmed(false);
+  }, []);
+
+  // Teardown only — the arm window must not outlive the page.
+  useEffect(() => () => {
+    if (discardTimerRef.current !== null) window.clearTimeout(discardTimerRef.current);
+  }, []);
+
+  // Stop the live session; captured tasks go to the review dialog for edit + save.
+  // This is "Edit Tasks", and it stays the orb's behaviour too.
   const finishSession = useCallback(() => {
+    disarmDiscard();
     stop();
     if (liveTasks.length > 0) {
       setReviewTasks(liveTasks.map((t) => ({ ...t })));
       setBrainDumpOpen(true);
     }
     resetTasks();
-  }, [stop, liveTasks, resetTasks]);
+  }, [stop, liveTasks, resetTasks, disarmDiscard]);
+
+  /* Save All (N) — the DIRECT exit: write straight through the shared saver (the
+     same inserts + cache patches the review dialog uses) and land on /app. The
+     dialog is skipped entirely; nothing is re-fetched, because saveBrainDumpTasks
+     patched the shared caches /app seeds from during render.
+     On failure NOTHING is torn down: the session is still live and the captured
+     list is still on screen, so a retry costs the user nothing. */
+  const handleSaveAllDirect = useCallback(async () => {
+    if (fakeDump) return;                      // demo stage: never touches the network
+    if (isSaving || liveTasks.length === 0) return;
+    if (BISECT_DISABLE_DIRECT_SAVE) { finishSession(); return; }
+
+    const captured = liveTasks.map((t) => ({ ...t }));
+    disarmDiscard();
+    setIsSaving(true);
+    try {
+      await saveBrainDumpTasks({ queryClient, tasks: captured });
+      stop();
+      resetTasks();
+      toast.success(`Added ${captured.length} task${captured.length > 1 ? 's' : ''}`);
+      // Home's own cards are useQuery-observed, so invalidating them refetches live
+      // (no fabrication, no starved fetch) — identical to handleTasksCreated.
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: ['focusos-home-upnext', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['focusos-home-projects', user.id] });
+      }
+      navigate('/app');
+    } catch (error: any) {
+      toast.error('Failed to save tasks', { description: error?.message });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [fakeDump, isSaving, liveTasks, disarmDiscard, queryClient, stop, resetTasks, user, navigate, finishSession]);
+
+  /* Discard — two-step, in place. First tap arms the button (label flips for
+     DISCARD_ARM_MS), second tap throws the capture away. No window.confirm, no
+     modal layer: nothing new mounts, so no compositing layer is born or killed
+     mid-animation (iOS Safari white-flash law). With an empty list there is
+     nothing to lose, so it is a plain stop. */
+  const handleDiscard = useCallback(() => {
+    if (fakeDump) { setFakeTasks([]); disarmDiscard(); return; } // demo: reset the fake stream
+    if (isSaving) return;
+    if (liveTasks.length === 0) { disarmDiscard(); stop(); resetTasks(); return; }
+    if (!discardArmed) {
+      if (discardTimerRef.current !== null) window.clearTimeout(discardTimerRef.current);
+      discardTimerRef.current = window.setTimeout(() => {
+        discardTimerRef.current = null;
+        setDiscardArmed(false);
+      }, DISCARD_ARM_MS);
+      setDiscardArmed(true);
+      return;
+    }
+    disarmDiscard();
+    stop();
+    resetTasks();
+  }, [fakeDump, isSaving, liveTasks, discardArmed, disarmDiscard, stop, resetTasks]);
+
+  const handleEditTasks = useCallback(() => {
+    if (fakeDump) return; // demo stage: never opens the review dialog
+    if (isSaving) return;
+    finishSession();
+  }, [fakeDump, isSaving, finishSession]);
 
   const handleOrbTap = useCallback(async () => {
     if (orbRef.current) {
       gsap.fromTo(orbRef.current, { scale: 0.92 }, { scale: 1, duration: 0.6, ease: 'elastic.out(1, 0.4)' });
     }
+    disarmDiscard();
     if (fakeDump) return; // demo stage: the orb presses, nothing is captured
+    if (isSaving) return; // a direct save is already in flight
     if (rec) {
       finishSession();
       return;
@@ -322,7 +420,7 @@ const Home = () => {
       msg += error?.message || 'Please try again.';
       toast.error(msg);
     }
-  }, [rec, start, projects, finishSession, fakeDump]);
+  }, [rec, start, projects, finishSession, fakeDump, isSaving, disarmDiscard]);
 
   // Group the live stream by destination, mirroring the review dialog's grouping
   const streamGroups = useMemo(() => {
@@ -344,6 +442,12 @@ const Home = () => {
 
   const projectColor = (id: string | null | undefined) =>
   projects.find((p) => p.id === id)?.color || '#8a94a6';
+
+  // DEV-only: hand the specs the live QueryClient so they can read the shared
+  // caches directly (same precedent as __gsap above and BrainDumpRepro.tsx).
+  // Idempotent assignment, so it is safe during render, and import.meta.env.DEV
+  // is the literal `false` in a production build — the line is dead-code-stripped.
+  if (import.meta.env.DEV) (window as any).__qc = queryClient;
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-background">
@@ -459,13 +563,26 @@ const Home = () => {
             <div className="lg-orb-core" ref={coreRef} />
           </button>
           <span className="text-sm font-medium text-center text-muted-foreground lg-onbg">
-            {rec ? 'Listening… tap the orb or Stop when done' : 'Tap to capture your thoughts into tasks'}
+            {rec ? 'Listening… tap the orb to review, or pick below' : 'Tap to capture your thoughts into tasks'}
           </span>
           {rec ?
+          /* Three exits, ONE row (Fix A budget: a second row costs ~45px the
+             393x852 icon-app does not have). Left to right = destructive,
+             neutral, primary — the house order, acc last. */
           <div className="lg-recbtns">
-              <button className="lg-btn" onClick={finishSession}><Square size={12} />Stop</button>
-              <button className="lg-btn acc" onClick={finishSession}>
-                <Check size={14} />Save All Tasks ({streamTasks.length})
+              <button
+              className={`lg-btn${discardHot ? ' warn' : ''}`}
+              onClick={handleDiscard}
+              disabled={isSaving}
+              aria-label={discardHot ? `Confirm discarding ${streamTasks.length} captured tasks` : 'Discard captured tasks'}>
+                <Trash2 size={13} />{discardHot ? `Sure? (${streamTasks.length})` : 'Discard'}
+              </button>
+              <button className="lg-btn" onClick={handleEditTasks} disabled={isSaving || streamTasks.length === 0}>
+                <Pencil size={13} />Edit Tasks
+              </button>
+              <button className="lg-btn acc" onClick={handleSaveAllDirect} disabled={isSaving || streamTasks.length === 0}>
+                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                {isSaving ? 'Saving…' : `Save All (${streamTasks.length})`}
               </button>
             </div> :
 
@@ -484,7 +601,7 @@ const Home = () => {
       <button
         onClick={() => setTourOpen(true)}
         aria-label="Take the Home tour"
-        className="fixed right-4 z-30 flex items-center justify-center w-10 h-10 rounded-full border border-border bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-md"
+        className="lg-helpfab fixed right-4 z-30 flex items-center justify-center w-10 h-10 rounded-full border border-border bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-md"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}>
 
         <HelpCircle className="w-5 h-5" />

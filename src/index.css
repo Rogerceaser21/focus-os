@@ -1060,6 +1060,14 @@ html.standalone.liquid-glass .lg-editsheet {
   color: hsl(var(--primary-foreground));
   box-shadow: 0 4px 16px hsl(var(--primary) / 0.4);
 }
+/* armed state of the two-step Discard (recording stage). Literal colour, not a
+   token: it is the same red as the Today dot in the live stream, and an
+   alpha-in-token would be invalid CSS (see the shadcn token gotcha). */
+.liquid-glass .lg-btn.warn {
+  background: rgba(229, 72, 77, 0.16); border-color: rgba(229, 72, 77, 0.55); color: #e5484d;
+}
+.liquid-glass .lg-btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+.liquid-glass .lg-btn:disabled:active { transform: none; }
 .liquid-glass .lg-iconbtn {
   width: 30px; height: 30px; flex: none; cursor: pointer;
   border-radius: 999px; border: 1px solid var(--gbrd);
@@ -1242,6 +1250,23 @@ html.standalone.liquid-glass .lg-editsheet {
   position: absolute; left: 20px; right: 20px;
   opacity: 0; transform: translateY(8px) scale(.98); pointer-events: none;
 }
+
+/* ── Tour FAB vs the recording exits (Deploy 1, 2026-07-28) ──────────────────
+   The tour FAB is fixed in the same bottom band as .lg-recbtns, and the stage
+   now offers THREE exits (Discard / Edit Tasks / Save All) — on a 393px phone
+   those pills fill the band, so the FAB would sit on top of the primary button
+   (guarded by tests/braindump-stream.spec.ts). While recording there is no tour
+   to take anyway, so it slides out of the way.
+
+   Same treatment as .lg-upnext above and for the same reason: the element is
+   NEVER unmounted and NEVER visibility:hidden — it carries a backdrop-filter,
+   and its compositing layer has to survive the stage transition (iOS Safari
+   white-flash law: no layer may be born or destroyed while things animate).
+   Persistent layer + a transform/opacity state change, nothing else. */
+.liquid-glass .lg-helpfab { transition: opacity .35s ease, transform .35s ease; }
+.liquid-glass .lg-hero-col.rec ~ .lg-helpfab {
+  opacity: 0; transform: translateX(72px); pointer-events: none;
+}
 .liquid-glass .lg-uphead { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 18px 2px; }
 .liquid-glass .lg-uphead .ttl { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--t2); }
 .liquid-glass .lg-uphead .cnt { font-size: 12px; color: var(--t3); }
@@ -1325,7 +1350,15 @@ html.standalone.liquid-glass .lg-hero-col.rec {
   transition: border-radius .3s ease;
 }
 /* core stays round while listening (no squared stop-symbol morph) */
-.liquid-glass .lg-recbtns { display: flex; gap: 8px; margin-top: 6px; }
+/* Discard / Edit Tasks / Save All — deliberately ONE row (the Fix A vertical
+   budget below has ~37px of slack at 393x852, and a second row costs ~45px).
+   flex-wrap is the guard rail only: on a viewport too narrow for three pills the
+   row wraps instead of overflowing the column, which `overflow: hidden` would
+   otherwise clip. */
+.liquid-glass .lg-recbtns {
+  display: flex; gap: 8px; margin-top: 6px;
+  flex-wrap: wrap; justify-content: center; max-width: 100%;
+}
 
 /* record FAB main button: same glass material as the Home orb */
 .liquid-glass .lg-fab-main {
