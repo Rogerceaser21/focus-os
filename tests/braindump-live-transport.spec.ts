@@ -401,6 +401,42 @@ test.describe('brain dump live transport', () => {
     expect(merged?.functionResponses.response.note).toBe('duplicate_prevented_updated_existing');
   });
 
+  // ---------------------------------------------------------------------------
+  // ?m31=1 — the model A/B switch (Deploy B, 2026-07-28). One build, two
+  // models: default stays gemini-2.5-flash-native-audio-preview-12-2025 with
+  // NON_BLOCKING/SILENT tools; the param flips to gemini-3.1-flash-live-preview
+  // whose tools are SYNC-ONLY, so behavior and scheduling must BOTH vanish.
+  // ---------------------------------------------------------------------------
+
+  test('?m31=1 connects the 3.1 model with sync-only tools', async ({ page }) => {
+    await page.route('**/*.supabase.co/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    );
+    await page.addInitScript(() => {
+      (window as any).__mockLiveSession = true;
+    });
+    await page.goto('/dev/braindump-repro?mocklive=1&m31=1');
+    await expect(page.getByTestId('transport-ready')).toHaveText('ready');
+    await page.getByTestId('transport-start').click();
+    await expect(page.getByTestId('transport-state')).toHaveText('listening');
+
+    await emit(page, addBuyMilk('call-1'));
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    const { connects, toolResponses } = await harness(page);
+    expect(connects[0].model).toBe('gemini-3.1-flash-live-preview');
+    // Sync-only: no NON_BLOCKING on any declaration, no SILENT on any echo.
+    expect((connects[0] as any).toolBehaviors).toEqual([]);
+    expect(toolResponses[0].functionResponses.scheduling).toBeUndefined();
+  });
+
+  test('without the param the default model and NON_BLOCKING declarations are untouched', async ({ page }) => {
+    await boot(page);
+    const { connects } = await harness(page);
+    expect(connects[0].model).toBe('gemini-2.5-flash-native-audio-preview-12-2025');
+    expect((connects[0] as any).toolBehaviors).toEqual(['NON_BLOCKING']);
+  });
+
   test('a title that normalises to empty never dedups against anything', async ({ page }) => {
     await boot(page);
 

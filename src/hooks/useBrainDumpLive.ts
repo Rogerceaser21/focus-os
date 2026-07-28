@@ -93,6 +93,26 @@ const BISECT_DISABLE_IDLE_STOP = false;
    One-line revert if a live call ever misbehaves on this model. */
 const USE_NON_BLOCKING_TOOLS = true;
 
+/* ── ?m31=1 — the model A/B switch (production, param-gated) ─────────────────
+   gemini-3.1-flash-live-preview is Google's own "migrate immediately" target
+   for our default model: it fixes the documented 1-in-5-10 WS-1008 kill at
+   tool dispatch, and its tool-calling is the generation built for per-turn
+   emission — the batch-at-end arrival Igor sees on the current model is that
+   model's documented behaviour, not ours. Param-gated so ONE build A/Bs both
+   models on a real phone with zero redeploys; the ?debug=1 overlay names the
+   live model. 3.1 Live tools are SYNC-ONLY, so NON_BLOCKING declarations and
+   SILENT scheduling are dropped whenever this switch is on (they degrade
+   silently there — Ramble teardown trail, 2026-07-28). */
+const MODEL_31 = 'gemini-3.1-flash-live-preview';
+function m31Enabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('m31') === '1';
+}
+/** NON_BLOCKING + SILENT apply only where the model supports them. */
+function nonBlockingTools(): boolean {
+  return USE_NON_BLOCKING_TOOLS && !m31Enabled();
+}
+
 /* Audio capture lives in src/lib/brainDumpAudio.ts — ONE page-lifetime
    AudioContext at the hardware rate, AudioWorklet capture, 16k resample in
    code. The per-session `new AudioContext({sampleRate:16000})` + close() churn
@@ -163,6 +183,9 @@ type MockConnectRecord = {
   model: string;
   handle: string | null;
   toolNames: string[];
+  /** Distinct `behavior` values across the declarations — ['NON_BLOCKING'] in
+   *  default mode, [] under ?m31=1 (3.1 tools are sync-only). */
+  toolBehaviors: string[];
   vad: Record<string, unknown> | null;
   compression: Record<string, unknown> | null;
   systemInstructionChars: number;
@@ -201,6 +224,11 @@ function connectMockLiveSession(params: { model: string; config: any; callbacks:
     model: params.model,
     handle: params.config?.sessionResumption?.handle ?? null,
     toolNames: (params.config?.tools?.[0]?.functionDeclarations ?? []).map((d: any) => d.name),
+    toolBehaviors: [...new Set(
+      (params.config?.tools?.[0]?.functionDeclarations ?? [])
+        .map((d: any) => d.behavior)
+        .filter(Boolean) as string[],
+    )],
     vad: params.config?.realtimeInputConfig?.automaticActivityDetection ?? null,
     compression: params.config?.contextWindowCompression ?? null,
     systemInstructionChars: typeof params.config?.systemInstruction === 'string'
@@ -394,7 +422,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
         id,
         name,
         response,
-        ...(USE_NON_BLOCKING_TOOLS && { scheduling: FunctionResponseScheduling.SILENT }),
+        ...(nonBlockingTools() && { scheduling: FunctionResponseScheduling.SILENT }),
       },
     };
     const session = sessionRef.current;
@@ -728,7 +756,11 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     const config = mockLiveEnabled()
       ? { token: 'mock', ephemeral: false, model: DEFAULT_MODEL }
       : await fetchLiveConfig();
-    brainDumpDebug.model = config.model;
+    // ?m31=1 wins over BOTH the server-supplied model and the default — the
+    // server always sends a truthy model, so an override anywhere later would
+    // never fire (the line-700 precedence trap, war-room 2026-07-28).
+    const effectiveModel = m31Enabled() ? MODEL_31 : (config.model || DEFAULT_MODEL);
+    brainDumpDebug.model = effectiveModel;
 
     // Build system instruction with project list. BOUNDED (MAX_PROJECTS_IN_PROMPT):
     // the whole setup payload is re-prefilled on every turn, so quoting all of a
@@ -810,7 +842,7 @@ SILENT MODE:
       due_date: { type: Type.STRING, description: 'Task due date in ISO format (YYYY-MM-DD)' },
     };
 
-    const toolBehavior = USE_NON_BLOCKING_TOOLS ? { behavior: Behavior.NON_BLOCKING } : {};
+    const toolBehavior = nonBlockingTools() ? { behavior: Behavior.NON_BLOCKING } : {};
 
     const tools = [{
       functionDeclarations: [
@@ -1086,13 +1118,13 @@ SILENT MODE:
     };
 
     const session = mockLiveEnabled()
-      ? connectMockLiveSession({ model: config.model, config: liveConfig, callbacks })
+      ? connectMockLiveSession({ model: effectiveModel, config: liveConfig, callbacks })
       : await new GoogleGenAI({
           apiKey: config.token,
           // Ephemeral tokens are a v1alpha-only path in @google/genai 1.41.0.
           ...(config.ephemeral && { httpOptions: { apiVersion: 'v1alpha' } }),
         }).live.connect({
-          model: config.model || DEFAULT_MODEL,
+          model: effectiveModel,
           config: liveConfig,
           callbacks,
         });
