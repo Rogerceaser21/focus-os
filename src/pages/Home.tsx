@@ -70,8 +70,12 @@ const FAKE_DUMP_PROJECT = 'Kitchen Reno';
    assertion, because the run never leaves /home. Restore to false -> green. */
 const BISECT_DISABLE_DIRECT_SAVE = false;
 
-/** ~3s arm window on the two-step Discard, then it relaxes back to "Discard". */
-const DISCARD_ARM_MS = 3000;
+/** How long the armed Discard SHOWS "Sure? (N)" before the label relaxes back to
+ *  "Discard". 3s was under a phone user's read-and-decide time, so the second tap
+ *  kept landing after the relax and re-armed instead of confirming — the S5
+ *  dead-loop, where Discard could never be reached however many times it was
+ *  tapped. 8s, and the label is now cosmetic only: the arm LATCH itself never
+ *  expires (see handleDiscard), so no tap can ever be eaten. */
 
 /** Synthetic stream row. The first half go to Today and the rest to one new
  *  project, so the groups fill in RUNS — every new task therefore appends at
@@ -113,8 +117,14 @@ const Home = () => {
   const [reviewTasks, setReviewTasks] = useState<BrainDumpTask[] | undefined>(undefined);
   // Direct-save (no review dialog) spinner + the two-step Discard latch.
   const [isSaving, setIsSaving] = useState(false);
+  /* Two-step Discard with ONE state: the "Sure? (N)" label IS the execution
+     latch, so what the user sees is always what a tap does — no timer can ever
+     make them disagree (a relaxing label over a live latch would turn a later
+     absent-minded tap into a silent one-tap wipe). Armed persists until the
+     discard executes or another action disarms (orb, save, finish, empty stop).
+     STATE, never a ref — react-router replays discardable renders and a ref
+     mutation survives a discard the queued setState does not (render-phase law). */
   const [discardArmed, setDiscardArmed] = useState(false);
-  const discardTimerRef = useRef<number | null>(null);
   const { preferences, markHomeTourComplete } = useUserPreferences(user?.id);
 
   // Live brain-dump session runs inline on the hero (the approved recording stage):
@@ -144,8 +154,8 @@ const Home = () => {
   const streamTasks = fakeDump ? fakeTasks : liveTasks;
 
   // DERIVED during render, never corrected after paint (render-phase law): the
-  // latch alone does not decide the label — leaving the stage or emptying the
-  // list disarms it in the same frame it happens, with no effect to catch up.
+  // prompt flag alone does not decide the label — leaving the stage or emptying
+  // the list cools it in the same frame it happens, with no effect to catch up.
   const discardHot = discardArmed && rec && streamTasks.length > 0;
 
   // Follow the newest task while the user is at the bottom; never yank them back
@@ -322,16 +332,7 @@ const Home = () => {
   }, [navigate, queryClient, user]);
 
   const disarmDiscard = useCallback(() => {
-    if (discardTimerRef.current !== null) {
-      window.clearTimeout(discardTimerRef.current);
-      discardTimerRef.current = null;
-    }
     setDiscardArmed(false);
-  }, []);
-
-  // Teardown only — the arm window must not outlive the page.
-  useEffect(() => () => {
-    if (discardTimerRef.current !== null) window.clearTimeout(discardTimerRef.current);
   }, []);
 
   // Stop the live session; captured tasks go to the review dialog for edit + save.
@@ -379,27 +380,27 @@ const Home = () => {
     }
   }, [fakeDump, isSaving, liveTasks, disarmDiscard, queryClient, stop, resetTasks, user, navigate, finishSession]);
 
-  /* Discard — two-step, in place. First tap arms the button (label flips for
-     DISCARD_ARM_MS), second tap throws the capture away. No window.confirm, no
-     modal layer: nothing new mounts, so no compositing layer is born or killed
-     mid-animation (iOS Safari white-flash law). With an empty list there is
-     nothing to lose, so it is a plain stop. */
+  /* Discard — two-step, in place. First tap arms the button (the label flips to
+     "Sure? (N)" and STAYS there), the next tap throws the capture away. No
+     window.confirm, no modal layer: nothing new mounts, so no compositing layer
+     is born or killed mid-animation (iOS Safari white-flash law). With an empty
+     list there is nothing to lose, so it is a plain stop.
+
+     THE REPAIR: no relax timer at all. The label is the latch, so a tap on
+     "Sure?" always executes and a tap on "Discard" always arms — they can never
+     disagree, however long the user waits. Disarm happens only via disarmDiscard
+     (orb tap, save, finish, empty stop) or the discard itself. */
   const handleDiscard = useCallback(() => {
     if (fakeDump) { setFakeTasks([]); disarmDiscard(); return; } // demo: reset the fake stream
     if (isSaving) return;
     if (liveTasks.length === 0) { disarmDiscard(); stop(); resetTasks(); return; }
-    if (!discardArmed) {
-      if (discardTimerRef.current !== null) window.clearTimeout(discardTimerRef.current);
-      discardTimerRef.current = window.setTimeout(() => {
-        discardTimerRef.current = null;
-        setDiscardArmed(false);
-      }, DISCARD_ARM_MS);
-      setDiscardArmed(true);
+    if (discardArmed) {
+      disarmDiscard();
+      stop();
+      resetTasks();
       return;
     }
-    disarmDiscard();
-    stop();
-    resetTasks();
+    setDiscardArmed(true);
   }, [fakeDump, isSaving, liveTasks, discardArmed, disarmDiscard, stop, resetTasks]);
 
   const handleEditTasks = useCallback(() => {

@@ -54,13 +54,17 @@ const MAX_PROCESSED_CALLS = 200;
 const MAX_PROJECTS_IN_PROMPT = 60;
 const MAX_PREVIOUS_TASKS_IN_PROMPT = 30;
 
-/* Context window compression. A native-audio Live session caps at ~128k tokens;
-   a sliding window that trims at 16k keeps every turn's re-prefill small long
-   before that cap matters. The system instruction and the prefix turns sit
+/* Context window compression. A native-audio Live session caps at ~128k tokens.
+   Compression is NOT free: the trim itself has a latency cost, so a trigger set
+   too low pays it over and over inside one dump. 100k trigger / 80k target is
+   Google's own ADK prescription for this model — it fires once, near the cap,
+   instead of every few turns. The system instruction and the prefix turns sit
    OUTSIDE the window, so the routing rules and the project list are never what
-   gets cut away. Sent as a string: triggerTokens is an int64 in the proto, and
-   @google/genai types it (and forwards it) as a string. */
-const COMPRESSION_TRIGGER_TOKENS = '16000';
+   gets cut away. Both sent as strings: they are int64 in the proto, and
+   @google/genai types them (and forwards them) as strings. */
+const COMPRESSION_TRIGGER_TOKENS = '100000';
+/** Must be < triggerTokens (SDK: SlidingWindow.targetTokens?: string). */
+const COMPRESSION_TARGET_TOKENS = '80000';
 
 /* ── Idle auto-stop ──────────────────────────────────────────────────────────
    Silence bills at the full audio rate, so a session the user walked away from
@@ -90,6 +94,9 @@ function idleStopMs(): number {
 const BISECT_DISABLE_TOOLCALL_DEDUP = false;
 const BISECT_DISABLE_RECONNECT = false;
 const BISECT_DISABLE_IDLE_STOP = false;
+/** Restores the pre-F1 "wait for a pause before calling a tool" register in the
+ *  system instruction, so the prompt assertions can prove which text shipped. */
+const BISECT_RESTORE_WAIT_RULE = false;
 
 /* Async function calling. Declaring the extraction tools NON_BLOCKING and
    answering SILENT means the model never stalls waiting on our echo and never
@@ -157,6 +164,9 @@ type MockConnectRecord = {
   vad: Record<string, unknown> | null;
   compression: Record<string, unknown> | null;
   systemInstructionChars: number;
+  /** The prompt text itself, so a spec can assert WHICH register shipped (the
+   *  act-immediately timing rule), not merely how long the payload is. */
+  systemInstruction: string;
 };
 
 interface MockLiveHarness {
@@ -194,6 +204,9 @@ function connectMockLiveSession(params: { model: string; config: any; callbacks:
     systemInstructionChars: typeof params.config?.systemInstruction === 'string'
       ? params.config.systemInstruction.length
       : 0,
+    systemInstruction: typeof params.config?.systemInstruction === 'string'
+      ? params.config.systemInstruction
+      : '',
   });
 
   const session = {
@@ -792,6 +805,20 @@ ${taskLines}${omitted > 0 ? `\n  (+${omitted} older, not listed)` : ''}
 Use these task_ids for any updates, moves or removals. Do NOT create new tasks with these titles.`;
     }
 
+    /* EXTRACTION TIMING. The single rule that decides whether the app feels
+       instant. The model must fire tools WHILE the user is still speaking; the
+       correction rules below (and the id/title dedup guards) are what absorb an
+       eager mistake, so an early capture is cheap and a late one is the whole
+       felt latency. The wait-for-a-pause register this replaced stacked the
+       model's own hesitation on top of the VAD gap. */
+    const timingRule = BISECT_RESTORE_WAIT_RULE
+      ? `TASK EXTRACTION TIMING:
+- Wait until a task is complete before calling any tool. Complete = a clear action and a subject. A natural pause or silence is your signal that a thought is finished. Do NOT call tools mid-sentence or on partial utterances.`
+      : `EXTRACTION TIMING — ACT IMMEDIATELY, CORRECT LATER:
+- Call add_task_to_today / add_task_to_project / create_project_and_add_task the MOMENT you hear a plausible task, even if the user is mid-thought and details are missing. Do not wait for the sentence to end, for a pause, or for confirmation. An early, incomplete task is correct behaviour; a late one is a failure.
+- When the user adds or changes a detail (date, project, priority, wording), call update_task or move_task with the task_id you received. If a capture was wrong or retracted, call remove_task.
+- One task heard = one tool call, straight away. Never hold tasks back to improve them. Never batch several tasks into one call at the end.`;
+
     const systemInstruction = `You extract tasks from speech for a productivity app, "Brain Dump", and route each one to the right destination.
 ${projectListStr}
 
@@ -805,8 +832,9 @@ ROUTING RULES:
 - Act decisively. Do NOT ask clarifying questions. Just pick the best match.
 - Close but not exact ("marketing" vs "Marketing Plan") -> match the closest existing project
 
+${timingRule}
+
 TASK EXTRACTION RULES:
-- Wait until a task is complete before calling any tool. Complete = a clear action and a subject. A natural pause or silence is your signal that a thought is finished. Do NOT call tools mid-sentence or on partial utterances.
 - Titles: clear, actionable, under 10 words. Add a brief description only if the user gave extra context.
 - Priority from urgency cues: "urgent", "important", "ASAP" → urgent/high; normal → medium; "whenever", "nice to have" → low
 - A mentioned start, end or due date goes in start_date / end_date / due_date as ISO YYYY-MM-DD
@@ -939,26 +967,26 @@ SILENT MODE:
       /* VAD. The server defaults are LOW/LOW, which on a room with any
          background noise can hold ONE turn open indefinitely — and while a turn
          never ends the model emits no function calls at all, so the user talks
-         and nothing appears. HIGH/HIGH plus a 1s end-of-speech gap commits a
-         thought as soon as the sentence lands, which is also exactly the "a
-         natural pause means the thought is finished" contract in the system
-         instruction above. `disabled` is deliberately ABSENT: setting it hands
-         VAD to the client and this model then hangs. */
+         and nothing appears. HIGH/HIGH stays. The end-of-speech gap is dead air
+         the user feels on EVERY sentence, so it is 500ms, not 1s: with the
+         act-immediately register above the model is meant to fire while the
+         sentence is still running, and the gap only decides how fast the turn
+         closes behind it. prefixPaddingMs is deliberately ABSENT — the server
+         default is tuned for this model and our 150ms override only clipped
+         speech onsets. `disabled` is ABSENT too: setting it hands VAD to the
+         client and this model then hangs. */
       realtimeInputConfig: {
         automaticActivityDetection: {
           startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
           endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
-          prefixPaddingMs: 150,
-          silenceDurationMs: 1000,
+          silenceDurationMs: 500,
         },
       },
 
-      /* Every turn re-prefills the whole cumulative context, so without this a
-         long brain dump gets slower the longer it runs. See
-         COMPRESSION_TRIGGER_TOKENS for why 16k and why nothing above can be
-         cut. */
+      /* Every turn re-prefills the whole cumulative context. See
+         COMPRESSION_TRIGGER_TOKENS for why 100k/80k and not a low trigger. */
       contextWindowCompression: {
-        slidingWindow: {},
+        slidingWindow: { targetTokens: COMPRESSION_TARGET_TOKENS },
         triggerTokens: COMPRESSION_TRIGGER_TOKENS,
       },
     };

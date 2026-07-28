@@ -251,6 +251,22 @@ test('the ?fakedump demo stage keeps all three exits inert and network-free', as
   await context.close();
 });
 
+/**
+ * F1 — the Discard repair.
+ *
+ * The two-step Discard used to hold a 3s arm window that, when it expired, made
+ * the next tap re-ARM instead of confirming. On a phone, read-and-decide
+ * routinely takes longer than 3s, so every tap landed in the gap and Discard
+ * could never be reached however many times it was pressed — the S5 dead-loop.
+ * The repair removes the timer entirely: the "Sure? (N)" label IS the latch,
+ * so what the button says is always what a tap does — armed persists until the
+ * discard executes or another action (orb, save, finish) disarms it. A relaxing
+ * label over a live latch was rejected: it turns a later absent-minded tap into
+ * a silent one-tap wipe.
+ *
+ * These tests prove the two-tap confirm, the late tap the old code ate, and
+ * that the label never silently disagrees with the latch.
+ */
 test('Discard needs two taps and writes nothing', async ({ browser }) => {
   test.setTimeout(90_000);
   resetCounts(counts);
@@ -284,7 +300,11 @@ test('Discard needs two taps and writes nothing', async ({ browser }) => {
   expect(armedGeometry.rows, 'armed row still fits on ONE line').toBe(1);
   expect(armedGeometry.clearance, 'armed row still clears the dock').toBeGreaterThan(0);
 
-  // Second tap confirms: session stopped, list gone, Home back to idle.
+  // A tap 4.5s in — PAST the old 3000ms window — must still confirm. Under the
+  // old timer code this re-armed instead, which is the dead-loop itself. Real
+  // timers on purpose: the wall-clock behaviour is the thing under test.
+  await page.waitForTimeout(4_500);
+  await expect(discard, 'still showing the armed label at 4.5s').toHaveText('Sure? (2)');
   await discard.click();
   await expect(page.getByRole('button', { name: 'Record Meeting' })).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('.lg-stask')).toHaveCount(0);
@@ -292,6 +312,42 @@ test('Discard needs two taps and writes nothing', async ({ browser }) => {
   await expect(page.getByRole('button', { name: /Save All/ })).toHaveCount(0);
 
   // Nothing was written, and nothing navigated.
+  expect(counts.insertedTasks, 'zero task inserts').toEqual([]);
+  expect(counts.insertedProjects, 'zero project inserts').toEqual([]);
+  expect(new URL(page.url()).pathname).toBe('/home');
+
+  await context.close();
+});
+
+test('an armed Discard never relaxes — the label is the latch', async ({ browser }) => {
+  test.setTimeout(120_000);
+  resetCounts(counts);
+
+  const context = await browser.newContext({ timezoneId: 'UTC' });
+  await installIntercepts(context, counts);
+  const page = await context.newPage();
+  await bootHomeWithTwoTasks(page);
+
+  const discard = page.getByRole('button', { name: /Discard captured tasks|Confirm discarding/ });
+
+  // Arm it, then wait far past the old timer windows.
+  await discard.click();
+  await expect(discard).toHaveText('Sure? (2)');
+  await page.waitForTimeout(9_500);
+
+  // No timer owns the text any more: the label still shows the armed state,
+  // so the user can never face a "Discard" label hiding a live latch.
+  await expect(discard, 'label still armed after 9.5s — it IS the latch').toHaveText('Sure? (2)');
+  await expect(page.locator('.lg-stask'), 'nothing was thrown away by waiting').toHaveCount(2);
+
+  // And the tap executes; it does not re-arm. The old timer code re-armed here
+  // (the capture would survive), which is exactly the assertion that fails on
+  // a revert.
+  await discard.click();
+  await expect(page.getByRole('button', { name: 'Record Meeting' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.lg-stask')).toHaveCount(0);
+  await expect(page.locator('.lg-hero-col.rec')).toHaveCount(0);
+
   expect(counts.insertedTasks, 'zero task inserts').toEqual([]);
   expect(counts.insertedProjects, 'zero project inserts').toEqual([]);
   expect(new URL(page.url()).pathname).toBe('/home');

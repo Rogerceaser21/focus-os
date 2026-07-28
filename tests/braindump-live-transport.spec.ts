@@ -28,6 +28,8 @@
  *     -> "unexpected close reconnects" FAILS.
  *   - src/hooks/useBrainDumpLive.ts BISECT_DISABLE_IDLE_STOP = true
  *     -> "a quiet session auto-stops and keeps the capture staged" FAILS.
+ *   - src/hooks/useBrainDumpLive.ts BISECT_RESTORE_WAIT_RULE = true
+ *     -> "the system instruction ships the act-immediately timing register" FAILS.
  */
 import { test, expect, type Page } from '@playwright/test';
 
@@ -49,6 +51,7 @@ async function harness(page: Page) {
         vad: Record<string, unknown> | null;
         compression: Record<string, unknown> | null;
         systemInstructionChars: number;
+        systemInstruction: string;
       }>;
       toolResponses: Array<{ functionResponses: { id?: string; name?: string; response?: any; scheduling?: string } }>;
       clientCloses: number;
@@ -200,7 +203,7 @@ test.describe('brain dump live transport', () => {
     expect(toolResponses[0].functionResponses.scheduling).toBe('SILENT');
   });
 
-  /* ── P1: live consistency config ──────────────────────────────────────── */
+  /* ── P1/F1: live consistency + instant-feel config ────────────────────── */
 
   test('the connect config carries the VAD tuning and context-window compression', async ({ page }) => {
     await boot(page);
@@ -210,24 +213,74 @@ test.describe('brain dump live transport', () => {
 
     // Server defaults are LOW/LOW, which on a noisy line can hold one turn open
     // indefinitely — and a turn that never ends emits no function calls at all.
+    // F1: the end-of-speech gap is 500ms (dead air the user feels on every
+    // sentence), and prefixPaddingMs is GONE — the server default is tuned for
+    // this model and the 150ms override only clipped speech onsets.
     expect(connects[0].vad).toEqual({
       startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
       endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
-      prefixPaddingMs: 150,
-      silenceDurationMs: 1000,
+      silenceDurationMs: 500,
     });
+    expect(connects[0].vad).not.toHaveProperty('prefixPaddingMs');
     // `disabled` must NEVER appear: it hands VAD to the client and this model
     // then hangs. Asserted explicitly so a future edit cannot slip it in.
     expect(connects[0].vad).not.toHaveProperty('disabled');
 
-    // triggerTokens is an int64 on the wire, so it travels as a string.
-    expect(connects[0].compression).toEqual({ slidingWindow: {}, triggerTokens: '16000' });
+    // F1: 100k trigger / 80k target — Google's ADK prescription for this model.
+    // A low trigger pays the trim's own latency cost over and over inside one
+    // dump. Both are int64 on the wire, so both travel as strings.
+    expect(connects[0].compression).toEqual({
+      slidingWindow: { targetTokens: '80000' },
+      triggerTokens: '100000',
+    });
 
     // The whole setup payload is re-prefilled on EVERY turn, so the system
     // instruction is kept bounded. This is the regression guard on the slimming
     // (and on the project / previous-task caps that bound its two lists).
+    // (F1 grew it from ~2500 to 2945 with the act-immediately block; the 3200
+    // ceiling is deliberately NOT loosened to pay for it.)
     expect(connects[0].systemInstructionChars).toBeGreaterThan(500);
     expect(connects[0].systemInstructionChars).toBeLessThan(3200);
+  });
+
+  /**
+   * F1 — the instant-feel prompt register.
+   *
+   * Ramble's design law, and the one prompt line that decides whether Brain Dump
+   * feels instant: the model must call tools WHILE the user is still speaking,
+   * because correction-by-voice absorbs an eager mistake but nothing absorbs a
+   * late one. The register this replaced ordered the opposite ("wait for a
+   * pause"), stacking the model's own hesitation on top of the VAD gap.
+   *
+   * BISECT PROOF (house law): src/hooks/useBrainDumpLive.ts
+   * BISECT_RESTORE_WAIT_RULE = true -> both halves of this test FAIL (the
+   * ACT IMMEDIATELY assertion first). Restore to false -> green.
+   *
+   * WHAT THIS CANNOT PROVE: that the model OBEYS it. This asserts which text is
+   * on the wire, not the behaviour it buys — only real speech into a real
+   * session settles that.
+   */
+  test('the system instruction ships the act-immediately timing register', async ({ page }) => {
+    await boot(page);
+
+    const { connects } = await harness(page);
+    const prompt = connects[0].systemInstruction;
+    console.log('[systemInstruction chars]', prompt.length);
+
+    // The new register is present, and it names the tools it applies to.
+    expect(prompt).toContain('ACT IMMEDIATELY');
+    expect(prompt).toContain('the MOMENT you hear a plausible task');
+    expect(prompt).toContain('One task heard = one tool call, straight away');
+
+    // ...and the wait-for-a-pause register is GONE, not merely outvoted by it.
+    expect(prompt).not.toContain('Do NOT call tools mid-sentence');
+    expect(prompt).not.toContain('Wait until a task is complete before calling any tool');
+
+    // The correction rules are the safety net that makes eager firing safe, so
+    // they must still be in there alongside it.
+    expect(prompt).toContain('CORRECTION RULES');
+    expect(prompt).toContain('SILENT MODE');
+    expect(prompt).toContain('ROUTING RULES');
   });
 
   test('the tool response is sent in the SAME TICK as the tool call', async ({ page }) => {
