@@ -63,7 +63,7 @@ const REPRO_TASKS: BrainDumpTask[] = [
 const TRANSPORT_PROJECTS: ProjectInfo[] = [{ id: 'proj-alpha', name: 'Alpha' }];
 
 const BrainDumpTransportHarness = () => {
-  const { tasks, connectionState, reconnecting, start, stop } = useBrainDumpLive();
+  const { tasks, connectionState, reconnecting, idleStopped, start, stop } = useBrainDumpLive();
   const [startError, setStartError] = useState('');
 
   const handleStart = useCallback(async () => {
@@ -84,6 +84,7 @@ const BrainDumpTransportHarness = () => {
       </div>
       <div data-testid="transport-state">{connectionState}</div>
       <div data-testid="transport-reconnecting">{reconnecting ? 'yes' : 'no'}</div>
+      <div data-testid="transport-idle-stopped">{idleStopped ? 'yes' : 'no'}</div>
       <div data-testid="transport-error">{startError}</div>
       <ol data-testid="transport-tasks">
         {tasks.map((t) => (

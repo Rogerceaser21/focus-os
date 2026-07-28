@@ -119,7 +119,10 @@ const Home = () => {
 
   // Live brain-dump session runs inline on the hero (the approved recording stage):
   // the orb glides left and captured tasks stream in on the right while you talk.
-  const { tasks: liveTasks, connectionState, start, stop, resetTasks } = useBrainDumpLive();
+  // `idleStopSuspended` holds the hook's 90s quiet-session auto-stop off while a
+  // direct save is in flight — the socket must not be pulled out from under a write.
+  const { tasks: liveTasks, connectionState, idleStopped, start, stop, resetTasks } =
+    useBrainDumpLive({ idleStopSuspended: isSaving });
 
   // ?fakedump=N (see makeFakeTask above): synthetic stream, no mic / no network.
   const fakeDumpCount = useMemo(() => {
@@ -132,7 +135,12 @@ const Home = () => {
   const fakeDump = fakeDumpCount > 0;
   const [fakeTasks, setFakeTasks] = useState<BrainDumpTask[]>([]);
 
-  const rec = fakeDump || connectionState === 'connecting' || connectionState === 'listening';
+  // The hook auto-stopped a quiet session. DERIVED during render, never corrected
+  // after paint: the stage stays up with the capture intact, so all three exits
+  // are still reachable. An auto-stop must cost the user nothing they already said
+  // — it is the orb-tap/finish path, never Discard.
+  const idleStaged = idleStopped && liveTasks.length > 0;
+  const rec = fakeDump || idleStaged || connectionState === 'connecting' || connectionState === 'listening';
   const streamTasks = fakeDump ? fakeTasks : liveTasks;
 
   // DERIVED during render, never corrected after paint (render-phase law): the
@@ -407,12 +415,14 @@ const Home = () => {
     disarmDiscard();
     if (fakeDump) return; // demo stage: the orb presses, nothing is captured
     if (isSaving) return; // a direct save is already in flight
-    if (rec) {
+    // Still live -> the orb reviews. Auto-stopped on silence -> the orb resumes,
+    // and the capture rides into the new session instead of being replaced.
+    if (rec && !idleStaged) {
       finishSession();
       return;
     }
     try {
-      await start(projects);
+      await start(projects, idleStaged ? { preserveTasks: true } : undefined);
     } catch (error: any) {
       let msg = 'Could not start Brain Dump. ';
       if (error?.name === 'NotAllowedError') msg += 'Please allow microphone access in your browser settings.';else
@@ -420,7 +430,7 @@ const Home = () => {
       msg += error?.message || 'Please try again.';
       toast.error(msg);
     }
-  }, [rec, start, projects, finishSession, fakeDump, isSaving, disarmDiscard]);
+  }, [rec, idleStaged, start, projects, finishSession, fakeDump, isSaving, disarmDiscard]);
 
   // Group the live stream by destination, mirroring the review dialog's grouping
   const streamGroups = useMemo(() => {
@@ -482,7 +492,9 @@ const Home = () => {
                 transition={{ duration: 0.35 }}
                 className="text-base sm:text-lg absolute inset-0 flex items-center justify-center text-muted-foreground lg-onbg">
 
-                {rec ? 'Capturing your thoughts…' : SUBTITLES[subtitleIndex]}
+                {rec
+                ? idleStaged ? 'Paused — your capture is safe' : 'Capturing your thoughts…'
+                : SUBTITLES[subtitleIndex]}
               </motion.p>
             </AnimatePresence>
           </div>
@@ -517,8 +529,14 @@ const Home = () => {
           <div className="lg-stream-listen">
             <div className="lg-mic"><Mic size={18} /></div>
             <div>
-              <div className="lbl">{connectionState === 'connecting' ? 'Connecting…' : 'Listening… speak freely'}</div>
-              <div className="sub">Tasks appear here as you talk.</div>
+              <div className="lbl">
+                {connectionState === 'connecting' ? 'Connecting…'
+                : idleStaged ? 'Paused — you went quiet'
+                : 'Listening… speak freely'}
+              </div>
+              <div className="sub">
+                {idleStaged ? 'Tap the orb to keep talking.' : 'Tasks appear here as you talk.'}
+              </div>
             </div>
           </div>
           {/* role="log" = implicit polite live region: rows are announced as they
@@ -563,7 +581,9 @@ const Home = () => {
             <div className="lg-orb-core" ref={coreRef} />
           </button>
           <span className="text-sm font-medium text-center text-muted-foreground lg-onbg">
-            {rec ? 'Listening… tap the orb to review, or pick below' : 'Tap to capture your thoughts into tasks'}
+            {rec
+            ? idleStaged ? 'Paused — tap the orb to keep talking, or pick below' : 'Listening… tap the orb to review, or pick below'
+            : 'Tap to capture your thoughts into tasks'}
           </span>
           {rec ?
           /* Three exits, ONE row (Fix A budget: a second row costs ~45px the
