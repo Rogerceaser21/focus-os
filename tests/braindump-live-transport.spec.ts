@@ -203,78 +203,53 @@ test.describe('brain dump live transport', () => {
     expect(toolResponses[0].functionResponses.scheduling).toBe('SILENT');
   });
 
-  /* ── P1/F1: live consistency + instant-feel config ────────────────────── */
+  /* ── REVERT GUARD (2026-07-28): the P1/F1 tuning wave failed Igor's feel
+     gate twice, so the connect payload is back to the v40 wire behaviour and
+     THIS SPEC PINS IT THERE. No VAD config, no compression config, no
+     experimental prompt register may ship again without device-measured
+     numbers from the PCM-injection rig — if you are editing these assertions
+     to re-add one, bring the measurements. Configs under autopsy live in git:
+     1a059a6 (P1), 89c35bf (F1). ────────────────────────────────────────── */
 
-  test('the connect config carries the VAD tuning and context-window compression', async ({ page }) => {
+  test('the connect config is v40-clean: no VAD overrides, no compression', async ({ page }) => {
     await boot(page);
 
     const { connects } = await harness(page);
     expect(connects).toHaveLength(1);
 
-    // Server defaults are LOW/LOW, which on a noisy line can hold one turn open
-    // indefinitely — and a turn that never ends emits no function calls at all.
-    // F1: the end-of-speech gap is 500ms (dead air the user feels on every
-    // sentence), and prefixPaddingMs is GONE — the server default is tuned for
-    // this model and the 150ms override only clipped speech onsets.
-    expect(connects[0].vad).toEqual({
-      startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
-      endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
-      silenceDurationMs: 500,
-    });
-    expect(connects[0].vad).not.toHaveProperty('prefixPaddingMs');
-    // `disabled` must NEVER appear: it hands VAD to the client and this model
-    // then hangs. Asserted explicitly so a future edit cannot slip it in.
-    expect(connects[0].vad).not.toHaveProperty('disabled');
-
-    // F1: 100k trigger / 80k target — Google's ADK prescription for this model.
-    // A low trigger pays the trim's own latency cost over and over inside one
-    // dump. Both are int64 on the wire, so both travel as strings.
-    expect(connects[0].compression).toEqual({
-      slidingWindow: { targetTokens: '80000' },
-      triggerTokens: '100000',
-    });
+    // Server defaults, exactly as v40 shipped them. Every value the tuning
+    // wave sent here made the felt latency worse on the real device.
+    expect(connects[0].vad).toBeNull();
+    expect(connects[0].compression).toBeNull();
 
     // The whole setup payload is re-prefilled on EVERY turn, so the system
-    // instruction is kept bounded. This is the regression guard on the slimming
-    // (and on the project / previous-task caps that bound its two lists).
-    // (F1 grew it from ~2500 to 2945 with the act-immediately block; the 3200
-    // ceiling is deliberately NOT loosened to pay for it.)
+    // instruction stays bounded (the P1 project/previous-task caps remain).
     expect(connects[0].systemInstructionChars).toBeGreaterThan(500);
     expect(connects[0].systemInstructionChars).toBeLessThan(3200);
   });
 
   /**
-   * F1 — the instant-feel prompt register.
+   * REVERT GUARD — the prompt register is the v40 wait-rule again.
    *
-   * Ramble's design law, and the one prompt line that decides whether Brain Dump
-   * feels instant: the model must call tools WHILE the user is still speaking,
-   * because correction-by-voice absorbs an eager mistake but nothing absorbs a
-   * late one. The register this replaced ordered the opposite ("wait for a
-   * pause"), stacking the model's own hesitation on top of the VAD gap.
-   *
-   * BISECT PROOF (house law): src/hooks/useBrainDumpLive.ts
-   * BISECT_RESTORE_WAIT_RULE = true -> both halves of this test FAIL (the
-   * ACT IMMEDIATELY assertion first). Restore to false -> green.
-   *
-   * WHAT THIS CANNOT PROVE: that the model OBEYS it. This asserts which text is
-   * on the wire, not the behaviour it buys — only real speech into a real
-   * session settles that.
+   * F1's act-immediately register (Ramble's design law) is under autopsy, not
+   * abandoned: on Igor's device the F1 build read as "worse — not picking
+   * things up". It returns only together with rig measurements. This spec
+   * fails loudly if either register drifts.
    */
-  test('the system instruction ships the act-immediately timing register', async ({ page }) => {
+  test('the system instruction ships the v40 wait-for-completion register', async ({ page }) => {
     await boot(page);
 
     const { connects } = await harness(page);
     const prompt = connects[0].systemInstruction;
     console.log('[systemInstruction chars]', prompt.length);
 
-    // The new register is present, and it names the tools it applies to.
-    expect(prompt).toContain('ACT IMMEDIATELY');
-    expect(prompt).toContain('the MOMENT you hear a plausible task');
-    expect(prompt).toContain('One task heard = one tool call, straight away');
+    // The v40 register is present...
+    expect(prompt).toContain('Wait until a task is complete before calling any tool');
+    expect(prompt).toContain('Do NOT call tools mid-sentence');
 
-    // ...and the wait-for-a-pause register is GONE, not merely outvoted by it.
-    expect(prompt).not.toContain('Do NOT call tools mid-sentence');
-    expect(prompt).not.toContain('Wait until a task is complete before calling any tool');
+    // ...and the F1 register is fully gone, not merely outvoted.
+    expect(prompt).not.toContain('ACT IMMEDIATELY');
+    expect(prompt).not.toContain('the MOMENT you hear a plausible task');
 
     // The correction rules are the safety net that makes eager firing safe, so
     // they must still be in there alongside it.
