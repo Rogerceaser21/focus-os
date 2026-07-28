@@ -252,22 +252,20 @@ test('the ?fakedump demo stage keeps all three exits inert and network-free', as
 });
 
 /**
- * F1 — the Discard repair.
+ * Discard, 2026-07-28 redesign: ONE tap, wrongness is free.
  *
- * The two-step Discard used to hold a 3s arm window that, when it expired, made
- * the next tap re-ARM instead of confirming. On a phone, read-and-decide
- * routinely takes longer than 3s, so every tap landed in the gap and Discard
- * could never be reached however many times it was pressed — the S5 dead-loop.
- * The repair removes the timer entirely: the "Sure? (N)" label IS the latch,
- * so what the button says is always what a tap does — armed persists until the
- * discard executes or another action (orb, save, finish) disarms it. A relaxing
- * label over a live latch was rejected: it turns a later absent-minded tap into
- * a silent one-tap wipe.
+ * The two-step "Sure? (N)" latch was mechanically sound and humanly wrong — on
+ * a real phone the silent red pill read as a dead button, twice, in two
+ * separate device sessions. The redesign follows the preview-not-commit
+ * philosophy the rest of the capture already uses: the tap discards
+ * IMMEDIATELY, and a toast offers Undo. restoreStagedCapture puts the capture
+ * back on the paused stage (the idle-staged surface), where every exit —
+ * including the orb resuming the session with the list intact — still works.
  *
- * These tests prove the two-tap confirm, the late tap the old code ate, and
- * that the label never silently disagrees with the latch.
+ * These tests prove the one-tap wipe writes nothing, and that Undo restores
+ * the capture all the way back into a live resumed session.
  */
-test('Discard needs two taps and writes nothing', async ({ browser }) => {
+test('Discard is ONE tap, writes nothing, and offers Undo', async ({ browser }) => {
   test.setTimeout(90_000);
   resetCounts(counts);
 
@@ -276,40 +274,19 @@ test('Discard needs two taps and writes nothing', async ({ browser }) => {
   const page = await context.newPage();
   await bootHomeWithTwoTasks(page);
 
-  const discard = page.getByRole('button', { name: /Discard captured tasks|Confirm discarding/ });
+  const discard = page.getByRole('button', { name: 'Discard captured tasks' });
 
-  // First tap ARMS it — nothing is thrown away yet.
-  await discard.click();
-  await expect(discard).toHaveText('Sure? (2)');
-  await expect(page.locator('.lg-stask'), 'the capture survives the first tap').toHaveCount(2);
-  await expect(page.getByRole('button', { name: 'Save All (2)' })).toBeVisible();
-
-  // The armed label must not push the row onto a second line — that would eat
-  // the Fix A bottom budget and shove the orb under the dock.
-  const armedGeometry = await page.evaluate(() => {
-    const row = document.querySelector('.lg-recbtns') as HTMLElement;
-    const dock = document.querySelector('.lg-dock') as HTMLElement;
-    const btns = Array.from(row.querySelectorAll('button'));
-    return {
-      rows: new Set(btns.map((b) => Math.round(b.getBoundingClientRect().top))).size,
-      widths: btns.map((b) => Math.round(b.getBoundingClientRect().width)),
-      clearance: Math.round(dock.getBoundingClientRect().top - row.getBoundingClientRect().bottom),
-    };
-  });
-  console.log('[geometry 393x852 armed]', JSON.stringify(armedGeometry));
-  expect(armedGeometry.rows, 'armed row still fits on ONE line').toBe(1);
-  expect(armedGeometry.clearance, 'armed row still clears the dock').toBeGreaterThan(0);
-
-  // A tap 4.5s in — PAST the old 3000ms window — must still confirm. Under the
-  // old timer code this re-armed instead, which is the dead-loop itself. Real
-  // timers on purpose: the wall-clock behaviour is the thing under test.
-  await page.waitForTimeout(4_500);
-  await expect(discard, 'still showing the armed label at 4.5s').toHaveText('Sure? (2)');
+  // ONE tap: the capture is gone and the stage collapses. No arming state, no
+  // second tap, no label the user has to decode.
   await discard.click();
   await expect(page.getByRole('button', { name: 'Record Meeting' })).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('.lg-stask')).toHaveCount(0);
   await expect(page.locator('.lg-hero-col.rec')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Save All/ })).toHaveCount(0);
+
+  // The escape hatch is offered, visibly.
+  await expect(page.getByText('Discarded 2 tasks')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
 
   // Nothing was written, and nothing navigated.
   expect(counts.insertedTasks, 'zero task inserts').toEqual([]);
@@ -319,8 +296,8 @@ test('Discard needs two taps and writes nothing', async ({ browser }) => {
   await context.close();
 });
 
-test('an armed Discard never relaxes — the label is the latch', async ({ browser }) => {
-  test.setTimeout(120_000);
+test('Undo restores the capture and the orb resumes it into a live session', async ({ browser }) => {
+  test.setTimeout(90_000);
   resetCounts(counts);
 
   const context = await browser.newContext({ timezoneId: 'UTC' });
@@ -328,29 +305,24 @@ test('an armed Discard never relaxes — the label is the latch', async ({ brows
   const page = await context.newPage();
   await bootHomeWithTwoTasks(page);
 
-  const discard = page.getByRole('button', { name: /Discard captured tasks|Confirm discarding/ });
-
-  // Arm it, then wait far past the old timer windows.
-  await discard.click();
-  await expect(discard).toHaveText('Sure? (2)');
-  await page.waitForTimeout(9_500);
-
-  // No timer owns the text any more: the label still shows the armed state,
-  // so the user can never face a "Discard" label hiding a live latch.
-  await expect(discard, 'label still armed after 9.5s — it IS the latch').toHaveText('Sure? (2)');
-  await expect(page.locator('.lg-stask'), 'nothing was thrown away by waiting').toHaveCount(2);
-
-  // And the tap executes; it does not re-arm. The old timer code re-armed here
-  // (the capture would survive), which is exactly the assertion that fails on
-  // a revert.
-  await discard.click();
+  await page.getByRole('button', { name: 'Discard captured tasks' }).click();
   await expect(page.getByRole('button', { name: 'Record Meeting' })).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator('.lg-stask')).toHaveCount(0);
-  await expect(page.locator('.lg-hero-col.rec')).toHaveCount(0);
+
+  // Undo: the capture returns on the PAUSED stage — the same idle-staged
+  // surface a quiet-session auto-stop uses, so every exit is reachable again.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('.lg-stask')).toHaveCount(2);
+  await expect(page.getByText('Paused — you went quiet')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save All (2)' })).toBeVisible();
+
+  // And the orb resumes the capture into a fresh live session: the list rides
+  // in (preserveTasks), nothing is wiped by the restart.
+  await page.getByRole('button', { name: 'Brain dump' }).click();
+  await expect(page.getByText('Listening… speak freely')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.lg-stask'), 'capture survived the resume').toHaveCount(2);
 
   expect(counts.insertedTasks, 'zero task inserts').toEqual([]);
   expect(counts.insertedProjects, 'zero project inserts').toEqual([]);
-  expect(new URL(page.url()).pathname).toBe('/home');
 
   await context.close();
 });

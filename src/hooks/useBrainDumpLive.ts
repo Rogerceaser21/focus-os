@@ -4,6 +4,7 @@ import {
 } from '@google/genai';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { startCapture as engineStartCapture, stopCapture as engineStopCapture, getDebugSnapshot as getAudioDebugSnapshot } from '@/lib/brainDumpAudio';
 import type { TaskPriority } from '@/types/task';
 
 export interface BrainDumpTask {
@@ -38,8 +39,11 @@ const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_BACKOFF_MS = [250, 750, 2000];
 /** Reconnect this long before the deadline the server announced in `goAway`. */
 const GO_AWAY_LEAD_MS = 1000;
-/** ~256ms of PCM per chunk (4096 frames @16kHz), so this is a ~6s tail. */
-const MAX_BUFFERED_AUDIO_CHUNKS = 24;
+/** ~256ms of PCM per chunk (4096 frames @16kHz), so this is a ~10s tail. The
+ *  buffer now also covers the PRE-CONNECT window — capture starts on the orb
+ *  tap, before the socket exists, so the user's first words ride in here and
+ *  flush on open instead of being lost to the connect latency. */
+const MAX_BUFFERED_AUDIO_CHUNKS = 40;
 const MAX_PENDING_TOOL_RESPONSES = 32;
 /** Enough history to answer any re-delivery; bounded so a storm cannot balloon. */
 const MAX_PROCESSED_CALLS = 200;
@@ -89,20 +93,34 @@ const BISECT_DISABLE_IDLE_STOP = false;
    One-line revert if a live call ever misbehaves on this model. */
 const USE_NON_BLOCKING_TOOLS = true;
 
-// Audio helpers
-function createPcmBlob(float32Data: Float32Array): { mimeType: string; data: string } {
-  const pcm16 = new Int16Array(float32Data.length);
-  for (let i = 0; i < float32Data.length; i++) {
-    const s = Math.max(-1, Math.min(1, float32Data[i]));
-    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-  }
-  const uint8 = new Uint8Array(pcm16.buffer);
-  let binary = '';
-  for (let i = 0; i < uint8.length; i++) {
-    binary += String.fromCharCode(uint8[i]);
-  }
-  return { mimeType: 'audio/pcm;rate=16000', data: btoa(binary) };
-}
+/* Audio capture lives in src/lib/brainDumpAudio.ts — ONE page-lifetime
+   AudioContext at the hardware rate, AudioWorklet capture, 16k resample in
+   code. The per-session `new AudioContext({sampleRate:16000})` + close() churn
+   that used to live here produced SILENT second sessions on iOS Safari
+   (device-confirmed 2026-07-28): socket up, UI "Listening", model hearing
+   nothing. Sessions now attach to the engine; they never own audio. */
+
+/* ── Production debug counters (?debug=1 overlay) ────────────────────────────
+   Plain module-level mutations — no state, no renders, negligible cost — kept
+   in the PRODUCTION bundle on purpose: "is the socket alive / is audio flowing"
+   must be answerable on Igor's phone without a dev build. The overlay in
+   Home.tsx polls this object; nothing else reads it. */
+export const brainDumpDebug = {
+  socketOpens: 0,
+  socketCloses: 0,
+  socketErrors: 0,
+  reconnectsScheduled: 0,
+  toolCallsReceived: 0,
+  chunksSentLive: 0,
+  chunksBuffered: 0,
+  lastServerMessageAt: 0,
+  lastCloseInfo: '',
+  model: '',
+  audio: () => getAudioDebugSnapshot(),
+};
+// Reachable from a Safari Web Inspector (USB) or an automation probe without
+// the overlay mounted — same production-debuggability rationale as above.
+if (typeof window !== 'undefined') (window as any).__bdDebug = brainDumpDebug;
 
 // Get today's date info for the system prompt
 function getTodayDateString(): string {
@@ -219,8 +237,8 @@ type ToolOutcome = {
 type ProcessedCall = { name: string; result: any; createdTaskId?: string };
 
 type ConnectOptions = {
-  /** false on a reconnect: the existing mic + audio graph are kept alive. */
-  acquireMic: boolean;
+  /** Audio is NOT connect's business: the engine (src/lib/brainDumpAudio.ts)
+   *  captures across connects and reconnects alike; start() owns it. */
   /** Reconnect resumes the server-side session state when a handle is in hand. */
   resumeHandle?: string;
   preserveTasks?: boolean;
@@ -242,10 +260,6 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
   const [idleStopped, setIdleStopped] = useState(false);
 
   const sessionRef = useRef<any>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const inputAudioContextRef = useRef<AudioContext | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
   const taskCounterRef = useRef(0);
   const tasksRef = useRef<BrainDumpTask[]>([]);
@@ -278,25 +292,6 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     tasksRef.current = tasks;
   }, [tasks]);
 
-  const teardownAudio = useCallback((options?: { keepMic?: boolean }) => {
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-    if (sourceRef.current) {
-      sourceRef.current.disconnect();
-      sourceRef.current = null;
-    }
-    if (inputAudioContextRef.current) {
-      inputAudioContextRef.current.close();
-      inputAudioContextRef.current = null;
-    }
-    if (!options?.keepMic && streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-  }, []);
-
   const clearTimers = useCallback(() => {
     if (reconnectTimerRef.current !== null) {
       window.clearTimeout(reconnectTimerRef.current);
@@ -324,15 +319,17 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     }
   }, []);
 
-  /** Full stop: no socket, no timers, no mic, nothing queued. Never the task list. */
+  /** Full stop: no socket, no timers, no mic, nothing queued. Never the task list.
+   *  The audio ENGINE releases the mic but keeps its AudioContext alive — the
+   *  context churn is what killed second sessions. */
   const teardown = useCallback(() => {
     clearTimers();
     closeSession();
-    teardownAudio();
+    engineStopCapture();
     bufferedAudioRef.current = [];
     pendingToolResponsesRef.current = [];
     setReconnecting(false);
-  }, [clearTimers, closeSession, teardownAudio]);
+  }, [clearTimers, closeSession]);
 
   useEffect(() => {
     return () => {
@@ -650,38 +647,21 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     return { next: base, result: { result: 'ok' } };
   }, []);
 
-  /** Build (or re-attach) the mic -> PCM -> socket pipeline. Idempotent. */
-  const attachAudio = useCallback(() => {
-    if (!streamRef.current) return;      // mock transport, or the mic was never granted
-    if (processorRef.current) return;    // a reconnect keeps the graph it already has
-
-    const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-    inputAudioContextRef.current = inputCtx;
-
-    const src = inputCtx.createMediaStreamSource(streamRef.current);
-    sourceRef.current = src;
-
-    // --- PCM processor for Gemini ---
-    const processor = inputCtx.createScriptProcessor(4096, 1, 1);
-    processorRef.current = processor;
-
-    processor.onaudioprocess = (e) => {
-      const inputData = e.inputBuffer.getChannelData(0);
-      const pcmBlob = createPcmBlob(inputData);
-      const session = sessionRef.current;
-      if (session) {
-        session.sendRealtimeInput({ media: pcmBlob });
-        return;
-      }
-      // Mid-reconnect: hold a bounded tail so a sentence spoken across the gap
-      // survives. Oldest chunks go first — a stale tail is worse than no tail.
-      const buffer = bufferedAudioRef.current;
-      buffer.push(pcmBlob);
-      if (buffer.length > MAX_BUFFERED_AUDIO_CHUNKS) buffer.shift();
-    };
-
-    src.connect(processor);
-    processor.connect(inputCtx.destination);
+  /** The engine's chunk sink: live socket if there is one, else the bounded
+   *  buffer. Covers BOTH gaps — pre-connect (capture starts on the orb tap,
+   *  before the socket exists) and mid-reconnect. Oldest chunks go first — a
+   *  stale tail is worse than no tail. */
+  const handleAudioChunk = useCallback((pcmBlob: { mimeType: string; data: string }) => {
+    const session = sessionRef.current;
+    if (session) {
+      brainDumpDebug.chunksSentLive += 1;
+      session.sendRealtimeInput({ media: pcmBlob });
+      return;
+    }
+    brainDumpDebug.chunksBuffered += 1;
+    const buffer = bufferedAudioRef.current;
+    buffer.push(pcmBlob);
+    if (buffer.length > MAX_BUFFERED_AUDIO_CHUNKS) buffer.shift();
   }, []);
 
   const fetchLiveConfig = useCallback(async () => {
@@ -723,12 +703,12 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     const attempt = ++reconnectAttemptsRef.current;
     const delay = RECONNECT_BACKOFF_MS[attempt - 1] ?? RECONNECT_BACKOFF_MS[RECONNECT_BACKOFF_MS.length - 1];
     console.warn(`Gemini Live: reconnecting (attempt ${attempt}, ${reason}) in ${delay}ms`);
+    brainDumpDebug.reconnectsScheduled += 1;
     setReconnecting(true);
 
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
       connectRef.current?.({
-        acquireMic: false,
         resumeHandle: resumeHandleRef.current ?? undefined,
         preserveTasks: true,
       }).catch((err) => {
@@ -748,13 +728,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     const config = mockLiveEnabled()
       ? { token: 'mock', ephemeral: false, model: DEFAULT_MODEL }
       : await fetchLiveConfig();
-
-    if (options.acquireMic && !mockLiveEnabled()) {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
-      });
-      streamRef.current = stream;
-    }
+    brainDumpDebug.model = config.model;
 
     // Build system instruction with project list. BOUNDED (MAX_PROJECTS_IN_PROMPT):
     // the whole setup payload is re-prefilled on every turn, so quoting all of a
@@ -976,16 +950,17 @@ SILENT MODE:
       onopen: () => {
         if (connectSeqRef.current !== seq) return;
         console.log('Gemini Live connected');
+        brainDumpDebug.socketOpens += 1;
         reconnectAttemptsRef.current = 0;
         setReconnecting(false);
         setConnectionState('listening');
 
-        attachAudio();
         flushQueues();
         armIdleTimer();
       },
       onmessage: (message: any) => {
         if (connectSeqRef.current !== seq) return;
+        brainDumpDebug.lastServerMessageAt = Date.now();
 
         if (message.sessionResumptionUpdate) {
           const update = message.sessionResumptionUpdate;
@@ -1006,7 +981,6 @@ SILENT MODE:
               goAwayTimerRef.current = null;
               if (!activeRef.current || intentionalStopRef.current) return;
               connectRef.current?.({
-                acquireMic: false,
                 resumeHandle: resumeHandleRef.current ?? undefined,
                 preserveTasks: true,
               }).catch((err) => {
@@ -1035,6 +1009,7 @@ SILENT MODE:
 
         if (message.toolCall) {
           const functionCalls = message.toolCall.functionCalls || [];
+          brainDumpDebug.toolCallsReceived += functionCalls.length;
           for (const fc of functionCalls) {
             const callId: string | undefined = fc.id;
             const seen = callId && !BISECT_DISABLE_TOOLCALL_DEDUP
@@ -1087,6 +1062,8 @@ SILENT MODE:
       onclose: () => {
         if (connectSeqRef.current !== seq) return;
         console.log('Gemini Live session closed');
+        brainDumpDebug.socketCloses += 1;
+        brainDumpDebug.lastCloseInfo = `close @${new Date().toISOString().slice(11, 19)}`;
         sessionRef.current = null;
         if (activeRef.current && !intentionalStopRef.current) {
           scheduleReconnect('socket-closed');
@@ -1097,6 +1074,8 @@ SILENT MODE:
       onerror: (err: any) => {
         if (connectSeqRef.current !== seq) return;
         console.error('Gemini Live error:', err);
+        brainDumpDebug.socketErrors += 1;
+        brainDumpDebug.lastCloseInfo = `error: ${err?.message ?? err ?? 'unknown'}`.slice(0, 120);
         if (activeRef.current && !intentionalStopRef.current) {
           scheduleReconnect('socket-error');
           return;
@@ -1125,7 +1104,7 @@ SILENT MODE:
     }
     sessionRef.current = session;
     flushQueues();
-  }, [applyToolCall, armIdleTimer, attachAudio, clearTimers, closeSession, fetchLiveConfig, scheduleReconnect, sendToolResponse, teardown]);
+  }, [applyToolCall, armIdleTimer, clearTimers, closeSession, fetchLiveConfig, scheduleReconnect, sendToolResponse, teardown]);
 
   // Idempotent latest-value holder; assigning during render keeps a first-frame
   // close from finding an empty ref (an effect would run too late).
@@ -1161,7 +1140,15 @@ SILENT MODE:
         );
       }
 
-      await connect({ acquireMic: true, preserveTasks: options?.preserveTasks });
+      // 1. Audio FIRST, inside the tap gesture — iOS wants both the permission
+      // prompt and AudioContext.resume() on a user-gesture stack. Capture runs
+      // before the socket exists; handleAudioChunk buffers until onopen flushes,
+      // so speech during the connect window is kept, not lost.
+      if (!mockLiveEnabled()) {
+        await engineStartCapture(handleAudioChunk);
+      }
+
+      await connect({ preserveTasks: options?.preserveTasks });
     } catch (error: any) {
       console.error('Brain dump start error:', error);
       intentionalStopRef.current = true;
@@ -1170,7 +1157,7 @@ SILENT MODE:
       setConnectionState('error');
       throw error;
     }
-  }, [connect, teardown]);
+  }, [connect, teardown, handleAudioChunk]);
 
   const stop = useCallback(() => {
     // Deliberate teardown: stopSession marks it BEFORE the socket closes, so
@@ -1202,6 +1189,16 @@ SILENT MODE:
     taskCounterRef.current = initialTasks.length;
   }, []);
 
+  /** Undo-discard support: put a capture back on the stage without recording.
+   *  Raising the idle latch reuses the whole "Paused — your capture is safe"
+   *  surface (exits live, orb resumes with preserveTasks) — no new UI state. */
+  const restoreStagedCapture = useCallback((restored: BrainDumpTask[]) => {
+    setTasks(restored);
+    tasksRef.current = restored;
+    taskCounterRef.current = restored.length;
+    setIdleStopped(true);
+  }, []);
+
   return {
     tasks,
     connectionState,
@@ -1217,6 +1214,7 @@ SILENT MODE:
     updateTask,
     removeTask,
     resetTasks,
+    restoreStagedCapture,
     setInitialTasks,
   };
 }
