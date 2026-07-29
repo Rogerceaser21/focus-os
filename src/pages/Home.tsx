@@ -280,19 +280,28 @@ const Home = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, searchParams]);
 
-  // Auto-launch the Home tour for first-time users, or when triggered via ?tour=home
+  // Auto-launch the Home tour for first-time users, or when triggered via
+  // ?tour=home. Same shape as the ?braindump=1 effect above, for the same
+  // reason (audit 2026-07-29, rig-proven dead): stripping the param re-runs
+  // the effect, and a cleanup killed the pending timer before it fired — the
+  // deep link never opened the tour. Ref-latched, no cleanup on the param arm.
+  const tourLaunchRef = useRef(false);
   useEffect(() => {
-    if (searchParams.get('tour') === 'home') {
-      const t = setTimeout(() => setTourOpen(true), 400);
-      const next = new URLSearchParams(searchParams);
-      next.delete('tour');
-      setSearchParams(next, { replace: true });
-      return () => clearTimeout(t);
+    if (searchParams.get('tour') === 'home' && !tourLaunchRef.current) {
+      tourLaunchRef.current = true;
+      setTimeout(() => {
+        const next = new URLSearchParams(window.location.search);
+        next.delete('tour');
+        setSearchParams(next, { replace: true });
+        setTourOpen(true);
+      }, 400);
+      return;
     }
     if (preferences && !preferences.has_completed_home_tour) {
       const t = setTimeout(() => setTourOpen(true), 600);
       return () => clearTimeout(t);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preferences, searchParams, setSearchParams]);
 
   const handleTourComplete = useCallback(() => {
@@ -368,12 +377,28 @@ const Home = () => {
     stop();
     resetTasks();
     if (discarded.length > 0) {
+      // Fixed id: the toast is dismissed the moment its Undo can no longer be
+      // honoured (new session starting, Home unmounting) — audit 2026-07-29,
+      // rig-proven: it used to outlive both and either overwrite a newer live
+      // capture or silently restore nothing after a dock navigation.
       toast(`Discarded ${discarded.length} task${discarded.length > 1 ? 's' : ''}`, {
-        action: { label: 'Undo', onClick: () => restoreStagedCapture(discarded) },
+        id: 'bd-discard-undo',
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            if (!restoreStagedCapture(discarded)) {
+              toast('Too late to undo — a new capture already started', { id: 'bd-discard-undo' });
+            }
+          },
+        },
         duration: 6000,
       });
     }
   }, [fakeDump, isSaving, liveTasks, stop, resetTasks, restoreStagedCapture]);
+
+  // The Undo window closes when Home unmounts — the hook (and the discarded
+  // capture's restore path) die with it.
+  useEffect(() => () => { toast.dismiss('bd-discard-undo'); }, []);
 
   const handleEditTasks = useCallback(() => {
     if (fakeDump) return; // demo stage: never opens the review dialog
@@ -387,6 +412,8 @@ const Home = () => {
     }
     if (fakeDump) return; // demo stage: the orb presses, nothing is captured
     if (isSaving) return; // a direct save is already in flight
+    // Starting (or reviewing) closes the Undo window — see handleDiscard.
+    toast.dismiss('bd-discard-undo');
     // Still live -> the orb reviews. Auto-stopped on silence -> the orb resumes,
     // and the capture rides into the new session instead of being replaced.
     if (rec && !idleStaged) {

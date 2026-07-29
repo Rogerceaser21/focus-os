@@ -326,3 +326,65 @@ test('Undo restores the capture and the orb resumes it into a live session', asy
 
   await context.close();
 });
+
+test('starting a new dump closes the Undo window (no stale restore)', async ({ browser }) => {
+  test.setTimeout(90_000);
+  resetCounts(counts);
+
+  const context = await browser.newContext({ timezoneId: 'UTC' });
+  await installIntercepts(context, counts);
+  const page = await context.newPage();
+  await bootHomeWithTwoTasks(page);
+
+  await page.getByRole('button', { name: 'Discard captured tasks' }).click();
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
+
+  // Audit 2026-07-29, rig-proven: the toast used to outlive the new session
+  // and its Undo overwrote the fresh capture while the socket stayed hot. The
+  // orb tap now dismisses it (and the hook-level guard refuses stale restores
+  // that dodge the dismissal race).
+  await page.getByRole('button', { name: 'Brain dump' }).click();
+  await expect(page.getByText('Listening… speak freely')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0);
+
+  await context.close();
+});
+
+test('ids stay unique and session projects survive remove + Discard + Undo + resume', async ({ browser }) => {
+  test.setTimeout(90_000);
+  resetCounts(counts);
+
+  const context = await browser.newContext({ timezoneId: 'UTC' });
+  await installIntercepts(context, counts);
+  const page = await context.newPage();
+  await bootHomeWithTwoTasks(page); // brain-dump-1 (Today) + brain-dump-2 (new project)
+
+  // The model removes task 1 — the list is now shorter than its highest id,
+  // which is exactly the shape that made the length-rebase mint duplicates.
+  await emit(page, { toolCall: { functionCalls: [{ id: 'rm-1', name: 'remove_task', args: { task_id: 'brain-dump-1' } }] } });
+  await expect(page.locator('.lg-stask')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Discard captured tasks' }).click();
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('.lg-stask')).toHaveCount(1);
+  await expect(page.getByText('Paused — you went quiet')).toBeVisible();
+
+  // Resume, then route a task to the SESSION project by name — the rebuilt
+  // new-project map must still resolve it (it used to be wiped, silently
+  // splitting the capture into Today).
+  await page.getByRole('button', { name: 'Brain dump' }).click();
+  await expect(page.getByText('Listening… speak freely')).toBeVisible({ timeout: 15_000 });
+  await emit(page, { toolCall: { functionCalls: [{ id: 'add-2', name: 'add_task_to_project', args: { title: 'After resume', project_name: NEW_PROJECT_NAME, priority: 'low' } }] } });
+  await expect(page.locator('.lg-stask')).toHaveCount(2);
+  await expect(page.getByText(`NEW PROJECT: ${NEW_PROJECT_NAME.toUpperCase()}`), 'session project resolved after resume').toBeVisible();
+
+  // The new task must have a FRESH id: updating it by id renames exactly one
+  // row (the length-rebase used to hand out brain-dump-2 again, and one
+  // update then mutated two rows).
+  await emit(page, { toolCall: { functionCalls: [{ id: 'up-3', name: 'update_task', args: { task_id: 'brain-dump-3', title: 'RENAMED AFTER RESUME' } }] } });
+  await expect(page.locator('.lg-stask', { hasText: 'RENAMED AFTER RESUME' })).toHaveCount(1);
+  await expect(page.locator('.lg-stask')).toHaveCount(2);
+
+  expect(counts.insertedTasks, 'zero task inserts').toEqual([]);
+  await context.close();
+});
