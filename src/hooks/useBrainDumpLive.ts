@@ -283,7 +283,12 @@ function connectMockLiveSession(params: { model: string; config: any; callbacks:
   });
 
   const session = {
-    sendRealtimeInput: () => { harness.realtimeChunks += 1; },
+    sendRealtimeInput: (payload: any) => {
+      harness.realtimeChunks += 1;
+      // The wire FIELD is load-bearing: 3.1 closes 1007 on the legacy `media`
+      // key. Recorded so the spec can pin {audio} default / {media} legacy.
+      (harness as any).lastRealtimeKeys = Object.keys(payload ?? {});
+    },
     sendToolResponse: (payload: any) => { harness.toolResponses.push(payload); },
     close: () => { harness.clientCloses += 1; },
   };
@@ -325,6 +330,11 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
   const [tasks, setTasks] = useState<BrainDumpTask[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [reconnecting, setReconnecting] = useState(false);
+  /** True from the moment the mic is actually capturing — BEFORE the socket
+   *  opens. Speech in that window is buffered and flushed on open, so the UI
+   *  may truthfully say "speak freely" the instant this flips (hot-mic
+   *  treatment, Igor-approved 2026-07-29). */
+  const [captureLive, setCaptureLive] = useState(false);
   /** The last stop was the silence auto-stop, not the user. STATE, not a ref:
    *  callers derive rendered output from it (react-router replays discardable
    *  renders, and a ref mutation survives a discard the setState does not). */
@@ -400,6 +410,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     bufferedAudioRef.current = [];
     pendingToolResponsesRef.current = [];
     setReconnecting(false);
+    setCaptureLive(false);
   }, [clearTimers, closeSession]);
 
   useEffect(() => {
@@ -500,6 +511,36 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     const getCurrentTasksSummary = (tasksState: BrainDumpTask[]) =>
       tasksState.map(t => ({ task_id: t.id, title: t.title, priority: t.priority, destination: t.destination, projectName: t.projectName }));
 
+    /* PRIORITY SANITISER (audit 2026-07-29): nothing downstream validates this
+       string — DraggableTaskList indexes a 4-key object with it, so one
+       out-of-vocabulary value ('Urgent', 'normal', 'p1') crashes the whole
+       /app task list AFTER save. A model swap is exactly when literal
+       formatting drifts, so clamp at the boundary. Absent/unknown -> 'medium'
+       on create; unknown on merge leaves the existing value alone. */
+    const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
+    const sanitizePriority = (raw: unknown): TaskPriority | undefined => {
+      if (typeof raw !== 'string') return undefined;
+      const p = raw.toLowerCase().trim();
+      return (PRIORITIES as string[]).includes(p) ? (p as TaskPriority) : undefined;
+    };
+
+    /* SEARCH-PHRASE RESOLVER (audit 2026-07-29): the old matcher was the same
+       substring class that silently ate tasks in the dedup guard — it fanned
+       an update/remove out to EVERY task whose title contained the phrase.
+       Now: exact normalised title match wins; else a substring match only if
+       it is UNIQUE; else the caller reports ambiguity instead of guessing. */
+    const resolveByPhrase = (rawPhrase: string): { task?: BrainDumpTask; ambiguous?: BrainDumpTask[] } => {
+      const phrase = rawPhrase.toLowerCase().trim();
+      if (!phrase) return {};
+      const exact = base.filter(t => t.title.toLowerCase().trim() === phrase);
+      if (exact.length === 1) return { task: exact[0] };
+      if (exact.length > 1) return { ambiguous: exact };
+      const partial = base.filter(t => t.title.toLowerCase().includes(phrase));
+      if (partial.length === 1) return { task: partial[0] };
+      if (partial.length > 1) return { ambiguous: partial };
+      return {};
+    };
+
     // DEDUPLICATION GUARD: only an EXACT title match (after normalisation) counts
     // as a duplicate — that still catches the model literally re-creating a task
     // after a reconnect replay, which is what this guard exists for. It used to
@@ -525,7 +566,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
         const next = base.map(t => t.id === existingTask.id ? {
           ...t,
           ...(args.description && { description: args.description }),
-          ...(args.priority && { priority: args.priority as TaskPriority }),
+          ...(sanitizePriority(args.priority) ? { priority: sanitizePriority(args.priority)! } : {}),
           ...(args.start_date && { startDate: args.start_date }),
           ...(args.end_date && { endDate: args.end_date }),
           ...(args.due_date && { dueDate: args.due_date }),
@@ -538,7 +579,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
         id: taskId,
         title,
         description: args.description,
-        priority: (args.priority as TaskPriority) || 'medium',
+        priority: sanitizePriority(args.priority) || 'medium',
         destination: 'today',
         ...(args.start_date && { startDate: args.start_date }),
         ...(args.end_date && { endDate: args.end_date }),
@@ -552,10 +593,21 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
       const projectName = args.project_name || '';
       const normalizedSearch = projectName.toLowerCase().trim();
 
-      // Check existing DB projects first
-      const existingMatch = projectsRef.current.find(
-        p => p.name.toLowerCase() === normalizedSearch
-      );
+      // Check existing DB projects first. The prompt promises fuzzy matching,
+      // so (audit 2026-07-29): trimmed case-insensitive exact match first, then
+      // a substring match ONLY when it is unique — the ambiguous-substring
+      // free-for-all is the same matcher class that ate tasks in the dedup.
+      const findProject = () => {
+        if (!normalizedSearch) return undefined;
+        const norm = (s: string) => s.toLowerCase().trim();
+        const exact = projectsRef.current.find(p => norm(p.name) === normalizedSearch);
+        if (exact) return exact;
+        const partial = projectsRef.current.filter(
+          p => norm(p.name).includes(normalizedSearch) || normalizedSearch.includes(norm(p.name))
+        );
+        return partial.length === 1 ? partial[0] : undefined;
+      };
+      const existingMatch = findProject();
 
       // If not found in DB, check session-created new projects
       const newProjectMatch = !existingMatch ? newProjectsRef.current.get(normalizedSearch) : null;
@@ -572,7 +624,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
         const next = base.map(t => t.id === existingTask.id ? {
           ...t,
           ...(args.description && { description: args.description }),
-          ...(args.priority && { priority: args.priority as TaskPriority }),
+          ...(sanitizePriority(args.priority) ? { priority: sanitizePriority(args.priority)! } : {}),
           ...(isExistingProject && { destination: 'existing-project' as const, projectName: existingMatch!.name, projectId: existingMatch!.id }),
           ...(isNewProject && { destination: 'new-project' as const, projectName: resolvedProjectName }),
           ...(args.start_date && { startDate: args.start_date }),
@@ -588,7 +640,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
         id: taskId,
         title,
         description: args.description,
-        priority: (args.priority as TaskPriority) || 'medium',
+        priority: sanitizePriority(args.priority) || 'medium',
         destination,
         projectName: resolvedProjectName,
         projectId: existingMatch?.id,
@@ -597,7 +649,10 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
         ...(args.due_date && { dueDate: args.due_date }),
       };
       const next = [...base, newTask];
-      return { next, result: { result: 'ok', task_id: taskId, matched_project: resolvedProjectName, destination, current_tasks: getCurrentTasksSummary(next) }, createdTaskId: taskId };
+      // Falling through to 'today' is the safe default, but the model must be
+      // TOLD — the silent fall-through read as a routing miss to the user.
+      const routedToToday = destination === 'today';
+      return { next, result: { result: 'ok', task_id: taskId, matched_project: resolvedProjectName, destination, ...(routedToToday && { note: `project "${projectName}" not matched — task added to Today; use move_task after creating or naming the right project` }), current_tasks: getCurrentTasksSummary(next) }, createdTaskId: taskId };
     }
 
     if (fc.name === 'create_project_and_add_task') {
@@ -617,7 +672,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
         const next = base.map(t => t.id === existingTask.id ? {
           ...t,
           ...(args.description && { description: args.description }),
-          ...(args.priority && { priority: args.priority as TaskPriority }),
+          ...(sanitizePriority(args.priority) ? { priority: sanitizePriority(args.priority)! } : {}),
           destination: 'new-project' as const,
           projectName: newProjectsRef.current.get(normalizedName) || projectName,
           ...(args.start_date && { startDate: args.start_date }),
@@ -632,7 +687,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
         id: taskId,
         title,
         description: args.description,
-        priority: (args.priority as TaskPriority) || 'medium',
+        priority: sanitizePriority(args.priority) || 'medium',
         destination: 'new-project',
         projectName: newProjectsRef.current.get(normalizedName) || projectName,
         ...(args.start_date && { startDate: args.start_date }),
@@ -643,19 +698,42 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
       return { next, result: { result: 'ok', task_id: taskId, new_project: projectName, current_tasks: getCurrentTasksSummary(next) }, createdTaskId: taskId };
     }
 
+    /* HONEST ECHOES (audit 2026-07-29): the three correction tools used to
+       echo `result: 'ok'` even when they matched NOTHING — harmless under the
+       old SILENT scheduling (the model never read the echo), a straight lie
+       under sync tools where the model consumes every response. A no-match now
+       says so, with the live list attached, so the model can retry with a
+       task_id it can actually see. */
+
     if (fc.name === 'move_task') {
       const taskId = args.task_id as string;
-      const destination = args.destination as BrainDumpTask['destination'];
+      // Tolerant destination decode: a model swap is exactly when literal
+      // formatting drifts ('Today', 'project'), and the old bare-string match
+      // silently no-opped while echoing ok.
+      const destRaw = String(args.destination ?? '').toLowerCase().trim();
+      const destination: BrainDumpTask['destination'] | undefined =
+        destRaw === 'today' ? 'today'
+        : destRaw === 'existing-project' || destRaw === 'existing project' || destRaw === 'project' ? 'existing-project'
+        : destRaw === 'new-project' || destRaw === 'new project' ? 'new-project'
+        : undefined;
       const projectName = args.project_name as string | undefined;
+
+      const target = base.find(t => t.id === taskId);
+      if (!target) {
+        return { next: base, result: { result: 'not_found', task_id: taskId, current_tasks: getCurrentTasksSummary(base) } };
+      }
+      if (!destination || (destination !== 'today' && !projectName)) {
+        return { next: base, result: { result: 'invalid_destination', task_id: taskId, note: "destination must be 'today', 'existing-project' or 'new-project'; project destinations need project_name", current_tasks: getCurrentTasksSummary(base) } };
+      }
 
       const next = base.map(t => {
         if (t.id !== taskId) return t;
 
         if (destination === 'today') {
           return { ...t, destination: 'today' as const, projectName: undefined, projectId: undefined };
-        } else if (destination === 'existing-project' && projectName) {
+        } else if (destination === 'existing-project') {
           const match = projectsRef.current.find(
-            p => p.name.toLowerCase() === projectName.toLowerCase()
+            p => p.name.toLowerCase().trim() === projectName!.toLowerCase().trim()
           );
           return {
             ...t,
@@ -663,10 +741,10 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
             projectName: match?.name || projectName,
             projectId: match?.id,
           };
-        } else if (destination === 'new-project' && projectName) {
-          const normalizedName = projectName.toLowerCase().trim();
+        } else {
+          const normalizedName = projectName!.toLowerCase().trim();
           if (!newProjectsRef.current.has(normalizedName)) {
-            newProjectsRef.current.set(normalizedName, projectName);
+            newProjectsRef.current.set(normalizedName, projectName!);
           }
           return {
             ...t,
@@ -675,44 +753,60 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
             projectId: undefined,
           };
         }
-        return t;
       });
       return { next, result: { result: 'ok', task_id: taskId, current_tasks: getCurrentTasksSummary(next) } };
     }
 
     if (fc.name === 'update_task') {
       const taskId = args.task_id as string | undefined;
-      const searchPhrase = (args.searchPhrase || '').toLowerCase();
+      const phrase = (args.searchPhrase as string | undefined) || '';
 
-      const next = base.map(t => {
-        const isMatch = taskId
-          ? t.id === taskId
-          : searchPhrase && t.title.toLowerCase().includes(searchPhrase);
+      let target: BrainDumpTask | undefined;
+      if (taskId) {
+        target = base.find(t => t.id === taskId);
+      } else if (phrase) {
+        const resolved = resolveByPhrase(phrase);
+        if (resolved.ambiguous) {
+          return { next: base, result: { result: 'ambiguous_match', candidates: getCurrentTasksSummary(resolved.ambiguous), note: 'multiple tasks match — retry with the exact task_id', current_tasks: getCurrentTasksSummary(base) } };
+        }
+        target = resolved.task;
+      }
+      if (!target) {
+        return { next: base, result: { result: 'not_found', task_id: taskId ?? phrase, current_tasks: getCurrentTasksSummary(base) } };
+      }
 
-        if (!isMatch) return t;
-
-        return {
-          ...t,
-          ...(args.title && { title: args.title }),
-          ...(args.description !== undefined && { description: args.description }),
-          ...(args.priority && { priority: args.priority as TaskPriority }),
-          ...(args.start_date !== undefined && { startDate: args.start_date || undefined }),
-          ...(args.end_date !== undefined && { endDate: args.end_date || undefined }),
-          ...(args.due_date !== undefined && { dueDate: args.due_date || undefined }),
-        };
+      const next = base.map(t => t.id !== target!.id ? t : {
+        ...t,
+        ...(args.title && { title: args.title }),
+        ...(args.description !== undefined && { description: args.description }),
+        ...(sanitizePriority(args.priority) ? { priority: sanitizePriority(args.priority)! } : {}),
+        ...(args.start_date !== undefined && { startDate: args.start_date || undefined }),
+        ...(args.end_date !== undefined && { endDate: args.end_date || undefined }),
+        ...(args.due_date !== undefined && { dueDate: args.due_date || undefined }),
       });
-      return { next, result: { result: 'ok', task_id: taskId || 'matched_by_search', current_tasks: getCurrentTasksSummary(next) } };
+      return { next, result: { result: 'ok', task_id: target.id, current_tasks: getCurrentTasksSummary(next) } };
     }
 
     if (fc.name === 'remove_task') {
       const taskId = args.task_id as string | undefined;
-      const searchPhrase = (args.searchPhrase || '').toLowerCase();
+      const phrase = (args.searchPhrase as string | undefined) || '';
 
-      const next = base.filter(t => {
-        if (taskId) return t.id !== taskId;
-        return searchPhrase ? !t.title.toLowerCase().includes(searchPhrase) : true;
-      });
-      return { next, result: { result: 'ok', task_id: taskId || 'matched_by_search', current_tasks: getCurrentTasksSummary(next) } };
+      let target: BrainDumpTask | undefined;
+      if (taskId) {
+        target = base.find(t => t.id === taskId);
+      } else if (phrase) {
+        const resolved = resolveByPhrase(phrase);
+        if (resolved.ambiguous) {
+          return { next: base, result: { result: 'ambiguous_match', candidates: getCurrentTasksSummary(resolved.ambiguous), note: 'multiple tasks match — retry with the exact task_id', current_tasks: getCurrentTasksSummary(base) } };
+        }
+        target = resolved.task;
+      }
+      if (!target) {
+        return { next: base, result: { result: 'not_found', task_id: taskId ?? phrase, current_tasks: getCurrentTasksSummary(base) } };
+      }
+
+      const next = base.filter(t => t.id !== target!.id);
+      return { next, result: { result: 'ok', task_id: target.id, current_tasks: getCurrentTasksSummary(next) } };
     }
 
     return { next: base, result: { result: 'ok' } };
@@ -770,7 +864,18 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
       activeRef.current = false;
       intentionalStopRef.current = true;
       teardown();
-      setConnectionState('error');
+      // A capture must never vanish silently (audit 2026-07-29): 'error' with
+      // tasks in hand used to collapse the whole stage — stream, banner and
+      // all three exits — in one frame. With anything captured, land on the
+      // PAUSED surface instead: exits stay reachable and the orb resumes with
+      // the list (and its session projects) intact.
+      if (tasksRef.current.length > 0) {
+        setConnectionState('idle');
+        setIdleStopped(true);
+        toast.error('Connection lost — your capture is safe. Tap the orb to keep talking.');
+      } else {
+        setConnectionState('error');
+      }
       return;
     }
 
@@ -793,6 +898,10 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
   }, [teardown]);
 
   const connect = useCallback(async (options: ConnectOptions) => {
+    // Same zombie guard as start(): a stop that landed while a caller was
+    // awaiting must not be overridden by a late connect.
+    if (!activeRef.current || intentionalStopRef.current) return;
+
     // Orphan the previous socket's callbacks before anything else, so its close
     // never reads as a fresh failure.
     clearTimers();
@@ -901,7 +1010,7 @@ SILENT MODE:
             properties: {
               title: { type: Type.STRING, description: 'Concise task title (under 10 words)' },
               description: { type: Type.STRING, description: 'Brief task description' },
-              priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
+              priority: { type: Type.STRING, enum: ['low', 'medium', 'high', 'urgent'], description: 'Task priority' },
               ...dateProperties,
             },
             required: ['title', 'priority'],
@@ -916,7 +1025,7 @@ SILENT MODE:
             properties: {
               title: { type: Type.STRING, description: 'Concise task title (under 10 words)' },
               description: { type: Type.STRING, description: 'Brief task description' },
-              priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
+              priority: { type: Type.STRING, enum: ['low', 'medium', 'high', 'urgent'], description: 'Task priority' },
               project_name: { type: Type.STRING, description: 'Name of the existing project to add the task to' },
               ...dateProperties,
             },
@@ -932,7 +1041,7 @@ SILENT MODE:
             properties: {
               title: { type: Type.STRING, description: 'Concise task title (under 10 words)' },
               description: { type: Type.STRING, description: 'Brief task description' },
-              priority: { type: Type.STRING, description: 'Task priority: low, medium, high, or urgent' },
+              priority: { type: Type.STRING, enum: ['low', 'medium', 'high', 'urgent'], description: 'Task priority' },
               project_name: { type: Type.STRING, description: 'Name for the new project' },
               ...dateProperties,
             },
@@ -947,7 +1056,7 @@ SILENT MODE:
             type: Type.OBJECT,
             properties: {
               task_id: { type: Type.STRING, description: 'The exact task_id returned when the task was created' },
-              destination: { type: Type.STRING, description: 'New destination: today, existing-project, or new-project' },
+              destination: { type: Type.STRING, enum: ['today', 'existing-project', 'new-project'], description: 'New destination' },
               project_name: { type: Type.STRING, description: 'Name of the target project (required when destination is existing-project or new-project)' },
             },
             required: ['task_id', 'destination'],
@@ -964,7 +1073,7 @@ SILENT MODE:
               searchPhrase: { type: Type.STRING, description: 'A word or phrase to find the existing task — only use if task_id is not available' },
               title: { type: Type.STRING, description: 'Updated task title' },
               description: { type: Type.STRING, description: 'Updated description' },
-              priority: { type: Type.STRING, description: 'Updated priority: low, medium, high, or urgent' },
+              priority: { type: Type.STRING, enum: ['low', 'medium', 'high', 'urgent'], description: 'Updated task priority' },
               ...dateProperties,
             },
             required: [],
@@ -1191,7 +1300,15 @@ SILENT MODE:
     }
     sessionRef.current = session;
     flushQueues();
-  }, [applyToolCall, armIdleTimer, clearTimers, closeSession, fetchLiveConfig, scheduleReconnect, sendToolResponse, teardown]);
+
+    // DEV shim extension: the mock skips the audio engine entirely, so specs
+    // inject PCM chunks here to pin the wire FIELD ({audio} default, {media}
+    // legacy — 3.1 closes 1007 on the wrong one). Dead-code-eliminated in
+    // production with the rest of the mock path.
+    if (mockLiveEnabled()) {
+      (window as any).__brainDumpLiveMock.injectAudio = (c: any) => handleAudioChunk(c);
+    }
+  }, [applyToolCall, armIdleTimer, clearTimers, closeSession, fetchLiveConfig, handleAudioChunk, scheduleReconnect, sendToolResponse, teardown]);
 
   // Idempotent latest-value holder; assigning during render keeps a first-frame
   // close from finding an empty ref (an effect would run too late).
@@ -1211,7 +1328,21 @@ SILENT MODE:
       taskCounterRef.current = 0;
     }
     projectsRef.current = projects;
-    newProjectsRef.current = new Map();
+    // A preserved capture keeps its session-created projects too (audit
+    // 2026-07-29): the resume paths this wave added (idle-stop, Discard+Undo)
+    // carry tasks whose destination is 'new-project' — wiping the map that
+    // resolves those names silently re-routed follow-up tasks to Today.
+    if (options?.preserveTasks) {
+      const rebuilt = new Map<string, string>();
+      for (const t of tasksRef.current) {
+        if (t.destination === 'new-project' && t.projectName) {
+          rebuilt.set(t.projectName.toLowerCase().trim(), t.projectName);
+        }
+      }
+      newProjectsRef.current = rebuilt;
+    } else {
+      newProjectsRef.current = new Map();
+    }
     processedCallsRef.current = new Map();
     resumeHandleRef.current = null;
     reconnectAttemptsRef.current = 0;
@@ -1234,6 +1365,20 @@ SILENT MODE:
       if (!mockLiveEnabled()) {
         await engineStartCapture(handleAudioChunk);
       }
+      // ZOMBIE GUARD (audit 2026-07-29): the engine await above is a real user
+      // window on iOS (permission prompt + context resume) and the exit row is
+      // already on screen — a Discard/stop landing in it must WIN, or the
+      // session comes back up "Listening…" with a hot mic after the user asked
+      // to stop.
+      if (!activeRef.current || intentionalStopRef.current) {
+        engineStopCapture();
+        return;
+      }
+
+      // The mic is hot from here (mock: pretend, same UI path) — the stage may
+      // truthfully say "speak freely" while the socket is still opening. Set
+      // AFTER the guard: a stop that won the race must not leave this stale.
+      setCaptureLive(true);
 
       await connect({ preserveTasks: options?.preserveTasks });
     } catch (error: any) {
@@ -1270,21 +1415,38 @@ SILENT MODE:
     setIdleStopped(false);
   }, []);
 
+  /** Rebase the id counter on the HIGHEST id in the list, not its length
+   *  (audit 2026-07-29, rig-proven): after any mid-session remove_task,
+   *  length < max id, so a length rebase minted a DUPLICATE id — React dup
+   *  keys, and one update_task/remove_task/cancellation mutating TWO rows. */
+  const rebaseTaskCounter = useCallback((list: BrainDumpTask[]) => {
+    taskCounterRef.current = list.reduce((max, t) => {
+      const n = Number.parseInt(t.id.match(/^brain-dump-(\d+)$/)?.[1] ?? '0', 10);
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
+  }, []);
+
   const setInitialTasks = useCallback((initialTasks: BrainDumpTask[]) => {
     setTasks(initialTasks);
     tasksRef.current = initialTasks;
-    taskCounterRef.current = initialTasks.length;
-  }, []);
+    rebaseTaskCounter(initialTasks);
+  }, [rebaseTaskCounter]);
 
   /** Undo-discard support: put a capture back on the stage without recording.
    *  Raising the idle latch reuses the whole "Paused — your capture is safe"
-   *  surface (exits live, orb resumes with preserveTasks) — no new UI state. */
-  const restoreStagedCapture = useCallback((restored: BrainDumpTask[]) => {
+   *  surface (exits live, orb resumes with preserveTasks) — no new UI state.
+   *  Returns false — and touches NOTHING — when the moment has passed: a new
+   *  session is live or a new capture exists (audit 2026-07-29, rig-proven:
+   *  the unguarded restore overwrote a live newer capture and left the stage
+   *  claiming "Paused" over an open socket and a hot mic). */
+  const restoreStagedCapture = useCallback((restored: BrainDumpTask[]): boolean => {
+    if (activeRef.current || tasksRef.current.length > 0) return false;
     setTasks(restored);
     tasksRef.current = restored;
-    taskCounterRef.current = restored.length;
+    rebaseTaskCounter(restored);
     setIdleStopped(true);
-  }, []);
+    return true;
+  }, [rebaseTaskCounter]);
 
   return {
     tasks,
@@ -1292,6 +1454,8 @@ SILENT MODE:
     /** True between an unexpected close and the socket coming back. The mic stays
      *  open throughout; a bounded tail of audio is buffered across the gap. */
     reconnecting,
+    /** Mic actually capturing (pre-socket included) — drives the hot-mic UI. */
+    captureLive,
     /** The last stop was the silence auto-stop. The captured list is untouched —
      *  callers keep their capture surface up so the exits stay reachable.
      *  Cleared by start(), stop() and resetTasks(). */

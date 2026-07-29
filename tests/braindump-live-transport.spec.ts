@@ -28,8 +28,8 @@
  *     -> "unexpected close reconnects" FAILS.
  *   - src/hooks/useBrainDumpLive.ts BISECT_DISABLE_IDLE_STOP = true
  *     -> "a quiet session auto-stops and keeps the capture staged" FAILS.
- *   - src/hooks/useBrainDumpLive.ts BISECT_RESTORE_WAIT_RULE = true
- *     -> "the system instruction ships the act-immediately timing register" FAILS.
+ *   (BISECT_RESTORE_WAIT_RULE was retired with the F1 revert — the wait-rule
+ *   register is the shipped default and is pinned by its own spec below.)
  */
 import { test, expect, type Page } from '@playwright/test';
 
@@ -463,6 +463,139 @@ test.describe('brain dump live transport', () => {
     expect(connects[0].vad).toBeNull();
     expect(connects[0].compression).toBeNull();
     expect(connects[0].model).toBe('gemini-3.1-flash-live-preview');
+  });
+
+  // ---------------------------------------------------------------------------
+  // CORRECTION TOOLS + HONEST ECHOES (capability audit, 2026-07-29). Under
+  // sync tools the model READS every echo, so a wrong 'ok' misleads it into
+  // never retrying. These pin: not_found/ambiguous truth-telling, the
+  // unique-match phrase resolver (the substring free-for-all was the same
+  // matcher class that ate tasks in the dedup), tolerant move destinations,
+  // the priority sanitiser, project fuzzy-matching, and the audio wire field.
+  // ---------------------------------------------------------------------------
+
+  test('update_task: by id, junk priority ignored, phrase resolver exact>unique>ambiguous', async ({ page }) => {
+    await boot(page);
+
+    await emit(page, {
+      toolCall: { functionCalls: [
+        { id: 'c1', name: 'add_task_to_today', args: { title: 'Call mum', priority: 'high' } },
+        { id: 'c2', name: 'add_task_to_today', args: { title: 'Call mum about the car', priority: 'medium' } },
+      ] },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(2);
+
+    // Junk priority on a targeted update: applied fields land, junk is dropped.
+    await emit(page, {
+      toolCall: { functionCalls: [
+        { id: 'c3', name: 'update_task', args: { task_id: 'brain-dump-1', priority: 'P1!', description: 'ring after lunch' } },
+      ] },
+    });
+    let { toolResponses } = await harness(page);
+    let echo = toolResponses.find((r) => r.functionResponses.id === 'c3')!.functionResponses.response;
+    expect(echo.result).toBe('ok');
+    expect(echo.current_tasks.find((t: any) => t.task_id === 'brain-dump-1').priority).toBe('high');
+
+    // Phrase 'call mum' matches BOTH titles as substring but ONE exactly — the
+    // exact match wins, the superset title is untouched.
+    await emit(page, {
+      toolCall: { functionCalls: [
+        { id: 'c4', name: 'update_task', args: { searchPhrase: 'call mum', priority: 'urgent' } },
+      ] },
+    });
+    ({ toolResponses } = await harness(page));
+    echo = toolResponses.find((r) => r.functionResponses.id === 'c4')!.functionResponses.response;
+    expect(echo.result).toBe('ok');
+    expect(echo.task_id).toBe('brain-dump-1');
+    expect(echo.current_tasks.find((t: any) => t.task_id === 'brain-dump-1').priority).toBe('urgent');
+    expect(echo.current_tasks.find((t: any) => t.task_id === 'brain-dump-2').priority).toBe('medium');
+
+    // A phrase matching several tasks with NO exact winner refuses to guess.
+    await emit(page, {
+      toolCall: { functionCalls: [
+        { id: 'c5', name: 'update_task', args: { searchPhrase: 'call', priority: 'low' } },
+      ] },
+    });
+    ({ toolResponses } = await harness(page));
+    echo = toolResponses.find((r) => r.functionResponses.id === 'c5')!.functionResponses.response;
+    expect(echo.result).toBe('ambiguous_match');
+    expect(echo.candidates).toHaveLength(2);
+    expect(echo.current_tasks.every((t: any) => t.priority !== 'low')).toBe(true);
+  });
+
+  test('remove_task and move_task tell the truth about misses', async ({ page }) => {
+    await boot(page);
+    await emit(page, addBuyMilk('c1'));
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    // Bogus id: the old code echoed ok and removed nothing — the lying echo.
+    await emit(page, { toolCall: { functionCalls: [{ id: 'c2', name: 'remove_task', args: { task_id: 'brain-dump-99' } }] } });
+    let { toolResponses } = await harness(page);
+    expect(toolResponses.find((r) => r.functionResponses.id === 'c2')!.functionResponses.response.result).toBe('not_found');
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    // Tolerant destination decode: 'Today ' (case + trailing space) still moves.
+    await emit(page, { toolCall: { functionCalls: [{ id: 'c3', name: 'move_task', args: { task_id: 'brain-dump-1', destination: 'Today ' } }] } });
+    ({ toolResponses } = await harness(page));
+    expect(toolResponses.find((r) => r.functionResponses.id === 'c3')!.functionResponses.response.result).toBe('ok');
+
+    // Unknown destination is named, not swallowed.
+    await emit(page, { toolCall: { functionCalls: [{ id: 'c4', name: 'move_task', args: { task_id: 'brain-dump-1', destination: 'sideways' } }] } });
+    ({ toolResponses } = await harness(page));
+    expect(toolResponses.find((r) => r.functionResponses.id === 'c4')!.functionResponses.response.result).toBe('invalid_destination');
+
+    // Unique phrase removes exactly its task.
+    await emit(page, { toolCall: { functionCalls: [{ id: 'c5', name: 'remove_task', args: { searchPhrase: 'buy milk' } }] } });
+    await expect(page.getByTestId('transport-task')).toHaveCount(0);
+  });
+
+  test('priority is sanitised at creation — out-of-vocabulary strings cannot reach the list', async ({ page }) => {
+    await boot(page);
+    await emit(page, {
+      toolCall: { functionCalls: [
+        { id: 'c1', name: 'add_task_to_today', args: { title: 'Shouty task', priority: 'Urgent ' } },
+        { id: 'c2', name: 'add_task_to_today', args: { title: 'Weird task', priority: 'p1' } },
+      ] },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(2);
+    const { toolResponses } = await harness(page);
+    const last = toolResponses.find((r) => r.functionResponses.id === 'c2')!.functionResponses.response;
+    expect(last.current_tasks.find((t: any) => t.title === 'Shouty task').priority).toBe('urgent');
+    expect(last.current_tasks.find((t: any) => t.title === 'Weird task').priority).toBe('medium');
+  });
+
+  test('add_task_to_project: unique substring matches; a miss lands in Today WITH a note', async ({ page }) => {
+    await boot(page);
+
+    // TRANSPORT_PROJECTS is [{ name: 'Alpha' }] — 'alph' is a unique substring.
+    await emit(page, { toolCall: { functionCalls: [{ id: 'c1', name: 'add_task_to_project', args: { title: 'Fuzzy routed', project_name: 'alph' } }] } });
+    let { toolResponses } = await harness(page);
+    let echo = toolResponses.find((r) => r.functionResponses.id === 'c1')!.functionResponses.response;
+    expect(echo.destination).toBe('existing-project');
+    expect(echo.matched_project).toBe('Alpha');
+
+    // A genuine miss falls back to Today, and SAYS SO so the model can correct.
+    await emit(page, { toolCall: { functionCalls: [{ id: 'c2', name: 'add_task_to_project', args: { title: 'Lost task', project_name: 'Zebra Ops' } }] } });
+    ({ toolResponses } = await harness(page));
+    echo = toolResponses.find((r) => r.functionResponses.id === 'c2')!.functionResponses.response;
+    expect(echo.destination).toBe('today');
+    expect(echo.note).toContain('not matched');
+  });
+
+  test('the audio wire field is {audio} on the default stack and {media} on legacy', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => (window as any).__brainDumpLiveMock.injectAudio({ mimeType: 'audio/pcm;rate=16000', data: 'AAAA' }));
+    let keys = await page.evaluate(() => (window as any).__brainDumpLiveMock.lastRealtimeKeys);
+    expect(keys).toEqual(['audio']);
+
+    // Legacy stack (?m31=0): the old model NEEDS the media field.
+    await page.goto('/dev/braindump-repro?mocklive=1&m31=0');
+    await expect(page.getByTestId('transport-ready')).toHaveText('ready');
+    await page.getByTestId('transport-start').click();
+    await expect(page.getByTestId('transport-state')).toHaveText('listening');
+    await page.evaluate(() => (window as any).__brainDumpLiveMock.injectAudio({ mimeType: 'audio/pcm;rate=16000', data: 'AAAA' }));
+    keys = await page.evaluate(() => (window as any).__brainDumpLiveMock.lastRealtimeKeys);
+    expect(keys).toEqual(['media']);
   });
 
   test('a title that normalises to empty never dedups against anything', async ({ page }) => {
