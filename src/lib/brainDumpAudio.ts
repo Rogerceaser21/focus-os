@@ -106,6 +106,31 @@ const stats = {
   lastError: '' as string,
 };
 
+/* Live level feed for the hot-mic voice bars (Igor-approved 2026-07-29):
+   per-BLOCK loudness at ~43Hz (a block is ~2048 frames at the hardware rate),
+   kept as a tiny ring so the UI can render a few bars that move with the
+   user's actual voice — the strongest possible "it hears you" signal. */
+const LEVELS = 8;
+const levelRing: number[] = new Array(LEVELS).fill(0);
+let levelPos = 0;
+
+function pushLevel(block: Float32Array) {
+  let sumSq = 0;
+  // Sample every 4th frame — plenty for a UI level, quarter the work.
+  for (let i = 0; i < block.length; i += 4) sumSq += block[i] * block[i];
+  levelRing[levelPos] = Math.sqrt(sumSq / (block.length / 4));
+  levelPos = (levelPos + 1) % LEVELS;
+}
+
+/** Newest-first recent loudness samples (0..~1) for the voice bars. */
+export function getLiveLevels(count = 4): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < Math.min(count, LEVELS); i++) {
+    out.push(levelRing[(levelPos - 1 - i + LEVELS) % LEVELS]);
+  }
+  return out;
+}
+
 function ensureContext(): AudioContext {
   if (!state.ctx) {
     const Ctor = window.AudioContext || (window as any).webkitAudioContext;
@@ -127,6 +152,7 @@ function base64FromPcm16(pcm16: Int16Array): string {
 /** Resample an input block (at ctx rate) to 16k by linear interpolation,
  *  carrying fractional position and a one-sample tail across calls. */
 function pushBlock(block: Float32Array, inputRate: number) {
+  pushLevel(block);
   const joined = state.tail.length
     ? (() => { const j = new Float32Array(state.tail.length + block.length); j.set(state.tail, 0); j.set(block, state.tail.length); return j; })()
     : block;
@@ -262,6 +288,7 @@ export function stopCapture(): void {
   }
   state.accLen = 0;
   state.tail = new Float32Array(0);
+  levelRing.fill(0);
 }
 
 export function isCapturing(): boolean {

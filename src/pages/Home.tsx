@@ -18,6 +18,7 @@ import { HomeTour } from '@/components/HomeTour';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { useBrainDumpLive, type BrainDumpTask, type ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { BrainDumpDebugOverlay } from '@/components/BrainDumpDebugOverlay';
+import { BrainDumpVoiceBars } from '@/components/BrainDumpVoiceBars';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 
 const SUBTITLES = [
@@ -117,7 +118,7 @@ const Home = () => {
   // the orb glides left and captured tasks stream in on the right while you talk.
   // `idleStopSuspended` holds the hook's 90s quiet-session auto-stop off while a
   // direct save is in flight — the socket must not be pulled out from under a write.
-  const { tasks: liveTasks, connectionState, reconnecting, idleStopped, start, stop, resetTasks, restoreStagedCapture } =
+  const { tasks: liveTasks, connectionState, reconnecting, captureLive, idleStopped, start, stop, resetTasks, restoreStagedCapture } =
     useBrainDumpLive({ idleStopSuspended: isSaving });
 
   // ?fakedump=N (see makeFakeTask above): synthetic stream, no mic / no network.
@@ -533,17 +534,24 @@ const Home = () => {
             <div className="lg-mic"><Mic size={18} /></div>
             <div>
               <div className="lbl">
-                {connectionState === 'connecting' ? 'Connecting…'
+                {/* HOT MIC (2026-07-29): capture starts at the tap and pre-socket
+                    speech is buffered, so the moment the mic is live the stage
+                    truthfully says speak — "Connecting…" only covers the brief
+                    mic acquisition (or the first-run permission prompt). */}
+                {connectionState === 'connecting' ? (captureLive ? 'Listening… speak freely' : 'Getting the mic ready…')
                 : reconnecting ? 'Reconnecting…'
                 : idleStaged ? 'Paused — you went quiet'
                 : 'Listening… speak freely'}
               </div>
               <div className="sub">
-                {reconnecting ? 'The line dropped — hold that thought, it comes right back.'
+                {connectionState === 'connecting' && !captureLive ? 'One moment — allow the microphone if asked.'
+                : reconnecting ? 'The line dropped — hold that thought, it comes right back.'
                 : idleStaged ? 'Tap the orb to keep talking.'
                 : 'Tasks appear here as you talk.'}
               </div>
             </div>
+            {/* Live loudness from the engine — the "it hears you" signal. */}
+            <BrainDumpVoiceBars active={captureLive && !idleStaged} />
           </div>
           {/* role="log" = implicit polite live region: rows are announced as they
               land. Unstyled wrapper on purpose — it exists so the ResizeObserver

@@ -330,6 +330,11 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
   const [tasks, setTasks] = useState<BrainDumpTask[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [reconnecting, setReconnecting] = useState(false);
+  /** True from the moment the mic is actually capturing — BEFORE the socket
+   *  opens. Speech in that window is buffered and flushed on open, so the UI
+   *  may truthfully say "speak freely" the instant this flips (hot-mic
+   *  treatment, Igor-approved 2026-07-29). */
+  const [captureLive, setCaptureLive] = useState(false);
   /** The last stop was the silence auto-stop, not the user. STATE, not a ref:
    *  callers derive rendered output from it (react-router replays discardable
    *  renders, and a ref mutation survives a discard the setState does not). */
@@ -405,6 +410,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     bufferedAudioRef.current = [];
     pendingToolResponsesRef.current = [];
     setReconnecting(false);
+    setCaptureLive(false);
   }, [clearTimers, closeSession]);
 
   useEffect(() => {
@@ -1359,7 +1365,6 @@ SILENT MODE:
       if (!mockLiveEnabled()) {
         await engineStartCapture(handleAudioChunk);
       }
-
       // ZOMBIE GUARD (audit 2026-07-29): the engine await above is a real user
       // window on iOS (permission prompt + context resume) and the exit row is
       // already on screen — a Discard/stop landing in it must WIN, or the
@@ -1369,6 +1374,11 @@ SILENT MODE:
         engineStopCapture();
         return;
       }
+
+      // The mic is hot from here (mock: pretend, same UI path) — the stage may
+      // truthfully say "speak freely" while the socket is still opening. Set
+      // AFTER the guard: a stop that won the race must not leave this stale.
+      setCaptureLive(true);
 
       await connect({ preserveTasks: options?.preserveTasks });
     } catch (error: any) {
@@ -1444,6 +1454,8 @@ SILENT MODE:
     /** True between an unexpected close and the socket coming back. The mic stays
      *  open throughout; a bounded tail of audio is buffered across the gap. */
     reconnecting,
+    /** Mic actually capturing (pre-socket included) — drives the hot-mic UI. */
+    captureLive,
     /** The last stop was the silence auto-stop. The captured list is untouched —
      *  callers keep their capture surface up so the exits stay reachable.
      *  Cleared by start(), stop() and resetTasks(). */
