@@ -8,7 +8,7 @@
 // `initialTasks` prop, so tests/braindump-save.spec.ts can click "Save All Tasks" with
 // NO live Gemini session and NO microphone. Keep this in lockstep with Home.tsx's
 // brain-dump wiring: whatever Home hands the dialog and does on onTasksCreated, this does.
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,7 +63,7 @@ const REPRO_TASKS: BrainDumpTask[] = [
 const TRANSPORT_PROJECTS: ProjectInfo[] = [{ id: 'proj-alpha', name: 'Alpha' }];
 
 const BrainDumpTransportHarness = () => {
-  const { tasks, connectionState, reconnecting, start, stop } = useBrainDumpLive();
+  const { tasks, connectionState, reconnecting, idleStopped, start, stop } = useBrainDumpLive();
   const [startError, setStartError] = useState('');
 
   const handleStart = useCallback(async () => {
@@ -84,6 +84,7 @@ const BrainDumpTransportHarness = () => {
       </div>
       <div data-testid="transport-state">{connectionState}</div>
       <div data-testid="transport-reconnecting">{reconnecting ? 'yes' : 'no'}</div>
+      <div data-testid="transport-idle-stopped">{idleStopped ? 'yes' : 'no'}</div>
       <div data-testid="transport-error">{startError}</div>
       <ol data-testid="transport-tasks">
         {tasks.map((t) => (
@@ -92,6 +93,54 @@ const BrainDumpTransportHarness = () => {
           </li>
         ))}
       </ol>
+    </div>
+  );
+};
+
+/* ── Audio-engine harness (?audioprobe=1) ────────────────────────────────────
+   Drives ONLY src/lib/brainDumpAudio.ts — no auth, no Gemini, no Supabase. The
+   dead-second-session bug (2026-07-28) was the AUDIO layer going silent across
+   stop/start cycles on iOS Safari while every socket-side signal looked
+   healthy, so the engine's cross-session survival needs its own real-WebKit
+   probe: start -> stop -> start on this page, and the chunk counter + RMS must
+   keep moving in every session. */
+const AudioProbeHarness = () => {
+  const [chunks, setChunks] = useState(0);
+  const [snap, setSnap] = useState('{}');
+  const [probeError, setProbeError] = useState('');
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      import('@/lib/brainDumpAudio').then((m) => setSnap(JSON.stringify(m.getDebugSnapshot())));
+    }, 400);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const handleStart = useCallback(async () => {
+    setProbeError('');
+    try {
+      const { startCapture } = await import('@/lib/brainDumpAudio');
+      await startCapture(() => setChunks((n) => n + 1));
+    } catch (err: unknown) {
+      setProbeError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
+  const handleStop = useCallback(async () => {
+    const { stopCapture } = await import('@/lib/brainDumpAudio');
+    stopCapture();
+  }, []);
+
+  return (
+    <div className="p-6 space-y-3">
+      <div data-testid="audioprobe-ready">ready</div>
+      <div>
+        <button data-testid="audioprobe-start" onClick={handleStart}>start</button>
+        <button data-testid="audioprobe-stop" onClick={handleStop}>stop</button>
+      </div>
+      <div data-testid="audioprobe-chunks">{chunks}</div>
+      <div data-testid="audioprobe-snap">{snap}</div>
+      <div data-testid="audioprobe-error">{probeError}</div>
     </div>
   );
 };
@@ -208,6 +257,7 @@ const BrainDumpRepro = () => {
   // Transport / confirm modes need no auth and no dialog — every hook above
   // still ran, so the branch is only in the returned tree.
   if (mockLive) return <BrainDumpTransportHarness />;
+  if (searchParams.get('audioprobe') === '1') return <AudioProbeHarness />;
   if (confirmVariant === '1' || confirmVariant === '2') return <ConfirmHarness variant={confirmVariant} />;
   if (searchParams.get('review') === '1') return <ReviewHarness />;
 

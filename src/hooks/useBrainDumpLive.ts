@@ -1,6 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { GoogleGenAI, Modality, Type, Behavior, FunctionResponseScheduling } from '@google/genai';
+import {
+  GoogleGenAI, Modality, Type, Behavior, FunctionResponseScheduling, ActivityHandling,
+} from '@google/genai';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { startCapture as engineStartCapture, stopCapture as engineStopCapture, getDebugSnapshot as getAudioDebugSnapshot } from '@/lib/brainDumpAudio';
 import type { TaskPriority } from '@/types/task';
 
 export interface BrainDumpTask {
@@ -35,17 +39,52 @@ const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_BACKOFF_MS = [250, 750, 2000];
 /** Reconnect this long before the deadline the server announced in `goAway`. */
 const GO_AWAY_LEAD_MS = 1000;
-/** ~256ms of PCM per chunk (4096 frames @16kHz), so this is a ~6s tail. */
-const MAX_BUFFERED_AUDIO_CHUNKS = 24;
+/** ~256ms of PCM per chunk (4096 frames @16kHz), so this is a ~10s tail. The
+ *  buffer now also covers the PRE-CONNECT window — capture starts on the orb
+ *  tap, before the socket exists, so the user's first words ride in here and
+ *  flush on open instead of being lost to the connect latency. */
+const MAX_BUFFERED_AUDIO_CHUNKS = 40;
 const MAX_PENDING_TOOL_RESPONSES = 32;
 /** Enough history to answer any re-delivery; bounded so a storm cannot balloon. */
 const MAX_PROCESSED_CALLS = 200;
 
+/* ── Prompt budget ───────────────────────────────────────────────────────────
+   Gemini Live re-prefills the ENTIRE cumulative context on every turn, so the
+   setup payload is paid again on each utterance: prompt size is latency, on
+   every sentence, for the whole session. Both lists below are therefore bounded
+   — an account with 300 projects, or a long dump on its third reconnect, must
+   not make a one-sentence task slow. */
+const MAX_PROJECTS_IN_PROMPT = 60;
+const MAX_PREVIOUS_TASKS_IN_PROMPT = 30;
+
+/* ── Idle auto-stop ──────────────────────────────────────────────────────────
+   Silence bills at the full audio rate, so a session the user walked away from
+   is a live meter. The server sends NOTHING while nobody is talking, so "no
+   server message at all for this long" is the cleanest, cheapest proxy for
+   "nobody is there" — no VAD mirroring on the client, no extra timers on the
+   mic path. Any message (tool call, resumption handle, goAway, transcript)
+   pushes the deadline out. */
+const IDLE_STOP_MS = 90_000;
+
+/** DEV-only: ?idlestop=<ms> shortens the wait so a spec can prove the path in a
+ *  few seconds. import.meta.env.DEV is the literal `false` in a production
+ *  build, so this whole branch is dead-code-eliminated (same precedent as the
+ *  mock transport below). */
+function idleStopMs(): number {
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    const raw = new URLSearchParams(window.location.search).get('idlestop');
+    const ms = raw ? Number.parseInt(raw, 10) : NaN;
+    if (Number.isFinite(ms) && ms > 0) return ms;
+  }
+  return IDLE_STOP_MS;
+}
+
 /* ── Bisect switches (house law: one suspect off, let the rig confess) ────────
-   Flip either to true to prove the guard it names is what a test is measuring.
+   Flip any to true to prove the guard it names is what a test is measuring.
    tests/braindump-live-transport.spec.ts documents the expected failures. */
 const BISECT_DISABLE_TOOLCALL_DEDUP = false;
 const BISECT_DISABLE_RECONNECT = false;
+const BISECT_DISABLE_IDLE_STOP = false;
 
 /* Async function calling. Declaring the extraction tools NON_BLOCKING and
    answering SILENT means the model never stalls waiting on our echo and never
@@ -54,20 +93,94 @@ const BISECT_DISABLE_RECONNECT = false;
    One-line revert if a live call ever misbehaves on this model. */
 const USE_NON_BLOCKING_TOOLS = true;
 
-// Audio helpers
-function createPcmBlob(float32Data: Float32Array): { mimeType: string; data: string } {
-  const pcm16 = new Int16Array(float32Data.length);
-  for (let i = 0; i < float32Data.length; i++) {
-    const s = Math.max(-1, Math.min(1, float32Data[i]));
-    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-  }
-  const uint8 = new Uint8Array(pcm16.buffer);
-  let binary = '';
-  for (let i = 0; i < uint8.length; i++) {
-    binary += String.fromCharCode(uint8[i]);
-  }
-  return { mimeType: 'audio/pcm;rate=16000', data: btoa(binary) };
+/* ── The v50 stack: gemini-3.1-flash-live-preview + NO_INTERRUPTION, DEFAULT ──
+   Igor's device verdict 2026-07-28 evening: the ?ni=1&m31=1 arm was the first
+   build that behaved ("this is the one"), so it IS the behaviour now. 3.1 is
+   Google's own "migrate immediately" target for the old native-audio preview:
+   no 1-in-5-10 WS-1008 kill at tool dispatch, per-turn tool emission. Its
+   tools are SYNC-ONLY, so NON_BLOCKING declarations and SILENT scheduling are
+   dropped with it, and audio ships as the `audio` field (3.1 closes 1007 on
+   the legacy `media` field).
+   ROLLBACK, no deploy needed: ?m31=0 = old model + NON_BLOCKING/SILENT +
+   legacy wire field; ?ni=0 = barge-in interruption back on. Both pinned in
+   tests/braindump-live-transport.spec.ts. */
+const MODEL_31 = 'gemini-3.1-flash-live-preview';
+
+/* Flags are captured ONCE at module load — the router redirect (/preview/?m31=0
+   -> /preview/home) STRIPS the query string, which silently voided a whole
+   device A/B on 2026-07-28 (no debug overlay in the screenshots = params
+   already gone). Module load happens while the entry URL is still intact, so
+   this snapshot survives any later navigation. A live param still wins when
+   present; '1' forces on, '0' forces off, absent = the flag's default. */
+const initialParams = typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search)
+  : new URLSearchParams();
+
+function flagEnabled(name: string, defaultOn: boolean): boolean {
+  if (typeof window === 'undefined') return defaultOn;
+  const live = new URLSearchParams(window.location.search).get(name);
+  if (live === '1') return true;
+  if (live === '0') return false;
+  const initial = initialParams.get(name);
+  if (initial === '1') return true;
+  if (initial === '0') return false;
+  return defaultOn;
 }
+
+function m31Enabled(): boolean {
+  return flagEnabled('m31', true);
+}
+/** NON_BLOCKING + SILENT apply only where the model supports them. */
+function nonBlockingTools(): boolean {
+  return USE_NON_BLOCKING_TOOLS && !m31Enabled();
+}
+
+/* ── NO_INTERRUPTION, DEFAULT since v50 (?ni=0 restores barge-in) ────────────
+   Device-diagnosed 2026-07-28 (Igor's ?debug=1 screenshot: socket 1/0/0,
+   audio healthy, toolCalls:3 for 4 spoken tasks): with default barge-in
+   handling, the user STARTING THE NEXT TASK interrupts the generation that
+   carries the previous task's tool call — calls only survive once the user
+   stops entirely, which was exactly the batch-at-end arrival, on BOTH models.
+   NO_INTERRUPTION lets each pause's generation finish while speech continues.
+   This is a mechanism switch, not VAD threshold tuning — the P1/F1 ban on
+   unmeasured tuning values stands. */
+function niEnabled(): boolean {
+  return flagEnabled('ni', true);
+}
+
+/** The overlay flag rides the same redirect-proof snapshot. Default OFF. */
+export function debugFlagEnabled(): boolean {
+  return flagEnabled('debug', false);
+}
+
+/* Audio capture lives in src/lib/brainDumpAudio.ts — ONE page-lifetime
+   AudioContext at the hardware rate, AudioWorklet capture, 16k resample in
+   code. The per-session `new AudioContext({sampleRate:16000})` + close() churn
+   that used to live here produced SILENT second sessions on iOS Safari
+   (device-confirmed 2026-07-28): socket up, UI "Listening", model hearing
+   nothing. Sessions now attach to the engine; they never own audio. */
+
+/* ── Production debug counters (?debug=1 overlay) ────────────────────────────
+   Plain module-level mutations — no state, no renders, negligible cost — kept
+   in the PRODUCTION bundle on purpose: "is the socket alive / is audio flowing"
+   must be answerable on Igor's phone without a dev build. The overlay in
+   Home.tsx polls this object; nothing else reads it. */
+export const brainDumpDebug = {
+  socketOpens: 0,
+  socketCloses: 0,
+  socketErrors: 0,
+  reconnectsScheduled: 0,
+  toolCallsReceived: 0,
+  chunksSentLive: 0,
+  chunksBuffered: 0,
+  lastServerMessageAt: 0,
+  lastCloseInfo: '',
+  model: '',
+  audio: () => getAudioDebugSnapshot(),
+};
+// Reachable from a Safari Web Inspector (USB) or an automation probe without
+// the overlay mounted — same production-debuggability rationale as above.
+if (typeof window !== 'undefined') (window as any).__bdDebug = brainDumpDebug;
 
 // Get today's date info for the system prompt
 function getTodayDateString(): string {
@@ -100,13 +213,31 @@ function parseDurationMs(value: unknown): number | null {
 type LiveCallbacks = {
   onopen: () => void;
   onmessage: (message: any) => void;
-  onclose: () => void;
+  onclose: (e?: any) => void;
   onerror: (err: any) => void;
 };
 
+/** One entry per ai.live.connect the hook would have made. Everything a spec
+ *  needs to assert about the setup payload without a socket. */
+type MockConnectRecord = {
+  model: string;
+  handle: string | null;
+  toolNames: string[];
+  /** Distinct `behavior` values across the declarations — ['NON_BLOCKING'] in
+   *  default mode, [] under ?m31=1 (3.1 tools are sync-only). */
+  toolBehaviors: string[];
+  /** realtimeInputConfig.activityHandling — null by default, 'NO_INTERRUPTION' under ?ni=1. */
+  activityHandling: string | null;
+  vad: Record<string, unknown> | null;
+  compression: Record<string, unknown> | null;
+  systemInstructionChars: number;
+  /** The prompt text itself, so a spec can assert WHICH register shipped (the
+   *  act-immediately timing rule), not merely how long the payload is. */
+  systemInstruction: string;
+};
+
 interface MockLiveHarness {
-  /** One entry per ai.live.connect the hook would have made. */
-  connects: Array<{ model: string; handle: string | null; toolNames: string[] }>;
+  connects: MockConnectRecord[];
   toolResponses: any[];
   realtimeChunks: number;
   clientCloses: number;
@@ -135,6 +266,20 @@ function connectMockLiveSession(params: { model: string; config: any; callbacks:
     model: params.model,
     handle: params.config?.sessionResumption?.handle ?? null,
     toolNames: (params.config?.tools?.[0]?.functionDeclarations ?? []).map((d: any) => d.name),
+    toolBehaviors: [...new Set(
+      (params.config?.tools?.[0]?.functionDeclarations ?? [])
+        .map((d: any) => d.behavior)
+        .filter(Boolean) as string[],
+    )],
+    activityHandling: params.config?.realtimeInputConfig?.activityHandling ?? null,
+    vad: params.config?.realtimeInputConfig?.automaticActivityDetection ?? null,
+    compression: params.config?.contextWindowCompression ?? null,
+    systemInstructionChars: typeof params.config?.systemInstruction === 'string'
+      ? params.config.systemInstruction.length
+      : 0,
+    systemInstruction: typeof params.config?.systemInstruction === 'string'
+      ? params.config.systemInstruction
+      : '',
   });
 
   const session = {
@@ -163,23 +308,29 @@ type ToolOutcome = {
 type ProcessedCall = { name: string; result: any; createdTaskId?: string };
 
 type ConnectOptions = {
-  /** false on a reconnect: the existing mic + audio graph are kept alive. */
-  acquireMic: boolean;
+  /** Audio is NOT connect's business: the engine (src/lib/brainDumpAudio.ts)
+   *  captures across connects and reconnects alike; start() owns it. */
   /** Reconnect resumes the server-side session state when a handle is in hand. */
   resumeHandle?: string;
   preserveTasks?: boolean;
 };
 
-export function useBrainDumpLive() {
+type BrainDumpLiveOptions = {
+  /** True while the caller is mid-save. The idle countdown keeps waiting rather
+   *  than pulling the socket out from under a write in flight. */
+  idleStopSuspended?: boolean;
+};
+
+export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
   const [tasks, setTasks] = useState<BrainDumpTask[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [reconnecting, setReconnecting] = useState(false);
+  /** The last stop was the silence auto-stop, not the user. STATE, not a ref:
+   *  callers derive rendered output from it (react-router replays discardable
+   *  renders, and a ref mutation survives a discard the setState does not). */
+  const [idleStopped, setIdleStopped] = useState(false);
 
   const sessionRef = useRef<any>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const inputAudioContextRef = useRef<AudioContext | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
   const taskCounterRef = useRef(0);
   const tasksRef = useRef<BrainDumpTask[]>([]);
@@ -193,6 +344,12 @@ export function useBrainDumpLive() {
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<number | null>(null);
   const goAwayTimerRef = useRef<number | null>(null);
+  const idleTimerRef = useRef<number | null>(null);
+  /** Mirrored during render (idempotent, same precedent as connectRef below):
+   *  the timer callback has to read the CURRENT value, not the one captured
+   *  when it was armed. */
+  const idleSuspendedRef = useRef(false);
+  idleSuspendedRef.current = !!options?.idleStopSuspended;
   const resumeHandleRef = useRef<string | null>(null);
   const configRef = useRef<{ token: string; ephemeral: boolean; model: string } | null>(null);
   /** Bumped on every connect + teardown; callbacks from a superseded socket bail. */
@@ -206,25 +363,6 @@ export function useBrainDumpLive() {
     tasksRef.current = tasks;
   }, [tasks]);
 
-  const teardownAudio = useCallback((options?: { keepMic?: boolean }) => {
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-    if (sourceRef.current) {
-      sourceRef.current.disconnect();
-      sourceRef.current = null;
-    }
-    if (inputAudioContextRef.current) {
-      inputAudioContextRef.current.close();
-      inputAudioContextRef.current = null;
-    }
-    if (!options?.keepMic && streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-  }, []);
-
   const clearTimers = useCallback(() => {
     if (reconnectTimerRef.current !== null) {
       window.clearTimeout(reconnectTimerRef.current);
@@ -233,6 +371,10 @@ export function useBrainDumpLive() {
     if (goAwayTimerRef.current !== null) {
       window.clearTimeout(goAwayTimerRef.current);
       goAwayTimerRef.current = null;
+    }
+    if (idleTimerRef.current !== null) {
+      window.clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
     }
   }, []);
 
@@ -248,15 +390,17 @@ export function useBrainDumpLive() {
     }
   }, []);
 
-  /** Full stop: no socket, no timers, no mic, nothing queued. Never the task list. */
+  /** Full stop: no socket, no timers, no mic, nothing queued. Never the task list.
+   *  The audio ENGINE releases the mic but keeps its AudioContext alive — the
+   *  context churn is what killed second sessions. */
   const teardown = useCallback(() => {
     clearTimers();
     closeSession();
-    teardownAudio();
+    engineStopCapture();
     bufferedAudioRef.current = [];
     pendingToolResponsesRef.current = [];
     setReconnecting(false);
-  }, [clearTimers, closeSession, teardownAudio]);
+  }, [clearTimers, closeSession]);
 
   useEffect(() => {
     return () => {
@@ -266,6 +410,54 @@ export function useBrainDumpLive() {
     };
   }, [teardown]);
 
+  /**
+   * The ONE stop path. Socket, mic and timers go down; the captured list is
+   * never touched, so whatever was said is still staged for the caller's exits.
+   * `reason` only decides whether the quiet toast fires and whether the idle
+   * latch is raised — an idle stop is a deliberate stop in every other respect
+   * (intentional, so onclose schedules no reconnect).
+   */
+  const stopSession = useCallback((reason: 'user' | 'idle') => {
+    intentionalStopRef.current = true;
+    activeRef.current = false;
+    teardown();
+    setConnectionState('idle');
+    setIdleStopped(reason === 'idle');
+    if (reason === 'idle') {
+      toast('Stopped listening — you were quiet for a while');
+    }
+  }, [teardown]);
+
+  /** Break the arm -> re-arm cycle without a self-referencing closure. */
+  const armIdleTimerRef = useRef<(() => void) | null>(null);
+
+  /** (Re)start the quiet-session countdown. Called on connect and after EVERY
+   *  server message, so any activity at all pushes the deadline out. */
+  const armIdleTimer = useCallback(() => {
+    if (idleTimerRef.current !== null) {
+      window.clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+    if (BISECT_DISABLE_IDLE_STOP) return;
+    if (!activeRef.current || intentionalStopRef.current) return;
+
+    idleTimerRef.current = window.setTimeout(() => {
+      idleTimerRef.current = null;
+      // Re-checked at FIRE time, not at arm time: a save that started during
+      // the wait, or a reconnect still in flight, both mean this is not an
+      // abandoned session.
+      if (!activeRef.current || intentionalStopRef.current) return;
+      if (idleSuspendedRef.current) { armIdleTimerRef.current?.(); return; }
+      if (!sessionRef.current) return;   // mid-reconnect; onopen arms a fresh one
+      console.warn(`Gemini Live: no server activity for ${idleStopMs()}ms — auto-stopping`);
+      stopSession('idle');
+    }, idleStopMs());
+  }, [stopSession]);
+
+  // Idempotent latest-value holder, assigned during render (same precedent as
+  // connectRef further down).
+  armIdleTimerRef.current = armIdleTimer;
+
   /** Echo a function call. Queued (not dropped) if the socket is not up yet. */
   const sendToolResponse = useCallback((id: string | undefined, name: string, response: any) => {
     const payload = {
@@ -273,13 +465,20 @@ export function useBrainDumpLive() {
         id,
         name,
         response,
-        ...(USE_NON_BLOCKING_TOOLS && { scheduling: FunctionResponseScheduling.SILENT }),
+        ...(nonBlockingTools() && { scheduling: FunctionResponseScheduling.SILENT }),
       },
     };
     const session = sessionRef.current;
     if (session) {
-      session.sendToolResponse(payload);
-      return;
+      try {
+        session.sendToolResponse(payload);
+        return;
+      } catch (err) {
+        // The socket died between the call and the echo. Fall through to the
+        // queue so this generation's flush can still answer it — the caller
+        // must never lose its own state-update because the send threw.
+        console.warn('Gemini Live: sendToolResponse threw, queueing the echo', err);
+      }
     }
     // Callbacks can fire before live.connect() resolves, and a reconnect leaves a
     // short gap. Hold the echo for THIS socket generation only — ids do not carry
@@ -301,19 +500,19 @@ export function useBrainDumpLive() {
     const getCurrentTasksSummary = (tasksState: BrainDumpTask[]) =>
       tasksState.map(t => ({ task_id: t.id, title: t.title, priority: t.priority, destination: t.destination, projectName: t.projectName }));
 
-    // DEDUPLICATION GUARD: Check if a task with a very similar title already exists.
-    // If so, merge/update instead of creating a duplicate. This prevents the LLM
-    // from re-creating tasks during "Keep Talking" sessions.
+    // DEDUPLICATION GUARD: only an EXACT title match (after normalisation) counts
+    // as a duplicate — that still catches the model literally re-creating a task
+    // after a reconnect replay, which is what this guard exists for. It used to
+    // also match on substring containment, which silently swallowed legitimately
+    // distinct tasks ("Call mum" ate "Call mum about the car") while echoing
+    // success to the model so it never retried — device-confirmed 2026-07-28.
+    // A title that normalises to '' (all punctuation, or a non-Latin script such
+    // as Arabic) must never dedup at all: '' used to substring-match EVERY task.
     const findDuplicateTask = (title: string): BrainDumpTask | undefined => {
       const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
       const normalizedTitle = normalize(title);
-      return base.find(t => {
-        const existing = normalize(t.title);
-        // Exact match after normalization, or one contains the other
-        return existing === normalizedTitle
-          || existing.includes(normalizedTitle)
-          || normalizedTitle.includes(existing);
-      });
+      if (!normalizedTitle) return undefined;
+      return base.find(t => normalize(t.title) === normalizedTitle);
     };
 
     if (fc.name === 'add_task_to_today') {
@@ -519,38 +718,24 @@ export function useBrainDumpLive() {
     return { next: base, result: { result: 'ok' } };
   }, []);
 
-  /** Build (or re-attach) the mic -> PCM -> socket pipeline. Idempotent. */
-  const attachAudio = useCallback(() => {
-    if (!streamRef.current) return;      // mock transport, or the mic was never granted
-    if (processorRef.current) return;    // a reconnect keeps the graph it already has
-
-    const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-    inputAudioContextRef.current = inputCtx;
-
-    const src = inputCtx.createMediaStreamSource(streamRef.current);
-    sourceRef.current = src;
-
-    // --- PCM processor for Gemini ---
-    const processor = inputCtx.createScriptProcessor(4096, 1, 1);
-    processorRef.current = processor;
-
-    processor.onaudioprocess = (e) => {
-      const inputData = e.inputBuffer.getChannelData(0);
-      const pcmBlob = createPcmBlob(inputData);
-      const session = sessionRef.current;
-      if (session) {
-        session.sendRealtimeInput({ media: pcmBlob });
-        return;
-      }
-      // Mid-reconnect: hold a bounded tail so a sentence spoken across the gap
-      // survives. Oldest chunks go first — a stale tail is worse than no tail.
-      const buffer = bufferedAudioRef.current;
-      buffer.push(pcmBlob);
-      if (buffer.length > MAX_BUFFERED_AUDIO_CHUNKS) buffer.shift();
-    };
-
-    src.connect(processor);
-    processor.connect(inputCtx.destination);
+  /** The engine's chunk sink: live socket if there is one, else the bounded
+   *  buffer. Covers BOTH gaps — pre-connect (capture starts on the orb tap,
+   *  before the socket exists) and mid-reconnect. Oldest chunks go first — a
+   *  stale tail is worse than no tail. */
+  const handleAudioChunk = useCallback((pcmBlob: { mimeType: string; data: string }) => {
+    const session = sessionRef.current;
+    if (session) {
+      brainDumpDebug.chunksSentLive += 1;
+      // 3.1 closes 1007 on the legacy `media` field ("realtime_input.media_chunks
+      // is deprecated. Use audio, video, or text instead." — sim-caught
+      // 2026-07-28). The default model keeps its proven wire shape untouched.
+      session.sendRealtimeInput(m31Enabled() ? { audio: pcmBlob } : { media: pcmBlob });
+      return;
+    }
+    brainDumpDebug.chunksBuffered += 1;
+    const buffer = bufferedAudioRef.current;
+    buffer.push(pcmBlob);
+    if (buffer.length > MAX_BUFFERED_AUDIO_CHUNKS) buffer.shift();
   }, []);
 
   const fetchLiveConfig = useCallback(async () => {
@@ -592,12 +777,12 @@ export function useBrainDumpLive() {
     const attempt = ++reconnectAttemptsRef.current;
     const delay = RECONNECT_BACKOFF_MS[attempt - 1] ?? RECONNECT_BACKOFF_MS[RECONNECT_BACKOFF_MS.length - 1];
     console.warn(`Gemini Live: reconnecting (attempt ${attempt}, ${reason}) in ${delay}ms`);
+    brainDumpDebug.reconnectsScheduled += 1;
     setReconnecting(true);
 
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
       connectRef.current?.({
-        acquireMic: false,
         resumeHandle: resumeHandleRef.current ?? undefined,
         preserveTasks: true,
       }).catch((err) => {
@@ -617,18 +802,23 @@ export function useBrainDumpLive() {
     const config = mockLiveEnabled()
       ? { token: 'mock', ephemeral: false, model: DEFAULT_MODEL }
       : await fetchLiveConfig();
+    // ?m31=1 wins over BOTH the server-supplied model and the default — the
+    // server always sends a truthy model, so an override anywhere later would
+    // never fire (the line-700 precedence trap, war-room 2026-07-28).
+    const effectiveModel = m31Enabled() ? MODEL_31 : (config.model || DEFAULT_MODEL);
+    brainDumpDebug.model = effectiveModel;
 
-    if (options.acquireMic && !mockLiveEnabled()) {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
-      });
-      streamRef.current = stream;
-    }
-
-    // Build system instruction with project list
+    // Build system instruction with project list. BOUNDED (MAX_PROJECTS_IN_PROMPT):
+    // the whole setup payload is re-prefilled on every turn, so quoting all of a
+    // 300-project account here would tax every single utterance for the length of
+    // the session. Names only, still quoted so the model matches them verbatim,
+    // and the tail is acknowledged rather than silently dropped so the model does
+    // not conclude an unlisted project cannot exist.
     const projects = projectsRef.current;
+    const shownProjects = projects.slice(0, MAX_PROJECTS_IN_PROMPT);
+    const hiddenProjects = projects.length - shownProjects.length;
     const projectListStr = projects.length > 0
-      ? `\nExisting projects: ${projects.map(p => `"${p.name}"`).join(', ')}`
+      ? `\nExisting projects: ${shownProjects.map(p => `"${p.name}"`).join(', ')}${hiddenProjects > 0 ? ` (+${hiddenProjects} more not listed)` : ''}`
       : '\nNo existing projects yet.';
 
     const todayStr = getTodayDateString();
@@ -638,44 +828,55 @@ export function useBrainDumpLive() {
     // what already exists, or the model re-creates it.
     let existingTasksStr = '';
     if (options.preserveTasks && tasksRef.current.length > 0) {
-      const taskLines = tasksRef.current.map(t =>
-        `  - task_id: "${t.id}", title: "${t.title}", priority: "${t.priority}", destination: "${t.destination}"${t.projectName ? `, project: "${t.projectName}"` : ''}`
-      ).join('\n');
-      existingTasksStr = `\n\nPREVIOUSLY EXTRACTED TASKS (these already exist — use update_task or move_task to modify them, NEVER re-create them):
-${taskLines}
-You MUST use the task_ids listed above for any updates, moves, or removals. Do NOT create new tasks with the same titles.`;
+      // BOUNDED (MAX_PREVIOUS_TASKS_IN_PROMPT), newest kept, and id + title +
+      // destination ONLY. This block exists to stop the model re-creating what
+      // already exists, not to mirror the list — priority and project text bought
+      // nothing here and were re-prefilled on every turn after the reconnect.
+      const all = tasksRef.current;
+      const shown = all.slice(-MAX_PREVIOUS_TASKS_IN_PROMPT);
+      const omitted = all.length - shown.length;
+      const taskLines = shown.map(t => `  - "${t.id}" ${t.title} -> ${t.destination}`).join('\n');
+      existingTasksStr = `\n\nPREVIOUSLY EXTRACTED TASKS (already exist — use update_task or move_task, NEVER re-create them):
+${taskLines}${omitted > 0 ? `\n  (+${omitted} older, not listed)` : ''}
+Use these task_ids for any updates, moves or removals. Do NOT create new tasks with these titles.`;
     }
 
-    const systemInstruction = `You are a task extraction assistant for a productivity app called "Brain Dump". The user will speak freely about tasks they need to do. Your job is to extract tasks and route them to the correct destination.
+    /* EXTRACTION TIMING — v40 register, REVERTED here 2026-07-28 after the P1/F1
+       tuning wave failed Igor's feel gate twice ("worse than before" both times).
+       The fire-immediately register + VAD/compression configs live in git
+       (89c35bf / 1a059a6) for the measurement-rig autopsy; nothing returns to
+       this prompt or the connect config without device-measured numbers first. */
+    const timingRule = `TASK EXTRACTION TIMING:
+- Wait until a task is complete before calling any tool. Complete = a clear action and a subject. A natural pause or silence is your signal that a thought is finished. Do NOT call tools mid-sentence or on partial utterances.`;
+
+    const systemInstruction = `You extract tasks from speech for a productivity app, "Brain Dump", and route each one to the right destination.
 ${projectListStr}
 
-Today's date is: ${todayStr}.
-When the user mentions relative dates like "next Friday", "end of the month", "in 3 days", convert them to ISO format (YYYY-MM-DD) based on today's date.
+Today is ${todayStr}. Convert relative dates ("next Friday", "end of the month", "in 3 days") to ISO YYYY-MM-DD against today.
 ${existingTasksStr}
 
 ROUTING RULES:
-- If the user mentions a specific existing project name, use add_task_to_project with that project's name
-- If the user says "new project" or mentions a project that doesn't exist, use create_project_and_add_task
-- If no project context is given, default to add_task_to_today
+- User names an existing project -> add_task_to_project with that project's name
+- User says "new project", or names a project that does not exist -> create_project_and_add_task
+- No project context -> add_task_to_today
 - Act decisively. Do NOT ask clarifying questions. Just pick the best match.
-- If a project name is close but not exact (e.g. "marketing" vs "Marketing Plan"), match to the closest existing project
+- Close but not exact ("marketing" vs "Marketing Plan") -> match the closest existing project
+
+${timingRule}
 
 TASK EXTRACTION RULES:
-- Wait until the user has finished describing a complete task before calling any tool. A task is complete when it has a clear action and a subject. A natural pause or silence is your signal that a thought is complete. Do NOT call tools mid-sentence or on partial utterances.
-- Extract clear, actionable task titles (keep them concise, under 10 words)
-- Add a brief description if the user provides additional context
-- Assign priority based on urgency cues: "urgent", "important", "ASAP" → urgent/high; normal items → medium; "whenever", "nice to have" → low
-- If the user mentions a start date, end date, or due date, extract it as an ISO date (YYYY-MM-DD) and include start_date, end_date, and/or due_date in the tool call
+- Titles: clear, actionable, under 10 words. Add a brief description only if the user gave extra context.
+- Priority from urgency cues: "urgent", "important", "ASAP" → urgent/high; normal → medium; "whenever", "nice to have" → low
+- A mentioned start, end or due date goes in start_date / end_date / due_date as ISO YYYY-MM-DD
 
 CORRECTION RULES (CRITICAL — READ CAREFULLY):
-- NEVER create a new task when the user wants to MODIFY an existing task. If a task with a similar title already exists, you MUST use update_task or move_task — NEVER add_task_to_today or add_task_to_project.
-- When the user asks to change a property (priority, title, description, dates, project) of MULTIPLE existing tasks, you MUST call update_task ONCE PER TASK using the task_id you received when each task was created. Do NOT call any add_task tool. Do NOT re-create the tasks.
-- When the user says "change all priorities to urgent" or "make them all urgent", that means call update_task for EACH existing task. Count them. If there are 3 tasks, you must make exactly 3 update_task calls.
-- If the user asks to MOVE a task from one place to another, use the move_task tool with the task_id you received when that task was created. Do NOT simulate a move by calling add_task + remove_task. That causes duplicates.
-- If the user says "actually put that in [project]" or "move [task] to [project]", this is always a move_task call.
-- For update_task, move_task, and remove_task: ALWAYS use task_id. Only fall back to searchPhrase if you truly do not have the task_id.
+- NEVER create a new task when the user wants to MODIFY an existing one. If a similar title already exists you MUST use update_task or move_task — NEVER add_task_to_today or add_task_to_project.
+- Changing a property (priority, title, description, dates, project) on MULTIPLE existing tasks = ONE update_task call PER TASK, using each task_id. Do NOT call any add_task tool. Do NOT re-create them. "Make them all urgent" with 3 tasks means exactly 3 update_task calls — count them.
+- MOVING a task = move_task with its task_id. Do NOT simulate a move with add_task + remove_task. That causes duplicates.
+- "Actually put that in [project]" or "move [task] to [project]" is always move_task.
+- For update_task, move_task and remove_task: ALWAYS use task_id. Only fall back to searchPhrase if you truly do not have it.
 - If the user corrects or removes a task, use update_task or remove_task accordingly.
-- EVERY tool response includes a "current_tasks" field listing all existing tasks with their task_ids. Use these task_ids for any subsequent updates, moves, or removals.
+- EVERY tool response returns "current_tasks" listing all existing tasks with their task_ids. Use those ids for any later updates, moves or removals.
 
 SILENT MODE:
 - You are in SILENT mode. Do NOT speak. Execute tools and output as little audio as possible.`;
@@ -687,7 +888,7 @@ SILENT MODE:
       due_date: { type: Type.STRING, description: 'Task due date in ISO format (YYYY-MM-DD)' },
     };
 
-    const toolBehavior = USE_NON_BLOCKING_TOOLS ? { behavior: Behavior.NON_BLOCKING } : {};
+    const toolBehavior = nonBlockingTools() ? { behavior: Behavior.NON_BLOCKING } : {};
 
     const tools = [{
       functionDeclarations: [
@@ -792,6 +993,17 @@ SILENT MODE:
       // Handles stay valid for ~2h, which is what lets an unexpected close or a
       // goAway be picked up mid-sentence instead of starting a blank session.
       sessionResumption: options.resumeHandle ? { handle: options.resumeHandle } : {},
+
+      /* NO automaticActivityDetection thresholds and NO contextWindowCompression
+         — REVERTED to the v40 wire behaviour (server defaults) 2026-07-28 after
+         the P1/F1 tuning wave failed Igor's feel gate twice. Every VAD threshold
+         we sent made the felt latency WORSE on his device; the configs live in
+         git (1a059a6 / 89c35bf) and no THRESHOLD returns here without measured
+         numbers. ?ni=1 below is a different animal: a barge-in MECHANISM switch
+         (see niEnabled), param-gated so the default stays byte-identical. */
+      ...(niEnabled() && {
+        realtimeInputConfig: { activityHandling: ActivityHandling.NO_INTERRUPTION },
+      }),
     };
 
     // Flush what the gap collected, oldest first, then the echoes this socket
@@ -804,7 +1016,8 @@ SILENT MODE:
       if (bufferedAudioRef.current.length > 0) {
         const buffered = bufferedAudioRef.current;
         bufferedAudioRef.current = [];
-        for (const media of buffered) session.sendRealtimeInput({ media });
+        // Same model-conditional wire shape as handleAudioChunk (1007 on 3.1).
+        for (const media of buffered) session.sendRealtimeInput(m31Enabled() ? { audio: media } : { media });
       }
       if (pendingToolResponsesRef.current.length > 0) {
         const pending = pendingToolResponsesRef.current;
@@ -820,15 +1033,17 @@ SILENT MODE:
       onopen: () => {
         if (connectSeqRef.current !== seq) return;
         console.log('Gemini Live connected');
+        brainDumpDebug.socketOpens += 1;
         reconnectAttemptsRef.current = 0;
         setReconnecting(false);
         setConnectionState('listening');
 
-        attachAudio();
         flushQueues();
+        armIdleTimer();
       },
       onmessage: (message: any) => {
         if (connectSeqRef.current !== seq) return;
+        brainDumpDebug.lastServerMessageAt = Date.now();
 
         if (message.sessionResumptionUpdate) {
           const update = message.sessionResumptionUpdate;
@@ -849,7 +1064,6 @@ SILENT MODE:
               goAwayTimerRef.current = null;
               if (!activeRef.current || intentionalStopRef.current) return;
               connectRef.current?.({
-                acquireMic: false,
                 resumeHandle: resumeHandleRef.current ?? undefined,
                 preserveTasks: true,
               }).catch((err) => {
@@ -878,6 +1092,7 @@ SILENT MODE:
 
         if (message.toolCall) {
           const functionCalls = message.toolCall.functionCalls || [];
+          brainDumpDebug.toolCallsReceived += functionCalls.length;
           for (const fc of functionCalls) {
             const callId: string | undefined = fc.id;
             const seen = callId && !BISECT_DISABLE_TOOLCALL_DEDUP
@@ -899,7 +1114,6 @@ SILENT MODE:
             // in this same batch sees the row this one just made.
             const outcome = applyToolCall(fc, tasksRef.current);
             tasksRef.current = outcome.next;
-            setTasks(outcome.next);
 
             if (callId) {
               processedCallsRef.current.set(callId, { name: fc.name, result: outcome.result, createdTaskId: outcome.createdTaskId });
@@ -908,13 +1122,35 @@ SILENT MODE:
                 if (oldest !== undefined) processedCallsRef.current.delete(oldest);
               }
             }
+
+            // ACK FIRST, then paint. applyToolCall is pure and synchronous and
+            // the echo needs its result, so it cannot be jumped — but nothing
+            // else may sit in front of the send. setTasks is a scheduler
+            // enqueue, and the next model (gemini-3.1-flash-live-preview) makes
+            // tools SYNC-ONLY: every millisecond between the call and the echo
+            // is dead air on the user's line. Zero awaits on this path, by
+            // construction — tests/braindump-live-transport.spec.ts asserts the
+            // mock sees the response in the SAME TICK as the delivery.
             sendToolResponse(callId, fc.name, outcome.result);
+            setTasks(outcome.next);
           }
         }
+
+        // Any message at all counts as "somebody is still there". Armed LAST so
+        // nothing in here delays a tool ack; if a branch above throws, the timer
+        // armed by the previous message keeps ticking, which stops the session
+        // rather than stranding it.
+        armIdleTimer();
       },
-      onclose: () => {
+      onclose: (e?: any) => {
         if (connectSeqRef.current !== seq) return;
-        console.log('Gemini Live session closed');
+        // The CloseEvent's code/reason is the server naming its objection —
+        // the 3.1 connect-close loop was undiagnosable without it (2026-07-28).
+        console.log('Gemini Live session closed', e?.code, e?.reason);
+        brainDumpDebug.socketCloses += 1;
+        brainDumpDebug.lastCloseInfo =
+          `close ${e?.code ?? '?'} ${e?.reason ?? ''}`.trim().slice(0, 160) +
+          ` @${new Date().toISOString().slice(11, 19)}`;
         sessionRef.current = null;
         if (activeRef.current && !intentionalStopRef.current) {
           scheduleReconnect('socket-closed');
@@ -925,6 +1161,8 @@ SILENT MODE:
       onerror: (err: any) => {
         if (connectSeqRef.current !== seq) return;
         console.error('Gemini Live error:', err);
+        brainDumpDebug.socketErrors += 1;
+        brainDumpDebug.lastCloseInfo = `error: ${err?.message ?? err ?? 'unknown'}`.slice(0, 120);
         if (activeRef.current && !intentionalStopRef.current) {
           scheduleReconnect('socket-error');
           return;
@@ -935,13 +1173,13 @@ SILENT MODE:
     };
 
     const session = mockLiveEnabled()
-      ? connectMockLiveSession({ model: config.model, config: liveConfig, callbacks })
+      ? connectMockLiveSession({ model: effectiveModel, config: liveConfig, callbacks })
       : await new GoogleGenAI({
           apiKey: config.token,
           // Ephemeral tokens are a v1alpha-only path in @google/genai 1.41.0.
           ...(config.ephemeral && { httpOptions: { apiVersion: 'v1alpha' } }),
         }).live.connect({
-          model: config.model || DEFAULT_MODEL,
+          model: effectiveModel,
           config: liveConfig,
           callbacks,
         });
@@ -953,7 +1191,7 @@ SILENT MODE:
     }
     sessionRef.current = session;
     flushQueues();
-  }, [applyToolCall, attachAudio, clearTimers, closeSession, fetchLiveConfig, scheduleReconnect, sendToolResponse, teardown]);
+  }, [applyToolCall, armIdleTimer, clearTimers, closeSession, fetchLiveConfig, scheduleReconnect, sendToolResponse, teardown]);
 
   // Idempotent latest-value holder; assigning during render keeps a first-frame
   // close from finding an empty ref (an effect would run too late).
@@ -966,6 +1204,7 @@ SILENT MODE:
     teardown();
 
     setConnectionState('connecting');
+    setIdleStopped(false);
     if (!options?.preserveTasks) {
       setTasks([]);
       tasksRef.current = [];
@@ -988,7 +1227,15 @@ SILENT MODE:
         );
       }
 
-      await connect({ acquireMic: true, preserveTasks: options?.preserveTasks });
+      // 1. Audio FIRST, inside the tap gesture — iOS wants both the permission
+      // prompt and AudioContext.resume() on a user-gesture stack. Capture runs
+      // before the socket exists; handleAudioChunk buffers until onopen flushes,
+      // so speech during the connect window is kept, not lost.
+      if (!mockLiveEnabled()) {
+        await engineStartCapture(handleAudioChunk);
+      }
+
+      await connect({ preserveTasks: options?.preserveTasks });
     } catch (error: any) {
       console.error('Brain dump start error:', error);
       intentionalStopRef.current = true;
@@ -997,16 +1244,13 @@ SILENT MODE:
       setConnectionState('error');
       throw error;
     }
-  }, [connect, teardown]);
+  }, [connect, teardown, handleAudioChunk]);
 
   const stop = useCallback(() => {
-    // Deliberate teardown: mark it BEFORE the socket closes, so onclose reads it
-    // as intentional and no reconnect is scheduled.
-    intentionalStopRef.current = true;
-    activeRef.current = false;
-    teardown();
-    setConnectionState('idle');
-  }, [teardown]);
+    // Deliberate teardown: stopSession marks it BEFORE the socket closes, so
+    // onclose reads it as intentional and no reconnect is scheduled.
+    stopSession('user');
+  }, [stopSession]);
 
 
   const updateTask = useCallback((taskId: string, updates: Partial<BrainDumpTask>) => {
@@ -1023,6 +1267,7 @@ SILENT MODE:
     taskCounterRef.current = 0;
     newProjectsRef.current = new Map();
     processedCallsRef.current = new Map();
+    setIdleStopped(false);
   }, []);
 
   const setInitialTasks = useCallback((initialTasks: BrainDumpTask[]) => {
@@ -1031,17 +1276,32 @@ SILENT MODE:
     taskCounterRef.current = initialTasks.length;
   }, []);
 
+  /** Undo-discard support: put a capture back on the stage without recording.
+   *  Raising the idle latch reuses the whole "Paused — your capture is safe"
+   *  surface (exits live, orb resumes with preserveTasks) — no new UI state. */
+  const restoreStagedCapture = useCallback((restored: BrainDumpTask[]) => {
+    setTasks(restored);
+    tasksRef.current = restored;
+    taskCounterRef.current = restored.length;
+    setIdleStopped(true);
+  }, []);
+
   return {
     tasks,
     connectionState,
     /** True between an unexpected close and the socket coming back. The mic stays
      *  open throughout; a bounded tail of audio is buffered across the gap. */
     reconnecting,
+    /** The last stop was the silence auto-stop. The captured list is untouched —
+     *  callers keep their capture surface up so the exits stay reachable.
+     *  Cleared by start(), stop() and resetTasks(). */
+    idleStopped,
     start,
     stop,
     updateTask,
     removeTask,
     resetTasks,
+    restoreStagedCapture,
     setInitialTasks,
   };
 }

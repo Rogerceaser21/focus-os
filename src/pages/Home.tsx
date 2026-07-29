@@ -17,6 +17,7 @@ import BottomNav from '@/components/BottomNav';
 import { HomeTour } from '@/components/HomeTour';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { useBrainDumpLive, type BrainDumpTask, type ProjectInfo } from '@/hooks/useBrainDumpLive';
+import { BrainDumpDebugOverlay } from '@/components/BrainDumpDebugOverlay';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 
 const SUBTITLES = [
@@ -70,9 +71,6 @@ const FAKE_DUMP_PROJECT = 'Kitchen Reno';
    assertion, because the run never leaves /home. Restore to false -> green. */
 const BISECT_DISABLE_DIRECT_SAVE = false;
 
-/** ~3s arm window on the two-step Discard, then it relaxes back to "Discard". */
-const DISCARD_ARM_MS = 3000;
-
 /** Synthetic stream row. The first half go to Today and the rest to one new
  *  project, so the groups fill in RUNS — every new task therefore appends at
  *  the end of the DOM, exactly like a real dump, which is what the follow
@@ -111,15 +109,16 @@ const Home = () => {
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [reviewTasks, setReviewTasks] = useState<BrainDumpTask[] | undefined>(undefined);
-  // Direct-save (no review dialog) spinner + the two-step Discard latch.
+  // Direct-save (no review dialog) spinner.
   const [isSaving, setIsSaving] = useState(false);
-  const [discardArmed, setDiscardArmed] = useState(false);
-  const discardTimerRef = useRef<number | null>(null);
   const { preferences, markHomeTourComplete } = useUserPreferences(user?.id);
 
   // Live brain-dump session runs inline on the hero (the approved recording stage):
   // the orb glides left and captured tasks stream in on the right while you talk.
-  const { tasks: liveTasks, connectionState, start, stop, resetTasks } = useBrainDumpLive();
+  // `idleStopSuspended` holds the hook's 90s quiet-session auto-stop off while a
+  // direct save is in flight — the socket must not be pulled out from under a write.
+  const { tasks: liveTasks, connectionState, reconnecting, idleStopped, start, stop, resetTasks, restoreStagedCapture } =
+    useBrainDumpLive({ idleStopSuspended: isSaving });
 
   // ?fakedump=N (see makeFakeTask above): synthetic stream, no mic / no network.
   const fakeDumpCount = useMemo(() => {
@@ -132,13 +131,13 @@ const Home = () => {
   const fakeDump = fakeDumpCount > 0;
   const [fakeTasks, setFakeTasks] = useState<BrainDumpTask[]>([]);
 
-  const rec = fakeDump || connectionState === 'connecting' || connectionState === 'listening';
+  // The hook auto-stopped a quiet session. DERIVED during render, never corrected
+  // after paint: the stage stays up with the capture intact, so all three exits
+  // are still reachable. An auto-stop must cost the user nothing they already said
+  // — it is the orb-tap/finish path, never Discard.
+  const idleStaged = idleStopped && liveTasks.length > 0;
+  const rec = fakeDump || idleStaged || connectionState === 'connecting' || connectionState === 'listening';
   const streamTasks = fakeDump ? fakeTasks : liveTasks;
-
-  // DERIVED during render, never corrected after paint (render-phase law): the
-  // latch alone does not decide the label — leaving the stage or emptying the
-  // list disarms it in the same frame it happens, with no effect to catch up.
-  const discardHot = discardArmed && rec && streamTasks.length > 0;
 
   // Follow the newest task while the user is at the bottom; never yank them back
   // if they have scrolled up (iOS Safari has no overflow-anchor — see the hook).
@@ -313,30 +312,16 @@ const Home = () => {
     navigate('/app');
   }, [navigate, queryClient, user]);
 
-  const disarmDiscard = useCallback(() => {
-    if (discardTimerRef.current !== null) {
-      window.clearTimeout(discardTimerRef.current);
-      discardTimerRef.current = null;
-    }
-    setDiscardArmed(false);
-  }, []);
-
-  // Teardown only — the arm window must not outlive the page.
-  useEffect(() => () => {
-    if (discardTimerRef.current !== null) window.clearTimeout(discardTimerRef.current);
-  }, []);
-
   // Stop the live session; captured tasks go to the review dialog for edit + save.
   // This is "Edit Tasks", and it stays the orb's behaviour too.
   const finishSession = useCallback(() => {
-    disarmDiscard();
     stop();
     if (liveTasks.length > 0) {
       setReviewTasks(liveTasks.map((t) => ({ ...t })));
       setBrainDumpOpen(true);
     }
     resetTasks();
-  }, [stop, liveTasks, resetTasks, disarmDiscard]);
+  }, [stop, liveTasks, resetTasks]);
 
   /* Save All (N) — the DIRECT exit: write straight through the shared saver (the
      same inserts + cache patches the review dialog uses) and land on /app. The
@@ -350,7 +335,6 @@ const Home = () => {
     if (BISECT_DISABLE_DIRECT_SAVE) { finishSession(); return; }
 
     const captured = liveTasks.map((t) => ({ ...t }));
-    disarmDiscard();
     setIsSaving(true);
     try {
       await saveBrainDumpTasks({ queryClient, tasks: captured });
@@ -369,30 +353,27 @@ const Home = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [fakeDump, isSaving, liveTasks, disarmDiscard, queryClient, stop, resetTasks, user, navigate, finishSession]);
+  }, [fakeDump, isSaving, liveTasks, queryClient, stop, resetTasks, user, navigate, finishSession]);
 
-  /* Discard — two-step, in place. First tap arms the button (label flips for
-     DISCARD_ARM_MS), second tap throws the capture away. No window.confirm, no
-     modal layer: nothing new mounts, so no compositing layer is born or killed
-     mid-animation (iOS Safari white-flash law). With an empty list there is
-     nothing to lose, so it is a plain stop. */
+  /* Discard — ONE tap, wrongness is free (2026-07-28 redesign). The two-step
+     "Sure? (N)" latch was mechanically sound and humanly wrong: on Igor's phone
+     a silent red pill read as a dead button, twice. Now the tap discards
+     immediately and a toast offers Undo — restoreStagedCapture puts the list
+     back on the paused stage, so a slip costs nothing. Plain sonner toast: no
+     modal layer, nothing Radix, no compositing layer born mid-animation. */
   const handleDiscard = useCallback(() => {
-    if (fakeDump) { setFakeTasks([]); disarmDiscard(); return; } // demo: reset the fake stream
+    if (fakeDump) { setFakeTasks([]); return; } // demo: reset the fake stream
     if (isSaving) return;
-    if (liveTasks.length === 0) { disarmDiscard(); stop(); resetTasks(); return; }
-    if (!discardArmed) {
-      if (discardTimerRef.current !== null) window.clearTimeout(discardTimerRef.current);
-      discardTimerRef.current = window.setTimeout(() => {
-        discardTimerRef.current = null;
-        setDiscardArmed(false);
-      }, DISCARD_ARM_MS);
-      setDiscardArmed(true);
-      return;
-    }
-    disarmDiscard();
+    const discarded = liveTasks.map((t) => ({ ...t }));
     stop();
     resetTasks();
-  }, [fakeDump, isSaving, liveTasks, discardArmed, disarmDiscard, stop, resetTasks]);
+    if (discarded.length > 0) {
+      toast(`Discarded ${discarded.length} task${discarded.length > 1 ? 's' : ''}`, {
+        action: { label: 'Undo', onClick: () => restoreStagedCapture(discarded) },
+        duration: 6000,
+      });
+    }
+  }, [fakeDump, isSaving, liveTasks, stop, resetTasks, restoreStagedCapture]);
 
   const handleEditTasks = useCallback(() => {
     if (fakeDump) return; // demo stage: never opens the review dialog
@@ -404,15 +385,20 @@ const Home = () => {
     if (orbRef.current) {
       gsap.fromTo(orbRef.current, { scale: 0.92 }, { scale: 1, duration: 0.6, ease: 'elastic.out(1, 0.4)' });
     }
-    disarmDiscard();
     if (fakeDump) return; // demo stage: the orb presses, nothing is captured
     if (isSaving) return; // a direct save is already in flight
-    if (rec) {
+    // Still live -> the orb reviews. Auto-stopped on silence -> the orb resumes,
+    // and the capture rides into the new session instead of being replaced.
+    if (rec && !idleStaged) {
       finishSession();
       return;
     }
     try {
-      await start(projects);
+      // A restart NEVER silently wipes an unsaved capture (Igor lost 3 staged
+      // tasks to exactly that, 2026-07-28): anything still on the list rides
+      // into the new session. Saves and Discard both reset the list, so a
+      // genuinely fresh dump still starts clean.
+      await start(projects, (idleStaged || liveTasks.length > 0) ? { preserveTasks: true } : undefined);
     } catch (error: any) {
       let msg = 'Could not start Brain Dump. ';
       if (error?.name === 'NotAllowedError') msg += 'Please allow microphone access in your browser settings.';else
@@ -420,7 +406,7 @@ const Home = () => {
       msg += error?.message || 'Please try again.';
       toast.error(msg);
     }
-  }, [rec, start, projects, finishSession, fakeDump, isSaving, disarmDiscard]);
+  }, [rec, idleStaged, liveTasks, start, projects, finishSession, fakeDump, isSaving]);
 
   // Group the live stream by destination, mirroring the review dialog's grouping
   const streamGroups = useMemo(() => {
@@ -482,7 +468,9 @@ const Home = () => {
                 transition={{ duration: 0.35 }}
                 className="text-base sm:text-lg absolute inset-0 flex items-center justify-center text-muted-foreground lg-onbg">
 
-                {rec ? 'Capturing your thoughts…' : SUBTITLES[subtitleIndex]}
+                {rec
+                ? idleStaged ? 'Paused — your capture is safe' : 'Capturing your thoughts…'
+                : SUBTITLES[subtitleIndex]}
               </motion.p>
             </AnimatePresence>
           </div>
@@ -517,8 +505,17 @@ const Home = () => {
           <div className="lg-stream-listen">
             <div className="lg-mic"><Mic size={18} /></div>
             <div>
-              <div className="lbl">{connectionState === 'connecting' ? 'Connecting…' : 'Listening… speak freely'}</div>
-              <div className="sub">Tasks appear here as you talk.</div>
+              <div className="lbl">
+                {connectionState === 'connecting' ? 'Connecting…'
+                : reconnecting ? 'Reconnecting…'
+                : idleStaged ? 'Paused — you went quiet'
+                : 'Listening… speak freely'}
+              </div>
+              <div className="sub">
+                {reconnecting ? 'The line dropped — hold that thought, it comes right back.'
+                : idleStaged ? 'Tap the orb to keep talking.'
+                : 'Tasks appear here as you talk.'}
+              </div>
             </div>
           </div>
           {/* role="log" = implicit polite live region: rows are announced as they
@@ -563,7 +560,9 @@ const Home = () => {
             <div className="lg-orb-core" ref={coreRef} />
           </button>
           <span className="text-sm font-medium text-center text-muted-foreground lg-onbg">
-            {rec ? 'Listening… tap the orb to review, or pick below' : 'Tap to capture your thoughts into tasks'}
+            {rec
+            ? idleStaged ? 'Paused — tap the orb to keep talking, or pick below' : 'Listening… tap the orb to review, or pick below'
+            : 'Tap to capture your thoughts into tasks'}
           </span>
           {rec ?
           /* Three exits, ONE row (Fix A budget: a second row costs ~45px the
@@ -571,11 +570,11 @@ const Home = () => {
              neutral, primary — the house order, acc last. */
           <div className="lg-recbtns">
               <button
-              className={`lg-btn${discardHot ? ' warn' : ''}`}
+              className="lg-btn"
               onClick={handleDiscard}
               disabled={isSaving}
-              aria-label={discardHot ? `Confirm discarding ${streamTasks.length} captured tasks` : 'Discard captured tasks'}>
-                <Trash2 size={13} />{discardHot ? `Sure? (${streamTasks.length})` : 'Discard'}
+              aria-label="Discard captured tasks">
+                <Trash2 size={13} />Discard
               </button>
               <button className="lg-btn" onClick={handleEditTasks} disabled={isSaving || streamTasks.length === 0}>
                 <Pencil size={13} />Edit Tasks
@@ -596,6 +595,9 @@ const Home = () => {
             </button>}
         </div>
       </div>
+
+      {/* ?debug=1 — production-safe live diagnostics (renders nothing without the param) */}
+      <BrainDumpDebugOverlay />
 
       {/* Help / replay tour button */}
       <button

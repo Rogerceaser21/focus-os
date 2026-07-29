@@ -21,11 +21,15 @@
  * transcribed, or how long a real reconnect takes. Only a real phone call with
  * live audio settles those.
  *
- * BISECT PROOF (house law) — both documented in the tests below:
+ * BISECT PROOF (house law) — all documented in the tests below:
  *   - src/hooks/useBrainDumpLive.ts BISECT_DISABLE_TOOLCALL_DEDUP = true
  *     -> "duplicate fc.id is answered but applied once" FAILS.
  *   - src/hooks/useBrainDumpLive.ts BISECT_DISABLE_RECONNECT = true
  *     -> "unexpected close reconnects" FAILS.
+ *   - src/hooks/useBrainDumpLive.ts BISECT_DISABLE_IDLE_STOP = true
+ *     -> "a quiet session auto-stops and keeps the capture staged" FAILS.
+ *   - src/hooks/useBrainDumpLive.ts BISECT_RESTORE_WAIT_RULE = true
+ *     -> "the system instruction ships the act-immediately timing register" FAILS.
  */
 import { test, expect, type Page } from '@playwright/test';
 
@@ -40,7 +44,15 @@ async function harness(page: Page) {
       toolResponses: mock?.toolResponses ?? [],
       clientCloses: mock?.clientCloses ?? 0,
     } as {
-      connects: Array<{ model: string; handle: string | null; toolNames: string[] }>;
+      connects: Array<{
+        model: string;
+        handle: string | null;
+        toolNames: string[];
+        vad: Record<string, unknown> | null;
+        compression: Record<string, unknown> | null;
+        systemInstructionChars: number;
+        systemInstruction: string;
+      }>;
       toolResponses: Array<{ functionResponses: { id?: string; name?: string; response?: any; scheduling?: string } }>;
       clientCloses: number;
     };
@@ -51,8 +63,15 @@ function emit(page: Page, message: WireMessage) {
   return page.evaluate((m) => (window as any).__brainDumpLiveMock.emit(m), message);
 }
 
-/** Boot the transport harness with a live session already open. */
-async function boot(page: Page) {
+/**
+ * Boot the transport harness with a live session already open.
+ *
+ * `idleStopMs` sets ?idlestop=<ms>, the DEV-only override for the hook's 90s
+ * quiet-session auto-stop — same gating precedent as the bisect switches, and
+ * dead-code-eliminated from production builds along with the rest of the shim.
+ * Without it the idle path would cost 90s of wall clock per spec.
+ */
+async function boot(page: Page, opts?: { idleStopMs?: number }) {
   // Nothing in this spec should touch the network; the hook skips the config
   // edge function in mock mode, and there is no signed-in user to fetch for.
   await page.route('**/*.supabase.co/**', (route) =>
@@ -62,7 +81,8 @@ async function boot(page: Page) {
     (window as any).__mockLiveSession = true;
   });
 
-  await page.goto('/dev/braindump-repro?mocklive=1');
+  const idleParam = opts?.idleStopMs ? `&idlestop=${opts.idleStopMs}` : '';
+  await page.goto(`/dev/braindump-repro?mocklive=1${idleParam}`);
   await expect(page.getByTestId('transport-ready')).toHaveText('ready');
   await page.getByTestId('transport-start').click();
   await expect(page.getByTestId('transport-state')).toHaveText('listening');
@@ -172,7 +192,7 @@ test.describe('brain dump live transport', () => {
     await expect(page.getByTestId('transport-state')).toHaveText('idle');
   });
 
-  test('every tool response is scheduled SILENT for the NON_BLOCKING declarations', async ({ page }) => {
+  test('default tool responses carry no scheduling — the v50 stack is sync-only', async ({ page }) => {
     await boot(page);
 
     await emit(page, addBuyMilk('call-1'));
@@ -180,6 +200,285 @@ test.describe('brain dump live transport', () => {
 
     const { toolResponses } = await harness(page);
     expect(toolResponses).toHaveLength(1);
+    expect(toolResponses[0].functionResponses.scheduling).toBeUndefined();
+  });
+
+  /* ── REVERT GUARD (2026-07-28): the P1/F1 tuning wave failed Igor's feel
+     gate twice, so VAD THRESHOLDS and compression stay at server defaults and
+     THIS SPEC PINS THEM THERE. The v50 stack adds exactly ONE mechanism
+     switch on top (activityHandling NO_INTERRUPTION — Igor-blessed on device)
+     and nothing else. No VAD thresholds, no compression, no experimental
+     prompt register may ship again without measured numbers — if you are
+     editing these assertions to re-add one, bring the measurements. Configs
+     under autopsy live in git: 1a059a6 (P1), 89c35bf (F1). ──────────────── */
+
+  test('the connect config is v50-clean: NO_INTERRUPTION only, no VAD thresholds, no compression', async ({ page }) => {
+    await boot(page);
+
+    const { connects } = await harness(page);
+    expect(connects).toHaveLength(1);
+
+    // The one blessed mechanism switch...
+    expect((connects[0] as any).activityHandling).toBe('NO_INTERRUPTION');
+    // ...and NOTHING from the failed tuning wave.
+    expect(connects[0].vad).toBeNull();
+    expect(connects[0].compression).toBeNull();
+
+    // The whole setup payload is re-prefilled on EVERY turn, so the system
+    // instruction stays bounded (the P1 project/previous-task caps remain).
+    expect(connects[0].systemInstructionChars).toBeGreaterThan(500);
+    expect(connects[0].systemInstructionChars).toBeLessThan(3200);
+  });
+
+  /**
+   * REVERT GUARD — the prompt register is the v40 wait-rule again.
+   *
+   * F1's act-immediately register (Ramble's design law) is under autopsy, not
+   * abandoned: on Igor's device the F1 build read as "worse — not picking
+   * things up". It returns only together with rig measurements. This spec
+   * fails loudly if either register drifts.
+   */
+  test('the system instruction ships the v40 wait-for-completion register', async ({ page }) => {
+    await boot(page);
+
+    const { connects } = await harness(page);
+    const prompt = connects[0].systemInstruction;
+    console.log('[systemInstruction chars]', prompt.length);
+
+    // The v40 register is present...
+    expect(prompt).toContain('Wait until a task is complete before calling any tool');
+    expect(prompt).toContain('Do NOT call tools mid-sentence');
+
+    // ...and the F1 register is fully gone, not merely outvoted.
+    expect(prompt).not.toContain('ACT IMMEDIATELY');
+    expect(prompt).not.toContain('the MOMENT you hear a plausible task');
+
+    // The correction rules are the safety net that makes eager firing safe, so
+    // they must still be in there alongside it.
+    expect(prompt).toContain('CORRECTION RULES');
+    expect(prompt).toContain('SILENT MODE');
+    expect(prompt).toContain('ROUTING RULES');
+  });
+
+  test('the tool response is sent in the SAME TICK as the tool call', async ({ page }) => {
+    await boot(page);
+
+    // No await between delivering the call and reading the mock. If ANYTHING on
+    // the ack path yielded — an await, a microtask, a timer, a React flush —
+    // `after` would still be 0. The next model makes tools SYNC-ONLY, so any
+    // delay here is dead air on the user's line.
+    const sameTick = await page.evaluate((message) => {
+      const mock = (window as any).__brainDumpLiveMock;
+      const before = mock.toolResponses.length;
+      mock.emit(message);
+      const after = mock.toolResponses.length;
+      return { before, after, echo: mock.toolResponses[mock.toolResponses.length - 1] ?? null };
+    }, addBuyMilk('call-tick'));
+
+    expect(sameTick.before).toBe(0);
+    expect(sameTick.after).toBe(1);
+    expect(sameTick.echo.functionResponses.id).toBe('call-tick');
+    // ...and it is the REAL echo, not an empty ack sent early to look fast:
+    // applyToolCall genuinely ran first, which is why the outcome is in there.
+    expect(sameTick.echo.functionResponses.response.task_id).toBeTruthy();
+    expect(sameTick.echo.functionResponses.response.current_tasks).toHaveLength(1);
+
+    // The paint follows the ack, not the other way round.
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+  });
+
+  test('a quiet session auto-stops and keeps the capture staged', async ({ page }) => {
+    await boot(page, { idleStopMs: 500 });
+
+    await emit(page, addBuyMilk('call-1'));
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+    await expect(page.getByTestId('transport-idle-stopped')).toHaveText('no');
+
+    // Nobody talks, so the server sends nothing at all — the signal the hook
+    // watches. With BISECT_DISABLE_IDLE_STOP = true this never flips and the
+    // test fails here.
+    await expect(page.getByTestId('transport-idle-stopped')).toHaveText('yes', { timeout: 5_000 });
+    await expect(page.getByTestId('transport-state')).toHaveText('idle');
+
+    // STAGED, not discarded: an auto-stop is the finish path, never Discard.
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+    await expect(page.getByTestId('transport-task')).toHaveText('Buy milk');
+
+    // ...and it is a DELIBERATE stop, so nothing reconnects behind it.
+    await page.waitForTimeout(1_200);
+    const { connects, clientCloses } = await harness(page);
+    expect(connects).toHaveLength(1);
+    expect(clientCloses).toBeGreaterThanOrEqual(1);
+    await expect(page.getByTestId('transport-state')).toHaveText('idle');
+    await expect(page.getByTestId('transport-reconnecting')).toHaveText('no');
+  });
+
+  test('server activity resets the idle countdown', async ({ page }) => {
+    await boot(page, { idleStopMs: 1_000 });
+
+    // 4 x 400ms of activity = 1.6s of wall clock, well past a single window.
+    for (let i = 0; i < 4; i += 1) {
+      await page.waitForTimeout(400);
+      await emit(page, { sessionResumptionUpdate: { newHandle: `handle-${i}`, resumable: true } });
+    }
+
+    await expect(page.getByTestId('transport-idle-stopped')).toHaveText('no');
+    await expect(page.getByTestId('transport-state')).toHaveText('listening');
+  });
+
+  // ---------------------------------------------------------------------------
+  // TITLE DEDUP (device-confirmed regression, 2026-07-28): the guard used to
+  // match on substring containment, so "Call mum about the car" was silently
+  // merged into "Call mum" — and the echo claimed success, so the model never
+  // retried. Igor proved it on his phone: 4 spoken tasks, 2 cards. The guard is
+  // now EXACT-match only. These specs pin all three behaviours: distinct-but-
+  // overlapping titles land, same-batch overlaps land, true re-creations merge.
+  // ---------------------------------------------------------------------------
+
+  test('overlapping titles are distinct tasks, not duplicates', async ({ page }) => {
+    await boot(page);
+
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-1', name: 'add_task_to_today', args: { title: 'Call mum', priority: 'medium' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    // The Igor scenario, across two turns: a superset title must be a NEW card.
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-2', name: 'add_task_to_today', args: { title: 'Call mum about the car', priority: 'medium' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(2);
+
+    const { toolResponses } = await harness(page);
+    const second = toolResponses.find((r) => r.functionResponses.id === 'call-2');
+    // The model is told the truth: a fresh task, not a swallowed "duplicate".
+    expect(second?.functionResponses.response.note).toBeUndefined();
+    expect(second?.functionResponses.response.current_tasks).toHaveLength(2);
+  });
+
+  test('overlapping titles in the SAME batch both land (Fix C same-tick path)', async ({ page }) => {
+    await boot(page);
+
+    // One wire message, two functionCalls: since Fix C the second call sees the
+    // row the first just made, which is exactly where substring dedup used to
+    // eat tasks spoken in one breath.
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-1', name: 'add_task_to_today', args: { title: 'Email Sarah', priority: 'medium' } },
+          { id: 'call-2', name: 'add_task_to_today', args: { title: 'Email Sarah the invoice', priority: 'medium' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(2);
+  });
+
+  test('an exact re-created title still merges instead of duplicating', async ({ page }) => {
+    await boot(page);
+
+    await emit(page, addBuyMilk('call-1'));
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    // Different fc.id (so transport dedup does not apply), same title modulo
+    // case/punctuation — the reconnect-replay shape this guard exists for.
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-9', name: 'add_task_to_today', args: { title: 'buy milk!', priority: 'high' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    const { toolResponses } = await harness(page);
+    const merged = toolResponses.find((r) => r.functionResponses.id === 'call-9');
+    expect(merged?.functionResponses.response.note).toBe('duplicate_prevented_updated_existing');
+  });
+
+  // ---------------------------------------------------------------------------
+  // THE v50 STACK (Igor-blessed on device, 2026-07-28 evening): DEFAULT is
+  // gemini-3.1-flash-live-preview + sync-only tools + NO_INTERRUPTION. The
+  // legacy stack stays reachable with ?m31=0 / ?ni=0 — rollback needs a URL,
+  // not a deploy. Both directions pinned here.
+  // ---------------------------------------------------------------------------
+
+  test('the DEFAULT is the v50 stack: 3.1 model, sync-only tools, NO_INTERRUPTION', async ({ page }) => {
+    await boot(page);
+
+    await emit(page, addBuyMilk('call-1'));
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    const { connects, toolResponses } = await harness(page);
+    expect(connects[0].model).toBe('gemini-3.1-flash-live-preview');
+    // Sync-only: no NON_BLOCKING on any declaration, no SILENT on any echo.
+    expect((connects[0] as any).toolBehaviors).toEqual([]);
+    expect(toolResponses[0].functionResponses.scheduling).toBeUndefined();
+    expect((connects[0] as any).activityHandling).toBe('NO_INTERRUPTION');
+  });
+
+  test('?m31=0&ni=0 restores the legacy stack: old model, NON_BLOCKING/SILENT, barge-in', async ({ page }) => {
+    await page.route('**/*.supabase.co/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    );
+    await page.addInitScript(() => {
+      (window as any).__mockLiveSession = true;
+    });
+    await page.goto('/dev/braindump-repro?mocklive=1&m31=0&ni=0');
+    await expect(page.getByTestId('transport-ready')).toHaveText('ready');
+    await page.getByTestId('transport-start').click();
+    await expect(page.getByTestId('transport-state')).toHaveText('listening');
+
+    await emit(page, addBuyMilk('call-1'));
+    await expect(page.getByTestId('transport-task')).toHaveCount(1);
+
+    const { connects, toolResponses } = await harness(page);
+    expect(connects[0].model).toBe('gemini-2.5-flash-native-audio-preview-12-2025');
+    expect((connects[0] as any).toolBehaviors).toEqual(['NON_BLOCKING']);
     expect(toolResponses[0].functionResponses.scheduling).toBe('SILENT');
+    expect((connects[0] as any).activityHandling).toBeNull();
+  });
+
+  test('?ni=0 alone strips NO_INTERRUPTION but keeps the 3.1 model', async ({ page }) => {
+    await page.route('**/*.supabase.co/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    );
+    await page.addInitScript(() => {
+      (window as any).__mockLiveSession = true;
+    });
+    await page.goto('/dev/braindump-repro?mocklive=1&ni=0');
+    await expect(page.getByTestId('transport-ready')).toHaveText('ready');
+    await page.getByTestId('transport-start').click();
+    await expect(page.getByTestId('transport-state')).toHaveText('listening');
+
+    const { connects } = await harness(page);
+    expect((connects[0] as any).activityHandling).toBeNull();
+    expect(connects[0].vad).toBeNull();
+    expect(connects[0].compression).toBeNull();
+    expect(connects[0].model).toBe('gemini-3.1-flash-live-preview');
+  });
+
+  test('a title that normalises to empty never dedups against anything', async ({ page }) => {
+    await boot(page);
+
+    // Non-Latin scripts (e.g. Arabic) normalise to '' under the [a-z0-9] filter.
+    // Pre-fix, '' substring-matched EVERY task, so the first such title ate all
+    // the rest. Two distinct Arabic titles must produce two cards.
+    await emit(page, {
+      toolCall: {
+        functionCalls: [
+          { id: 'call-1', name: 'add_task_to_today', args: { title: 'اتصل بأمي', priority: 'medium' } },
+          { id: 'call-2', name: 'add_task_to_today', args: { title: 'جدد جواز السفر', priority: 'medium' } },
+        ],
+      },
+    });
+    await expect(page.getByTestId('transport-task')).toHaveCount(2);
   });
 });
