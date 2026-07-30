@@ -8,11 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		40DCE7BC5A84304383161A5F /* ShellWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */; };
+		6D385F27CD270A6F6551772A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */; };
 		9A20A0A473124C0C0EE284E8 /* FocusOSShellApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30DC28D12373418B01347AE /* FocusOSShellApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		09535CCC4511D88B046CC9EE /* FocusOSShell.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FocusOSShell.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellWebView.swift; sourceTree = "<group>"; };
 		C30DC28D12373418B01347AE /* FocusOSShellApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusOSShellApp.swift; sourceTree = "<group>"; };
 		C4528235173579BECBDDDD1E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -30,6 +32,7 @@
 		BF16F411EF4673E434D65712 /* FocusOSShell */ = {
 			isa = PBXGroup;
 			children = (
+				6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */,
 				C30DC28D12373418B01347AE /* FocusOSShellApp.swift */,
 				C4528235173579BECBDDDD1E /* Info.plist */,
 				B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */,
@@ -53,6 +56,7 @@
 			buildConfigurationList = F7325C457C2E397E92C52956 /* Build configuration list for PBXNativeTarget "FocusOSShell" */;
 			buildPhases = (
 				DADF4492528ECE88DF9469EA /* Sources */,
+				123362852ACDDEA8EB6185A8 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -98,6 +102,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		123362852ACDDEA8EB6185A8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6D385F27CD270A6F6551772A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		DADF4492528ECE88DF9469EA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -131,6 +146,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -209,6 +225,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";

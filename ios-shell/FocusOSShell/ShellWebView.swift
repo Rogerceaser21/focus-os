@@ -31,6 +31,19 @@ enum ShellConfig {
     ]
 }
 
+/// WKWebView never surfaces env(safe-area-inset-*) to this page (verified on
+/// device: the greeting rendered under the clock), so the shell measures the
+/// real insets natively and writes them as CSS vars the stylesheet prefers
+/// over env() (var(--shell-top-inset, env(...)) fallback chain).
+final class ShellWKWebView: WKWebView {
+    var onSafeAreaChange: ((UIEdgeInsets) -> Void)?
+
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        onSafeAreaChange?(safeAreaInsets)
+    }
+}
+
 struct ShellWebView: UIViewRepresentable {
     @ObservedObject var model: ShellModel
 
@@ -62,11 +75,15 @@ struct ShellWebView: UIViewRepresentable {
             forMainFrameOnly: true
         ))
 
-        let webView = WKWebView(frame: .zero, configuration: config)
+        let webView = ShellWKWebView(frame: .zero, configuration: config)
         #if DEBUG
         // Safari Web Inspector + Appium web-context access (JS census rig).
         webView.isInspectable = true
         #endif
+        webView.onSafeAreaChange = { [weak coordinator = context.coordinator, weak webView] insets in
+            guard let webView else { return }
+            coordinator?.injectSafeAreaVars(insets, into: webView)
+        }
         webView.uiDelegate = context.coordinator
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = false
@@ -105,11 +122,29 @@ struct ShellWebView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate {
         private let model: ShellModel
+        private var lastInsets: UIEdgeInsets = .zero
         init(model: ShellModel) { self.model = model }
 
         @objc func handleRefresh(_ sender: UIRefreshControl) {
             model.webView?.reloadFromOrigin() // bypass every cache layer
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { sender.endRefreshing() }
+        }
+
+        // Write the native safe-area insets as CSS vars on <html>. Inline style
+        // survives SPA route changes but dies with the document, so didCommit
+        // re-applies it on every full load (cold start, reloadFromOrigin,
+        // process-kill reload).
+        func injectSafeAreaVars(_ insets: UIEdgeInsets, into webView: WKWebView) {
+            lastInsets = insets
+            let js = """
+            document.documentElement.style.setProperty('--shell-top-inset', '\(Int(insets.top.rounded()))px');
+            document.documentElement.style.setProperty('--shell-bottom-inset', '\(Int(insets.bottom.rounded()))px');
+            """
+            webView.evaluateJavaScript(js)
+        }
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            injectSafeAreaVars(lastInsets, into: webView)
         }
 
         // Mic: answer WebKit's per-origin capture prompt from the app's own

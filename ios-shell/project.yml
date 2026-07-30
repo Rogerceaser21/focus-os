@@ -9,6 +9,7 @@ settings:
     SWIFT_VERSION: "5.9"
     TARGETED_DEVICE_FAMILY: "1"
     INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     # Simulator builds stay unsigned (conditional settings below); device builds
     # use Xcode automatic signing — Igor ticks "Automatically manage signing"
     # and picks his Personal Team in the Xcode GUI.
