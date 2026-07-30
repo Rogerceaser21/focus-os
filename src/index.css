@@ -572,6 +572,20 @@ All colors MUST be HSL.
 /* plain: page shell fully transparent so the picked --plain-color shows through */
 .liquid-glass[data-wallpaper='plain'] .bg-background { background-color: transparent; }
 
+/* Notification cards (shadcn toast .lg-toastcard + sonner): bg-background
+   alone is the 20% veil with NO frost behind it — unreadable on plain bright
+   wallpapers (Igor's screenshot, 2026-07-30). Give both toasters the house
+   frosted recipe (the dock's), strong fill, on every wallpaper and theme. */
+.liquid-glass .lg-toastcard,
+.liquid-glass [data-sonner-toast] {
+  background: var(--gbg-strong);
+  border: 1.5px solid var(--gbrd);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--gshadow), 0 12px 36px rgba(0, 0, 0, 0.16);
+  border-radius: 22px;
+}
+
 /* primary surfaces: translucent fill + real frost */
 .liquid-glass .bg-card,
 .liquid-glass .bg-popover,
