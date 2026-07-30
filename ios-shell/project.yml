@@ -11,9 +11,10 @@ settings:
     INFOPLIST_KEY_UILaunchScreen_Generation: YES
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     # Simulator builds stay unsigned (conditional settings below); device builds
-    # use Xcode automatic signing — Igor ticks "Automatically manage signing"
-    # and picks his Personal Team in the Xcode GUI.
+    # use Xcode automatic signing with Igor's Personal Team baked in, so
+    # regenerating the project never wipes the GUI signing choice.
     CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 3V9TZC8UU4
     "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": ""
     "CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]": NO
     "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]": NO
