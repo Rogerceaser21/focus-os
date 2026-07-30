@@ -9,10 +9,13 @@ settings:
     SWIFT_VERSION: "5.9"
     TARGETED_DEVICE_FAMILY: "1"
     INFOPLIST_KEY_UILaunchScreen_Generation: YES
-    # Simulator builds need no signing; device builds get identity later (step 3).
-    CODE_SIGN_IDENTITY: ""
-    CODE_SIGNING_REQUIRED: NO
-    CODE_SIGNING_ALLOWED: NO
+    # Simulator builds stay unsigned (conditional settings below); device builds
+    # use Xcode automatic signing — Igor ticks "Automatically manage signing"
+    # and picks his Personal Team in the Xcode GUI.
+    CODE_SIGN_STYLE: Automatic
+    "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": ""
+    "CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]": NO
+    "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]": NO
 targets:
   FocusOSShell:
     type: application
