@@ -10,12 +10,14 @@ import "./components/ParticleEffect.css";
 installTransientScrollbar();
 
 // Home-Screen (standalone) launches: detect via any reliable signal and mark
-// <html> so the stylesheet's html.standalone rules apply.
+// <html> so the stylesheet's html.standalone rules apply. The iOS shell app
+// cannot match any display-mode query (WKWebView has no manifest), so it
+// injects window.__FOCUSOS_SHELL__ at documentStart instead.
 const navStandalone = (navigator as unknown as { standalone?: boolean }).standalone === true;
 const mmStandalone = window.matchMedia('(display-mode: standalone)').matches;
 const mmFullscreen = window.matchMedia('(display-mode: fullscreen)').matches;
-const notBrowser = !window.matchMedia('(display-mode: browser)').matches;
-const isStandalone = navStandalone || mmStandalone || mmFullscreen || notBrowser;
+const shellFlag = (window as unknown as { __FOCUSOS_SHELL__?: boolean }).__FOCUSOS_SHELL__ === true;
+const isStandalone = navStandalone || mmStandalone || mmFullscreen || shellFlag;
 if (isStandalone) {
   document.documentElement.classList.add('standalone');
 }
