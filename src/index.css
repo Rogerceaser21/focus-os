@@ -879,11 +879,21 @@ html.standalone.liquid-glass .lg-editsheet {
 html.shell {
   --shell-top-tune: -12px;
 }
+/* Dock: reproduce the approved Safari-standalone framing. There the layout
+   viewport ended at the home-indicator strip, so bottom:6px meant 6px above
+   the strip = 40px from the physical edge. The shell is full-screen, so add
+   the native indicator height (--shell-bottom-inset, injected by Swift;
+   falls back to 0 on no-notch devices, where 6px is again correct). */
 html.shell.liquid-glass .lg-dock {
-  bottom: 12px !important;
+  bottom: calc(6px + var(--shell-bottom-inset, 0px)) !important;
 }
+/* Task column clearance: dock bottom (6 + inset) + dock 62 + gap 10. */
 html.shell.liquid-glass .lg-maincol {
-  padding-bottom: 84px;
+  padding-bottom: calc(78px + var(--shell-bottom-inset, 0px));
+}
+/* Home hero: keep Record Meeting the same distance above the raised dock. */
+html.shell.liquid-glass .lg-hero-col {
+  padding-bottom: calc(110px + var(--shell-bottom-inset, 0px));
 }
 
 /* Mobile edit pane: slides up from the bottom edge of the screen like an iOS
@@ -1374,11 +1384,11 @@ html.standalone.liquid-glass .lg-hero-col.rec {
   --lg-rec-bottom: calc(6px + 62px + var(--sp-gap, 10px) - (100lvh - 100svh));
   padding-bottom: 0; /* the 110 + 2*env reservation is what we are replacing */
 }
-/* shell: dock sits at 12px there (framing tune), and lvh==svh so no shortfall
-   term — keep the actions row tracking the raised dock. Scoped to html.shell,
-   Safari/A2HS untouched. */
+/* shell: dock sits at calc(6px + indicator inset) there (framing tune), and
+   lvh==svh so no shortfall term — keep the actions row tracking the raised
+   dock. Scoped to html.shell, Safari/A2HS untouched. */
 html.shell.liquid-glass .lg-hero-col.rec {
-  --lg-rec-bottom: calc(12px + 62px + var(--sp-gap, 10px));
+  --lg-rec-bottom: calc(6px + var(--shell-bottom-inset, 0px) + 62px + var(--sp-gap, 10px));
 }
 /* 0,3,0 — beats both the base rule and the max-height:800px variant (0,2,0),
    so the interaction is order-independent and predictable. */
