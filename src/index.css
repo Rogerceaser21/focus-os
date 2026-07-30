@@ -385,7 +385,7 @@ All colors MUST be HSL.
     top: 0;
     left: 0;
     right: 0;
-    height: calc(env(safe-area-inset-top, 0px) + 8px);
+    height: calc(var(--shell-top-inset, env(safe-area-inset-top, 0px)) + 8px);
     z-index: 90;
     pointer-events: none;
     background: linear-gradient(to bottom, rgba(0, 0, 0, 0.28), transparent);
@@ -797,6 +797,14 @@ html.standalone.liquid-glass[data-wallpaper='plain'] {
     radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
     radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
 }
+/* iOS shell app (html.shell, set from window.__FOCUSOS_SHELL__): the webview is
+   edge-to-edge, so the wallpaper already reaches the home-indicator strip with
+   no stretch needed — and the +40px stretch becomes REAL scrollable overflow
+   in WKWebView (the whole app drags up/down 40px; device-proven 2026-07-30).
+   Same-specificity override, must stay AFTER the stretch rule. */
+html.shell.liquid-glass {
+  height: 100%;
+}
 html.standalone.liquid-glass body {
   height: 100svh;
   background-color: transparent;
@@ -806,14 +814,14 @@ html.standalone.liquid-glass body::before {
 }
 /* app pages: content starts below the clock, wallpaper still runs behind it */
 html.standalone.liquid-glass .lg-shell {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--shell-top-inset, env(safe-area-inset-top, 0px));
 }
 /* 8px instead of the browser's 40px (the inset already gives clearance);
    bottom padding reserves the dock zone — the hero content is
    bottom-anchored by flex spacers, so this is what actually lifts the
    Record Meeting button clear of the dock. */
 html.standalone.liquid-glass .lg-hero-col {
-  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  padding-top: calc(8px + var(--shell-top-inset, env(safe-area-inset-top, 0px)));
   /* generous: the same viewport quirk shortens the usable height by the
      bottom inset, which ate the clearance measured in simulation */
   padding-bottom: calc(110px + (2 * env(safe-area-inset-bottom, 0px)));
@@ -835,12 +843,12 @@ html.standalone.liquid-glass .lg-maincol {
    apply on these pages, so the pill must clear the clock itself — same
    visual line as the /app search pill in standalone. */
 html.standalone.liquid-glass .lg-pagehead {
-  margin-top: calc(env(safe-area-inset-top, 0px) + var(--sp-gutter));
-  top: calc(env(safe-area-inset-top, 0px) + var(--sp-gap)) !important;
+  margin-top: calc(var(--shell-top-inset, env(safe-area-inset-top, 0px)) + var(--sp-gutter));
+  top: calc(var(--shell-top-inset, env(safe-area-inset-top, 0px)) + var(--sp-gap)) !important;
 }
 /* Toasts (sonner, top-center on mobile) start below the notch/Dynamic Island */
 html.standalone [data-sonner-toaster][data-y-position='top'] {
-  top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
+  top: calc(var(--shell-top-inset, env(safe-area-inset-top, 0px)) + 10px) !important;
 }
 /* Projects drawer: the sheet is viewport-fixed so the shell's safe-area
    padding never reaches it — clear the clock itself. Top edge aligns with
@@ -848,19 +856,19 @@ html.standalone [data-sonner-toaster][data-y-position='top'] {
    the height compensates. Static geometry only — the persistent-layer
    data-state transition pattern (white-flash law) is untouched. */
 html.standalone.liquid-glass .lg-side {
-  margin-top: calc(env(safe-area-inset-top, 0px) + var(--sp-gap));
-  height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--sp-gap) - 14px);
+  margin-top: calc(var(--shell-top-inset, env(safe-area-inset-top, 0px)) + var(--sp-gap));
+  height: calc(100dvh - var(--shell-top-inset, env(safe-area-inset-top, 0px)) - var(--sp-gap) - 14px);
 }
 html.standalone.liquid-glass div.fixed.bottom-24 {
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 }
 /* floating panels + centred sheets stay clear of both insets */
 html.standalone.liquid-glass [data-side-panel] {
-  top: calc(14px + env(safe-area-inset-top, 0px));
+  top: calc(14px + var(--shell-top-inset, env(safe-area-inset-top, 0px)));
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
 }
 html.standalone.liquid-glass .lg-editsheet {
-  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+  max-height: calc(100dvh - var(--shell-top-inset, env(safe-area-inset-top, 0px)) - env(safe-area-inset-bottom, 0px) - 24px);
 }
 
 /* Mobile edit pane: slides up from the bottom edge of the screen like an iOS
