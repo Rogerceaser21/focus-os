@@ -797,6 +797,14 @@ html.standalone.liquid-glass[data-wallpaper='plain'] {
     radial-gradient(90% 60% at 12% 6%, hsl(181 62% 48% / 0.09) 0%, transparent 60%),
     radial-gradient(80% 55% at 92% 92%, hsl(17 100% 72% / 0.09) 0%, transparent 60%);
 }
+/* iOS shell app (html.shell, set from window.__FOCUSOS_SHELL__): the webview is
+   edge-to-edge, so the wallpaper already reaches the home-indicator strip with
+   no stretch needed — and the +40px stretch becomes REAL scrollable overflow
+   in WKWebView (the whole app drags up/down 40px; device-proven 2026-07-30).
+   Same-specificity override, must stay AFTER the stretch rule. */
+html.shell.liquid-glass {
+  height: 100%;
+}
 html.standalone.liquid-glass body {
   height: 100svh;
   background-color: transparent;

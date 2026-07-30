@@ -21,6 +21,12 @@ const isStandalone = navStandalone || mmStandalone || mmFullscreen || shellFlag;
 if (isStandalone) {
   document.documentElement.classList.add('standalone');
 }
+// Shell-only marker: the iOS shell's webview is edge-to-edge, so Safari-only
+// geometry (the +40px wallpaper stretch) must be switched off there — that
+// stretch is real scrollable overflow in a WKWebView (draggable whole app).
+if (shellFlag) {
+  document.documentElement.classList.add('shell');
+}
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

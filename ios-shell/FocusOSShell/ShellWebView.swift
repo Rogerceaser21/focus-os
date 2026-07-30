@@ -67,7 +67,7 @@ struct ShellWebView: UIViewRepresentable {
         // and navigator.standalone is Safari-only. Step 2 moves this into main.tsx.
         let bootScript = """
         window.__FOCUSOS_SHELL__ = true;
-        document.documentElement.classList.add('standalone');
+        document.documentElement.classList.add('standalone', 'shell');
         """
         config.userContentController.addUserScript(WKUserScript(
             source: bootScript,
