@@ -21,7 +21,7 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>FOSStartURL</key>
-	<string>https://rogerceaser21.github.io/focus-os/?debug=1</string>
+	<string>https://rogerceaser21.github.io/focus-os/</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSMicrophoneUsageDescription</key>

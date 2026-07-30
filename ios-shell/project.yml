@@ -34,4 +34,4 @@ targets:
         UIViewControllerBasedStatusBarAppearance: true
         ITSAppUsesNonExemptEncryption: false
         # Start URL lives here so a Dev flavour (preview channel) is a one-line change.
-        FOSStartURL: "https://rogerceaser21.github.io/focus-os/?debug=1"
+        FOSStartURL: "https://rogerceaser21.github.io/focus-os/"
