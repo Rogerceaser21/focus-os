@@ -510,9 +510,11 @@ test.describe('step-1 dynamic bar layout', () => {
       priority,
     });
     const seed = [
-      mk('fossil-urgent', 'urgent', ymd(-60)), // oldest due date + top priority: the old algorithm's #1
+      // DB-format timestamp on purpose: live rows carry full ISO stamps, and
+      // the day-slice parsing is exactly what the 2026-08-01 NaN bug broke.
+      mk('fossil-urgent', 'urgent', `${ymd(-60)}T20:00:00+00:00`),
       mk('today-low', 'low', ymd(0)),
-      mk('newover-med', 'medium', ymd(-3)),
+      mk('newover-med', 'medium', `${ymd(-3)}T20:00:00+00:00`),
       mk('future-urgent', 'urgent', ymd(10)),
       mk('nodue-high', 'high', null),
     ];

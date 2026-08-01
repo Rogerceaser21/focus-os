@@ -58,7 +58,11 @@ export const rankTodaysFocus = (tasks: UpNextTask[], todayYmd: string): UpNextTa
   const t0 = new Date(`${todayYmd}T00:00:00`).getTime();
   const meta = (t: UpNextTask) => {
     if (!t.due_date) return { tier: 1, due: Number.POSITIVE_INFINITY };
-    const due = new Date(`${t.due_date}T00:00:00`).getTime();
+    // due_date arrives as a full timestamp ('2025-11-20T20:00:00+00:00') from
+    // the DB, or date-only in older rows/tests — slice to the day either way
+    // (day-level maths; appending T00:00:00 to a timestamp would yield NaN
+    // and silently randomise every tier, live-data-proven 2026-08-01).
+    const due = new Date(`${t.due_date.slice(0, 10)}T00:00:00`).getTime();
     const daysLate = Math.floor((t0 - due) / dayMs);
     const tier = daysLate > 30 ? 2 : daysLate >= 0 && daysLate <= 7 ? 0 : 1;
     return { tier, due };
