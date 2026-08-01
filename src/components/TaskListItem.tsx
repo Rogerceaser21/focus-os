@@ -377,9 +377,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
       }, 1000);
     } else {
       setIsChecked(false);
+      // Reopening clears the completed-by stamp too: leaving it made a todo
+      // task render as completed forever (the meeting-page zombie, 2026-08-01).
+      // The share rows still hold the recipient's completion history.
       onUpdate({
         ...task,
-        status: 'todo'
+        status: 'todo',
+        completedByEmail: undefined
       });
     }
   };
@@ -549,6 +553,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
             size="sm"
             onClick={(e) => { e.stopPropagation(); handleStartStop(); }}
             className="h-7 w-7 p-0 shrink-0"
+            aria-label={timer.isRunning ? 'Pause timer' : 'Start timer'}
           >
             {timer.isRunning ? (
               <Pause className="h-3.5 w-3.5" />
@@ -680,6 +685,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               size="sm"
               onClick={handleStartStop}
               className="h-8 w-8 p-0 shrink-0"
+              aria-label={timer.isRunning ? 'Pause timer' : 'Start timer'}
             >
               {timer.isRunning ? (
                 <Pause className="h-4 w-4" />
@@ -1054,6 +1060,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               size="sm"
               onClick={handleStartStop}
               className="h-8 w-8 p-0 shrink-0"
+              aria-label={timer.isRunning ? 'Pause timer' : 'Start timer'}
             >
               {timer.isRunning ? (
                 <Pause className="h-4 w-4" />

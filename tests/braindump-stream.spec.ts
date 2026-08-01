@@ -1404,3 +1404,229 @@ test.describe('A2 swipe gestures', () => {
     await context.close();
   });
 });
+
+/* ── Meeting action items behave like PROJECT lists (Igor, 2026-08-01) ───────
+   Two reinventions lived on the meeting page: an All tab that included
+   completed tasks (projects exclude them, Index.tsx:1991), and a task
+   transform that never fed sharedRecipients into TaskListItem, so an open
+   task with a stale completed_by_email stamp rendered struck-through. Plus
+   the stamp itself: unchecking wrote status only and left completed_by_email
+   behind forever. These tests pin the project semantics to the meeting page. */
+test.describe('Meeting action items', () => {
+  const MEETING_ID = '77777777-7777-4777-8777-777777777777';
+
+  type MeetingRow = SeedTask & {
+    user_id: string;
+    meeting_id: string;
+    description: string | null;
+    images: string[];
+    timer_total_seconds: number;
+    timer_is_running: boolean;
+    timer_start_time: number | null;
+    sort_order: number;
+    completed_at: string | null;
+    assigned_to_email: string | null;
+    completed_by_email: string | null;
+    created_at: string;
+  };
+
+  const mrow = (n: number, over: Partial<MeetingRow>): MeetingRow => ({
+    id: `mt-${n}`,
+    title: `Meeting task ${n}`,
+    status: 'todo',
+    due_date: null,
+    project_id: null,
+    priority: 'medium',
+    user_id: USER_ID,
+    meeting_id: MEETING_ID,
+    description: null,
+    images: [],
+    timer_total_seconds: 0,
+    timer_is_running: false,
+    timer_start_time: null,
+    sort_order: n,
+    completed_at: null,
+    assigned_to_email: null,
+    completed_by_email: null,
+    created_at: '2026-06-24T05:49:00+00:00',
+    ...over,
+  });
+
+  /* mt-4 is Igor's real case: a recipient completed it via the share link
+     (completed_by_email stamped by focusos-complete-shared-task), then it was
+     unchecked back to todo — an OPEN task carrying a stale stamp. */
+  const meetingSeed = (): MeetingRow[] => [
+    mrow(1, {}),
+    mrow(2, { status: 'in-progress' }),
+    mrow(3, {
+      status: 'completed',
+      completed_at: '2026-06-25T05:49:00+00:00',
+      completed_by_email: 'external user',
+    }),
+    mrow(4, { completed_by_email: 'external user' }),
+  ];
+
+  const shareRows = [
+    { id: 's-1', item_type: 'task', item_id: 'mt-1', sender_user_id: USER_ID, recipient_user_id: null, recipient_email: 'shemeer@ais.ae', status: 'accepted' },
+    { id: 's-2', item_type: 'task', item_id: 'mt-4', sender_user_id: USER_ID, recipient_user_id: null, recipient_email: 'shemeer@ais.ae', status: 'completed' },
+    { id: 's-3', item_type: 'task', item_id: 'mt-4', sender_user_id: USER_ID, recipient_user_id: null, recipient_email: 'other@ais.ae', status: 'declined' },
+  ];
+
+  const idOf = (url: string) => /[?&]id=eq\.([^&]+)/.exec(url)?.[1] ?? null;
+
+  /* the full row layout renders a hidden mobile copy AND a visible desktop
+     copy of the title, so text locators must filter to the visible node */
+  const title = (page: Page, t: string) => page.locator(`h3:text-is("${t}")`).locator('visible=true');
+
+  function makeMeetingStore() {
+    const state = { tasks: meetingSeed(), writes: [] as TaskWrite[] };
+    const onWrite = (w: TaskWrite) => {
+      state.writes.push(w);
+      const id = idOf(w.url);
+      if (!id) return;
+      if (w.method === 'DELETE') {
+        state.tasks = state.tasks.filter((t) => t.id !== id);
+        return;
+      }
+      if (w.method === 'PATCH') {
+        const t = state.tasks.find((x) => x.id === id);
+        if (t) Object.assign(t, w.body);
+      }
+    };
+    return { state, getTasks: () => state.tasks, onWrite };
+  }
+
+  async function openMeeting(browser: Browser, store: ReturnType<typeof makeMeetingStore>) {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+      isMobile: false,
+      hasTouch: false,
+      timezoneId: 'UTC',
+    });
+    await installIntercepts(context);
+    await context.route('**/rest/v1/focusos_meetings**', (route) => {
+      const meeting = {
+        id: MEETING_ID,
+        user_id: USER_ID,
+        title: 'Probe meeting',
+        created_at: '2026-06-24T05:49:00+00:00',
+        updated_at: '2026-06-24T06:08:00+00:00',
+        duration_seconds: 1140,
+        summary: null,
+        transcript_gcs_path: null,
+        action_items: [],
+        participants: [],
+        project_id: null,
+      };
+      const wantsObject = (route.request().headers()['accept'] || '').includes('vnd.pgrst.object');
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(wantsObject ? meeting : [meeting]),
+      });
+    });
+    await context.route('**/rest/v1/focusos_shared_items**', (route) => {
+      if (route.request().method() !== 'GET') {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(shareRows) });
+    });
+    await context.route('**/rest/v1/focusos_tasks**', (route) => {
+      const req = route.request();
+      if (req.method() !== 'GET') {
+        let body: any = null;
+        try {
+          body = req.postDataJSON();
+        } catch {
+          body = req.postData();
+        }
+        store.onWrite({ method: req.method(), url: req.url(), body });
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      }
+      const all = store.getTasks();
+      const idMatch = idOf(req.url());
+      const rows = idMatch ? all.filter((t) => t.id === idMatch) : all;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
+    });
+    const page = await context.newPage();
+    await seedSession(page);
+    await page.goto(`/meetings/${MEETING_ID}`);
+    await page.getByRole('tab', { name: /^All/ }).waitFor({ timeout: 20_000 });
+    return { context, page };
+  }
+
+  test('tabs follow the project rules: All = open only, no zombie strike-through', async ({ browser }) => {
+    const store = makeMeetingStore();
+    const { context, page } = await openMeeting(browser, store);
+
+    await expect(page.getByRole('tab', { name: 'All(3)' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'To Do(2)' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Progress(1)' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Done(1)' })).toBeVisible();
+
+    await expect(title(page, 'Meeting task 1')).toBeVisible();
+    await expect(title(page, 'Meeting task 2')).toBeVisible();
+    await expect(title(page, 'Meeting task 4')).toBeVisible();
+    await expect(page.locator('h3:text-is("Meeting task 3")')).toHaveCount(0);
+
+    const deco = await title(page, 'Meeting task 4').evaluate(
+      (el) => getComputedStyle(el).textDecorationLine,
+    );
+    expect(deco, 'open shared task is not struck').not.toContain('line-through');
+
+    // the zombie must NOT wear the completed-for-you banner either
+    await expect(page.getByRole('button', { name: 'Move to Done' })).toHaveCount(0);
+
+    await page.getByRole('tab', { name: 'Done(1)' }).click();
+    await expect(title(page, 'Meeting task 3')).toBeVisible();
+
+    await context.close();
+  });
+
+  test('play from To Do moves the card to Progress, visibly', async ({ browser }) => {
+    const store = makeMeetingStore();
+    const { context, page } = await openMeeting(browser, store);
+
+    await page.getByRole('tab', { name: 'To Do(2)' }).click();
+    await expect(title(page, 'Meeting task 1')).toBeVisible();
+    const row = page.locator('[data-task-card]', { hasText: 'Meeting task 1' });
+    await row.getByRole('button', { name: 'Start timer' }).locator('visible=true').click();
+
+    await expect
+      .poll(
+        () =>
+          store.state.writes.filter(
+            (w) => w.method === 'PATCH' && idOf(w.url) === 'mt-1' && w.body?.timer_is_running === true,
+          ).length,
+        { timeout: 10_000 },
+      )
+      .toBe(1);
+
+    await expect(page.getByRole('tab', { name: 'To Do(1)' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Progress(2)' }).click();
+    await expect(title(page, 'Meeting task 1')).toBeVisible();
+
+    await context.close();
+  });
+
+  test('unchecking a completed task clears the stale completed_by_email stamp', async ({ browser }) => {
+    const store = makeMeetingStore();
+    const { context, page } = await openMeeting(browser, store);
+
+    await page.getByRole('tab', { name: 'Done(1)' }).click();
+    const row = page.locator('[data-task-card]', { hasText: 'Meeting task 3' });
+    await row.getByRole('checkbox').locator('visible=true').click();
+
+    await expect
+      .poll(
+        () => store.state.writes.filter((w) => w.method === 'PATCH' && idOf(w.url) === 'mt-3').length,
+        { timeout: 10_000 },
+      )
+      .toBeGreaterThanOrEqual(1);
+    const patch = store.state.writes.filter((w) => w.method === 'PATCH' && idOf(w.url) === 'mt-3').pop()!;
+    expect(patch.body.status, 'reopened').toBe('todo');
+    expect(patch.body.completed_by_email, 'stale stamp cleared, no zombie left behind').toBeNull();
+
+    await context.close();
+  });
+});

@@ -671,6 +671,7 @@ const MeetingDetail = () => {
         timer_total_seconds: updatedTask.timer.totalSeconds,
         timer_is_running: updatedTask.timer.isRunning,
         timer_start_time: updatedTask.timer.startTime || null,
+        completed_by_email: updatedTask.completedByEmail || null,
         ...(projectChanged ? { sort_order: newSortOrder } : {}),
       })
       .eq('id', updatedTask.id);
@@ -1253,9 +1254,14 @@ const MeetingDetail = () => {
                     </div>
                   </div>
 
+                  {/* PROJECT rules, not meeting-specific ones (Igor 2026-08-01):
+                      All = open tasks only, the same predicate as Index.tsx:1991,
+                      and every task carries its sharedRecipients so TaskListItem
+                      renders share state (and the strike rule) exactly as the
+                      project lists do — no side-channel badge. */}
                   <Tabs defaultValue="all" className="mb-3">
                     <TabsList className="w-full">
-                      <TabsTrigger value="all" className="flex-1">All({savedTasks.length})</TabsTrigger>
+                      <TabsTrigger value="all" className="flex-1">All({savedTasks.filter(t => t.status !== 'completed').length})</TabsTrigger>
                       <TabsTrigger value="todo" className="flex-1">To Do({savedTasks.filter(t => t.status === 'todo').length})</TabsTrigger>
                       <TabsTrigger value="in-progress" className="flex-1">Progress({savedTasks.filter(t => t.status === 'in-progress').length})</TabsTrigger>
                       <TabsTrigger value="completed" className="flex-1">Done({savedTasks.filter(t => t.status === 'completed').length})</TabsTrigger>
@@ -1264,11 +1270,11 @@ const MeetingDetail = () => {
                       <TabsContent key={filterValue} value={filterValue}>
                         <div className="space-y-2">
                           {savedTasks
-                            .filter(t => filterValue === 'all' || t.status === filterValue)
+                            .filter(t => filterValue === 'all' ? t.status !== 'completed' : t.status === filterValue)
                             .map((task) => (
                               <div key={task.id} className="relative group/task">
                                 <TaskListItem
-                                  task={task}
+                                  task={{ ...task, sharedRecipients: taskSharedWithMap[task.id] }}
                                   onUpdate={handleSavedTaskUpdate}
                                   onEditTask={setEditingTask}
                                   onAssignTask={(t) => handleAssignTask(t)}
@@ -1278,11 +1284,6 @@ const MeetingDetail = () => {
                                   onTaskClick={() => toggleExpand(task.id)}
                                   projects={allProjects}
                                 />
-                                {taskSharedWithMap[task.id] && taskSharedWithMap[task.id].length > 0 && (
-                                  <div className="mt-1 ml-8">
-                                    <ShareStatusPopover recipients={taskSharedWithMap[task.id]} itemType="Task" />
-                                  </div>
-                                )}
                               </div>
                             ))}
                         </div>
