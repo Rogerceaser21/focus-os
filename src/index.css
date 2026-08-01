@@ -1338,6 +1338,10 @@ html.shell.liquid-glass .lg-hero-col {
    the @media(max-height:800px) nth-child(n+3) hide rule still matches. */
 .liquid-glass .lg-uprows {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  /* A2: a swiped row translates past the box, which would otherwise become
+     scrollable overflow on the x axis. Clip it instead, so the row reads as
+     sliding out of the card and nothing can be panned sideways. */
+  overflow-x: hidden;
   padding-bottom: 8px;
 }
 .liquid-glass .lg-utask { display: flex; align-items: center; gap: 12px; padding: 10px 18px; }
@@ -1388,6 +1392,65 @@ html.shell.liquid-glass .lg-hero-col {
   background: var(--chip); border: 1px solid var(--chip-brd); color: var(--t1);
 }
 .liquid-glass .lg-udot { width: 9px; height: 9px; border-radius: 999px; flex: none; }
+
+/* ── A2: row swipe + the gesture hint (2026-08-01) ───────────────────────────
+   The row moves on transform ONLY. The tint underneath is a permanently mounted
+   child that counter-translates, so no layer is created or destroyed while the
+   gesture animates (white-flash law). touch-action: pan-y hands the vertical
+   axis to .lg-uprows outright, so the JS intent threshold only has to arbitrate
+   the horizontal one and native scrolling is never fought. */
+.liquid-glass .lg-utask { position: relative; touch-action: pan-y; }
+/* Spring-back / slide-out. Absent while the finger drives the row, so the drag
+   tracks 1:1 and a new touch takes over an in-flight spring from where it is. */
+.liquid-glass .lg-utask.lg-uspring { transition: transform 260ms var(--ease-out-strong); }
+.liquid-glass .lg-uswipe {
+  position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px;
+}
+/* Complete on the right, set aside on the left. Both tints are house colours:
+   the completion green the tick already wears, and the plain row hairline. */
+.liquid-glass .lg-uswipe[data-dir='right'] { background: rgba(52, 199, 89, 0.16); }
+.liquid-glass .lg-uswipe[data-dir='left'] { background: var(--row-line); }
+.liquid-glass .lg-uswipe .i { opacity: 0; }
+.liquid-glass .lg-uswipe[data-dir='right'] .i.done { opacity: 1; color: #34c759; }
+.liquid-glass .lg-uswipe[data-dir='left'] .i.later { opacity: 1; color: var(--t2); }
+/* the row's own content rides above the tint */
+.liquid-glass .lg-utask > *:not(.lg-uswipe) { position: relative; z-index: 1; }
+
+/* The hint: one line, mostly at rest, nudging left then right on a 6s loop so
+   the two gestures name themselves without a tutorial. */
+.liquid-glass .lg-uhint {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 4px 18px 12px; font-size: 11.5px; font-weight: 600;
+  color: var(--t2); user-select: none;
+  animation: lg-uhint-nudge 6s var(--ease-out-strong) infinite;
+}
+.liquid-glass .lg-uhint span { display: inline-flex; align-items: center; gap: 4px; opacity: .6; }
+.liquid-glass .lg-uhint .w { opacity: .38; font-weight: 500; }
+.liquid-glass .lg-uhint .l { animation: lg-uhint-left 6s ease-in-out infinite; }
+.liquid-glass .lg-uhint .r { animation: lg-uhint-right 6s ease-in-out infinite; }
+@keyframes lg-uhint-nudge {
+  0%, 10% { transform: translateX(0); }
+  15%, 23% { transform: translateX(-5px); }
+  30%, 55% { transform: translateX(0); }
+  60%, 68% { transform: translateX(5px); }
+  75%, 100% { transform: translateX(0); }
+}
+@keyframes lg-uhint-left {
+  0%, 11% { opacity: .6; }
+  15%, 23% { opacity: 1; }
+  30%, 100% { opacity: .6; }
+}
+@keyframes lg-uhint-right {
+  0%, 56% { opacity: .6; }
+  60%, 68% { opacity: 1; }
+  75%, 100% { opacity: .6; }
+}
+/* Pointer-fine devices do not swipe: they got the buttons in A1. */
+@media (hover: hover) and (pointer: fine) {
+  .liquid-glass .lg-uhint { display: none; }
+}
 
 .liquid-glass .lg-hero-spacer { flex: 1; min-height: 16px; }
 
@@ -1868,6 +1931,19 @@ html.shell.liquid-glass .lg-hero-col.rec {
   }
   .liquid-glass .lg-stream {
     transition-duration: 160ms !important;
+  }
+  /* A2 gesture hint: purely decorative, and the ONE loop here that may stop
+     outright rather than slow down: there is nothing to comprehend in the
+     nudge, and both gestures stay named, centred and at rest without it. */
+  .liquid-glass .lg-uhint,
+  .liquid-glass .lg-uhint .l,
+  .liquid-glass .lg-uhint .r {
+    animation: none !important;
+  }
+  /* The swipe spring shortens but NEVER zeroes: the release handler retires a
+     settled row on transitionend, and a zero-duration transition never fires. */
+  .liquid-glass .lg-utask.lg-uspring {
+    transition-duration: 150ms !important;
   }
 }
 

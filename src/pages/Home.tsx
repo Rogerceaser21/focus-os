@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 
 if (import.meta.env.DEV) (window as any).__gsap = gsap;
-import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown, Play, X } from 'lucide-react';
+import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown, ArrowLeft, ArrowRight, Clock, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -90,6 +90,76 @@ export const rankTodaysFocus = (tasks: UpNextTask[], todayYmd: string): UpNextTa
     return ma.due - mb.due;
   });
 };
+
+/* ── A2: swipe gestures on the Today's Focus rows (2026-08-01) ───────────────
+   Touch only, since desktop keeps the buttons A1 gave it. Right past +72px
+   completes through the SAME handler the tick fires; left past -72px sets aside
+   for TODAY, which is a per-day localStorage key the ranked memo re-reads during
+   render. Intent threshold: the finger is only ours once it has travelled more
+   than 12px across AND 1.5x further across than down, so a tap still opens the
+   edit pane and a vertical drag still scrolls .lg-uprows natively (touch-action:
+   pan-y hands the browser the vertical axis outright, so the threshold only ever
+   arbitrates the horizontal one). */
+const SWIPE_INTENT_PX = 12;    // under this the gesture is still undecided
+const SWIPE_ACTION_PX = 72;    // release past this and the action fires
+const SWIPE_RESIST_PX = 120;   // past this the row drags at 35% of the finger
+const SWIPE_SETTLE_MS = 420;   // belt for a transitionend that never arrives
+const DISMISS_KEY_PREFIX = 'fos-dismissed:';
+
+/** Rubber band past SWIPE_RESIST_PX, so a long drag never tracks the finger all
+ *  the way to the edge of the screen. */
+function swipeResist(dx: number): number {
+  const a = Math.abs(dx);
+  if (a <= SWIPE_RESIST_PX) return dx;
+  return Math.sign(dx) * (SWIPE_RESIST_PX + (a - SWIPE_RESIST_PX) * 0.35);
+}
+
+/** Today's "set aside" ids. PURE read, called from the ranked memo during render
+ *  and never from an effect. A missing key, private mode or a corrupt value all
+ *  read as "nothing dismissed" rather than throwing the card away. */
+function readDismissed(ymd: string): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(`${DISMISS_KEY_PREFIX}${ymd}`);
+    const list = raw ? JSON.parse(raw) : null;
+    return new Set(Array.isArray(list) ? (list as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** Add one id to today's set and drop every OTHER day's key in the same pass
+ *  (lazy cleanup: yesterday's set is dead the moment today writes). Called
+ *  synchronously from the release handler, so the render that follows reads back
+ *  exactly what was written. */
+function writeDismissed(ymd: string, id: string): void {
+  try {
+    const key = `${DISMISS_KEY_PREFIX}${ymd}`;
+    const next = readDismissed(ymd);
+    next.add(id);
+    for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(DISMISS_KEY_PREFIX) && k !== key) window.localStorage.removeItem(k);
+    }
+    window.localStorage.setItem(key, JSON.stringify([...next]));
+  } catch {
+    /* private mode / quota: the dismissal then lives only as long as this render */
+  }
+}
+
+/** One gesture, one state object (latches are STATE here, never refs).
+ *  pending = finger down, intent undecided · drag = ours, tracking the finger ·
+ *  settle = released short, springing back · exit = released past the threshold,
+ *  sliding out. `base` is where the row already sat when the finger landed, so a
+ *  new touch can take over a spring-back mid-flight. */
+type SwipeMode = 'pending' | 'drag' | 'settle' | 'exit';
+interface SwipeState {
+  id: string;
+  startX: number;
+  startY: number;
+  base: number;
+  dx: number;
+  mode: SwipeMode;
+}
 
 /* ── ?fakedump=N — URL-param-gated dev/demo affordance ───────────────────────
    Same gate shape as ?tweaks (App.tsx): read straight off the query string,
@@ -298,12 +368,20 @@ const Home = () => {
   });
   // en-CA locale = YYYY-MM-DD in the user's own timezone
   const todayYmd = new Date().toLocaleDateString('en-CA');
+  // A2: bumped by a swipe-left dismissal, from the release handler and never
+  // from an effect. It is only the memo's re-derivation trigger: localStorage
+  // stays the single source of truth and is re-read during render, so a same-day
+  // reload lands on the same list with no mirror state to drift out of step.
+  const [dismissedRev, setDismissedRev] = useState(0);
   // 10 rows now (was 3): the card scrolls internally (.lg-uprows), so the extra
-  // rows cost height only up to the card's own max-height.
-  const upNext = useMemo(
-    () => rankTodaysFocus(upNextData?.openTasks ?? [], todayYmd).slice(0, 10),
-    [upNextData, todayYmd],
-  );
+  // rows cost height only up to the card's own max-height. Tasks set aside today
+  // are filtered here, during render, so no effect ever removes a row after paint.
+  const upNext = useMemo(() => {
+    void dismissedRev;
+    const dismissed = readDismissed(todayYmd);
+    const open = (upNextData?.openTasks ?? []).filter((t) => !dismissed.has(t.id));
+    return rankTodaysFocus(open, todayYmd).slice(0, 10);
+  }, [upNextData, todayYmd, dismissedRev]);
   const openCount = upNextData?.openCount ?? 0;
 
   /* ── A1: interactive Today's Focus rows ────────────────────────────────────
@@ -332,8 +410,10 @@ const Home = () => {
   // rest of Index's payload echoes the row back unchanged (Index.tsx:1514-1532),
   // and completed_at is set by the DB trigger, never by the client (the MCP
   // complete_task tool writes exactly this too, focusos-mcp/index.ts:380).
-  const handleCompleteTask = useCallback(async (taskId: string) => {
-    if (completingIds.has(taskId)) return;
+  // Returns whether the write landed, so A2's swipe can un-park a row whose
+  // completion failed. The payload itself is untouched.
+  const handleCompleteTask = useCallback(async (taskId: string): Promise<boolean> => {
+    if (completingIds.has(taskId)) return false;
     setCompletingIds((prev) => new Set(prev).add(taskId));
     const { error } = await (supabase as any)
       .from('focusos_tasks')
@@ -346,9 +426,10 @@ const Home = () => {
         return next;
       });
       toast.error('Failed to update task');
-      return;
+      return false;
     }
     invalidateTaskCaches();
+    return true;
   }, [completingIds, invalidateTaskCaches]);
 
   // Start the timer: the exact start-branch writes of TaskListItem.handleStartStop
@@ -426,6 +507,100 @@ const Home = () => {
     }
     setEditingTask(transformDbTask(row));
   }, []);
+
+  /* ── A2: the swipe gesture itself ──────────────────────────────────────────
+     Touch events only, so a mouse never drags anything (desktop has buttons).
+     Everything the gesture knows lives in ONE state object: the row's transform
+     is derived from it during render, and the release handler writes through
+     the A1 completion path or the per-day dismiss key. No effect anywhere. */
+  const [swipe, setSwipe] = useState<SwipeState | null>(null);
+
+  /** A finger that became a swipe must not also fire the tap it lands on. */
+  const swipeBlocksTap = useCallback(
+    (id: string) => !!swipe && swipe.id === id && swipe.mode !== 'pending',
+    [swipe],
+  );
+
+  const onRowTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>, id: string) => {
+    if (e.touches.length !== 1) return;         // pinch / second finger: not a swipe
+    if (swipe && swipe.mode === 'exit') return; // let a leaving row leave
+    const touch = e.touches[0];
+    // Take over a spring-back mid-flight: start from where the row IS on screen,
+    // read live off the transform, not from the value the state settled on.
+    const tr = window.getComputedStyle(e.currentTarget).transform;
+    let base = 0;
+    if (tr && tr !== 'none') {
+      try { base = new DOMMatrixReadOnly(tr).m41; } catch { base = 0; }
+    }
+    setSwipe({ id, startX: touch.clientX, startY: touch.clientY, base, dx: base, mode: 'pending' });
+  }, [swipe]);
+
+  const onRowTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>, id: string) => {
+    const s = swipe;
+    if (!s || s.id !== id || s.mode === 'settle' || s.mode === 'exit') return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = touch.clientX - s.startX;
+    const dy = touch.clientY - s.startY;
+    if (s.mode === 'pending') {
+      // Down the list, not across it: hand the whole gesture back to the scroll
+      // box and never look at it again (a tap ends here too, untouched).
+      if (Math.abs(dy) > SWIPE_INTENT_PX && Math.abs(dx) <= 1.5 * Math.abs(dy)) {
+        setSwipe(null);
+        return;
+      }
+      if (Math.abs(dx) <= SWIPE_INTENT_PX || Math.abs(dx) <= 1.5 * Math.abs(dy)) return;
+      setSwipe({ ...s, mode: 'drag', dx: swipeResist(s.base + dx) });
+      return;
+    }
+    setSwipe({ ...s, dx: swipeResist(s.base + dx) });
+  }, [swipe]);
+
+  const onRowTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>, id: string) => {
+    const s = swipe;
+    if (!s || s.id !== id) return;
+    if (s.mode !== 'drag') {
+      if (s.mode === 'pending') setSwipe(null); // it was a tap: leave the click alone
+      return;
+    }
+    const out = (e.currentTarget.offsetWidth || 360) + 48;
+    if (s.dx >= SWIPE_ACTION_PX) {
+      // Slide out right on the EXISTING row element (transform only), then the
+      // invalidation -> refetch -> re-rank refill takes the row away for real.
+      setSwipe({ ...s, mode: 'exit', dx: out });
+      // The SAME write the tick fires: one completion path, one field set.
+      void handleCompleteTask(id).then((ok) => {
+        if (!ok) setSwipe((cur) => (cur && cur.id === id ? null : cur));
+      });
+      return;
+    }
+    if (s.dx <= -SWIPE_ACTION_PX) {
+      writeDismissed(todayYmd, id);   // synchronous: the memo re-reads this
+      setSwipe({ ...s, mode: 'exit', dx: -out });
+      // The row leaves the ranked list when its exit transform lands
+      // (onRowTransitionEnd); this is the belt for a transitionend that never
+      // arrives, and a double bump costs one extra re-derivation, nothing more.
+      window.setTimeout(() => setDismissedRev((n) => n + 1), SWIPE_SETTLE_MS);
+      return;
+    }
+    setSwipe({ ...s, mode: 'settle', dx: 0 });
+    window.setTimeout(
+      () => setSwipe((cur) => (cur && cur.id === id && cur.mode === 'settle' ? null : cur)),
+      SWIPE_SETTLE_MS,
+    );
+  }, [swipe, handleCompleteTask, todayYmd]);
+
+  const onRowTouchCancel = useCallback((id: string) => {
+    setSwipe((cur) => (cur && cur.id === id && cur.mode !== 'exit' ? { ...cur, mode: 'settle', dx: 0 } : cur));
+  }, []);
+
+  const onRowTransitionEnd = useCallback((e: React.TransitionEvent<HTMLDivElement>, id: string) => {
+    if (e.target !== e.currentTarget || e.propertyName !== 'transform') return;
+    const s = swipe;
+    if (!s || s.id !== id) return;
+    if (s.mode === 'settle') { setSwipe(null); return; }         // idle again
+    if (s.mode === 'exit' && s.dx < 0) setDismissedRev((n) => n + 1); // set aside
+  }, [swipe]);
 
   // Save from the pane: the column mapping of Index.handleUpdateTask's DB update
   // (Index.tsx:1514-1532). Index's local-state choreography (optimistic list
@@ -773,20 +948,45 @@ const Home = () => {
             <div className="lg-uprows">
               {upNext.map((t) => {
               const done = completingIds.has(t.id);
+              // A2: the row's own gesture state, derived during render. `moving`
+              // is 0 until the gesture is decided, so a tap never nudges a pixel.
+              const sw = swipe && swipe.id === t.id ? swipe : null;
+              const moving = sw && sw.mode !== 'pending' ? sw.dx : 0;
+              const reveal = Math.min(1, Math.abs(moving) / SWIPE_ACTION_PX);
               return (
-                <div key={t.id} className="lg-utask">
+                <div
+                  key={t.id}
+                  className={`lg-utask${sw && (sw.mode === 'settle' || sw.mode === 'exit') ? ' lg-uspring' : ''}`}
+                  style={sw ? { transform: `translateX(${moving}px)` } : undefined}
+                  onTouchStart={(e) => onRowTouchStart(e, t.id)}
+                  onTouchMove={(e) => onRowTouchMove(e, t.id)}
+                  onTouchEnd={(e) => onRowTouchEnd(e, t.id)}
+                  onTouchCancel={() => onRowTouchCancel(t.id)}
+                  onTransitionEnd={(e) => onRowTransitionEnd(e, t.id)}>
+                  {/* Swipe affordance. ALWAYS mounted (never born mid-gesture,
+                      per the white-flash law), invisible until the drag drives its
+                      opacity, and counter-translated so the tint stays put in
+                      the card while the row slides off it. */}
+                  <div
+                    className="lg-uswipe"
+                    aria-hidden="true"
+                    data-dir={moving > 0 ? 'right' : moving < 0 ? 'left' : undefined}
+                    style={sw ? { transform: `translateX(${-moving}px)`, opacity: reveal } : undefined}>
+                    <Check className="i done" size={14} strokeWidth={3} />
+                    <Clock className="i later" size={13} strokeWidth={2.5} />
+                  </div>
                   <button
                     type="button"
                     className={`lg-tick${done ? ' done' : ''}`}
                     aria-label={`Complete ${t.title}`}
-                    onClick={() => handleCompleteTask(t.id)}>
+                    onClick={() => { if (swipeBlocksTap(t.id)) return; handleCompleteTask(t.id); }}>
                     <Check size={13} strokeWidth={3} />
                   </button>
                   <div
                     className="lg-utap"
                     role="button"
                     tabIndex={0}
-                    onClick={() => handleOpenTask(t.id)}
+                    onClick={() => { if (swipeBlocksTap(t.id)) return; handleOpenTask(t.id); }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenTask(t.id); }}>
                     <div className={`lg-utitle${done ? ' done' : ''}`}>{t.title}</div>
                     {t.project_id &&
@@ -801,14 +1001,23 @@ const Home = () => {
                     className={`lg-uact play${timerStartedIds.has(t.id) ? ' on' : ''}`}
                     aria-label={`Start timer for ${t.title}`}
                     title={timerStartedIds.has(t.id) ? 'Timer running' : 'Start timer'}
-                    onClick={() => handleStartTimer(t.id)}>
+                    onClick={() => { if (swipeBlocksTap(t.id)) return; handleStartTimer(t.id); }}>
                     <Play size={14} />
                   </button>
                   {/* Same AlertDialog the project rows use (TaskListItem.tsx:1012),
                       same copy, same house liquid-glass restyle. */}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <button type="button" className="lg-uact del" aria-label={`Delete ${t.title}`} title="Delete task">
+                      {/* preventDefault is how a Radix trigger is stopped: it
+                          composes our handler first and skips its own once the
+                          event is defaulted. The swipe must not also open the
+                          confirm behind itself. */}
+                      <button
+                        type="button"
+                        className="lg-uact del"
+                        aria-label={`Delete ${t.title}`}
+                        title="Delete task"
+                        onClick={(e) => { if (swipeBlocksTap(t.id)) e.preventDefault(); }}>
                         <X size={14} strokeWidth={2.5} />
                       </button>
                     </AlertDialogTrigger>
@@ -829,6 +1038,17 @@ const Home = () => {
                   </AlertDialog>
                 </div>);
             })}
+            </div>
+            {/* A2 gesture hint. ONE persistent line on the card's bottom edge:
+                mounted for as long as the card is, so it is never born or killed
+                mid-transition (white-flash law), and it fades with the card
+                during recording exactly like every other pixel of it. Motion is
+                CSS keyframes on transform/opacity only, and it is hidden on
+                pointer-fine devices, which swipe nothing and have the buttons. */}
+            <div className="lg-uhint" aria-hidden="true">
+              <span className="l"><ArrowLeft size={11} strokeWidth={2.5} />set aside</span>
+              <span className="w">swipe</span>
+              <span className="r">complete<ArrowRight size={11} strokeWidth={2.5} /></span>
             </div>
           </div>}
 

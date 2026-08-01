@@ -857,3 +857,396 @@ test.describe('A1 interactive rows', () => {
     await context.close();
   });
 });
+
+/* ── A2: swipe gestures + the animated hint (2026-08-01) ─────────────────────
+   Right past +72px completes through the SAME write A1's tick fires; left past
+   -72px sets the task aside for TODAY (a per-day localStorage key the ranked
+   memo re-reads during render, so it survives a same-day reload with no server
+   round trip). Everything under the threshold is still a tap, and everything
+   vertical is still .lg-uprows' native scroll: the two regressions the intent
+   threshold exists to prevent, both asserted below.
+
+   The gestures are dispatched as REAL touch input through CDP (the same
+   pipeline a finger uses), not as synthetic DOM events, so React's handlers and
+   Chromium's own gesture recognition both see exactly what the device sends. */
+test.describe('A2 swipe gestures', () => {
+  type A2Row = SeedTask & {
+    description: string | null;
+    images: string[];
+    timer_total_seconds: number;
+    timer_is_running: boolean;
+    timer_start_time: number | null;
+    sort_order: number;
+    completed_by_email: string | null;
+    assigned_to_email: string | null;
+  };
+
+  const day = 86400000;
+  const ymd = (offsetDays: number) =>
+    new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA');
+
+  const row = (n: number, priority: string, due: string | null): A2Row => ({
+    id: `a2-${n}`,
+    title: `A2 task ${n}`,
+    status: 'todo',
+    due_date: due,
+    project_id: null,
+    priority,
+    description: `desc ${n}`,
+    images: [],
+    timer_total_seconds: 0,
+    timer_is_running: false,
+    timer_start_time: null,
+    sort_order: n,
+    completed_by_email: null,
+    assigned_to_email: null,
+  });
+
+  /** 12 open tasks seeded ALREADY in rank order, so "row 1" is unambiguous. */
+  const seed = (): A2Row[] => [
+    row(1, 'urgent', ymd(0)),
+    row(2, 'high', ymd(0)),
+    row(3, 'medium', ymd(0)),
+    row(4, 'low', ymd(0)),
+    row(5, 'urgent', `${ymd(3)}T20:00:00+00:00`),
+    row(6, 'high', `${ymd(5)}T20:00:00+00:00`),
+    row(7, 'medium', `${ymd(7)}T20:00:00+00:00`),
+    row(8, 'low', `${ymd(9)}T20:00:00+00:00`),
+    row(9, 'low', null),
+    row(10, 'low', null),
+    row(11, 'low', null),
+    row(12, 'low', null),
+  ];
+
+  const idOf = (url: string) => /[?&]id=eq\.([^&]+)/.exec(url)?.[1] ?? null;
+
+  function makeStore() {
+    const state = { tasks: seed(), writes: [] as TaskWrite[] };
+    const onWrite = (w: TaskWrite) => {
+      state.writes.push(w);
+      const id = idOf(w.url);
+      if (!id) return;
+      if (w.method === 'DELETE' || (w.method === 'PATCH' && w.body?.status === 'completed')) {
+        state.tasks = state.tasks.filter((t) => t.id !== id);
+      }
+    };
+    return { state, getTasks: () => state.tasks, onWrite };
+  }
+
+  /** The phone rig: 393x852 standalone, which is the only place the swipes and
+   *  the hint exist at all (both are gated to coarse pointers). */
+  const openPhone = (browser: Browser, store: ReturnType<typeof makeStore>) =>
+    openIdleHome(browser, {
+      width: 393,
+      height: 852,
+      standalone: true,
+      getTasks: store.getTasks,
+      onWrite: store.onWrite,
+    });
+
+  /**
+   * One finger: touchStart, N touchMoves, touchEnd, dispatched through
+   * Chromium's real input pipeline. `beforeRelease` runs with the finger still
+   * down, which is the only moment the mid-drag affordance can be read.
+   */
+  async function touchDrag(
+    page: Page,
+    selector: string,
+    dx: number,
+    opts: { dy?: number; steps?: number; nth?: number; beforeRelease?: () => Promise<void> } = {},
+  ) {
+    const dy = opts.dy ?? 0;
+    const steps = opts.steps ?? 12;
+    const box = await page.locator(selector).nth(opts.nth ?? 0).boundingBox();
+    if (!box) throw new Error(`no bounding box for ${selector}`);
+    const x0 = box.x + box.width / 2;
+    const y0 = box.y + box.height / 2;
+    const cdp = await page.context().newCDPSession(page);
+    try {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] });
+      for (let i = 1; i <= steps; i += 1) {
+        await cdp.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [{ x: x0 + (dx * i) / steps, y: y0 + (dy * i) / steps }],
+        });
+      }
+      if (opts.beforeRelease) await opts.beforeRelease();
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    } finally {
+      await cdp.detach();
+    }
+  }
+
+  /** The page's own idea of today. Home reads it in the page timezone, and so
+   *  must the assertion on the key it wrote. */
+  const pageYmd = (page: Page) => page.evaluate(() => new Date().toLocaleDateString('en-CA'));
+
+  const dismissedIds = async (page: Page) => {
+    const key = `fos-dismissed:${await pageYmd(page)}`;
+    return page.evaluate((k) => {
+      const raw = localStorage.getItem(k);
+      return raw ? (JSON.parse(raw) as string[]) : null;
+    }, key);
+  };
+
+  test('swipe right completes the task with the tick write and the list refills', async ({ browser }) => {
+    const store = makeStore();
+    const { context, page } = await openPhone(browser, store);
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 1');
+
+    await touchDrag(page, '.lg-utask', 130, {
+      beforeRelease: async () => {
+        // mid-drag, with the finger still down: the row has travelled and the
+        // completion affordance is painted behind it
+        const mid = await page.evaluate(() => {
+          const r = document.querySelector('.lg-utask') as HTMLElement;
+          const tint = r.querySelector('.lg-uswipe') as HTMLElement;
+          return {
+            rowTransform: getComputedStyle(r).transform,
+            dir: tint.getAttribute('data-dir'),
+            opacity: Number(getComputedStyle(tint).opacity),
+            touchAction: getComputedStyle(r).touchAction,
+          };
+        });
+        expect(mid.rowTransform, 'the row is translated, not re-laid-out').toMatch(/^matrix\(1, 0, 0, 1, /);
+        expect(Number(/matrix\(1, 0, 0, 1, ([-\d.]+)/.exec(mid.rowTransform)![1]), 'moved right').toBeGreaterThan(60);
+        expect(mid.dir, 'completion affordance revealed').toBe('right');
+        expect(mid.opacity, 'tint follows the drag').toBeGreaterThan(0.5);
+        expect(mid.touchAction, 'vertical axis still belongs to the scroll box').toBe('pan-y');
+      },
+    });
+
+    await expect.poll(() => store.state.writes.length, { timeout: 10_000 }).toBe(1);
+    const patch = store.state.writes[0];
+    expect(patch.method).toBe('PATCH');
+    expect(idOf(patch.url), 'the swiped row was the one written').toBe('a2-1');
+    // byte-identical to the A1 tick payload: status only, completed_at is the
+    // DB trigger's job
+    expect(patch.body).toEqual({ status: 'completed' });
+
+    // the refill is invalidation -> refetch -> re-rank during render
+    await expect
+      .poll(() => page.locator('.lg-utask .lg-utitle').first().textContent(), { timeout: 10_000 })
+      .toBe('A2 task 2');
+    await expect(page.locator('.lg-utask'), 'the 10-row window refilled').toHaveCount(10);
+    expect(await dismissedIds(page), 'a completion never writes the dismiss key').toBeNull();
+
+    await context.close();
+  });
+
+  test('swipe left sets the task aside for today, with no write, and it survives a reload', async ({
+    browser,
+  }) => {
+    const store = makeStore();
+    const { context, page } = await openPhone(browser, store);
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 1');
+
+    await touchDrag(page, '.lg-utask', -130, {
+      beforeRelease: async () => {
+        const dir = await page.evaluate(() =>
+          document.querySelector('.lg-utask .lg-uswipe')!.getAttribute('data-dir'),
+        );
+        expect(dir, 'set-aside affordance revealed').toBe('left');
+      },
+    });
+
+    // the row leaves the ranked list (the memo re-derives; nothing is deleted)
+    await expect
+      .poll(() => page.locator('.lg-utask .lg-utitle').first().textContent(), { timeout: 10_000 })
+      .toBe('A2 task 2');
+    await expect(page.locator('.lg-utask'), 'the window refilled from the tail').toHaveCount(10);
+
+    expect(await dismissedIds(page), 'today key holds the set-aside id').toEqual(['a2-1']);
+    expect(store.state.writes, 'setting aside is local only, no network write').toEqual([]);
+
+    // same day, same browser: it must still be gone after a full reload, and
+    // the seeded list still contains it (nothing was deleted server-side)
+    await page.reload();
+    await page.waitForSelector('.lg-upnext', { timeout: 20_000 });
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 2');
+    const titles = await page.locator('.lg-utask .lg-utitle').allTextContents();
+    expect(titles, 'the set-aside task is absent from the whole window').not.toContain('A2 task 1');
+    expect(store.state.tasks.some((t) => t.id === 'a2-1'), 'the task itself is untouched').toBe(true);
+    expect(store.state.writes, 'still no write after the reload').toEqual([]);
+
+    // yesterday's key is cleaned up lazily by the write that replaced it
+    const stale = await page.evaluate(() =>
+      Object.keys(localStorage).filter((k) => k.startsWith('fos-dismissed:')),
+    );
+    expect(stale.length, 'exactly one dismiss key survives (today\'s)').toBe(1);
+
+    await context.close();
+  });
+
+  test('a short swipe springs back: no write, no dismissal, no edit pane', async ({ browser }) => {
+    const store = makeStore();
+    const { context, page } = await openPhone(browser, store);
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
+    await touchDrag(page, '.lg-utask', 30, { steps: 6 });
+    await page.waitForTimeout(700); // the spring-back plus its settle window
+
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 1');
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+    expect(store.state.writes, 'nothing was written').toEqual([]);
+    expect(await dismissedIds(page), 'nothing was set aside').toBeNull();
+    await expect(page.getByRole('dialog'), 'a swipe is not a tap').toHaveCount(0);
+    // and the row is back home, transform-wise
+    const back = await page.evaluate(() => {
+      const t = getComputedStyle(document.querySelector('.lg-utask') as HTMLElement).transform;
+      return t === 'none' ? 0 : Number(/matrix\(1, 0, 0, 1, ([-\d.]+)/.exec(t)?.[1] ?? NaN);
+    });
+    expect(Math.abs(back), 'row settled back to 0').toBeLessThan(0.5);
+
+    await context.close();
+  });
+
+  test('a tap still opens the edit pane (the intent threshold guard)', async ({ browser }) => {
+    const store = makeStore();
+    const { context, page } = await openPhone(browser, store);
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
+    await page.locator('.lg-utask').first().locator('.lg-utap').tap();
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.locator('#title'), 'the pane is loaded with that task').toHaveValue('A2 task 1');
+    expect(new URL(page.url()).pathname, 'no navigation on open').toBe('/home');
+    expect(store.state.writes, 'a tap writes nothing on its own').toEqual([]);
+    expect(await dismissedIds(page), 'a tap sets nothing aside').toBeNull();
+
+    await context.close();
+  });
+
+  test('vertical drags still scroll the rows box and fire no action', async ({ browser }) => {
+    const store = makeStore();
+    const { context, page } = await openPhone(browser, store);
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
+    const before = await page.evaluate(() => {
+      const b = document.querySelector('.lg-uprows') as HTMLElement;
+      return { top: b.scrollTop, scrollHeight: b.scrollHeight, clientHeight: b.clientHeight };
+    });
+    expect(before.scrollHeight, 'the rows box really does overflow').toBeGreaterThan(before.clientHeight + 20);
+
+    // a touch-sourced scroll gesture: the browser's own recogniser drives it,
+    // and React's touch handlers see every event of it
+    const box = (await page.locator('.lg-uprows').boundingBox())!;
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.synthesizeScrollGesture', {
+      x: box.x + box.width / 2,
+      y: box.y + box.height / 2,
+      xDistance: 0,
+      yDistance: -120, // negative = scroll down through the list
+      gestureSourceType: 'touch',
+      speed: 800,
+    });
+    await cdp.detach();
+    await page.waitForTimeout(400);
+
+    const after = await page.evaluate(() => (document.querySelector('.lg-uprows') as HTMLElement).scrollTop);
+    expect(after, 'the rows box scrolled').toBeGreaterThan(before.top + 20);
+    expect(store.state.writes, 'scrolling completes nothing').toEqual([]);
+    expect(await dismissedIds(page), 'scrolling sets nothing aside').toBeNull();
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 1');
+    // no row was left translated by the scroll
+    const offsets = await page.evaluate(() =>
+      [...document.querySelectorAll('.lg-utask')].map((el) => {
+        const t = getComputedStyle(el).transform;
+        return t === 'none' ? 0 : Number(/matrix\(1, 0, 0, 1, ([-\d.]+)/.exec(t)?.[1] ?? 0);
+      }),
+    );
+    expect(Math.max(...offsets.map(Math.abs)), 'every row is still at rest').toBeLessThan(0.5);
+
+    await context.close();
+  });
+
+  test('the hint sits under the card, loops on a coarse pointer, and stops for reduced motion', async ({
+    browser,
+  }) => {
+    const store = makeStore();
+    const { context, page } = await openPhone(browser, store);
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
+    const hint = await page.evaluate(() => {
+      const el = document.querySelector('.lg-uhint') as HTMLElement;
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      const rows = (document.querySelector('.lg-uprows') as HTMLElement).getBoundingClientRect();
+      const card = (document.querySelector('.lg-upnext') as HTMLElement).getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return {
+        text: el.textContent ?? '',
+        display: cs.display,
+        animationName: cs.animationName,
+        animationIterationCount: cs.animationIterationCount,
+        left: getComputedStyle(el.querySelector('.l')!).animationName,
+        right: getComputedStyle(el.querySelector('.r')!).animationName,
+        belowRows: r.top >= rows.bottom - 0.5,
+        insideCard: r.bottom <= card.bottom + 0.5,
+        running: el.getAnimations().length,
+      };
+    });
+
+    expect(hint, 'the hint is rendered under the card').not.toBeNull();
+    expect(hint!.display, 'visible on a coarse pointer').not.toBe('none');
+    expect(hint!.text.toLowerCase(), 'both gestures are named').toContain('set aside');
+    expect(hint!.text.toLowerCase()).toContain('complete');
+    expect(hint!.animationName, 'the nudge loop is running').not.toBe('none');
+    expect(hint!.animationIterationCount, 'it loops').toBe('infinite');
+    expect(hint!.left, 'the left phrase has its own emphasis loop').not.toBe('none');
+    expect(hint!.right, 'the right phrase has its own emphasis loop').not.toBe('none');
+    expect(hint!.belowRows, 'attached below the scrolling rows').toBe(true);
+    expect(hint!.insideCard, 'and inside the glass card').toBe(true);
+    expect(hint!.running, 'the element really is animating').toBeGreaterThan(0);
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForTimeout(150);
+    const reduced = await page.evaluate(() => {
+      const el = document.querySelector('.lg-uhint') as HTMLElement;
+      return {
+        animationName: getComputedStyle(el).animationName,
+        left: getComputedStyle(el.querySelector('.l')!).animationName,
+        right: getComputedStyle(el.querySelector('.r')!).animationName,
+        display: getComputedStyle(el).display,
+        justify: getComputedStyle(el).justifyContent,
+        // the swipe spring must NOT be zeroed: the release handler retires a
+        // settled row on transitionend
+        spring: getComputedStyle(document.querySelector('.lg-utask') as HTMLElement).transitionDuration,
+      };
+    });
+    expect(reduced.animationName, 'no nudge under reduced motion').toBe('none');
+    expect(reduced.left, 'no left emphasis under reduced motion').toBe('none');
+    expect(reduced.right, 'no right emphasis under reduced motion').toBe('none');
+    expect(reduced.display, 'the text stays, static and centred').not.toBe('none');
+    expect(reduced.justify).toBe('center');
+
+    await context.close();
+  });
+
+  test('desktop (pointer: fine) gets no hint and keeps the A1 buttons', async ({ browser }) => {
+    const store = makeStore();
+    const { context, page } = await openIdleHome(browser, {
+      width: 1280,
+      height: 900,
+      mobile: false,
+      getTasks: store.getTasks,
+      onWrite: store.onWrite,
+    });
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
+    const display = await page.evaluate(
+      () => getComputedStyle(document.querySelector('.lg-uhint') as HTMLElement).display,
+    );
+    expect(display, 'no swipe hint where there are no swipes').toBe('none');
+
+    // and the A1 controls still write exactly what they used to
+    await page.getByRole('button', { name: 'Complete A2 task 1', exact: true }).click();
+    await expect.poll(() => store.state.writes.length, { timeout: 10_000 }).toBe(1);
+    expect(store.state.writes[0].body).toEqual({ status: 'completed' });
+
+    await context.close();
+  });
+});
