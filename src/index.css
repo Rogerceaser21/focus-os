@@ -1331,8 +1331,43 @@ html.shell.liquid-glass .lg-hero-col {
 .liquid-glass .lg-uphead { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 18px 2px; }
 .liquid-glass .lg-uphead .ttl { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--t2); }
 .liquid-glass .lg-uphead .cnt { font-size: 12px; color: var(--t3); }
+/* A1 (2026-08-01): the rows scroll INSIDE the card. The card is a flex column
+   capped at 400px (440 >=640px), so the row box takes the remaining height and
+   owns the overflow. Otherwise the 10 ranked rows spill past the glass edge
+   and the last one is sliced in half. Rows stay DIRECT children of this box, so
+   the @media(max-height:800px) nth-child(n+3) hide rule still matches. */
+.liquid-glass .lg-uprows {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding-bottom: 8px;
+}
 .liquid-glass .lg-utask { display: flex; align-items: center; gap: 12px; padding: 10px 18px; }
 .liquid-glass .lg-utask + .lg-utask { border-top: 1px solid var(--row-line); }
+/* the tappable text region (title + project meta): opens the edit pane */
+.liquid-glass .lg-utap { flex: 1; min-width: 0; cursor: pointer; border-radius: 10px; }
+.liquid-glass .lg-utap:active { opacity: .7; }
+.liquid-glass .lg-utap:focus { outline: none; }
+.liquid-glass .lg-utap:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+/* row controls: plain icon buttons, the same affordance the /app rows carry.
+   Scoped to .lg-utask because .lg-tick is also the shadcn Checkbox class. */
+.liquid-glass .lg-utask .lg-tick { padding: 0; cursor: pointer; }
+.liquid-glass .lg-utask .lg-tick:hover { border-color: var(--t2); }
+.liquid-glass .lg-utask .lg-tick:active { transform: scale(.9); }
+.liquid-glass .lg-utask .lg-tick:focus { outline: none; }
+.liquid-glass .lg-utask .lg-tick:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.liquid-glass .lg-uact {
+  width: 28px; height: 28px; flex: none; padding: 0; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; color: var(--t3);
+  cursor: pointer;
+}
+.liquid-glass .lg-uact:hover { background: var(--chip); border-color: var(--gbrd); color: var(--t1); }
+.liquid-glass .lg-uact:active { transform: scale(.92); }
+.liquid-glass .lg-uact.play.on { color: #34c759; }
+.liquid-glass .lg-uact.del:hover { color: #e5484d; border-color: rgba(229, 72, 77, 0.45); }
+.liquid-glass .lg-uact:focus { outline: none; }
+.liquid-glass .lg-uact:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+/* the two controls read as one cluster (row gap is 12px) */
+.liquid-glass .lg-utask .lg-uact + .lg-uact { margin-left: -8px; }
 .liquid-glass .lg-tick {
   width: 23px; height: 23px; border-radius: 999px; flex: none;
   border: 1.5px solid var(--t3); display: flex; align-items: center; justify-content: center;
@@ -1830,6 +1865,6 @@ html.shell.liquid-glass .lg-hero-col.rec {
   }
 }
 
-/* Today's Focus rows are tappable (step 2, 2026-08-01) */
-.liquid-glass .lg-utask-tap { cursor: pointer; }
-.liquid-glass .lg-utask-tap:active { opacity: .7; }
+/* Today's Focus rows are tappable (step 2, 2026-08-01). A1 (2026-08-01) moved
+   the tap target off the whole row onto the text region (.lg-utap, above), so
+   the tick / play / delete controls own their own hit areas. */

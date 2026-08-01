@@ -402,54 +402,84 @@ test.describe('brain dump live stream — 1280x800 wide stage', () => {
    Up Next card flex-grows into the freed space (orb block dropped 108->72),
    and wide viewports get real column widths (680 tablet / 760 desktop —
    the desktop number must equal the GSAP idle-return width in Home.tsx). */
+type SeedTask = {
+  id: string;
+  title: string;
+  status: string;
+  due_date: string | null;
+  project_id: string | null;
+  priority: string;
+};
+
+/** One intercepted write against focusos_tasks (A1 row controls). */
+type TaskWrite = { method: string; url: string; body: any };
+
+interface IdleHomeOpts extends StandaloneOpts {
+  url?: string;
+  tasks?: SeedTask[];
+  /** Dynamic seed, read on every GET, so a test can mutate the served list
+   *  (the mock server applying the write it just accepted). */
+  getTasks?: () => SeedTask[];
+  /** Every non-GET request against focusos_tasks, in order. */
+  onWrite?: (write: TaskWrite) => void;
+}
+
+async function openIdleHome(browser: Browser, opts: IdleHomeOpts) {
+  const context = await browser.newContext({
+    viewport: { width: opts.width, height: opts.height },
+    isMobile: opts.mobile ?? true,
+    hasTouch: opts.mobile ?? true,
+    timezoneId: 'UTC',
+  });
+  await installIntercepts(context);
+  // seeded open tasks + count 42 so the Today's Focus card actually renders
+  await context.route('**/rest/v1/focusos_tasks**', (route) => {
+    const req = route.request();
+    const method = req.method();
+    if (method !== 'GET') {
+      let body: any = null;
+      try {
+        body = req.postDataJSON();
+      } catch {
+        body = req.postData();
+      }
+      opts.onWrite?.({ method, url: req.url(), body });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
+    const all: SeedTask[] =
+      opts.getTasks?.() ??
+      opts.tasks ??
+      [1, 2, 3].map((i) => ({
+        id: `upnext-${i}`,
+        title: `Seeded task ${i}`,
+        status: 'todo',
+        due_date: null,
+        project_id: null,
+        priority: 'medium',
+      }));
+    // A single-row read (the edit pane's select('*')) filters by id; `[?&]`
+    // keeps this off `project_id=eq.…`.
+    const idMatch = /[?&]id=eq\.([^&]+)/.exec(req.url());
+    const rows = idMatch ? all.filter((t) => t.id === decodeURIComponent(idMatch[1])) : all;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: {
+        'content-range': `0-${Math.max(rows.length - 1, 0)}/42`,
+        'access-control-expose-headers': 'content-range',
+      },
+      body: JSON.stringify(rows),
+    });
+  });
+  const page = await context.newPage();
+  await seedSession(page);
+  if (opts.standalone) await forceStandalone(page);
+  await page.goto(opts.url ?? '/home?fakedump=0');
+  await page.waitForSelector('.lg-upnext', { timeout: 20_000 });
+  return { context, page };
+}
+
 test.describe('step-1 dynamic bar layout', () => {
-  type SeedTask = {
-    id: string;
-    title: string;
-    status: string;
-    due_date: string | null;
-    project_id: string | null;
-    priority: string;
-  };
-
-  async function openIdleHome(
-    browser: Browser,
-    opts: StandaloneOpts & { url?: string; tasks?: SeedTask[] },
-  ) {
-    const context = await browser.newContext({
-      viewport: { width: opts.width, height: opts.height },
-      isMobile: opts.mobile ?? true,
-      hasTouch: opts.mobile ?? true,
-      timezoneId: 'UTC',
-    });
-    await installIntercepts(context);
-    // seeded open tasks + count 42 so the Today's Focus card actually renders
-    await context.route('**/rest/v1/focusos_tasks**', (route) => {
-      const tasks: SeedTask[] =
-        opts.tasks ??
-        [1, 2, 3].map((i) => ({
-          id: `upnext-${i}`,
-          title: `Seeded task ${i}`,
-          status: 'todo',
-          due_date: null,
-          project_id: null,
-          priority: 'medium',
-        }));
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: { 'content-range': '0-2/42', 'access-control-expose-headers': 'content-range' },
-        body: JSON.stringify(tasks),
-      });
-    });
-    const page = await context.newPage();
-    await seedSession(page);
-    if (opts.standalone) await forceStandalone(page);
-    await page.goto(opts.url ?? '/home?fakedump=0');
-    await page.waitForSelector('.lg-upnext', { timeout: 20_000 });
-    return { context, page };
-  }
-
   const geom = (page: Page) =>
     page.evaluate(() => {
       const r = (sel: string) => {
@@ -505,7 +535,7 @@ test.describe('step-1 dynamic bar layout', () => {
     await context.close();
   });
 
-  test("today's focus ranking: fossils demoted, priority rules the tiers, tap navigates", async ({ browser }) => {
+  test("today's focus ranking: fossils demoted, priority rules the tiers, text tap opens the pane", async ({ browser }) => {
     const day = 86400000;
     const ymd = (offsetDays: number) =>
       new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA');
@@ -535,15 +565,295 @@ test.describe('step-1 dynamic bar layout', () => {
 
     await expect(page.locator('.lg-uphead .ttl')).toHaveText("TODAY'S FOCUS");
     // tier 0 by priority (medium beats low), then tier 1 opens with the urgent
-    // future task; the 60-day urgent fossil must be nowhere in the top 3.
+    // future task; the 60-day urgent fossil is demoted to LAST. The card shows
+    // 10 rows since A1 (2026-08-01), so the whole seed is on screen and the
+    // fossil's demotion is asserted directly rather than by absence.
     await expect(page.locator('.lg-utask .lg-utitle')).toHaveText([
       'newover-med',
       'today-low',
       'future-urgent',
+      'nodue-high',
+      'fossil-urgent',
     ]);
 
-    await page.locator('.lg-utask').first().click();
-    await expect(page).toHaveURL(/\/app$/);
+    // A1 replaced the whole-row navigate('/app') with the in-place edit pane:
+    // tapping the task text opens it OVER Home and the URL never changes.
+    await page.locator('.lg-utask').first().locator('.lg-utap').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page).toHaveURL(/\/home/);
+    await context.close();
+  });
+});
+
+/* ── A1: interactive Today's Focus rows (2026-08-01) ─────────────────────────
+   The card stopped being a read-only teaser: 10 ranked rows that scroll inside
+   the card, a tick that completes, a play that starts the timer, an X behind
+   the house confirm that deletes, and a text tap that opens the shared edit
+   pane OVER /home. Every assertion below is on the WIRE (the intercepted
+   PostgREST write) plus the visible refill, not on internal state. */
+test.describe('A1 interactive rows', () => {
+  type A1Row = SeedTask & {
+    description: string | null;
+    images: string[];
+    timer_total_seconds: number;
+    timer_is_running: boolean;
+    timer_start_time: number | null;
+    sort_order: number;
+    completed_by_email: string | null;
+    assigned_to_email: string | null;
+  };
+
+  const day = 86400000;
+  const ymd = (offsetDays: number) =>
+    new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA');
+
+  const row = (n: number, priority: string, due: string | null): A1Row => ({
+    id: `a1-${n}`,
+    title: `A1 task ${n}`,
+    status: 'todo',
+    due_date: due,
+    project_id: null,
+    priority,
+    description: `desc ${n}`,
+    images: [],
+    timer_total_seconds: 0,
+    timer_is_running: false,
+    timer_start_time: null,
+    sort_order: n,
+    completed_by_email: null,
+    assigned_to_email: null,
+  });
+
+  /* 12 open tasks with varied priorities and dues, seeded ALREADY in rank order
+     so "row 1" is unambiguous: tier 0 (due today) urgent→low, then tier 1
+     (future dues) urgent→low, then tier 1 no-due (Infinity sorts last within
+     its priority), then the >30-day fossil, which rankTodaysFocus demotes. */
+  const seed = (): A1Row[] => [
+    row(1, 'urgent', ymd(0)),
+    row(2, 'high', ymd(0)),
+    row(3, 'medium', ymd(0)),
+    row(4, 'low', ymd(0)),
+    row(5, 'urgent', `${ymd(3)}T20:00:00+00:00`),
+    row(6, 'high', `${ymd(5)}T20:00:00+00:00`),
+    row(7, 'medium', `${ymd(7)}T20:00:00+00:00`),
+    row(8, 'low', `${ymd(9)}T20:00:00+00:00`),
+    row(9, 'low', null),
+    row(10, 'low', null),
+    row(11, 'low', null),
+    row(12, 'urgent', `${ymd(-60)}T20:00:00+00:00`),
+  ];
+
+  const idOf = (url: string) => /[?&]id=eq\.([^&]+)/.exec(url)?.[1] ?? null;
+
+  /** A mock server that APPLIES the writes it accepts, so the refetch that the
+   *  invalidation triggers returns a genuinely changed list. */
+  function makeStore() {
+    const state = { tasks: seed(), writes: [] as TaskWrite[] };
+    const onWrite = (w: TaskWrite) => {
+      state.writes.push(w);
+      const id = idOf(w.url);
+      if (!id) return;
+      if (w.method === 'DELETE' || (w.method === 'PATCH' && w.body?.status === 'completed')) {
+        state.tasks = state.tasks.filter((t) => t.id !== id);
+      }
+    };
+    return { state, getTasks: () => state.tasks, onWrite };
+  }
+
+  const writesOf = (store: ReturnType<typeof makeStore>, method: string) =>
+    store.state.writes.filter((w) => w.method === method);
+
+  test('desktop 1280x900: 10 rows, the card scrolls internally, nothing is half-clipped', async ({
+    browser,
+  }) => {
+    const store = makeStore();
+    const { context, page } = await openIdleHome(browser, {
+      width: 1280,
+      height: 900,
+      mobile: false,
+      getTasks: store.getTasks,
+      onWrite: store.onWrite,
+    });
+
+    await expect(page.locator('.lg-utask'), '10 ranked rows rendered').toHaveCount(10);
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A1 task 1');
+
+    const box = await page.evaluate(() => {
+      const rows = document.querySelector('.lg-uprows') as HTMLElement;
+      const r = rows.getBoundingClientRect();
+      const card = document.querySelector('.lg-upnext')!.getBoundingClientRect();
+      const items = [...document.querySelectorAll('.lg-utask')].map((el) => {
+        const b = el.getBoundingClientRect();
+        return { top: b.top, bottom: b.bottom };
+      });
+      return {
+        scrollHeight: rows.scrollHeight,
+        clientHeight: rows.clientHeight,
+        overflowY: getComputedStyle(rows).overflowY,
+        minHeight: getComputedStyle(rows).minHeight,
+        top: r.top,
+        bottom: r.bottom,
+        cardBottom: card.bottom,
+        fullyVisible: items.filter((i) => i.top >= r.top - 0.5 && i.bottom <= r.bottom + 0.5).length,
+      };
+    });
+
+    expect(box.overflowY, 'rows own the overflow').toBe('auto');
+    expect(box.minHeight, 'min-height:0 so flex can actually shrink it').toBe('0px');
+    expect(box.scrollHeight, 'content is taller than the box').toBeGreaterThan(box.clientHeight);
+    expect(box.fullyVisible, 'at least 5 whole rows on screen').toBeGreaterThanOrEqual(5);
+    // the scroll box ends INSIDE the glass card, so the overflow is clipped by
+    // the card instead of spilling past its edge
+    expect(box.bottom, 'rows box ends inside the card').toBeLessThanOrEqual(box.cardBottom + 0.5);
+
+    // scrolled to the end, the last row is whole: the box owns the card's
+    // remaining height properly (padding included), so nothing is half-cut
+    const tail = await page.evaluate(() => {
+      const rows = document.querySelector('.lg-uprows') as HTMLElement;
+      rows.scrollTop = rows.scrollHeight;
+      const r = rows.getBoundingClientRect();
+      const last = document.querySelectorAll('.lg-utask')[9].getBoundingClientRect();
+      return { boxBottom: r.bottom, boxTop: r.top, lastTop: last.top, lastBottom: last.bottom };
+    });
+    expect(tail.lastBottom, 'last row fully inside the box once scrolled').toBeLessThanOrEqual(
+      tail.boxBottom + 0.5,
+    );
+    expect(tail.lastTop, 'last row starts inside the box').toBeGreaterThanOrEqual(tail.boxTop - 0.5);
+
+    // The @media(max-height:800px) nth-child(n + 3) hide rule still matches the
+    // new nesting (rows are direct children of .lg-uprows).
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await page.waitForTimeout(200);
+    const shown = await page.evaluate(
+      () =>
+        [...document.querySelectorAll('.lg-utask')].filter(
+          (el) => getComputedStyle(el).display !== 'none',
+        ).length,
+    );
+    expect(shown, 'short viewport still shows only the first two rows').toBe(2);
+
+    await context.close();
+  });
+
+  test('tick completes the task and the ranked list refills', async ({ browser }) => {
+    const store = makeStore();
+    const { context, page } = await openIdleHome(browser, {
+      width: 1280,
+      height: 900,
+      mobile: false,
+      getTasks: store.getTasks,
+      onWrite: store.onWrite,
+    });
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
+    await page.getByRole('button', { name: 'Complete A1 task 1', exact: true }).click();
+
+    await expect.poll(() => writesOf(store, 'PATCH').length, { timeout: 10_000 }).toBe(1);
+    const patch = writesOf(store, 'PATCH')[0];
+    expect(idOf(patch.url), 'the tapped row was the one written').toBe('a1-1');
+    // completion writes status ONLY. completed_at is the DB trigger's job, and
+    // Index's fuller payload just echoes every other column back unchanged.
+    expect(patch.body).toEqual({ status: 'completed' });
+
+    // the refill is invalidation -> refetch -> re-rank during render
+    await expect
+      .poll(() => page.locator('.lg-utask .lg-utitle').first().textContent(), { timeout: 10_000 })
+      .toBe('A1 task 2');
+    await expect(page.locator('.lg-utask'), 'the 10-row window refilled').toHaveCount(10);
+    await expect(page.locator('.lg-utask .lg-utitle').last()).toHaveText('A1 task 11');
+
+    await context.close();
+  });
+
+  test('play starts the timer with the project-row field writes', async ({ browser }) => {
+    const store = makeStore();
+    const { context, page } = await openIdleHome(browser, {
+      width: 1280,
+      height: 900,
+      mobile: false,
+      getTasks: store.getTasks,
+      onWrite: store.onWrite,
+    });
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
+    const before = Date.now();
+    await page.getByRole('button', { name: 'Start timer for A1 task 2', exact: true }).click();
+
+    await expect.poll(() => writesOf(store, 'PATCH').length, { timeout: 10_000 }).toBe(1);
+    const patch = writesOf(store, 'PATCH')[0];
+    expect(idOf(patch.url)).toBe('a1-2');
+    expect(patch.body.status, 'same status flip as TaskListItem.handleStartStop').toBe('in-progress');
+    expect(patch.body.timer_is_running).toBe(true);
+    expect(typeof patch.body.timer_start_time, 'epoch ms, like Date.now()').toBe('number');
+    expect(patch.body.timer_start_time).toBeGreaterThanOrEqual(before);
+    // the start branch never rewrites the accrued total
+    expect('timer_total_seconds' in patch.body, 'total seconds untouched on start').toBe(false);
+
+    // the row is latched, so a second tap cannot reset an accruing start
+    await page.getByRole('button', { name: 'Start timer for A1 task 2', exact: true }).click();
+    await page.waitForTimeout(400);
+    expect(writesOf(store, 'PATCH').length, 'no duplicate start write').toBe(1);
+
+    await context.close();
+  });
+
+  test('X opens the house delete confirm and deletes on confirm', async ({ browser }) => {
+    const store = makeStore();
+    const { context, page } = await openIdleHome(browser, {
+      width: 1280,
+      height: 900,
+      mobile: false,
+      getTasks: store.getTasks,
+      onWrite: store.onWrite,
+    });
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
+    await page.getByRole('button', { name: 'Delete A1 task 1', exact: true }).click();
+    // the same AlertDialog copy the project rows use
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await expect(page.getByRole('alertdialog')).toContainText('Delete this task?');
+    await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Yes, Delete' }).click();
+
+    await expect.poll(() => writesOf(store, 'DELETE').length, { timeout: 10_000 }).toBe(1);
+    expect(idOf(writesOf(store, 'DELETE')[0].url), 'hard delete of the tapped row').toBe('a1-1');
+
+    await expect
+      .poll(() => page.locator('.lg-utask .lg-utitle').first().textContent(), { timeout: 10_000 })
+      .toBe('A1 task 2');
+
+    await context.close();
+  });
+
+  test('tapping the task text opens the edit pane over /home and leaves the route alone', async ({
+    browser,
+  }) => {
+    const store = makeStore();
+    const { context, page } = await openIdleHome(browser, {
+      width: 1280,
+      height: 900,
+      mobile: false,
+      getTasks: store.getTasks,
+      onWrite: store.onWrite,
+    });
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
+    await page.locator('.lg-utask').nth(2).locator('.lg-utap').click();
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.locator('#title'), 'the pane is loaded with that task').toHaveValue('A1 task 3');
+    expect(new URL(page.url()).pathname, 'no navigation on open').toBe('/home');
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(new URL(page.url()).pathname, 'no navigation on close').toBe('/home');
+    // Radix law guard: a modal layer that unmounts must hand the page back.
+    const pointerEvents = await page.evaluate(() => document.body.style.pointerEvents);
+    expect(pointerEvents, 'body pointer-events restored after the modal closes').not.toBe('none');
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+
     await context.close();
   });
 });

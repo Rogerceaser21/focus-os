@@ -5,12 +5,25 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 
 if (import.meta.env.DEV) (window as any).__gsap = gsap;
-import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown } from 'lucide-react';
+import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
-import { APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
+import { APP_DATA_STALE_TIME, appDataKeys } from '@/lib/appDataFetchers';
+import type { Task, Project } from '@/types/task';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { saveBrainDumpTasks } from '@/lib/brainDumpSave';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
@@ -119,6 +132,35 @@ function makeFakeTask(index: number, total: number): BrainDumpTask {
     priority: FAKE_DUMP_PRIORITIES[index % FAKE_DUMP_PRIORITIES.length],
     destination: toToday ? 'today' : 'new-project',
     projectName: toToday ? undefined : FAKE_DUMP_PROJECT,
+  };
+}
+
+/* Row -> Task mapping for the edit pane. VERBATIM copy of Index.tsx's
+   transformDbTask (src/pages/Index.tsx:304) so a task opened from Home is the
+   same object shape /app hands EditTaskDialog. Copied, not imported: Index is a
+   page component and importing it here would drag its whole module in. */
+function transformDbTask(dbTask: any): Task {
+  return {
+    id: dbTask.id,
+    title: dbTask.title,
+    description: dbTask.description,
+    priority: dbTask.priority,
+    status: dbTask.status,
+    startDate: dbTask.start_date ? new Date(dbTask.start_date) : undefined,
+    endDate: dbTask.end_date ? new Date(dbTask.end_date) : undefined,
+    dueDate: dbTask.due_date ? new Date(dbTask.due_date) : undefined,
+    images: dbTask.images ? (dbTask.images as string[]) : [],
+    timer: {
+      totalSeconds: dbTask.timer_total_seconds,
+      isRunning: dbTask.timer_is_running,
+      startTime: dbTask.timer_start_time,
+    },
+    projectId: dbTask.project_id,
+    sortOrder: dbTask.sort_order ?? 0,
+    completedByEmail: dbTask.completed_by_email ?? undefined,
+    assignedToEmail: dbTask.assigned_to_email ?? undefined,
+    changeRequestMessage: dbTask.change_request_message ?? undefined,
+    googleCalendarEventId: dbTask.google_calendar_event_id ?? undefined,
   };
 }
 
@@ -256,11 +298,177 @@ const Home = () => {
   });
   // en-CA locale = YYYY-MM-DD in the user's own timezone
   const todayYmd = new Date().toLocaleDateString('en-CA');
+  // 10 rows now (was 3): the card scrolls internally (.lg-uprows), so the extra
+  // rows cost height only up to the card's own max-height.
   const upNext = useMemo(
-    () => rankTodaysFocus(upNextData?.openTasks ?? [], todayYmd).slice(0, 3),
+    () => rankTodaysFocus(upNextData?.openTasks ?? [], todayYmd).slice(0, 10),
     [upNextData, todayYmd],
   );
   const openCount = upNextData?.openCount ?? 0;
+
+  /* ── A1: interactive Today's Focus rows ────────────────────────────────────
+     Tick completes, Play starts the timer, X deletes (house confirm), and the
+     task text opens the shared edit pane over Home. Every write is the same
+     field set the project rows write through Index.handleUpdateTask /
+     handleDeleteTask; the refill is pure invalidation -> refetch -> re-rank
+     during render (rankTodaysFocus), never a post-paint correction. */
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  // Set in the click handlers (never in an effect): the row shows its result
+  // immediately and the invalidated query then removes/refreshes it for real.
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+  const [timerStartedIds, setTimerStartedIds] = useState<Set<string>>(new Set());
+
+  // Both key families: Home's own card AND the /app task caches (inactive while
+  // Home is mounted, so this marks them stale for the next visit: no starved
+  // fetch, no fabricated data).
+  const invalidateTaskCaches = useCallback(() => {
+    if (!user) return;
+    queryClient.invalidateQueries({ queryKey: ['focusos-home-upnext', user.id] });
+    queryClient.invalidateQueries({ queryKey: appDataKeys.tasks(user.id) });
+    queryClient.invalidateQueries({ queryKey: appDataKeys.completedTasks(user.id) });
+  }, [queryClient, user]);
+
+  // Complete: status 'completed' is the ONLY field a completion changes; the
+  // rest of Index's payload echoes the row back unchanged (Index.tsx:1514-1532),
+  // and completed_at is set by the DB trigger, never by the client (the MCP
+  // complete_task tool writes exactly this too, focusos-mcp/index.ts:380).
+  const handleCompleteTask = useCallback(async (taskId: string) => {
+    if (completingIds.has(taskId)) return;
+    setCompletingIds((prev) => new Set(prev).add(taskId));
+    const { error } = await (supabase as any)
+      .from('focusos_tasks')
+      .update({ status: 'completed' })
+      .eq('id', taskId);
+    if (error) {
+      setCompletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+      toast.error('Failed to update task');
+      return;
+    }
+    invalidateTaskCaches();
+  }, [completingIds, invalidateTaskCaches]);
+
+  // Start the timer: the exact start-branch writes of TaskListItem.handleStartStop
+  // (TaskListItem.tsx:355-362) once Index maps them to columns (Index.tsx:1518-1528)
+  // i.e. status 'in-progress', timer_is_running true, timer_start_time = Date.now().
+  // timer_total_seconds is deliberately NOT written: the start branch keeps it
+  // unchanged, and Home's slim row does not carry it. Project rows never stop
+  // another task's timer (no global single-timer rule anywhere), so neither does
+  // this. The row latches locally so a second tap cannot reset an accruing start.
+  const handleStartTimer = useCallback(async (taskId: string) => {
+    if (timerStartedIds.has(taskId)) return;
+    const startTime = Date.now();
+    setTimerStartedIds((prev) => new Set(prev).add(taskId));
+    const { error } = await (supabase as any).from('focusos_tasks').update({
+      status: 'in-progress',
+      timer_is_running: true,
+      timer_start_time: startTime,
+    }).eq('id', taskId);
+    if (error) {
+      setTimerStartedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+      toast.error('Failed to start the timer');
+      return;
+    }
+    invalidateTaskCaches();
+  }, [timerStartedIds, invalidateTaskCaches]);
+
+  // Delete: same sequence as Index.handleDeleteTask (Index.tsx:1717-1749):
+  // recipient clones go first, the shared_items rows are neutralised, then the
+  // task row is hard-deleted.
+  const handleDeleteTask = useCallback(async (taskId: string) => {
+    try {
+      const { data: sharedRows } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('id, recipient_task_id')
+        .eq('item_id', taskId)
+        .eq('item_type', 'task');
+
+      if (sharedRows && sharedRows.length > 0) {
+        const recipientTaskIds = sharedRows.map((r: any) => r.recipient_task_id).filter(Boolean);
+        if (recipientTaskIds.length > 0) {
+          await (supabase as any).from('focusos_tasks').delete().in('id', recipientTaskIds);
+        }
+        await (supabase as any)
+          .from('focusos_shared_items')
+          .update({ recipient_task_id: null, status: 'declined' })
+          .in('id', sharedRows.map((r: any) => r.id));
+      }
+
+      const { error } = await (supabase as any).from('focusos_tasks').delete().eq('id', taskId);
+      if (error) throw error;
+      toast.success('Task deleted');
+      invalidateTaskCaches();
+    } catch (err: any) {
+      console.error('Delete task error:', err);
+      toast.error('Failed to delete task');
+    }
+  }, [invalidateTaskCaches]);
+
+  // Tapping the task TEXT: the card's rows are slim (six columns), so the pane
+  // needs the full row. ONE row, by id, so no new broad fetch.
+  const handleOpenTask = useCallback(async (taskId: string) => {
+    const { data, error } = await (supabase as any)
+      .from('focusos_tasks')
+      .select('*')
+      .eq('id', taskId)
+      .limit(1);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row) {
+      toast.error('Could not open that task');
+      return;
+    }
+    setEditingTask(transformDbTask(row));
+  }, []);
+
+  // Save from the pane: the column mapping of Index.handleUpdateTask's DB update
+  // (Index.tsx:1514-1532). Index's local-state choreography (optimistic list
+  // patch, collaborator gating, project-move sort_order) stays in Index:
+  // Home has no task list to keep in step, it re-reads via invalidation.
+  const handleUpdateTaskFromPane = useCallback(async (updatedTask: Task) => {
+    const { error } = await (supabase as any).from('focusos_tasks').update({
+      title: updatedTask.title,
+      description: updatedTask.description,
+      priority: updatedTask.priority,
+      status: updatedTask.status,
+      start_date: updatedTask.startDate?.toISOString(),
+      end_date: updatedTask.endDate?.toISOString(),
+      due_date: updatedTask.dueDate?.toISOString(),
+      // The pane was opened from a select('*'), so images here are the stored
+      // ones, so the pre-hydration ambiguity Index guards against cannot occur.
+      images: updatedTask.images || [],
+      timer_total_seconds: updatedTask.timer.totalSeconds,
+      timer_is_running: updatedTask.timer.isRunning,
+      timer_start_time: updatedTask.timer.startTime,
+      project_id: updatedTask.projectId || null,
+      sort_order: updatedTask.sortOrder ?? 0,
+      completed_by_email: updatedTask.completedByEmail || null,
+    }).eq('id', updatedTask.id);
+    if (error) {
+      toast.error('Failed to update task');
+      return;
+    }
+    setEditingTask(null);
+    invalidateTaskCaches();
+  }, [invalidateTaskCaches]);
+
+  // EditTaskDialog wants full Project objects; Home's projects query is slim
+  // (id/name/color), so the timer stub mirrors Index.applyProjectRows.
+  const editProjects = useMemo<Project[]>(
+    () => projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color || '#8a94a6',
+      timer: { totalSeconds: 0, isRunning: false },
+    })),
+    [projects],
+  );
 
   useEffect(() => {
     const interval = setInterval(() => setSubtitleIndex((p) => (p + 1) % SUBTITLES.length), 4000);
@@ -549,34 +757,78 @@ const Home = () => {
         </div>
 
         {/* Today's Focus — ranked open tasks (fades away while recording).
-            Rows are tappable: v1 lands on the task list (/app); a true
-            per-task deep link is a tracked follow-up. */}
+            A1 (2026-08-01): the rows WORK here. Tick completes, Play starts the
+            timer, X deletes behind the house confirm, and the task text opens
+            the shared edit pane over Home. Nothing navigates away. */}
         {upNext.length > 0 &&
         <div className="lg-glass lg-upnext">
             <div className="lg-uphead">
               <span className="ttl">TODAY'S FOCUS</span>
               <span className="cnt">{openCount} open</span>
             </div>
-            <div style={{ paddingBottom: 8 }}>
-              {upNext.map((t) =>
-            <div
-              key={t.id}
-              className="lg-utask lg-utask-tap"
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate('/app')}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/app'); }}>
-                  <div className="lg-tick" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="lg-utitle">{t.title}</div>
+            {/* .lg-uprows is the scroll box: flex:1/min-height:0/overflow-y:auto
+                so rows scroll INSIDE the card instead of spilling past its
+                max-height. Rows stay its DIRECT children, which is what the
+                @media(max-height:800px) nth-child(n+3) hide rule matches. */}
+            <div className="lg-uprows">
+              {upNext.map((t) => {
+              const done = completingIds.has(t.id);
+              return (
+                <div key={t.id} className="lg-utask">
+                  <button
+                    type="button"
+                    className={`lg-tick${done ? ' done' : ''}`}
+                    aria-label={`Complete ${t.title}`}
+                    onClick={() => handleCompleteTask(t.id)}>
+                    <Check size={13} strokeWidth={3} />
+                  </button>
+                  <div
+                    className="lg-utap"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleOpenTask(t.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenTask(t.id); }}>
+                    <div className={`lg-utitle${done ? ' done' : ''}`}>{t.title}</div>
                     {t.project_id &&
-                <div className="lg-umeta">
+                    <div className="lg-umeta">
                         <span className="lg-udot" style={{ background: projectColor(t.project_id) }} />
                         {projects.find((p) => p.id === t.project_id)?.name}
                       </div>}
                   </div>
                   {dueLabel(t.due_date) && <span className="lg-uchip">{dueLabel(t.due_date)}</span>}
-                </div>)}
+                  <button
+                    type="button"
+                    className={`lg-uact play${timerStartedIds.has(t.id) ? ' on' : ''}`}
+                    aria-label={`Start timer for ${t.title}`}
+                    title={timerStartedIds.has(t.id) ? 'Timer running' : 'Start timer'}
+                    onClick={() => handleStartTimer(t.id)}>
+                    <Play size={14} />
+                  </button>
+                  {/* Same AlertDialog the project rows use (TaskListItem.tsx:1012),
+                      same copy, same house liquid-glass restyle. */}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button type="button" className="lg-uact del" aria-label={`Delete ${t.title}`} title="Delete task">
+                        <X size={14} strokeWidth={2.5} />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the task. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDeleteTask(t.id)}>
+                          Yes, Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>);
+            })}
             </div>
           </div>}
 
@@ -700,6 +952,21 @@ const Home = () => {
       <BottomNav projects={projects} />
 
       <HomeTour isOpen={tourOpen} onComplete={handleTourComplete} />
+
+      {/* Task edit pane, opened by tapping a Today's Focus row's text. Mounted
+          ONLY while a task is open (Radix law: never forceMount a modal layer),
+          the same conditional-render pattern Index uses for its mobile pane.
+          No `desktopDocked`, so it is the plain modal dialog on every width;
+          closing leaves the user on /home, nothing navigates. */}
+      {editingTask &&
+      <EditTaskDialog
+        task={editingTask}
+        open={!!editingTask}
+        onOpenChange={(open) => { if (!open) setEditingTask(null); }}
+        onUpdateTask={handleUpdateTaskFromPane}
+        projects={editProjects}
+        currentUserId={user?.id}
+        onDeleteTask={(task) => handleDeleteTask(task.id)} />}
 
       {/* Review + save: the existing dialog machinery, fed by the inline session.
           `user &&` only ever matters in the signed-out ?fakedump demo — on the
