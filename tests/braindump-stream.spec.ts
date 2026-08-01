@@ -462,6 +462,7 @@ test.describe('step-1 dynamic bar layout', () => {
         orb: r('.lg-orb'),
         record: r('[data-home-tour-step="record-meeting"]'),
         help: r('button[aria-label="Take the Home tour"]'),
+        dock: r('.lg-dock'),
         actionsMarginBottom: getComputedStyle(document.querySelector('.lg-hero-actions')!).marginBottom,
       };
     });
@@ -475,7 +476,10 @@ test.describe('step-1 dynamic bar layout', () => {
     expect(g.help!.left, 'help sits right of record').toBeGreaterThan(g.record!.right);
     expect(g.card!.height, 'card has grown past its content height').toBeGreaterThanOrEqual(260);
     expect(g.card!.bottom, 'card clears the orb').toBeLessThanOrEqual(g.orb!.top);
-    expect(g.actionsMarginBottom, 'orb block dropped to 72px').toBe('72px');
+    // browser-mode rig keeps 108px (the 72px orb-down is shell-scoped; browser
+    // mode has no bottom padding reservation — the 2026-08-01 desktop overlap)
+    expect(g.actionsMarginBottom, 'browser-mode margin stays 108px').toBe('108px');
+    if (g.dock) expect(g.record!.bottom, 'record row clears the dock').toBeLessThanOrEqual(g.dock.top - 8);
     await page.screenshot({ path: 'test-results/step1-mobile.png' });
     await context.close();
   });
@@ -493,6 +497,10 @@ test.describe('step-1 dynamic bar layout', () => {
     const g = await geom(page);
     expect(Math.round(g.col!.width), 'desktop column 760 (GSAP-synced)').toBe(760);
     expect(g.card!.height, 'card grown on desktop').toBeGreaterThanOrEqual(320);
+    // the assertion whose absence let the dock overlap ship (2026-08-01)
+    expect(g.dock, 'dock rendered on desktop').not.toBeNull();
+    expect(g.record!.bottom, 'record row clears the dock').toBeLessThanOrEqual(g.dock!.top - 8);
+    expect(g.help!.bottom, 'tour button clears the dock').toBeLessThanOrEqual(g.dock!.top - 8);
     await page.screenshot({ path: 'test-results/step1-desktop.png' });
     await context.close();
   });

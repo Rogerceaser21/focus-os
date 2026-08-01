@@ -1351,9 +1351,12 @@ html.shell.liquid-glass .lg-hero-col {
 .liquid-glass .lg-hero-spacer { flex: 1; min-height: 16px; }
 
 /* orb + actions (GSAP glides this left on wide screens while recording).
-   margin-bottom 108 -> 72 (step-1 Dynamic Bar prep): orb block sits lower,
-   the freed space feeds the growing card above. */
-.liquid-glass .lg-hero-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 72px; }
+   Browser mode keeps the original 108px — it has NO bottom padding
+   reservation, so 72px put Record Meeting onto the dock (Igor caught it on
+   desktop, 2026-08-01). The step-1 orb-down (72px) is scoped to the shell,
+   whose padding-bottom (dock knob + 98) absorbs it. */
+.liquid-glass .lg-hero-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 108px; }
+html.shell.liquid-glass .lg-hero-actions { margin-bottom: 72px; }
 /* idle bottom row: Record Meeting + the tour button share one line */
 .liquid-glass .lg-idlerow { display: flex; align-items: center; gap: 10px; }
 .liquid-glass .lg-btn.lg-helpbtn { padding: 11px 14px; }
@@ -1570,7 +1573,8 @@ html.shell.liquid-glass .lg-hero-col.rec {
   .liquid-glass .lg-upnext { margin-top: 16px; }
   .liquid-glass .lg-upnext .lg-utask:nth-child(n + 3) { display: none; }
   .liquid-glass .lg-orb { width: 118px; height: 118px; }
-  .liquid-glass .lg-hero-actions { margin-bottom: 64px; }
+  .liquid-glass .lg-hero-actions { margin-bottom: 92px; }
+  html.shell.liquid-glass .lg-hero-actions { margin-bottom: 64px; }
 }
 
 /* empty content panel: fully transparent so the wallpaper shows (fix: blank slab) */
