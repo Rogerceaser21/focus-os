@@ -1371,7 +1371,6 @@ html.shell.liquid-glass .lg-hero-col {
 .liquid-glass .lg-uact:focus { outline: none; }
 .liquid-glass .lg-uact:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 /* the two controls read as one cluster (row gap is 12px) */
-.liquid-glass .lg-utask .lg-uact + .lg-uact { margin-left: -8px; }
 .liquid-glass .lg-tick {
   width: 23px; height: 23px; border-radius: 999px; flex: none;
   border: 1.5px solid var(--t3); display: flex; align-items: center; justify-content: center;
@@ -1952,4 +1951,4 @@ html.shell.liquid-glass .lg-hero-col.rec {
    the tick / play / delete controls own their own hit areas. */
 
 /* tight X+play pair on Today's Focus rows (Igor 2026-08-01) */
-.liquid-glass .lg-uacts { display: flex; align-items: center; gap: 2px; flex: none; }
+.liquid-glass .lg-uacts { display: flex; align-items: center; gap: 4px; flex: none; }
