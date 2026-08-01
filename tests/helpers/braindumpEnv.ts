@@ -208,9 +208,10 @@ export async function installIntercepts(context: BrowserContext, counts: Counts)
     if (url.includes('focusos_user_preferences')) return reply(wantsObject ? prefRow() : [prefRow()]);
     if (url.includes('focusos_tasks')) {
       if (url.includes('status=neq.completed')) {
-        // `timer_total_seconds` is in TASK_LIST_COLUMNS but not in Home's Up Next
-        // projection, so it tells the shared list load from Home's own card read.
-        if (url.includes('timer_total_seconds')) counts.taskListGets += 1;
+        // `description` is in TASK_LIST_COLUMNS but not in Home's Up Next
+        // projection (which since the timer-visuals fix carries the timer
+        // columns too), so it tells the shared list load from the card read.
+        if (url.includes('description')) counts.taskListGets += 1;
         else counts.upNextGets += 1;
         // The real list read selects TASK_LIST_COLUMNS, which excludes `images` —
         // mirror that projection so a stray `images` key can only have come from

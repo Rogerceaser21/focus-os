@@ -655,6 +655,11 @@ test.describe('A1 interactive rows', () => {
       if (!id) return;
       if (w.method === 'DELETE' || (w.method === 'PATCH' && w.body?.status === 'completed')) {
         state.tasks = state.tasks.filter((t) => t.id !== id);
+      } else if (w.method === 'PATCH') {
+        // Apply accepted field writes so the refetch the invalidation triggers
+        // returns genuinely changed rows (the timer toggle depends on this).
+        const t = state.tasks.find((x) => x.id === id);
+        if (t) Object.assign(t, w.body);
       }
     };
     return { state, getTasks: () => state.tasks, onWrite };
@@ -765,7 +770,7 @@ test.describe('A1 interactive rows', () => {
     await context.close();
   });
 
-  test('play starts the timer with the project-row field writes', async ({ browser }) => {
+  test('play toggles the timer with the project-row writes AND the project-row visuals', async ({ browser }) => {
     const store = makeStore();
     const { context, page } = await openIdleHome(browser, {
       width: 1280,
@@ -775,6 +780,9 @@ test.describe('A1 interactive rows', () => {
       onWrite: store.onWrite,
     });
     await expect(page.locator('.lg-utask')).toHaveCount(10);
+    const row2 = page
+      .locator('.lg-utask')
+      .filter({ has: page.locator('.lg-utitle', { hasText: /^A1 task 2$/ }) });
 
     const before = Date.now();
     await page.getByRole('button', { name: 'Start timer for A1 task 2', exact: true }).click();
@@ -789,10 +797,69 @@ test.describe('A1 interactive rows', () => {
     // the start branch never rewrites the accrued total
     expect('timer_total_seconds' in patch.body, 'total seconds untouched on start').toBe(false);
 
-    // the row is latched, so a second tap cannot reset an accruing start
-    await page.getByRole('button', { name: 'Start timer for A1 task 2', exact: true }).click();
-    await page.waitForTimeout(400);
-    expect(writesOf(store, 'PATCH').length, 'no duplicate start write').toBe(1);
+    // the row now shows the HOUSE running state, not an invented one: the same
+    // border-glow-pulse ring the project rows run plus the Play→Pause icon flip.
+    await expect(row2).toHaveClass(/border-glow-pulse/);
+    await expect(
+      page.getByRole('button', { name: 'Pause timer for A1 task 2', exact: true }),
+    ).toBeVisible();
+
+    // second tap PAUSES — the TaskListItem stop branch: total += elapsed,
+    // running false, status untouched, start_time dropped from the payload.
+    await page.getByRole('button', { name: 'Pause timer for A1 task 2', exact: true }).click();
+    await expect.poll(() => writesOf(store, 'PATCH').length, { timeout: 10_000 }).toBe(2);
+    const pause = writesOf(store, 'PATCH')[1];
+    expect(idOf(pause.url)).toBe('a1-2');
+    expect(pause.body.timer_is_running).toBe(false);
+    expect(typeof pause.body.timer_total_seconds).toBe('number');
+    expect(pause.body.timer_total_seconds).toBeGreaterThanOrEqual(0);
+    expect('status' in pause.body, 'stop branch never touches status').toBe(false);
+    expect('timer_start_time' in pause.body, 'stop branch drops start_time, like the house write').toBe(false);
+
+    // and the running visuals clear again
+    await expect(row2).not.toHaveClass(/border-glow-pulse/);
+    await expect(
+      page.getByRole('button', { name: 'Start timer for A1 task 2', exact: true }),
+    ).toBeVisible();
+
+    await context.close();
+  });
+
+  test('a timer started elsewhere shows the house running state on the card', async ({ browser }) => {
+    const store = makeStore();
+    // Seeded as ALREADY running (e.g. started from the Today view): the card
+    // must show it without any tap — this is exactly what the start-only latch
+    // version could not do (device-found by Igor, 2026-08-01).
+    const external = store.state.tasks.find((t) => t.id === 'a1-3')!;
+    external.timer_is_running = true;
+    external.timer_start_time = Date.now() - 60_000;
+    external.timer_total_seconds = 120;
+
+    const { context, page } = await openIdleHome(browser, {
+      width: 1280,
+      height: 900,
+      mobile: false,
+      getTasks: store.getTasks,
+      onWrite: store.onWrite,
+    });
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+    const row3 = page
+      .locator('.lg-utask')
+      .filter({ has: page.locator('.lg-utitle', { hasText: /^A1 task 3$/ }) });
+    await expect(row3).toHaveClass(/border-glow-pulse/);
+    await expect(
+      page.getByRole('button', { name: 'Pause timer for A1 task 3', exact: true }),
+    ).toBeVisible();
+
+    // pausing from the card banks the elapsed time on top of the accrued total
+    await page.getByRole('button', { name: 'Pause timer for A1 task 3', exact: true }).click();
+    await expect.poll(() => writesOf(store, 'PATCH').length, { timeout: 10_000 }).toBe(1);
+    const pause = writesOf(store, 'PATCH')[0];
+    expect(idOf(pause.url)).toBe('a1-3');
+    expect(pause.body.timer_is_running).toBe(false);
+    expect(pause.body.timer_total_seconds).toBeGreaterThanOrEqual(120 + 59);
+    expect(pause.body.timer_total_seconds).toBeLessThan(120 + 70);
+    await expect(row3).not.toHaveClass(/border-glow-pulse/);
 
     await context.close();
   });
@@ -928,6 +995,11 @@ test.describe('A2 swipe gestures', () => {
       if (!id) return;
       if (w.method === 'DELETE' || (w.method === 'PATCH' && w.body?.status === 'completed')) {
         state.tasks = state.tasks.filter((t) => t.id !== id);
+      } else if (w.method === 'PATCH') {
+        // Apply accepted field writes so the refetch the invalidation triggers
+        // returns genuinely changed rows (the timer toggle depends on this).
+        const t = state.tasks.find((x) => x.id === id);
+        if (t) Object.assign(t, w.body);
       }
     };
     return { state, getTasks: () => state.tasks, onWrite };

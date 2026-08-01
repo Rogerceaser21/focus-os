@@ -1344,8 +1344,14 @@ html.shell.liquid-glass .lg-hero-col {
   overflow-x: hidden;
   padding-bottom: 8px;
 }
-.liquid-glass .lg-utask { display: flex; align-items: center; gap: 12px; padding: 10px 18px; }
+/* Rows carry a transparent border so the running-timer ring (the SAME
+   border-glow-pulse the project rows run, index.css .border-glow-pulse) can
+   appear without shifting the row's geometry by its border width. */
+.liquid-glass .lg-utask { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border: 1px solid transparent; }
 .liquid-glass .lg-utask + .lg-utask { border-top: 1px solid var(--row-line); }
+/* The running row rounds so the pulsing ring reads like the project-row card
+   ring; sited after the separator rule so its border wins on the top edge. */
+.liquid-glass .lg-utask.running { border-radius: 12px; }
 /* the tappable text region (title + project meta): opens the edit pane */
 .liquid-glass .lg-utap { flex: 1; min-width: 0; cursor: pointer; border-radius: 10px; }
 .liquid-glass .lg-utap:active { opacity: .7; }
@@ -1366,7 +1372,6 @@ html.shell.liquid-glass .lg-hero-col {
 }
 .liquid-glass .lg-uact:hover { background: var(--chip); border-color: var(--gbrd); color: var(--t1); }
 .liquid-glass .lg-uact:active { transform: scale(.92); }
-.liquid-glass .lg-uact.play.on { color: #34c759; }
 .liquid-glass .lg-uact.del:hover { color: #e5484d; border-color: rgba(229, 72, 77, 0.45); }
 .liquid-glass .lg-uact:focus { outline: none; }
 .liquid-glass .lg-uact:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }

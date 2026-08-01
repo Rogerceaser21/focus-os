@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 
 if (import.meta.env.DEV) (window as any).__gsap = gsap;
-import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown, ArrowLeft, ArrowRight, Clock, Play, X } from 'lucide-react';
+import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown, ArrowLeft, ArrowRight, Clock, Play, Pause, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,6 +55,11 @@ interface UpNextTask {
   due_date: string | null;
   project_id: string | null;
   priority: string;
+  // Timer columns so the card can SHOW a running timer the same way the
+  // project rows do (glow ring + pause icon), including one started elsewhere.
+  timer_total_seconds: number | null;
+  timer_is_running: boolean | null;
+  timer_start_time: number | null;
 }
 
 /* ── "Today's Focus" ranking (Dynamic Bar step 2, 2026-08-01) ────────────────
@@ -355,7 +360,7 @@ const Home = () => {
     queryFn: async () => {
       const { data, count } = await (supabase as any)
         .from('focusos_tasks')
-        .select('id, title, status, due_date, project_id, priority', { count: 'exact' })
+        .select('id, title, status, due_date, project_id, priority, timer_total_seconds, timer_is_running, timer_start_time', { count: 'exact' })
         .eq('user_id', user!.id)
         .neq('status', 'completed')
         .order('due_date', { ascending: true, nullsFirst: false })
@@ -394,7 +399,17 @@ const Home = () => {
   // Set in the click handlers (never in an effect): the row shows its result
   // immediately and the invalidated query then removes/refreshes it for real.
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
-  const [timerStartedIds, setTimerStartedIds] = useState<Set<string>>(new Set());
+  // Optimistic timer flip, set in the tap handler (never an effect): `want` is
+  // what the row should show NOW, `serverAtTap` is what the fetched row said at
+  // tap time. The override only wins while the server still reports its at-tap
+  // value; once the invalidated refetch lands, the server row takes over.
+  const [timerFlips, setTimerFlips] = useState<Map<string, { want: boolean; serverAtTap: boolean }>>(new Map());
+  const [timerBusyIds, setTimerBusyIds] = useState<Set<string>>(new Set());
+  const rowTimerRunning = useCallback((t: UpNextTask): boolean => {
+    const server = !!t.timer_is_running;
+    const ov = timerFlips.get(t.id);
+    return ov && server === ov.serverAtTap ? ov.want : server;
+  }, [timerFlips]);
 
   // Both key families: Home's own card AND the /app task caches (inactive while
   // Home is mounted, so this marks them stale for the next visit: no starved
@@ -432,33 +447,48 @@ const Home = () => {
     return true;
   }, [completingIds, invalidateTaskCaches]);
 
-  // Start the timer: the exact start-branch writes of TaskListItem.handleStartStop
-  // (TaskListItem.tsx:355-362) once Index maps them to columns (Index.tsx:1518-1528)
-  // i.e. status 'in-progress', timer_is_running true, timer_start_time = Date.now().
-  // timer_total_seconds is deliberately NOT written: the start branch keeps it
-  // unchanged, and Home's slim row does not carry it. Project rows never stop
-  // another task's timer (no global single-timer rule anywhere), so neither does
-  // this. The row latches locally so a second tap cannot reset an accruing start.
-  const handleStartTimer = useCallback(async (taskId: string) => {
-    if (timerStartedIds.has(taskId)) return;
-    const startTime = Date.now();
-    setTimerStartedIds((prev) => new Set(prev).add(taskId));
-    const { error } = await (supabase as any).from('focusos_tasks').update({
-      status: 'in-progress',
-      timer_is_running: true,
-      timer_start_time: startTime,
-    }).eq('id', taskId);
+  // Toggle the timer: BOTH branches of TaskListItem.handleStartStop
+  // (TaskListItem.tsx:340-364) once Index maps them to columns (Index.tsx:1526-1528).
+  // Start writes status 'in-progress' + timer_is_running true + timer_start_time =
+  // Date.now(), leaving the accrued total untouched. Stop writes timer_total_seconds
+  // += elapsed and timer_is_running false; like the house stop branch it does not
+  // touch status and drops timer_start_time (reads of it are guarded by is_running).
+  // Project rows never stop another task's timer (no global single-timer rule
+  // anywhere), so neither does this.
+  const handleToggleTimer = useCallback(async (t: UpNextTask) => {
+    if (timerBusyIds.has(t.id)) return;
+    const running = rowTimerRunning(t);
+    setTimerBusyIds((prev) => new Set(prev).add(t.id));
+    setTimerFlips((prev) => new Map(prev).set(t.id, { want: !running, serverAtTap: !!t.timer_is_running }));
+    const payload = running
+      ? {
+          timer_total_seconds:
+            (t.timer_total_seconds ?? 0) +
+            (t.timer_start_time ? Math.floor((Date.now() - t.timer_start_time) / 1000) : 0),
+          timer_is_running: false,
+        }
+      : {
+          status: 'in-progress',
+          timer_is_running: true,
+          timer_start_time: Date.now(),
+        };
+    const { error } = await (supabase as any).from('focusos_tasks').update(payload).eq('id', t.id);
+    setTimerBusyIds((prev) => {
+      const next = new Set(prev);
+      next.delete(t.id);
+      return next;
+    });
     if (error) {
-      setTimerStartedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(taskId);
+      setTimerFlips((prev) => {
+        const next = new Map(prev);
+        next.delete(t.id);
         return next;
       });
-      toast.error('Failed to start the timer');
+      toast.error(running ? 'Failed to pause the timer' : 'Failed to start the timer');
       return;
     }
     invalidateTaskCaches();
-  }, [timerStartedIds, invalidateTaskCaches]);
+  }, [timerBusyIds, rowTimerRunning, invalidateTaskCaches]);
 
   // Delete: same sequence as Index.handleDeleteTask (Index.tsx:1717-1749):
   // recipient clones go first, the shared_items rows are neutralised, then the
@@ -966,6 +996,10 @@ const Home = () => {
             <div className="lg-uprows">
               {upNext.map((t) => {
               const done = completingIds.has(t.id);
+              // Running-timer state, derived during render from the fetched row
+              // (+ the optimistic flip). Drives the SAME visual the project rows
+              // use: border-glow-pulse ring + Pause icon (TaskListItem.tsx:577).
+              const running = rowTimerRunning(t);
               // A2: the row's own gesture state, derived during render. `moving`
               // is 0 until the gesture is decided, so a tap never nudges a pixel.
               const sw = swipe && swipe.id === t.id ? swipe : null;
@@ -974,7 +1008,7 @@ const Home = () => {
               return (
                 <div
                   key={t.id}
-                  className={`lg-utask${sw && (sw.mode === 'settle' || sw.mode === 'exit') ? ' lg-uspring' : ''}`}
+                  className={`lg-utask${sw && (sw.mode === 'settle' || sw.mode === 'exit') ? ' lg-uspring' : ''}${running ? ' running border-glow-pulse' : ''}`}
                   style={sw ? { transform: `translateX(${moving}px)` } : undefined}
                   onTouchStart={(e) => onRowTouchStart(e, t.id)}
                   onTouchMove={(e) => onRowTouchMove(e, t.id)}
@@ -1050,11 +1084,11 @@ const Home = () => {
                     </AlertDialog>
                     <button
                       type="button"
-                      className={`lg-uact play${timerStartedIds.has(t.id) ? ' on' : ''}`}
-                      aria-label={`Start timer for ${t.title}`}
-                      title={timerStartedIds.has(t.id) ? 'Timer running' : 'Start timer'}
-                      onClick={() => { if (swipeBlocksTap(t.id)) return; handleStartTimer(t.id); }}>
-                      <Play size={14} />
+                      className="lg-uact play"
+                      aria-label={running ? `Pause timer for ${t.title}` : `Start timer for ${t.title}`}
+                      title={running ? 'Pause timer' : 'Start timer'}
+                      onClick={() => { if (swipeBlocksTap(t.id)) return; handleToggleTimer(t); }}>
+                      {running ? <Pause size={14} /> : <Play size={14} />}
                     </button>
                   </div>
                 </div>);
