@@ -1950,3 +1950,6 @@ html.shell.liquid-glass .lg-hero-col.rec {
 /* Today's Focus rows are tappable (step 2, 2026-08-01). A1 (2026-08-01) moved
    the tap target off the whole row onto the text region (.lg-utap, above), so
    the tick / play / delete controls own their own hit areas. */
+
+/* tight X+play pair on Today's Focus rows (Igor 2026-08-01) */
+.liquid-glass .lg-uacts { display: flex; align-items: center; gap: 2px; flex: none; }

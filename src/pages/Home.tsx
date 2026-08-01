@@ -995,47 +995,50 @@ const Home = () => {
                         {projects.find((p) => p.id === t.project_id)?.name}
                       </div>}
                   </div>
-                  {dueLabel(t.due_date) && <span className="lg-uchip">{dueLabel(t.due_date)}</span>}
-                  <button
-                    type="button"
-                    className={`lg-uact play${timerStartedIds.has(t.id) ? ' on' : ''}`}
-                    aria-label={`Start timer for ${t.title}`}
-                    title={timerStartedIds.has(t.id) ? 'Timer running' : 'Start timer'}
-                    onClick={() => { if (swipeBlocksTap(t.id)) return; handleStartTimer(t.id); }}>
-                    <Play size={14} />
-                  </button>
-                  {/* Same AlertDialog the project rows use (TaskListItem.tsx:1012),
-                      same copy, same house liquid-glass restyle. */}
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      {/* preventDefault is how a Radix trigger is stopped: it
-                          composes our handler first and skips its own once the
-                          event is defaulted. The swipe must not also open the
-                          confirm behind itself. */}
-                      <button
-                        type="button"
-                        className="lg-uact del"
-                        aria-label={`Delete ${t.title}`}
-                        title="Delete task"
-                        onClick={(e) => { if (swipeBlocksTap(t.id)) e.preventDefault(); }}>
-                        <X size={14} strokeWidth={2.5} />
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete this task?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete the task. This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDeleteTask(t.id)}>
-                          Yes, Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  {/* Igor 2026-08-01: no due chip on the card, X before play
+                      (project-row order), tight button pair. */}
+                  <div className="lg-uacts">
+                    {/* Same AlertDialog the project rows use (TaskListItem.tsx:1012),
+                        same copy, same house liquid-glass restyle. */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        {/* preventDefault is how a Radix trigger is stopped: it
+                            composes our handler first and skips its own once the
+                            event is defaulted. The swipe must not also open the
+                            confirm behind itself. */}
+                        <button
+                          type="button"
+                          className="lg-uact del"
+                          aria-label={`Delete ${t.title}`}
+                          title="Delete task"
+                          onClick={(e) => { if (swipeBlocksTap(t.id)) e.preventDefault(); }}>
+                          <X size={14} strokeWidth={2.5} />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the task. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteTask(t.id)}>
+                            Yes, Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <button
+                      type="button"
+                      className={`lg-uact play${timerStartedIds.has(t.id) ? ' on' : ''}`}
+                      aria-label={`Start timer for ${t.title}`}
+                      title={timerStartedIds.has(t.id) ? 'Timer running' : 'Start timer'}
+                      onClick={() => { if (swipeBlocksTap(t.id)) return; handleStartTimer(t.id); }}>
+                      <Play size={14} />
+                    </button>
+                  </div>
                 </div>);
             })}
             </div>
