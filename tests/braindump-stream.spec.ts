@@ -1249,4 +1249,36 @@ test.describe('A2 swipe gestures', () => {
 
     await context.close();
   });
+
+  test('consecutive swipes keep working: right, right again, left, right (device-found regression)', async ({ browser }) => {
+    test.setTimeout(90_000);
+    // 2026-08-01, Igor's phone: ONE successful right swipe, then the feature
+    // was dead. Root cause: the success path never cleared mode 'exit' (the
+    // refill unmounts the row before transitionend), and touchStart refuses
+    // every gesture while an exit is in flight. This test swipes FOUR times
+    // in a row, which the original single-swipe test never did.
+    const store = makeStore();
+    const { context, page } = await openPhone(browser, store);
+
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 1');
+    await touchDrag(page, '.lg-utask', 160);
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 2', { timeout: 10_000 });
+
+    // The regression: this second swipe used to be silently ignored.
+    await touchDrag(page, '.lg-utask', 160);
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 3', { timeout: 10_000 });
+    const completions = store.state.writes.filter((w) => w.method === 'PATCH' && w.body?.status === 'completed');
+    expect(completions.length, 'both right swipes wrote a completion').toBe(2);
+
+    // Left after rights: dismiss still works...
+    await touchDrag(page, '.lg-utask', -160);
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 4', { timeout: 10_000 });
+    expect(await dismissedIds(page), 'task 3 set aside').toContain('a2-3');
+
+    // ...and a right after the left still lands.
+    await touchDrag(page, '.lg-utask', 160);
+    await expect(page.locator('.lg-utask .lg-utitle').first()).toHaveText('A2 task 5', { timeout: 10_000 });
+
+    await context.close();
+  });
 });

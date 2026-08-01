@@ -523,7 +523,11 @@ const Home = () => {
 
   const onRowTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>, id: string) => {
     if (e.touches.length !== 1) return;         // pinch / second finger: not a swipe
-    if (swipe && swipe.mode === 'exit') return; // let a leaving row leave
+    // Let a leaving row leave, but ONLY while it is still rendered. Once the
+    // refill has unmounted it, its transitionend can never arrive; a stale
+    // 'exit' here must not block the next gesture forever (device-found
+    // 2026-08-01: one successful swipe, then the feature was dead).
+    if (swipe && swipe.mode === 'exit' && upNext.some((t) => t.id === swipe.id)) return;
     const touch = e.touches[0];
     // Take over a spring-back mid-flight: start from where the row IS on screen,
     // read live off the transform, not from the value the state settled on.
@@ -533,7 +537,7 @@ const Home = () => {
       try { base = new DOMMatrixReadOnly(tr).m41; } catch { base = 0; }
     }
     setSwipe({ id, startX: touch.clientX, startY: touch.clientY, base, dx: base, mode: 'pending' });
-  }, [swipe]);
+  }, [swipe, upNext]);
 
   const onRowTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>, id: string) => {
     const s = swipe;
@@ -572,6 +576,13 @@ const Home = () => {
       void handleCompleteTask(id).then((ok) => {
         if (!ok) setSwipe((cur) => (cur && cur.id === id ? null : cur));
       });
+      // Success belt: the refill usually unmounts the row BEFORE its exit
+      // transition ends, so transitionend never arrives and the 'exit' state
+      // would block every later swipe (device-found 2026-08-01). Clear it.
+      window.setTimeout(
+        () => setSwipe((cur) => (cur && cur.id === id && cur.mode === 'exit' ? null : cur)),
+        SWIPE_SETTLE_MS,
+      );
       return;
     }
     if (s.dx <= -SWIPE_ACTION_PX) {
@@ -579,8 +590,12 @@ const Home = () => {
       setSwipe({ ...s, mode: 'exit', dx: -out });
       // The row leaves the ranked list when its exit transform lands
       // (onRowTransitionEnd); this is the belt for a transitionend that never
-      // arrives, and a double bump costs one extra re-derivation, nothing more.
-      window.setTimeout(() => setDismissedRev((n) => n + 1), SWIPE_SETTLE_MS);
+      // arrives, and it ALSO clears the exit state (same stale-'exit' trap as
+      // the right swipe).
+      window.setTimeout(() => {
+        setDismissedRev((n) => n + 1);
+        setSwipe((cur) => (cur && cur.id === id && cur.mode === 'exit' ? null : cur));
+      }, SWIPE_SETTLE_MS);
       return;
     }
     setSwipe({ ...s, mode: 'settle', dx: 0 });
@@ -599,7 +614,10 @@ const Home = () => {
     const s = swipe;
     if (!s || s.id !== id) return;
     if (s.mode === 'settle') { setSwipe(null); return; }         // idle again
-    if (s.mode === 'exit' && s.dx < 0) setDismissedRev((n) => n + 1); // set aside
+    if (s.mode === 'exit') {
+      if (s.dx < 0) setDismissedRev((n) => n + 1); // set aside
+      setSwipe(null); // the exit landed: the engine is idle for the next gesture
+    }
   }, [swipe]);
 
   // Save from the pane: the column mapping of Index.handleUpdateTask's DB update
