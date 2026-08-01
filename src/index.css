@@ -1315,7 +1315,7 @@ html.shell.liquid-glass .lg-hero-col {
    leftover once the card caps) so the future feature buttons have room. */
 .liquid-glass .lg-upnext {
   margin-top: 24px; border-radius: 26px;
-  flex: 4 1 auto; max-height: 400px; min-height: 0;
+  flex: 4 1 auto; max-height: 440px; min-height: 0;
   display: flex; flex-direction: column;
   transition: opacity .35s ease, transform .35s ease;
 }
@@ -1427,7 +1427,7 @@ html.shell.liquid-glass .lg-hero-col {
   animation: lg-uhint-nudge 6s var(--ease-out-strong) infinite;
 }
 .liquid-glass .lg-uhint span { display: inline-flex; align-items: center; gap: 4px; opacity: .6; }
-.liquid-glass .lg-uhint .w { opacity: .38; font-weight: 500; }
+.liquid-glass .lg-uhint .w { opacity: .95; font-weight: 700; color: var(--t1); }
 .liquid-glass .lg-uhint .l { animation: lg-uhint-left 6s ease-in-out infinite; }
 .liquid-glass .lg-uhint .r { animation: lg-uhint-right 6s ease-in-out infinite; }
 @keyframes lg-uhint-nudge {
@@ -1650,7 +1650,7 @@ html.shell.liquid-glass .lg-hero-col.rec {
 @media (min-width: 640px) {
   /* tablet: the column (and so the card) uses the width — 620 -> 680 (step 1) */
   .liquid-glass .lg-hero-col { max-width: 680px; padding: 64px 40px 0; }
-  .liquid-glass .lg-upnext { margin-top: 36px; max-height: 440px; }
+  .liquid-glass .lg-upnext { margin-top: 36px; max-height: 480px; }
   .liquid-glass .lg-orb { width: 132px; height: 132px; }
 }
 /* wide screens: centred by default; recording opens the side-by-side stage */
