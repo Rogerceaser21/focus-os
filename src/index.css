@@ -1833,6 +1833,16 @@ html.shell.liquid-glass .lg-hero-col.rec {
   background: var(--chip);
   border-color: var(--chip-brd);
 }
+/* Focus lives ON the box: border takes the ring token (plus the shared inset
+   line from ui/input+textarea) — nothing painted outside the box, so the
+   scrolling dialog body can never clip the ring (Igor device-found 2026-08-01,
+   replacing the stock outside-shadow ring that showed broken). */
+.liquid-glass [role='dialog'] input:not([type='color']):not([type='checkbox']):focus-visible,
+.liquid-glass [role='dialog'] textarea:focus-visible,
+.liquid-glass [data-side-panel] input:not([type='color']):not([type='checkbox']):focus-visible,
+.liquid-glass [data-side-panel] textarea:focus-visible {
+  border-color: hsl(var(--ring));
+}
 .liquid-glass [role='dialog'] button:not([role='checkbox']):not([role='radio']),
 .liquid-glass [role='alertdialog'] button:not([role='checkbox']):not([role='radio']),
 .liquid-glass [data-side-panel] button:not([role='checkbox']):not([role='radio']) {

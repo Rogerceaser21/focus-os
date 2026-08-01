@@ -923,6 +923,56 @@ test.describe('A1 interactive rows', () => {
 
     await context.close();
   });
+
+  test('focused pane fields draw the ring ON the box — no outside paint to clip (Igor device-found)', async ({
+    browser,
+  }) => {
+    // The stock shadcn focus ring is a shadow painted OUTSIDE the field plus a
+    // background-colour offset band; outside paint clips against the scrolling
+    // dialog body, so the ring showed broken on device. The contract here: the
+    // focus state lives ON the box (border colour + inset shadow only), which
+    // no ancestor can ever clip.
+    const store = makeStore();
+    const { context, page } = await openIdleHome(browser, {
+      width: 393,
+      height: 852,
+      standalone: true,
+      getTasks: store.getTasks,
+      onWrite: store.onWrite,
+    });
+    await expect(page.locator('.lg-utask')).toHaveCount(10);
+    await page.locator('.lg-utask').first().locator('.lg-utap').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    for (const fieldId of ['title', 'description']) {
+      const probe = await page.evaluate((id) => {
+        const el = document.getElementById(id) as HTMLTextAreaElement;
+        el.focus();
+        const cs = getComputedStyle(el);
+        const ref = document.createElement('div');
+        ref.style.color = 'hsl(var(--ring))';
+        document.body.appendChild(ref);
+        const ringColor = getComputedStyle(ref).color;
+        ref.remove();
+        return { boxShadow: cs.boxShadow, borderColor: cs.borderColor, ringColor };
+      }, fieldId);
+      // split shadow list on commas OUTSIDE parentheses (colours contain commas)
+      const segments = probe.boxShadow.split(/,(?![^(]*\))/).map((s) => s.trim()).filter(Boolean);
+      for (const seg of segments) {
+        // Tailwind leaves no-op placeholder segments (transparent colour, zero
+        // geometry) in the composed shadow — they paint nothing and cannot clip.
+        const geometry = seg.replace(/rgba?\([^)]*\)\s*/, '').trim();
+        const invisible = /rgba\(0, 0, 0, 0\)/.test(seg) || /^0px 0px 0px(?: 0px)?$/.test(geometry);
+        if (seg !== 'none' && !invisible) {
+          expect(seg, `${fieldId}: every painted shadow stays inside the box`).toContain('inset');
+        }
+      }
+      expect(probe.borderColor, `${fieldId}: the focus border takes the ring colour`).toBe(
+        probe.ringColor,
+      );
+    }
+    await context.close();
+  });
 });
 
 /* ── A2: swipe gestures + the animated hint (2026-08-01) ─────────────────────
