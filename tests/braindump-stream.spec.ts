@@ -81,17 +81,22 @@ function seedSession(page: Page) {
 
 /**
  * Make main.tsx's own standalone detection fire, rather than stamping the class
- * ourselves: `notBrowser = !matchMedia('(display-mode: browser)').matches`.
+ * ourselves. Since 2026-07-30 (iOS shell wave, commit dba836f) main.tsx no
+ * longer has the notBrowser clause — the honoured signals are
+ * `(display-mode: standalone)` / `(display-mode: fullscreen)` /
+ * `navigator.standalone` / `window.__FOCUSOS_SHELL__`. Spoof the first one:
+ * this rig emulates the Safari A2HS icon-app (NOT the shell, which would also
+ * add html.shell and change the geometry under test).
  */
 function forceStandalone(page: Page) {
   return page.addInitScript(() => {
     const orig = window.matchMedia.bind(window);
     window.matchMedia = ((query: string) => {
       const mql = orig(query);
-      if (query !== '(display-mode: browser)') return mql;
+      if (query !== '(display-mode: standalone)') return mql;
       return new Proxy(mql, {
         get(target, prop) {
-          if (prop === 'matches') return false;
+          if (prop === 'matches') return true;
           const value = (target as never)[prop];
           return typeof value === 'function' ? (value as () => void).bind(target) : value;
         },
@@ -286,13 +291,10 @@ test.describe('brain dump live stream — 393x852 standalone', () => {
     // (d) Stop / Save clear the dock band
     expect(s.stop!.bottom, 'Stop clears the dock').toBeLessThanOrEqual(s.dock!.top - MIN_DOCK_CLEARANCE_PX);
     expect(s.save!.bottom, 'Save clears the dock').toBeLessThanOrEqual(s.dock!.top - MIN_DOCK_CLEARANCE_PX);
-    // the help FAB shares that band vertically — it must not sit on the buttons
-    const helpOverlaps =
-      s.help!.top < s.recbtns!.bottom &&
-      s.help!.bottom > s.recbtns!.top &&
-      s.help!.left < s.recbtns!.right &&
-      s.help!.right > s.recbtns!.left;
-    expect(helpOverlaps, 'help FAB does not collide with Stop/Save').toBe(false);
+    // Step-1 Dynamic Bar prep (2026-08-01): the tour button lives in the idle
+    // row beside Record Meeting and unmounts during recording (same swap as
+    // that button), so a collision with Stop/Save is structurally impossible.
+    expect(s.help, 'tour button is unmounted while recording').toBeNull();
 
     // laws that must survive the change
     expect(s.greetingTop!, 'greeting still on screen').toBeGreaterThanOrEqual(0);
@@ -391,6 +393,95 @@ test.describe('brain dump live stream — 1280x800 wide stage', () => {
     // the mobile floor must not leak into the absolute stage
     expect(wide.minHeight, 'mobile floor neutralised at >=1000px').toBe('0px');
 
+    await context.close();
+  });
+});
+
+/* ── Step-1 Dynamic Bar layout (2026-08-01) ──────────────────────────────────
+   Home layout prep: tour button rides the idle row beside Record Meeting, the
+   Up Next card flex-grows into the freed space (orb block dropped 108->72),
+   and wide viewports get real column widths (680 tablet / 760 desktop —
+   the desktop number must equal the GSAP idle-return width in Home.tsx). */
+test.describe('step-1 dynamic bar layout', () => {
+  async function openIdleHome(
+    browser: Browser,
+    opts: StandaloneOpts & { url?: string },
+  ) {
+    const context = await browser.newContext({
+      viewport: { width: opts.width, height: opts.height },
+      isMobile: opts.mobile ?? true,
+      hasTouch: opts.mobile ?? true,
+      timezoneId: 'UTC',
+    });
+    await installIntercepts(context);
+    // three open tasks + count 42 so the Up Next card actually renders
+    await context.route('**/rest/v1/focusos_tasks**', (route) => {
+      const tasks = [1, 2, 3].map((i) => ({
+        id: `upnext-${i}`,
+        title: `Seeded task ${i}`,
+        status: 'todo',
+        due_date: null,
+        project_id: null,
+      }));
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-range': '0-2/42', 'access-control-expose-headers': 'content-range' },
+        body: JSON.stringify(tasks),
+      });
+    });
+    const page = await context.newPage();
+    await seedSession(page);
+    if (opts.standalone) await forceStandalone(page);
+    await page.goto(opts.url ?? '/home?fakedump=0');
+    await page.waitForSelector('.lg-upnext', { timeout: 20_000 });
+    return { context, page };
+  }
+
+  const geom = (page: Page) =>
+    page.evaluate(() => {
+      const r = (sel: string) => {
+        const el = document.querySelector(sel);
+        return el ? el.getBoundingClientRect() : null;
+      };
+      return {
+        col: r('.lg-hero-col'),
+        card: r('.lg-upnext'),
+        orb: r('.lg-orb'),
+        record: r('[data-home-tour-step="record-meeting"]'),
+        help: r('button[aria-label="Take the Home tour"]'),
+        actionsMarginBottom: getComputedStyle(document.querySelector('.lg-hero-actions')!).marginBottom,
+      };
+    });
+
+  test('mobile 393x852 standalone: help joins the record row, card grows, no overlap', async ({ browser }) => {
+    const { context, page } = await openIdleHome(browser, { width: 393, height: 852, standalone: true });
+    const g = await geom(page);
+    expect(g.help, 'tour button rendered').not.toBeNull();
+    expect(g.record, 'record meeting rendered').not.toBeNull();
+    expect(Math.abs(g.help!.top - g.record!.top), 'same row').toBeLessThan(4);
+    expect(g.help!.left, 'help sits right of record').toBeGreaterThan(g.record!.right);
+    expect(g.card!.height, 'card has grown past its content height').toBeGreaterThanOrEqual(260);
+    expect(g.card!.bottom, 'card clears the orb').toBeLessThanOrEqual(g.orb!.top);
+    expect(g.actionsMarginBottom, 'orb block dropped to 72px').toBe('72px');
+    await page.screenshot({ path: 'test-results/step1-mobile.png' });
+    await context.close();
+  });
+
+  test('tablet 768x1024: column uses the width', async ({ browser }) => {
+    const { context, page } = await openIdleHome(browser, { width: 768, height: 1024, mobile: false });
+    const g = await geom(page);
+    expect(Math.round(g.col!.width), 'tablet column 680').toBe(680);
+    await page.screenshot({ path: 'test-results/step1-tablet.png' });
+    await context.close();
+  });
+
+  test('desktop 1280x900: column 760, card uses the height', async ({ browser }) => {
+    const { context, page } = await openIdleHome(browser, { width: 1280, height: 900, mobile: false });
+    const g = await geom(page);
+    expect(Math.round(g.col!.width), 'desktop column 760 (GSAP-synced)').toBe(760);
+    expect(g.card!.height, 'card grown on desktop').toBeGreaterThanOrEqual(320);
+    await page.screenshot({ path: 'test-results/step1-desktop.png' });
     await context.close();
   });
 });

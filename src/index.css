@@ -1309,9 +1309,14 @@ html.shell.liquid-glass .lg-hero-col {
   /* no max-width transition here — GSAP animates the recording-stage expansion */
 }
 
-/* up next card (leaves the flow while recording so the stream takes its slot) */
+/* up next card (leaves the flow while recording so the stream takes its slot).
+   Step-1 Dynamic Bar prep (2026-08-01): the card is a flex-grower now — it
+   eats the hero's free space (4x faster than the spacer, which reabsorbs the
+   leftover once the card caps) so the future feature buttons have room. */
 .liquid-glass .lg-upnext {
   margin-top: 24px; border-radius: 26px;
+  flex: 4 1 auto; max-height: 400px; min-height: 0;
+  display: flex; flex-direction: column;
   transition: opacity .35s ease, transform .35s ease;
 }
 .liquid-glass .lg-hero-col.rec .lg-upnext {
@@ -1319,22 +1324,10 @@ html.shell.liquid-glass .lg-hero-col {
   opacity: 0; transform: translateY(8px) scale(.98); pointer-events: none;
 }
 
-/* ── Tour FAB vs the recording exits (Deploy 1, 2026-07-28) ──────────────────
-   The tour FAB is fixed in the same bottom band as .lg-recbtns, and the stage
-   now offers THREE exits (Discard / Edit Tasks / Save All) — on a 393px phone
-   those pills fill the band, so the FAB would sit on top of the primary button
-   (guarded by tests/braindump-stream.spec.ts). While recording there is no tour
-   to take anyway, so it slides out of the way.
-
-   Same treatment as .lg-upnext above and for the same reason: the element is
-   NEVER unmounted and NEVER visibility:hidden — it carries a backdrop-filter,
-   and its compositing layer has to survive the stage transition (iOS Safari
-   white-flash law: no layer may be born or destroyed while things animate).
-   Persistent layer + a transform/opacity state change, nothing else. */
-.liquid-glass .lg-helpfab { transition: opacity .35s ease, transform .35s ease; }
-.liquid-glass .lg-hero-col.rec ~ .lg-helpfab {
-  opacity: 0; transform: translateX(72px); pointer-events: none;
-}
+/* Tour button (step-1 Dynamic Bar prep, 2026-08-01): no longer a fixed FAB —
+   it lives in .lg-idlerow beside Record Meeting and rides the SAME rec-flip
+   mount/unmount as that button (the pattern the stage transition was
+   device-proven with), so the old FAB-vs-recbtns collision rules are gone. */
 .liquid-glass .lg-uphead { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 18px 2px; }
 .liquid-glass .lg-uphead .ttl { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--t2); }
 .liquid-glass .lg-uphead .cnt { font-size: 12px; color: var(--t3); }
@@ -1357,8 +1350,13 @@ html.shell.liquid-glass .lg-hero-col {
 
 .liquid-glass .lg-hero-spacer { flex: 1; min-height: 16px; }
 
-/* orb + actions (GSAP glides this left on wide screens while recording) */
-.liquid-glass .lg-hero-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 108px; }
+/* orb + actions (GSAP glides this left on wide screens while recording).
+   margin-bottom 108 -> 72 (step-1 Dynamic Bar prep): orb block sits lower,
+   the freed space feeds the growing card above. */
+.liquid-glass .lg-hero-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 72px; }
+/* idle bottom row: Record Meeting + the tour button share one line */
+.liquid-glass .lg-idlerow { display: flex; align-items: center; gap: 10px; }
+.liquid-glass .lg-btn.lg-helpbtn { padding: 11px 14px; }
 
 /* ── Recording-stage bottom budget (Fix A, 2026-07-27) ───────────────────────
    Idle Home is untouched (v39 geometry, Igor-verified) — every rule here is
@@ -1543,13 +1541,16 @@ html.shell.liquid-glass .lg-hero-col.rec {
 }
 
 @media (min-width: 640px) {
-  .liquid-glass .lg-hero-col { max-width: 620px; padding: 64px 40px 0; }
-  .liquid-glass .lg-upnext { margin-top: 36px; }
+  /* tablet: the column (and so the card) uses the width — 620 -> 680 (step 1) */
+  .liquid-glass .lg-hero-col { max-width: 680px; padding: 64px 40px 0; }
+  .liquid-glass .lg-upnext { margin-top: 36px; max-height: 440px; }
   .liquid-glass .lg-orb { width: 132px; height: 132px; }
 }
 /* wide screens: centred by default; recording opens the side-by-side stage */
 @media (min-width: 1000px) {
-  .liquid-glass .lg-hero-col { max-width: 640px; }
+  /* desktop idle 640 -> 760; MUST match the GSAP idle return width in
+     Home.tsx (the rec-exit animation lands on this number before clearProps) */
+  .liquid-glass .lg-hero-col { max-width: 760px; }
   /* .rec expansion width is animated by GSAP in Home.tsx (geometry-aware) */
   .liquid-glass .lg-orb { width: 150px; height: 150px; }
   .liquid-glass .lg-orb-core { width: 36px; height: 36px; }
@@ -1569,7 +1570,7 @@ html.shell.liquid-glass .lg-hero-col.rec {
   .liquid-glass .lg-upnext { margin-top: 16px; }
   .liquid-glass .lg-upnext .lg-utask:nth-child(n + 3) { display: none; }
   .liquid-glass .lg-orb { width: 118px; height: 118px; }
-  .liquid-glass .lg-hero-actions { margin-bottom: 92px; }
+  .liquid-glass .lg-hero-actions { margin-bottom: 64px; }
 }
 
 /* empty content panel: fully transparent so the wallpaper shows (fix: blank slab) */

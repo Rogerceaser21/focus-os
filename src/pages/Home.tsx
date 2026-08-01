@@ -232,7 +232,9 @@ const Home = () => {
     const wide = window.matchMedia('(min-width: 1000px)').matches;
     const col = colRef.current;
     if (col && wide) {
-      const targetW = rec ? Math.min(1120, window.innerWidth - 16) : 640;
+      // idle 760 MUST match .lg-hero-col max-width in the @media(min-width:1000px)
+      // block — the rec-exit animation lands here before clearProps hands back to CSS
+      const targetW = rec ? Math.min(1120, window.innerWidth - 16) : 760;
       gsap.to(col, {
         maxWidth: targetW,
         duration: 0.55,
@@ -620,29 +622,30 @@ const Home = () => {
               </button>
             </div> :
 
-          <button
-            data-home-tour-step="record-meeting"
-            onClick={() => navigate('/meetings')}
-            className="lg-btn"
-            style={{ padding: '11px 22px', fontSize: 14 }}>
-              <Video size={16} />
-              <span>Record Meeting</span>
-            </button>}
+          /* Idle row: Record Meeting + the tour button share the line (step-1
+             Dynamic Bar prep). Both ride the same rec-flip swap as before —
+             the pattern the stage transition was device-proven with. */
+          <div className="lg-idlerow">
+              <button
+              data-home-tour-step="record-meeting"
+              onClick={() => navigate('/meetings')}
+              className="lg-btn"
+              style={{ padding: '11px 22px', fontSize: 14 }}>
+                <Video size={16} />
+                <span>Record Meeting</span>
+              </button>
+              <button
+              onClick={() => setTourOpen(true)}
+              aria-label="Take the Home tour"
+              className="lg-btn lg-helpbtn">
+                <HelpCircle size={16} />
+              </button>
+            </div>}
         </div>
       </div>
 
       {/* ?debug=1 — production-safe live diagnostics (renders nothing without the param) */}
       <BrainDumpDebugOverlay />
-
-      {/* Help / replay tour button */}
-      <button
-        onClick={() => setTourOpen(true)}
-        aria-label="Take the Home tour"
-        className="lg-helpfab fixed right-4 z-30 flex items-center justify-center w-10 h-10 rounded-full border border-border bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-md"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}>
-
-        <HelpCircle className="w-5 h-5" />
-      </button>
 
       <BottomNav projects={projects} />
 
