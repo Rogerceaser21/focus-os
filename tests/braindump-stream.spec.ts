@@ -1583,7 +1583,7 @@ test.describe('Meeting action items', () => {
     await context.close();
   });
 
-  test('play from To Do moves the card to Progress, visibly', async ({ browser }) => {
+  test('play in To Do does NOT vanish the row: it pins until the tab is left', async ({ browser }) => {
     const store = makeMeetingStore();
     const { context, page } = await openMeeting(browser, store);
 
@@ -1602,9 +1602,21 @@ test.describe('Meeting action items', () => {
       )
       .toBe(1);
 
-    await expect(page.getByRole('tab', { name: 'To Do(1)' })).toBeVisible();
+    // THE contract (Igor, 2026-08-01): the tapped row STAYS in the tab the tap
+    // happened in — running, pausable, counted — no vanish under the finger.
+    await expect(page.getByRole('tab', { name: 'To Do(2)' })).toBeVisible();
+    await expect(title(page, 'Meeting task 1')).toBeVisible();
+    await expect(
+      row.getByRole('button', { name: 'Pause timer' }).locator('visible=true'),
+    ).toBeVisible();
+
+    // ...and it now also lists under Progress
     await page.getByRole('tab', { name: 'Progress(2)' }).click();
     await expect(title(page, 'Meeting task 1')).toBeVisible();
+
+    // leaving the tab releases the pin: To Do is back to the true filter
+    await page.getByRole('tab', { name: 'To Do(1)' }).click();
+    await expect(page.locator('h3:text-is("Meeting task 1")')).toHaveCount(0);
 
     await context.close();
   });
@@ -1626,6 +1638,10 @@ test.describe('Meeting action items', () => {
     const patch = store.state.writes.filter((w) => w.method === 'PATCH' && idOf(w.url) === 'mt-3').pop()!;
     expect(patch.body.status, 'reopened').toBe('todo');
     expect(patch.body.completed_by_email, 'stale stamp cleared, no zombie left behind').toBeNull();
+
+    // same no-vanish rule: the reopened row stays pinned in Done until the
+    // user leaves the tab
+    await expect(title(page, 'Meeting task 3')).toBeVisible();
 
     await context.close();
   });
