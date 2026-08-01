@@ -905,8 +905,10 @@ const MeetingDetail = () => {
   return (
     <>
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div className="sticky top-0 z-10 lg-pagehead">
+      {/* Header. lg-pagehead-card: this header is THREE lines tall, and the
+          shared capsule radius turns tall ends into semicircles — it takes the
+          house card radius instead (Igor, 2026-08-01). */}
+      <div className="sticky top-0 z-10 lg-pagehead lg-pagehead-card">
         <div className="max-w-4xl mx-auto lg-gutter py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/meetings')}>
             <ArrowLeft className="h-5 w-5" />

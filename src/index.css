@@ -1869,6 +1869,10 @@ html.shell.liquid-glass .lg-hero-col.rec {
   top: 10px !important;
 }
 .liquid-glass .lg-pagehead button { border-radius: 999px; }
+/* Tall multi-line page headers (meeting detail) read as a glass CARD, not a
+   stretched capsule: the capsule's ends go semicircular once the bar holds
+   three lines. Same 26px every dialog and glass card uses. */
+.liquid-glass .lg-pagehead.lg-pagehead-card { border-radius: 26px; }
 
 /* page header pill matches the content column width, not the viewport — but
    never touches the screen edge: below 896px+gutters it keeps the shared
