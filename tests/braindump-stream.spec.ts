@@ -403,9 +403,18 @@ test.describe('brain dump live stream — 1280x800 wide stage', () => {
    and wide viewports get real column widths (680 tablet / 760 desktop —
    the desktop number must equal the GSAP idle-return width in Home.tsx). */
 test.describe('step-1 dynamic bar layout', () => {
+  type SeedTask = {
+    id: string;
+    title: string;
+    status: string;
+    due_date: string | null;
+    project_id: string | null;
+    priority: string;
+  };
+
   async function openIdleHome(
     browser: Browser,
-    opts: StandaloneOpts & { url?: string },
+    opts: StandaloneOpts & { url?: string; tasks?: SeedTask[] },
   ) {
     const context = await browser.newContext({
       viewport: { width: opts.width, height: opts.height },
@@ -414,15 +423,18 @@ test.describe('step-1 dynamic bar layout', () => {
       timezoneId: 'UTC',
     });
     await installIntercepts(context);
-    // three open tasks + count 42 so the Up Next card actually renders
+    // seeded open tasks + count 42 so the Today's Focus card actually renders
     await context.route('**/rest/v1/focusos_tasks**', (route) => {
-      const tasks = [1, 2, 3].map((i) => ({
-        id: `upnext-${i}`,
-        title: `Seeded task ${i}`,
-        status: 'todo',
-        due_date: null,
-        project_id: null,
-      }));
+      const tasks: SeedTask[] =
+        opts.tasks ??
+        [1, 2, 3].map((i) => ({
+          id: `upnext-${i}`,
+          title: `Seeded task ${i}`,
+          status: 'todo',
+          due_date: null,
+          project_id: null,
+          priority: 'medium',
+        }));
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -482,6 +494,46 @@ test.describe('step-1 dynamic bar layout', () => {
     expect(Math.round(g.col!.width), 'desktop column 760 (GSAP-synced)').toBe(760);
     expect(g.card!.height, 'card grown on desktop').toBeGreaterThanOrEqual(320);
     await page.screenshot({ path: 'test-results/step1-desktop.png' });
+    await context.close();
+  });
+
+  test("today's focus ranking: fossils demoted, priority rules the tiers, tap navigates", async ({ browser }) => {
+    const day = 86400000;
+    const ymd = (offsetDays: number) =>
+      new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA');
+    const mk = (id: string, priority: string, due: string | null): SeedTask => ({
+      id,
+      title: id,
+      status: 'todo',
+      due_date: due,
+      project_id: null,
+      priority,
+    });
+    const seed = [
+      mk('fossil-urgent', 'urgent', ymd(-60)), // oldest due date + top priority: the old algorithm's #1
+      mk('today-low', 'low', ymd(0)),
+      mk('newover-med', 'medium', ymd(-3)),
+      mk('future-urgent', 'urgent', ymd(10)),
+      mk('nodue-high', 'high', null),
+    ];
+    const { context, page } = await openIdleHome(browser, {
+      width: 393,
+      height: 852,
+      standalone: true,
+      tasks: seed,
+    });
+
+    await expect(page.locator('.lg-uphead .ttl')).toHaveText("TODAY'S FOCUS");
+    // tier 0 by priority (medium beats low), then tier 1 opens with the urgent
+    // future task; the 60-day urgent fossil must be nowhere in the top 3.
+    await expect(page.locator('.lg-utask .lg-utitle')).toHaveText([
+      'newover-med',
+      'today-low',
+      'future-urgent',
+    ]);
+
+    await page.locator('.lg-utask').first().click();
+    await expect(page).toHaveURL(/\/app$/);
     await context.close();
   });
 });

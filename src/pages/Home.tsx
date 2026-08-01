@@ -41,7 +41,38 @@ interface UpNextTask {
   status: string;
   due_date: string | null;
   project_id: string | null;
+  priority: string;
 }
+
+/* ── "Today's Focus" ranking (Dynamic Bar step 2, 2026-08-01) ────────────────
+   Replaces the placeholder "soonest due first" pick, which let the longest-
+   overdue fossils squat the card forever. Tiers:
+     0 — due today or newly overdue (1..7 days): today's plate.
+     1 — everything else open: future dues, no due date, 8..30 days overdue.
+     2 — fossils (>30 days overdue): demoted so they can't pin the card.
+   Within a tier: priority (urgent→low), then nearest due date (no date last).
+   Pure function of (tasks, todayYmd) so the render derives it — no effects. */
+const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+export const rankTodaysFocus = (tasks: UpNextTask[], todayYmd: string): UpNextTask[] => {
+  const dayMs = 86400000;
+  const t0 = new Date(`${todayYmd}T00:00:00`).getTime();
+  const meta = (t: UpNextTask) => {
+    if (!t.due_date) return { tier: 1, due: Number.POSITIVE_INFINITY };
+    const due = new Date(`${t.due_date}T00:00:00`).getTime();
+    const daysLate = Math.floor((t0 - due) / dayMs);
+    const tier = daysLate > 30 ? 2 : daysLate >= 0 && daysLate <= 7 ? 0 : 1;
+    return { tier, due };
+  };
+  return [...tasks].sort((a, b) => {
+    const ma = meta(a);
+    const mb = meta(b);
+    if (ma.tier !== mb.tier) return ma.tier - mb.tier;
+    const pa = PRIORITY_RANK[a.priority] ?? 4;
+    const pb = PRIORITY_RANK[b.priority] ?? 4;
+    if (pa !== pb) return pa - pb;
+    return ma.due - mb.due;
+  });
+};
 
 /* ── ?fakedump=N — URL-param-gated dev/demo affordance ───────────────────────
    Same gate shape as ?tweaks (App.tsx): read straight off the query string,
@@ -198,7 +229,9 @@ const Home = () => {
     },
   });
 
-  // Up Next card: the next few open tasks (soonest due first) + the total open count.
+  // Today's Focus card: bounded slim fetch of open tasks; the pick order is
+  // derived during render (rankTodaysFocus) so it rolls over at midnight
+  // without effects and stays testable as a pure function.
   const { data: upNextData } = useQuery({
     queryKey: ['focusos-home-upnext', user?.id],
     enabled: !!user,
@@ -206,18 +239,23 @@ const Home = () => {
     queryFn: async () => {
       const { data, count } = await (supabase as any)
         .from('focusos_tasks')
-        .select('id, title, status, due_date, project_id', { count: 'exact' })
+        .select('id, title, status, due_date, project_id, priority', { count: 'exact' })
         .eq('user_id', user!.id)
         .neq('status', 'completed')
         .order('due_date', { ascending: true, nullsFirst: false })
-        .limit(3);
+        .limit(500);
       return {
-        upNext: (data ?? []) as UpNextTask[],
+        openTasks: (data ?? []) as UpNextTask[],
         openCount: typeof count === 'number' ? count : 0,
       };
     },
   });
-  const upNext = upNextData?.upNext ?? [];
+  // en-CA locale = YYYY-MM-DD in the user's own timezone
+  const todayYmd = new Date().toLocaleDateString('en-CA');
+  const upNext = useMemo(
+    () => rankTodaysFocus(upNextData?.openTasks ?? [], todayYmd).slice(0, 3),
+    [upNextData, todayYmd],
+  );
   const openCount = upNextData?.openCount ?? 0;
 
   useEffect(() => {
@@ -506,16 +544,24 @@ const Home = () => {
           </div>
         </div>
 
-        {/* Up Next — real open tasks (fades away while recording) */}
+        {/* Today's Focus — ranked open tasks (fades away while recording).
+            Rows are tappable: v1 lands on the task list (/app); a true
+            per-task deep link is a tracked follow-up. */}
         {upNext.length > 0 &&
         <div className="lg-glass lg-upnext">
             <div className="lg-uphead">
-              <span className="ttl">UP NEXT</span>
+              <span className="ttl">TODAY'S FOCUS</span>
               <span className="cnt">{openCount} open</span>
             </div>
             <div style={{ paddingBottom: 8 }}>
               {upNext.map((t) =>
-            <div key={t.id} className="lg-utask">
+            <div
+              key={t.id}
+              className="lg-utask lg-utask-tap"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/app')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/app'); }}>
                   <div className="lg-tick" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="lg-utitle">{t.title}</div>

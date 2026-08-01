@@ -1825,3 +1825,7 @@ html.shell.liquid-glass .lg-hero-col.rec {
     transition-duration: 160ms !important;
   }
 }
+
+/* Today's Focus rows are tappable (step 2, 2026-08-01) */
+.liquid-glass .lg-utask-tap { cursor: pointer; }
+.liquid-glass .lg-utask-tap:active { opacity: .7; }
