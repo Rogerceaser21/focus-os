@@ -1314,7 +1314,7 @@ html.shell.liquid-glass .lg-hero-col {
    eats the hero's free space (4x faster than the spacer, which reabsorbs the
    leftover once the card caps) so the future feature buttons have room. */
 .liquid-glass .lg-upnext {
-  margin-top: 24px; border-radius: 26px;
+  margin-top: 14px; border-radius: 26px;
   flex: 8 1 auto; max-height: 440px; min-height: 0;
   display: flex; flex-direction: column;
   transition: opacity .35s ease, transform .35s ease;
@@ -1422,7 +1422,7 @@ html.shell.liquid-glass .lg-hero-col {
    the two gestures name themselves without a tutorial. */
 .liquid-glass .lg-uhint {
   flex: none; display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 4px 18px 12px; font-size: 11.5px; font-weight: 600;
+  padding: 2px 18px 8px; font-size: 11.5px; font-weight: 600;
   color: var(--t2); user-select: none;
   animation: lg-uhint-nudge 6s var(--ease-out-strong) infinite;
 }
@@ -1452,7 +1452,7 @@ html.shell.liquid-glass .lg-hero-col {
   .liquid-glass .lg-uhint { display: none; }
 }
 
-.liquid-glass .lg-hero-spacer { flex: 1; min-height: 16px; }
+.liquid-glass .lg-hero-spacer { flex: 1; min-height: 8px; }
 
 /* orb + actions (GSAP glides this left on wide screens while recording).
    Browser mode keeps the original 108px — it has NO bottom padding
