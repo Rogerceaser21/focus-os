@@ -1351,6 +1351,33 @@ html.shell.liquid-glass .lg-hero-col {
 .liquid-glass .lg-prio-medium { color: var(--t2); }
 .liquid-glass .lg-prio-low { color: var(--t3); }
 
+/* ── MOVE TASKS (reorder mode) ───────────────────────────────────────────────
+   Both rules are theme-agnostic on purpose (no .liquid-glass scope): reorder
+   mode is not a redesign surface, and the iOS failure below is a UA behaviour.
+
+   .lg-grip — the drag handle takes the gesture away from the scroll container.
+   Without touch-action:none iOS treats the long press as a pan candidate and
+   the drag never gets clean coordinates.
+
+   .lg-reorder-lock — applied by DraggableTaskList ONLY while isReorderMode is
+   true (derived during render). A long press over selectable text is exactly
+   what makes iOS raise its selection loupe/highlight mid-drag, so the whole
+   list goes unselectable and callout-free for the duration. Inputs keep their
+   text behaviour so an inline title edit still works. Nothing here applies
+   outside reorder mode. */
+.lg-grip { touch-action: none; }
+
+.lg-reorder-lock {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.lg-reorder-lock input,
+.lg-reorder-lock textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* task rows: flat rows with hairline separators inside the panel (mock .pw-task) */
 .liquid-glass .lg-rows { gap: 0; }
 .liquid-glass .lg-rows > * { position: relative; }

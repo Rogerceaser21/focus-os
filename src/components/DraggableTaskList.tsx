@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DndContext,
   closestCenter,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   TouchSensor,
   useSensor,
@@ -11,6 +13,7 @@ import {
   DragStartEvent,
   DragOverlay,
 } from '@dnd-kit/core';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -104,7 +107,7 @@ const SortableTaskItem = ({
         <div
           {...attributes}
           {...listeners}
-          className="flex items-center px-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground transition-colors rounded-l-lg"
+          className="lg-grip flex items-center px-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground transition-colors rounded-l-lg"
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="h-4 w-4" />
@@ -155,7 +158,7 @@ export const DraggableTaskList = ({
       activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
+      activationConstraint: { delay: 250, tolerance: 8 },
     }),
     useSensor(KeyboardSensor)
   );
@@ -264,15 +267,52 @@ export const DraggableTaskList = ({
   const hasTasks = PRIORITY_ORDER.some((p) => groupedTasks[p].length > 0);
   if (!hasTasks) return null;
 
+  /**
+   * The ghost. It MUST be portalled to <body>.
+   *
+   * DragOverlay renders `position: fixed`, and dnd-kit measures that node with
+   * getClientRect to build its collision rect (core.esm.js: draggingNodeRect =
+   * dragOverlay.rect ?? activeNodeRect -> collisionRect). Left in place, the
+   * overlay's nearest ancestor is `.lg-content`, which carries `backdrop-filter`
+   * — and a backdrop-filter box is a containing block for fixed descendants.
+   * The ghost therefore laid out relative to that panel's origin instead of the
+   * viewport, so it rendered offset from the finger AND fed dnd-kit a collision
+   * rect ~207px (desktop) / ~73px (phone) below the finger, which is why the
+   * drop landed on the wrong row. There is NO transformed ancestor anywhere in
+   * the chain — backdrop-filter alone is the containing block that broke it.
+   * document.body has no such ancestor, so both symptoms go with the portal.
+   */
+  const overlay = (
+    <DragOverlay modifiers={[restrictToVerticalAxis]}>
+      {activeTask ? (
+        <div className="opacity-90 shadow-xl rounded-lg">
+          <TaskListItem
+            task={activeTask}
+            onUpdate={() => {}}
+            globalViewMode={globalViewMode}
+            isIndividuallyExpanded={false}
+            onTaskClick={() => {}}
+            projects={projects}
+          />
+        </div>
+      ) : null}
+    </DragOverlay>
+  );
+
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      modifiers={[restrictToVerticalAxis]}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={allTaskIds} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-1">
+        {/* Derived during render, never patched by an effect: while reorder mode
+            is on the list is unselectable, so iOS cannot raise its selection
+            loupe/highlight over the rows mid-drag. */}
+        <div className={`flex flex-col gap-1${isReorderMode ? ' lg-reorder-lock' : ''}`}>
           {PRIORITY_ORDER.map((priority) => {
             const tasksInGroup = groupedTasks[priority];
             if (tasksInGroup.length === 0) return null;
@@ -315,20 +355,7 @@ export const DraggableTaskList = ({
         </div>
       </SortableContext>
 
-      <DragOverlay>
-        {activeTask ? (
-          <div className="opacity-90 shadow-xl rounded-lg">
-            <TaskListItem
-              task={activeTask}
-              onUpdate={() => {}}
-              globalViewMode={globalViewMode}
-              isIndividuallyExpanded={false}
-              onTaskClick={() => {}}
-              projects={projects}
-            />
-          </div>
-        ) : null}
-      </DragOverlay>
+      {typeof document !== 'undefined' ? createPortal(overlay, document.body) : overlay}
     </DndContext>
   );
 };
