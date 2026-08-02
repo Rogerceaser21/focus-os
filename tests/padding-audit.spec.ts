@@ -156,6 +156,10 @@ async function measure(page: Page, targets: Array<{ name: string; selector: stri
 
 const APP_TARGETS = [
   { name: 'maincol', selector: '.lg-maincol' },
+  // Below lg the three bars below are display:none and .lg-onebar carries the
+  // whole top chrome instead (2026-08-02) — measured here so the mobile audit
+  // still has a top-chrome row to compare against the desktop one.
+  { name: 'onebar', selector: '.lg-onebar' },
   { name: 'row1_searchPill', selector: '.lg-row1' },
   { name: 'search_inner', selector: '.lg-search' },
   { name: 'tabs', selector: '.lg-tabs' },
@@ -221,7 +225,11 @@ async function auditViewport(
 
   for (const v of views) {
     await page.goto(v.url);
-    await expect(page.locator('.lg-row1')).toBeVisible({ timeout: 20_000 });
+    // Top-chrome ready gate. The visible top bar is breakpoint-dependent since
+    // the one-bar landed: .lg-row1 at >= lg, .lg-onebar below it.
+    await expect(
+      page.locator(viewport.width >= 1024 ? '.lg-row1' : '.lg-onebar'),
+    ).toBeVisible({ timeout: 20_000 });
     await page.waitForTimeout(1200);
     results[v.key] = await measure(page, APP_TARGETS);
     await page.screenshot({ path: path.join(EVIDENCE_DIR, `${label}-${v.key}.png`), fullPage: false });

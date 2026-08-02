@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import Fuse from 'fuse.js';
 
@@ -18,8 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, MoreHorizontal, UserPlus } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +62,26 @@ import {
   slimTaskRow,
 } from '@/lib/appDataFetchers';
 import { TaskListSkeleton, AppBootSkeleton, LoadErrorPanel } from '@/components/AppSkeletons';
+
+// Special-list identity (icon + label + colour + whether Share applies). ONE
+// source of truth, shared by the desktop special banner and the mobile one-bar
+// so the two can never drift apart.
+const SPECIAL_LIST_CFG = {
+  'today': { Icon: Calendar, label: 'Today', color: 'text-primary', share: true },
+  'past-due': { Icon: AlertTriangle, label: 'Past Due', color: 'text-orange-500', share: false },
+  'unassigned': { Icon: ListChecks, label: 'Unassigned Tasks', color: 'text-muted-foreground', share: true },
+} as const;
+
+// Status filter labels — verbatim the lg-tabs trigger labels, so the mobile
+// pill and the desktop tabs always read the same words.
+const STATUS_LABELS = {
+  'all': 'All',
+  'todo': 'To Do',
+  'in-progress': 'Progress',
+  'completed': 'Done',
+} as const;
+
+const STATUS_ORDER = ['all', 'todo', 'in-progress', 'completed'] as const;
 
 // Last successful non-empty open-task count per account — the "this account is not
 // actually empty" hint behind the vanish defence.
@@ -228,7 +249,30 @@ const Index = () => {
   const [changesNeededDialogOpen, setChangesNeededDialogOpen] = useState(false);
   const [changesNeededLoading, setChangesNeededLoading] = useState(false);
   const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
-  
+
+  // ---- Mobile one-bar (<lg) chrome. TRIGGER state only: which sheet is open and
+  // whether the bar has swapped into search mode. viewMode / globalCardView /
+  // activeTab / searchInput keep their own state, defaults and persistence paths
+  // untouched — the bar only moves where they are set from. ----
+  const [onebarSheet, setOnebarSheet] = useState<null | 'context' | 'status'>(null);
+  const [onebarSearchOpen, setOnebarSearchOpen] = useState(false);
+  const onebarSearchRef = useRef<HTMLInputElement | null>(null);
+  // WKWebView drops programmatic focus that happens outside the user-gesture call
+  // stack, so the mode swap is flushed synchronously inside the tap handler and the
+  // input is focused before the handler returns — never from a post-paint effect.
+  const openOnebarSearch = () => {
+    flushSync(() => setOnebarSearchOpen(true));
+    onebarSearchRef.current?.focus();
+  };
+  // Cancel restores the bar and drops focus. It deliberately does NOT clear
+  // searchInput: the desktop lg-search has no clear affordance either, so clearing
+  // here would be a behaviour change. The collapsed icon carries a dot instead, so
+  // a live filter is never invisible.
+  const closeOnebarSearch = () => {
+    onebarSearchRef.current?.blur();
+    setOnebarSearchOpen(false);
+  };
+
   const [fabExpanded, setFabExpanded] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -1912,20 +1956,39 @@ https://www.skyscanner.com`,
     sharedRecipients: senderSharedMap[t.id] || undefined,
   }));
 
+  // ---- Mobile one-bar derived values. All computed DURING render from the same
+  // state the desktop chrome reads, using the SAME count expressions as the
+  // lg-tabs triggers — nothing is corrected after paint. ----
+  const statusCounts = {
+    'all': sortedTasks.filter(t => t.status !== 'completed').length,
+    'todo': sortedTasks.filter(t => t.status === 'todo').length,
+    'in-progress': sortedTasks.filter(t => t.status === 'in-progress').length,
+    'completed': sortedTasks.filter(t => t.status === 'completed').length,
+  };
+  const onebarProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : undefined;
+  const onebarSpecial = selectedSpecialList ? SPECIAL_LIST_CFG[selectedSpecialList] : undefined;
+  // Same owner guard the project banner uses for its inline actions.
+  const onebarIsCollaborator = (onebarProject?.isShared && onebarProject.userId !== user?.id) ?? false;
+  const onebarAssignedByEmail = onebarIsCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+  // Context title: project name (in its colour) / special-list label / the
+  // all-tasks label the app already uses for the nothing-selected state.
+  const onebarTitle = onebarProject ? onebarProject.name : onebarSpecial ? onebarSpecial.label : 'All Tasks';
+  const OnebarIcon = onebarSpecial?.Icon;
 
 
-  
   // Project action bar — ONE implementation shared by the list and grid
   // branches (padding sweep 2026-07-26). The name never wraps: it truncates
-  // with the full remaining width. Mobile (<lg) shows Status + a single ⋯
-  // menu holding the owner actions; desktop keeps the full inline buttons.
+  // with the full remaining width. DESKTOP ONLY from 2026-08-02: below lg the
+  // whole bar is replaced by .lg-onebar, which relocates every action here into
+  // its context sheet. The mobile Status dropdown and the mobile ⋯ menu that
+  // used to live in this bar are gone — the sheet owns them now.
   const renderProjectBar = () => {
     const currentProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : undefined;
     if (!currentProject) return null;
     const isCollaborator = (currentProject.isShared && currentProject.userId !== user?.id) ?? false;
     const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
     return (
-      <div className={`w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+      <div className={`hidden lg:block w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
         <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <span className="hidden sm:inline shrink-0" style={{ color: currentProject.color }}>📁</span>
@@ -1978,37 +2041,7 @@ https://www.skyscanner.com`,
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Status Dropdown for Mobile/Tablet */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-1 border-2 h-9 px-2 sm:px-3 flex lg:hidden">
-                  <span className="text-sm hidden sm:inline">Status</span>
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setActiveTab('all')}>
-                  All ({sortedTasks.filter(t => t.status !== 'completed').length})
-                  {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveTab('todo')}>
-                  To Do ({sortedTasks.filter(t => t.status === 'todo').length})
-                  {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
-                  Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
-                  {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveTab('completed')}>
-                  Done ({sortedTasks.filter(t => t.status === 'completed').length})
-                  {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {!isCollaborator && (
-              <>
-                {/* Desktop: full inline actions */}
                 <div className="hidden lg:flex items-center gap-2">
                   <Button
                     variant={isReorderMode ? 'secondary' : 'ghost'}
@@ -2051,47 +2084,6 @@ https://www.skyscanner.com`,
                     <span className="ml-1">Delete</span>
                   </Button>
                 </div>
-
-                {/* Mobile: one ⋯ menu holds the owner actions */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="border-2 h-9 px-2 flex lg:hidden"
-                      aria-label="Project actions"
-                      data-projects-tour-step="delete-button"
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setIsReorderMode(!isReorderMode)}>
-                      <ArrowUpDown className="h-4 w-4 mr-2" />
-                      {isReorderMode ? 'Done Moving' : 'Move Tasks'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}>
-                      <Mic className="h-4 w-4 mr-2" />
-                      Meetings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setInviteDialogOpen(true)}>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Invite Member
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShareProjectDialogOpen(true)}>
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Share
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => setDeleteConfirmOpen(true)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Project
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
             )}
           </div>
         </div>
@@ -2129,8 +2121,9 @@ https://www.skyscanner.com`,
             <div className="flex-1 relative z-10 min-w-0 flex flex-col min-h-0 overflow-x-hidden">
               <div className="flex flex-col flex-1 min-h-0 w-full lg-maincol">
 
-          {/* Actions Bar — mock .pw-row1: search + view seg + density seg + Add Task */}
-          <div className="flex flex-row gap-2 items-center shrink-0 lg-row1">
+          {/* Actions Bar — mock .pw-row1: search + view seg + density seg + Add Task.
+              DESKTOP ONLY (≥lg); below lg .lg-onebar below replaces it. */}
+          <div className="hidden lg:flex flex-row gap-2 items-center shrink-0 lg-row1">
             <div className="lg-search relative flex-1">
               <Search className="h-3.5 w-3.5 shrink-0" />
               <input placeholder="Search tasks…" value={searchInput} onChange={e => setSearchInput(e.target.value)} />
@@ -2174,9 +2167,284 @@ https://www.skyscanner.com`,
             </button>
           </div>
 
+          {/* ================= MOBILE ONE-BAR (<lg) =================
+              ONE glass bar replacing the three stacked bars (lg-row1, lg-tabs,
+              the project/special banner) below the lg breakpoint. Four slots:
+              context title -> context sheet (view / density / this context's
+              actions), status pill -> status sheet, search, Add. Every value it
+              shows is derived during render from the same state the desktop
+              chrome reads; the bar owns no defaults and no persistence. */}
+          <div className="lg:hidden flex items-center gap-1.5 shrink-0 lg-onebar" data-testid="onebar">
+            {onebarSearchOpen ? (
+              <>
+                <div className="lg-onebar-field flex-1 min-w-0">
+                  <Search className="h-4 w-4 shrink-0" />
+                  <input
+                    ref={onebarSearchRef}
+                    data-testid="onebar-search-field"
+                    aria-label="Search tasks"
+                    placeholder="Search tasks…"
+                    value={searchInput}
+                    onChange={e => setSearchInput(e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="lg-onebar-cancel"
+                  data-testid="onebar-search-cancel"
+                  onClick={closeOnebarSearch}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Slot 1 — context title. The wrapper carries the projects-tour
+                    delete anchor because the sheet behind this chip is where
+                    Delete Project lives on mobile now; the chip itself carries
+                    the rename anchor. Desktop keeps its own anchors on the
+                    banner, and the tour spotlight picks the first VISIBLE match. */}
+                <div
+                  className="flex-1 min-w-0"
+                  {...(onebarProject && !onebarIsCollaborator ? { 'data-projects-tour-step': 'delete-button' } : {})}
+                >
+                  <button
+                    type="button"
+                    className="lg-onebar-title"
+                    data-testid="onebar-title"
+                    aria-label={`${onebarTitle} — view, density and actions`}
+                    onClick={() => setOnebarSheet('context')}
+                    {...(onebarProject ? { 'data-projects-tour-step': 'project-name' } : {})}
+                  >
+                    {OnebarIcon && <OnebarIcon className={`h-4 w-4 shrink-0 ${onebarSpecial.color}`} />}
+                    <span
+                      className={`truncate min-w-0 ${onebarSpecial ? onebarSpecial.color : ''}`}
+                      style={onebarProject ? { color: onebarProject.color } : undefined}
+                    >
+                      {onebarTitle}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                  </button>
+                </div>
+
+                {/* Slot 2 — status pill. Same count expressions as lg-tabs. */}
+                <div className="lg-onebar-pill" data-testid="onebar-status">
+                  <button
+                    type="button"
+                    className="lg-onebar-pill-main"
+                    data-testid="onebar-status-open"
+                    onClick={() => setOnebarSheet('status')}
+                  >
+                    {STATUS_LABELS[activeTab]} · {statusCounts[activeTab]}
+                  </button>
+                  {activeTab !== 'all' && (
+                    <button
+                      type="button"
+                      className="lg-onebar-pill-x"
+                      aria-label="Clear status filter"
+                      data-testid="onebar-status-clear"
+                      onClick={() => setActiveTab('all')}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Slot 3 — search. Collapsed it shows a dot whenever a live
+                    filter is running, so the filter is never invisible. */}
+                <button
+                  type="button"
+                  className="lg-onebar-icon"
+                  aria-label="Search tasks"
+                  data-testid="onebar-search-btn"
+                  onClick={openOnebarSearch}
+                >
+                  <Search className="h-4 w-4" />
+                  {searchInput.length > 0 && <span className="lg-onebar-dot" data-testid="onebar-search-active" />}
+                </button>
+
+                {/* Slot 4 — Add. Carries the task-tour anchor below lg, where the
+                    lg-row1 Add button is hidden. */}
+                <button
+                  type="button"
+                  aria-label="Add task"
+                  className="lg-btn acc lg-onebar-add"
+                  data-testid="onebar-add"
+                  data-task-tour-step="add-task-button"
+                  onClick={() => handleAddTaskDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Context sheet — view, density and every action the desktop banner
+              offers for the current context. Plain open-on-tap Radix Sheet: NOT
+              forceMount, so it is unmounted while closed (drawer law) and the
+              only animation is the Sheet's own house slide. */}
+          <Sheet open={onebarSheet === 'context'} onOpenChange={(o) => { if (!o) setOnebarSheet(null); }}>
+            <SheetContent side="bottom" className="lg-onebar-sheet" data-testid="onebar-context-sheet" aria-describedby={undefined}>
+              <SheetHeader>
+                <SheetTitle className="truncate pr-8" style={onebarProject ? { color: onebarProject.color } : undefined}>
+                  {onebarTitle}
+                </SheetTitle>
+              </SheetHeader>
+
+              {onebarIsCollaborator && onebarAssignedByEmail && (
+                <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 self-start max-w-full">
+                  <Share2 className="h-3 w-3 shrink-0" />
+                  <span className="truncate">Shared by {assignerNameMap[onebarAssignedByEmail] || onebarAssignedByEmail}</span>
+                </Badge>
+              )}
+              {onebarProject && !onebarIsCollaborator && senderProjectSharedMap[onebarProject.id] && (
+                <div className="self-start">
+                  <ShareStatusPopover recipients={senderProjectSharedMap[onebarProject.id]} itemType="Project" />
+                </div>
+              )}
+
+              <div className="lg-onebar-sec">
+                <div className="lg-onebar-lbl">View</div>
+                {([
+                  { v: 'list', Icon: LayoutList, label: 'List' },
+                  { v: 'grid', Icon: LayoutGrid, label: 'Grid' },
+                  { v: 'gantt', Icon: GanttChartSquare, label: 'Gantt' },
+                  { v: 'time-tracking', Icon: Clock, label: 'Time' },
+                ] as const).map(({ v, Icon, label }) => (
+                  <button
+                    key={v}
+                    type="button"
+                    className="lg-onebar-row"
+                    data-testid={`onebar-view-${v}`}
+                    onClick={() => { setViewMode(v); setOnebarSheet(null); }}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 text-left">{label}</span>
+                    {viewMode === v && <Check className="h-4 w-4 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+
+              {/* Density — SAME condition as the desktop lg-density seg. */}
+              {viewMode === 'list' && (
+                <div className="lg-onebar-sec" data-testid="onebar-density-section">
+                  <div className="lg-onebar-lbl">Density</div>
+                  {([
+                    { d: 'full', label: 'Full' },
+                    { d: 'compact', label: 'Compact' },
+                    { d: 'minimal', label: 'Minimal' },
+                  ] as const).map(({ d, label }) => (
+                    <button
+                      key={d}
+                      type="button"
+                      className="lg-onebar-row"
+                      data-testid={`onebar-density-${d}`}
+                      onClick={() => { setGlobalCardView(d); setExpandedTaskIds(new Set()); setOnebarSheet(null); }}
+                    >
+                      <span className="flex-1 text-left">{label}</span>
+                      {globalCardView === d && <Check className="h-4 w-4 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Project actions — every button the desktop banner and the old
+                  mobile ⋯ menu offered, same owner guard. */}
+              {onebarProject && !onebarIsCollaborator && (
+                <div className="lg-onebar-sec" data-testid="onebar-actions-section">
+                  <div className="lg-onebar-lbl">Project</div>
+                  {isEditingProjectName ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        autoFocus
+                        data-testid="onebar-rename-input"
+                        value={editedProjectName}
+                        onChange={(e) => setEditedProjectName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveProjectName();
+                          if (e.key === 'Escape') setIsEditingProjectName(false);
+                        }}
+                        className="flex-1 min-w-0"
+                      />
+                      <button type="button" className="lg-btn acc shrink-0" data-testid="onebar-rename-save" onClick={handleSaveProjectName}>
+                        Save
+                      </button>
+                    </div>
+                  ) : (
+                    <button type="button" className="lg-onebar-row" data-testid="onebar-rename" onClick={handleStartEditingProject}>
+                      <Pencil className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">Rename project</span>
+                    </button>
+                  )}
+                  <button type="button" className="lg-onebar-row" data-testid="onebar-reorder" onClick={() => { setIsReorderMode(!isReorderMode); setOnebarSheet(null); }}>
+                    <ArrowUpDown className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 text-left">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                  </button>
+                  <button type="button" className="lg-onebar-row" data-testid="onebar-meetings" onClick={() => { setOnebarSheet(null); navigate(`/meetings?project=${selectedProjectId}`); }}>
+                    <Mic className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 text-left">Meetings</span>
+                  </button>
+                  <button type="button" className="lg-onebar-row" data-testid="onebar-invite" onClick={() => { setOnebarSheet(null); setInviteDialogOpen(true); }}>
+                    <UserPlus className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 text-left">Invite Member</span>
+                  </button>
+                  <button type="button" className="lg-onebar-row" data-testid="onebar-share" onClick={() => { setOnebarSheet(null); setShareProjectDialogOpen(true); }}>
+                    <Share2 className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 text-left">Share</span>
+                  </button>
+                  <button type="button" className="lg-onebar-row lg-onebar-row-danger" data-testid="onebar-delete" onClick={() => { setOnebarSheet(null); setDeleteConfirmOpen(true); }}>
+                    <Trash2 className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 text-left">Delete Project</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Special-list actions — Move Tasks always, Share where the
+                  desktop banner offers it (cfg.share). */}
+              {onebarSpecial && (
+                <div className="lg-onebar-sec" data-testid="onebar-actions-section">
+                  <div className="lg-onebar-lbl">List</div>
+                  <button type="button" className="lg-onebar-row" data-testid="onebar-reorder" onClick={() => { setIsReorderMode(!isReorderMode); setOnebarSheet(null); }}>
+                    <ArrowUpDown className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 text-left">{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                  </button>
+                  {onebarSpecial.share && (
+                    <button type="button" className="lg-onebar-row" data-testid="onebar-share" onClick={() => { setOnebarSheet(null); setShareProjectDialogOpen(true); }}>
+                      <Share2 className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">Share</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </SheetContent>
+          </Sheet>
+
+          {/* Status sheet — the four lg-tabs filters with their live counts. */}
+          <Sheet open={onebarSheet === 'status'} onOpenChange={(o) => { if (!o) setOnebarSheet(null); }}>
+            <SheetContent side="bottom" className="lg-onebar-sheet" data-testid="onebar-status-sheet" aria-describedby={undefined}>
+              <SheetHeader>
+                <SheetTitle>Status</SheetTitle>
+              </SheetHeader>
+              <div className="lg-onebar-sec">
+                {STATUS_ORDER.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className="lg-onebar-row"
+                    data-testid={`onebar-status-${s}`}
+                    onClick={() => { setActiveTab(s); setOnebarSheet(null); }}
+                  >
+                    <span className="flex-1 text-left">{STATUS_LABELS[s]} ({statusCounts[s]})</span>
+                    {activeTab === s && <Check className="h-4 w-4 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            </SheetContent>
+          </Sheet>
+
           {/* Main Content */}
           {loadFailed ? <LoadErrorPanel onRetry={handleRetryLoad} /> : !fullDataLoaded || !preferencesLoaded ? <TaskListSkeleton /> : viewMode === 'list' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
-              <TabsList className="w-full grid grid-cols-4 h-auto shrink-0 lg-tabs">
+              <TabsList className="hidden lg:grid w-full grid-cols-4 h-auto shrink-0 lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   All ({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
@@ -2195,17 +2463,15 @@ https://www.skyscanner.com`,
 
               {/* Special-view banner (Today / Past Due / Unassigned) — same glass
                   pill as the project banner (lg-projbar), identity carried by
-                  icon + text colour, never by a background tint */}
+                  icon + text colour, never by a background tint. DESKTOP ONLY
+                  from 2026-08-02: below lg .lg-onebar carries the label and
+                  relocates Move Tasks + Share into its context sheet. */}
               {selectedSpecialList && (() => {
-                const cfg = {
-                  'today': { Icon: Calendar, label: 'Today', color: 'text-primary', share: true },
-                  'past-due': { Icon: AlertTriangle, label: 'Past Due', color: 'text-orange-500', share: false },
-                  'unassigned': { Icon: ListChecks, label: 'Unassigned Tasks', color: 'text-muted-foreground', share: true },
-                }[selectedSpecialList];
+                const cfg = SPECIAL_LIST_CFG[selectedSpecialList];
                 if (!cfg) return null;
                 const SpecialIcon = cfg.Icon;
                 return (
-                  <div className="w-full shrink-0 lg-projbar">
+                  <div className="hidden lg:block w-full shrink-0 lg-projbar">
                     <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
                       <div className="flex items-center gap-2 flex-1">
                         <SpecialIcon className={`h-5 w-5 ${cfg.color}`} />
@@ -2236,34 +2502,6 @@ https://www.skyscanner.com`,
                             <Share2 className="h-4 w-4" />
                           </Button>
                         )}
-
-                        {/* Status Dropdown for Mobile/Tablet */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="gap-1 border-2 h-9 px-3 flex lg:hidden">
-                              <span className="text-sm">Status</span>
-                              <ChevronDown className="h-3 w-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setActiveTab('all')}>
-                              All ({sortedTasks.filter(t => t.status !== 'completed').length})
-                              {activeTab === 'all' && <Check className="h-4 w-4 ml-auto" />}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setActiveTab('todo')}>
-                              To Do ({sortedTasks.filter(t => t.status === 'todo').length})
-                              {activeTab === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setActiveTab('in-progress')}>
-                              Progress ({sortedTasks.filter(t => t.status === 'in-progress').length})
-                              {activeTab === 'in-progress' && <Check className="h-4 w-4 ml-auto" />}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setActiveTab('completed')}>
-                              Done ({sortedTasks.filter(t => t.status === 'completed').length})
-                              {activeTab === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
                     </div>
                   </div>
@@ -2346,7 +2584,7 @@ https://www.skyscanner.com`,
                 />
               </TabsContent>
             </Tabs> : viewMode === 'grid' ? <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full flex flex-col flex-1 min-h-0 gap-2.5">
-              <TabsList className="w-full grid grid-cols-4 h-auto shrink-0 lg-tabs">
+              <TabsList className="hidden lg:grid w-full grid-cols-4 h-auto shrink-0 lg-tabs">
                 <TabsTrigger value="all" className="text-xs sm:text-sm py-2 sm:py-1.5">
                   All ({sortedTasks.filter(t => t.status !== 'completed').length})
                 </TabsTrigger>
@@ -2440,8 +2678,10 @@ https://www.skyscanner.com`,
           </div>
         </div>
 
-        {/* Radial FAB - compact (double-tap to return home) */}
-        {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && (
+        {/* Radial FAB - compact (double-tap to return home). Hidden behind every
+            modal surface, the one-bar sheets included — the FAB is not portalled,
+            so without this it paints over an open sheet. */}
+        {!dialogOpen && !settingsOpen && !editingTask && !addTaskDialogOpen && !onebarSheet && (
           <RecordFAB onBrainDump={() => navigate('/home?braindump=1')} />
         )}
       </div>

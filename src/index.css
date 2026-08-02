@@ -1103,6 +1103,132 @@ html.shell.liquid-glass .lg-hero-col {
   .liquid-glass .lg-density { display: none; }
 }
 
+/* ---------------------------------------------------------------------------
+   MOBILE ONE-BAR (.lg-onebar) — below Tailwind's lg (1024px) the three stacked
+   bars (lg-row1, lg-tabs, lg-projbar) collapse into this single glass capsule.
+   Same material recipe as .lg-row1; only the geometry differs: 44px targets in
+   a 3px frame, so the bar is 52px tall and rides the .lg-maincol gutter/gap
+   rhythm exactly as lg-row1 does today. Visibility is Tailwind's (lg:hidden),
+   NOT a media query here, so the two never disagree about the breakpoint.
+   -------------------------------------------------------------------------- */
+.liquid-glass .lg-onebar {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+  border-radius: 999px;
+  padding: 3px 5px;
+}
+/* Slot 1 — context title. Reads as type on the bar, not as another chip. */
+.liquid-glass .lg-onebar-title {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; min-width: 0; height: 44px; padding: 0 6px 0 10px;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: 999px;
+  color: var(--t1); font-size: 15px; font-weight: 700; letter-spacing: -0.01em;
+}
+/* Slot 2 — status pill. Chip material, same as .lg-seg / .lg-btn. */
+.liquid-glass .lg-onebar-pill {
+  display: flex; align-items: center; flex: none;
+  height: 44px; border-radius: 999px;
+  background: var(--chip); border: 1px solid var(--chip-brd);
+}
+.liquid-glass .lg-onebar-pill-main {
+  display: inline-flex; align-items: center; height: 100%; padding: 0 12px;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: 999px;
+  color: var(--t1); font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.liquid-glass .lg-onebar-pill-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 100%; padding: 0 8px 0 0;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: 999px; color: var(--t2);
+}
+/* Slot 3 — search icon button (the .lg-iconbtn recipe at a 44px target). */
+.liquid-glass .lg-onebar-icon {
+  position: relative;
+  width: 44px; height: 44px; flex: none; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--gbrd);
+  background: var(--chip); color: var(--t2);
+  display: flex; align-items: center; justify-content: center;
+}
+/* live-filter indicator: a collapsed field must never hide an active search */
+.liquid-glass .lg-onebar-dot {
+  position: absolute; top: 7px; right: 8px;
+  width: 7px; height: 7px; border-radius: 999px;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0 2px var(--chip);
+}
+/* Slot 4 — Add. Inherits .lg-btn.acc; only the icon-only geometry is new. */
+.liquid-glass .lg-onebar-add {
+  width: 44px; height: 44px; padding: 0; flex: none; justify-content: center;
+}
+/* search mode — the bar's contents swap to a full-width field + Cancel */
+.liquid-glass .lg-onebar-field {
+  display: flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 10px; border-radius: 999px;
+  color: var(--t2); font-size: 15px; min-width: 0;
+}
+.liquid-glass .lg-onebar-field input {
+  background: transparent; border: none; outline: none; box-shadow: none;
+  color: var(--t1); font-size: 15px; width: 100%;
+}
+.liquid-glass .lg-onebar-field input::placeholder { color: var(--t3); }
+.liquid-glass .lg-onebar-cancel {
+  height: 44px; padding: 0 12px; flex: none;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: 999px;
+  color: hsl(var(--primary)); font-size: 14px; font-weight: 600;
+}
+/* Press feedback — same law as the .lg-btn family: confirm on pointer-DOWN,
+   transform only, 0.96. */
+.liquid-glass .lg-onebar-title,
+.liquid-glass .lg-onebar-pill-main,
+.liquid-glass .lg-onebar-pill-x,
+.liquid-glass .lg-onebar-icon,
+.liquid-glass .lg-onebar-cancel {
+  transition-property: color, background-color, box-shadow, transform;
+  transition-duration: var(--dur-micro);
+  transition-timing-function: var(--ease-out-strong);
+}
+.liquid-glass .lg-onebar-title:active,
+.liquid-glass .lg-onebar-pill-main:active,
+.liquid-glass .lg-onebar-pill-x:active,
+.liquid-glass .lg-onebar-icon:active,
+.liquid-glass .lg-onebar-cancel:active { transform: scale(0.96); }
+
+/* One-bar bottom sheets (context + status). Material, 26px radius and pill
+   buttons all come from the shared [role='dialog'] rules; this only squares the
+   bottom corners against the screen edge, caps the height and sets the row
+   rhythm. No animation is added — the Sheet's own house slide is the only one. */
+.liquid-glass .lg-onebar-sheet {
+  border-radius: 26px 26px 0 0;
+  display: flex; flex-direction: column; gap: 14px;
+  max-height: 82dvh; overflow-y: auto;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+}
+.liquid-glass .lg-onebar-sec { display: flex; flex-direction: column; gap: 2px; }
+.liquid-glass .lg-onebar-lbl {
+  padding: 0 12px 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--t3);
+}
+.liquid-glass .lg-onebar-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 44px; padding: 0 12px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--t1); font-size: 15px; font-weight: 600; text-align: left;
+}
+.liquid-glass .lg-onebar-row:active { background: var(--chip); }
+@media (hover: hover) {
+  .liquid-glass .lg-onebar-row:hover { background: var(--chip); }
+}
+/* destructive row — the same literal red as .lg-btn.warn / .lg-btn.danger
+   (a token with baked alpha would be invalid CSS; see the shadcn token gotcha) */
+.liquid-glass .lg-onebar-row-danger { color: #e5484d; }
+
 /* pill buttons (mock .pw-btn / .pw-iconbtn) */
 .liquid-glass .lg-btn {
   display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
