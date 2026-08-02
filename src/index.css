@@ -1103,6 +1103,132 @@ html.shell.liquid-glass .lg-hero-col {
   .liquid-glass .lg-density { display: none; }
 }
 
+/* ---------------------------------------------------------------------------
+   MOBILE ONE-BAR (.lg-onebar) — below Tailwind's lg (1024px) the three stacked
+   bars (lg-row1, lg-tabs, lg-projbar) collapse into this single glass capsule.
+   Same material recipe as .lg-row1; only the geometry differs: 44px targets in
+   a 3px frame, so the bar is 52px tall and rides the .lg-maincol gutter/gap
+   rhythm exactly as lg-row1 does today. Visibility is Tailwind's (lg:hidden),
+   NOT a media query here, so the two never disagree about the breakpoint.
+   -------------------------------------------------------------------------- */
+.liquid-glass .lg-onebar {
+  background: var(--gbg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 1px solid var(--gbrd);
+  box-shadow: var(--gshadow);
+  border-radius: 999px;
+  padding: 3px 5px;
+}
+/* Slot 1 — context title. Reads as type on the bar, not as another chip. */
+.liquid-glass .lg-onebar-title {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; min-width: 0; height: 44px; padding: 0 6px 0 10px;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: 999px;
+  color: var(--t1); font-size: 15px; font-weight: 700; letter-spacing: -0.01em;
+}
+/* Slot 2 — status pill. Chip material, same as .lg-seg / .lg-btn. */
+.liquid-glass .lg-onebar-pill {
+  display: flex; align-items: center; flex: none;
+  height: 44px; border-radius: 999px;
+  background: var(--chip); border: 1px solid var(--chip-brd);
+}
+.liquid-glass .lg-onebar-pill-main {
+  display: inline-flex; align-items: center; height: 100%; padding: 0 12px;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: 999px;
+  color: var(--t1); font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.liquid-glass .lg-onebar-pill-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 100%; padding: 0 8px 0 0;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: 999px; color: var(--t2);
+}
+/* Slot 3 — search icon button (the .lg-iconbtn recipe at a 44px target). */
+.liquid-glass .lg-onebar-icon {
+  position: relative;
+  width: 44px; height: 44px; flex: none; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--gbrd);
+  background: var(--chip); color: var(--t2);
+  display: flex; align-items: center; justify-content: center;
+}
+/* live-filter indicator: a collapsed field must never hide an active search */
+.liquid-glass .lg-onebar-dot {
+  position: absolute; top: 7px; right: 8px;
+  width: 7px; height: 7px; border-radius: 999px;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0 2px var(--chip);
+}
+/* Slot 4 — Add. Inherits .lg-btn.acc; only the icon-only geometry is new. */
+.liquid-glass .lg-onebar-add {
+  width: 44px; height: 44px; padding: 0; flex: none; justify-content: center;
+}
+/* search mode — the bar's contents swap to a full-width field + Cancel */
+.liquid-glass .lg-onebar-field {
+  display: flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 10px; border-radius: 999px;
+  color: var(--t2); font-size: 15px; min-width: 0;
+}
+.liquid-glass .lg-onebar-field input {
+  background: transparent; border: none; outline: none; box-shadow: none;
+  color: var(--t1); font-size: 15px; width: 100%;
+}
+.liquid-glass .lg-onebar-field input::placeholder { color: var(--t3); }
+.liquid-glass .lg-onebar-cancel {
+  height: 44px; padding: 0 12px; flex: none;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: 999px;
+  color: hsl(var(--primary)); font-size: 14px; font-weight: 600;
+}
+/* Press feedback — same law as the .lg-btn family: confirm on pointer-DOWN,
+   transform only, 0.96. */
+.liquid-glass .lg-onebar-title,
+.liquid-glass .lg-onebar-pill-main,
+.liquid-glass .lg-onebar-pill-x,
+.liquid-glass .lg-onebar-icon,
+.liquid-glass .lg-onebar-cancel {
+  transition-property: color, background-color, box-shadow, transform;
+  transition-duration: var(--dur-micro);
+  transition-timing-function: var(--ease-out-strong);
+}
+.liquid-glass .lg-onebar-title:active,
+.liquid-glass .lg-onebar-pill-main:active,
+.liquid-glass .lg-onebar-pill-x:active,
+.liquid-glass .lg-onebar-icon:active,
+.liquid-glass .lg-onebar-cancel:active { transform: scale(0.96); }
+
+/* One-bar bottom sheets (context + status). Material, 26px radius and pill
+   buttons all come from the shared [role='dialog'] rules; this only squares the
+   bottom corners against the screen edge, caps the height and sets the row
+   rhythm. No animation is added — the Sheet's own house slide is the only one. */
+.liquid-glass .lg-onebar-sheet {
+  border-radius: 26px 26px 0 0;
+  display: flex; flex-direction: column; gap: 14px;
+  max-height: 82dvh; overflow-y: auto;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+}
+.liquid-glass .lg-onebar-sec { display: flex; flex-direction: column; gap: 2px; }
+.liquid-glass .lg-onebar-lbl {
+  padding: 0 12px 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--t3);
+}
+.liquid-glass .lg-onebar-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 44px; padding: 0 12px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--t1); font-size: 15px; font-weight: 600; text-align: left;
+}
+.liquid-glass .lg-onebar-row:active { background: var(--chip); }
+@media (hover: hover) {
+  .liquid-glass .lg-onebar-row:hover { background: var(--chip); }
+}
+/* destructive row — the same literal red as .lg-btn.warn / .lg-btn.danger
+   (a token with baked alpha would be invalid CSS; see the shadcn token gotcha) */
+.liquid-glass .lg-onebar-row-danger { color: #e5484d; }
+
 /* pill buttons (mock .pw-btn / .pw-iconbtn) */
 .liquid-glass .lg-btn {
   display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
@@ -1225,6 +1351,33 @@ html.shell.liquid-glass .lg-hero-col {
 .liquid-glass .lg-prio-medium { color: var(--t2); }
 .liquid-glass .lg-prio-low { color: var(--t3); }
 
+/* ── MOVE TASKS (reorder mode) ───────────────────────────────────────────────
+   Both rules are theme-agnostic on purpose (no .liquid-glass scope): reorder
+   mode is not a redesign surface, and the iOS failure below is a UA behaviour.
+
+   .lg-grip — the drag handle takes the gesture away from the scroll container.
+   Without touch-action:none iOS treats the long press as a pan candidate and
+   the drag never gets clean coordinates.
+
+   .lg-reorder-lock — applied by DraggableTaskList ONLY while isReorderMode is
+   true (derived during render). A long press over selectable text is exactly
+   what makes iOS raise its selection loupe/highlight mid-drag, so the whole
+   list goes unselectable and callout-free for the duration. Inputs keep their
+   text behaviour so an inline title edit still works. Nothing here applies
+   outside reorder mode. */
+.lg-grip { touch-action: none; }
+
+.lg-reorder-lock {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.lg-reorder-lock input,
+.lg-reorder-lock textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* task rows: flat rows with hairline separators inside the panel (mock .pw-task) */
 .liquid-glass .lg-rows { gap: 0; }
 .liquid-glass .lg-rows > * { position: relative; }
@@ -1309,9 +1462,14 @@ html.shell.liquid-glass .lg-hero-col {
   /* no max-width transition here — GSAP animates the recording-stage expansion */
 }
 
-/* up next card (leaves the flow while recording so the stream takes its slot) */
+/* up next card (leaves the flow while recording so the stream takes its slot).
+   Step-1 Dynamic Bar prep (2026-08-01): the card is a flex-grower now — it
+   eats the hero's free space (4x faster than the spacer, which reabsorbs the
+   leftover once the card caps) so the future feature buttons have room. */
 .liquid-glass .lg-upnext {
-  margin-top: 24px; border-radius: 26px;
+  margin-top: 14px; border-radius: 26px;
+  flex: 8 1 auto; max-height: 440px; min-height: 0;
+  display: flex; flex-direction: column;
   transition: opacity .35s ease, transform .35s ease;
 }
 .liquid-glass .lg-hero-col.rec .lg-upnext {
@@ -1319,34 +1477,71 @@ html.shell.liquid-glass .lg-hero-col {
   opacity: 0; transform: translateY(8px) scale(.98); pointer-events: none;
 }
 
-/* ── Tour FAB vs the recording exits (Deploy 1, 2026-07-28) ──────────────────
-   The tour FAB is fixed in the same bottom band as .lg-recbtns, and the stage
-   now offers THREE exits (Discard / Edit Tasks / Save All) — on a 393px phone
-   those pills fill the band, so the FAB would sit on top of the primary button
-   (guarded by tests/braindump-stream.spec.ts). While recording there is no tour
-   to take anyway, so it slides out of the way.
-
-   Same treatment as .lg-upnext above and for the same reason: the element is
-   NEVER unmounted and NEVER visibility:hidden — it carries a backdrop-filter,
-   and its compositing layer has to survive the stage transition (iOS Safari
-   white-flash law: no layer may be born or destroyed while things animate).
-   Persistent layer + a transform/opacity state change, nothing else. */
-.liquid-glass .lg-helpfab { transition: opacity .35s ease, transform .35s ease; }
-.liquid-glass .lg-hero-col.rec ~ .lg-helpfab {
-  opacity: 0; transform: translateX(72px); pointer-events: none;
-}
+/* Tour button (step-1 Dynamic Bar prep, 2026-08-01): no longer a fixed FAB —
+   it lives in .lg-idlerow beside Record Meeting and rides the SAME rec-flip
+   mount/unmount as that button (the pattern the stage transition was
+   device-proven with), so the old FAB-vs-recbtns collision rules are gone. */
 .liquid-glass .lg-uphead { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 18px 2px; }
 .liquid-glass .lg-uphead .ttl { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--t2); }
 .liquid-glass .lg-uphead .cnt { font-size: 12px; color: var(--t3); }
-.liquid-glass .lg-utask { display: flex; align-items: center; gap: 12px; padding: 10px 18px; }
+/* A1 (2026-08-01): the rows scroll INSIDE the card. The card is a flex column
+   capped at 400px (440 >=640px), so the row box takes the remaining height and
+   owns the overflow. Otherwise the 10 ranked rows spill past the glass edge
+   and the last one is sliced in half. Rows stay DIRECT children of this box, so
+   the @media(max-height:800px) nth-child(n+3) hide rule still matches. */
+.liquid-glass .lg-uprows {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  /* A2: a swiped row translates past the box, which would otherwise become
+     scrollable overflow on the x axis. Clip it instead, so the row reads as
+     sliding out of the card and nothing can be panned sideways. */
+  overflow-x: hidden;
+  padding-bottom: 8px;
+}
+/* Rows carry a transparent border so the running-timer ring (the SAME
+   border-glow-pulse the project rows run, index.css .border-glow-pulse) can
+   appear without shifting the row's geometry by its border width. */
+.liquid-glass .lg-utask { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border: 1px solid transparent; }
 .liquid-glass .lg-utask + .lg-utask { border-top: 1px solid var(--row-line); }
+/* The running row rounds so the pulsing ring reads like the project-row card
+   ring; sited after the separator rule so its border wins on the top edge. */
+.liquid-glass .lg-utask.running { border-radius: 12px; }
+/* the tappable text region (title + project meta): opens the edit pane */
+.liquid-glass .lg-utap { flex: 1; min-width: 0; cursor: pointer; border-radius: 10px; }
+.liquid-glass .lg-utap:active { opacity: .7; }
+.liquid-glass .lg-utap:focus { outline: none; }
+.liquid-glass .lg-utap:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+/* row controls: plain icon buttons, the same affordance the /app rows carry.
+   Scoped to .lg-utask because .lg-tick is also the shadcn Checkbox class. */
+.liquid-glass .lg-utask .lg-tick { padding: 0; cursor: pointer; }
+.liquid-glass .lg-utask .lg-tick:hover { border-color: var(--t2); }
+.liquid-glass .lg-utask .lg-tick:active { transform: scale(.9); }
+.liquid-glass .lg-utask .lg-tick:focus { outline: none; }
+.liquid-glass .lg-utask .lg-tick:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.liquid-glass .lg-uact {
+  width: 28px; height: 28px; flex: none; padding: 0; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; color: var(--t3);
+  cursor: pointer;
+}
+.liquid-glass .lg-uact:hover { background: var(--chip); border-color: var(--gbrd); color: var(--t1); }
+.liquid-glass .lg-uact:active { transform: scale(.92); }
+.liquid-glass .lg-uact.del:hover { color: #e5484d; border-color: rgba(229, 72, 77, 0.45); }
+.liquid-glass .lg-uact:focus { outline: none; }
+.liquid-glass .lg-uact:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+/* the two controls read as one cluster (row gap is 12px) */
 .liquid-glass .lg-tick {
   width: 23px; height: 23px; border-radius: 999px; flex: none;
   border: 1.5px solid var(--t3); display: flex; align-items: center; justify-content: center;
   background: transparent; color: transparent;
 }
 .liquid-glass .lg-tick.done { border-color: transparent; background: #34c759; color: #fff; }
-.liquid-glass .lg-utitle { font-size: 15px; font-weight: 500; color: var(--t1); line-height: 1.25; }
+/* two-line clamp (A1): the play/X controls narrowed the title column, and
+   long titles wrapped to 5 lines — house rows ellipsis instead. */
+.liquid-glass .lg-utitle {
+  font-size: 15px; font-weight: 500; color: var(--t1); line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .liquid-glass .lg-utitle.done { text-decoration: line-through; opacity: .45; }
 .liquid-glass .lg-umeta { font-size: 12px; color: var(--t2); display: flex; align-items: center; gap: 6px; margin-top: 2px; }
 .liquid-glass .lg-uchip {
@@ -1355,10 +1550,77 @@ html.shell.liquid-glass .lg-hero-col {
 }
 .liquid-glass .lg-udot { width: 9px; height: 9px; border-radius: 999px; flex: none; }
 
-.liquid-glass .lg-hero-spacer { flex: 1; min-height: 16px; }
+/* ── A2: row swipe + the gesture hint (2026-08-01) ───────────────────────────
+   The row moves on transform ONLY. The tint underneath is a permanently mounted
+   child that counter-translates, so no layer is created or destroyed while the
+   gesture animates (white-flash law). touch-action: pan-y hands the vertical
+   axis to .lg-uprows outright, so the JS intent threshold only has to arbitrate
+   the horizontal one and native scrolling is never fought. */
+.liquid-glass .lg-utask { position: relative; touch-action: pan-y; }
+/* Spring-back / slide-out. Absent while the finger drives the row, so the drag
+   tracks 1:1 and a new touch takes over an in-flight spring from where it is. */
+.liquid-glass .lg-utask.lg-uspring { transition: transform 260ms var(--ease-out-strong); }
+.liquid-glass .lg-uswipe {
+  position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px;
+}
+/* Complete on the right, set aside on the left. Both tints are house colours:
+   the completion green the tick already wears, and the plain row hairline. */
+.liquid-glass .lg-uswipe[data-dir='right'] { background: rgba(52, 199, 89, 0.16); }
+.liquid-glass .lg-uswipe[data-dir='left'] { background: var(--row-line); }
+.liquid-glass .lg-uswipe .i { opacity: 0; }
+.liquid-glass .lg-uswipe[data-dir='right'] .i.done { opacity: 1; color: #34c759; }
+.liquid-glass .lg-uswipe[data-dir='left'] .i.later { opacity: 1; color: var(--t2); }
+/* the row's own content rides above the tint */
+.liquid-glass .lg-utask > *:not(.lg-uswipe) { position: relative; z-index: 1; }
 
-/* orb + actions (GSAP glides this left on wide screens while recording) */
+/* The hint: one line, mostly at rest, nudging left then right on a 6s loop so
+   the two gestures name themselves without a tutorial. */
+.liquid-glass .lg-uhint {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 2px 18px 8px; font-size: 11.5px; font-weight: 600;
+  color: var(--t2); user-select: none;
+  animation: lg-uhint-nudge 6s var(--ease-out-strong) infinite;
+}
+.liquid-glass .lg-uhint span { display: inline-flex; align-items: center; gap: 4px; opacity: .6; }
+.liquid-glass .lg-uhint .w { opacity: .95; font-weight: 700; color: var(--t1); }
+.liquid-glass .lg-uhint .l { animation: lg-uhint-left 6s ease-in-out infinite; }
+.liquid-glass .lg-uhint .r { animation: lg-uhint-right 6s ease-in-out infinite; }
+@keyframes lg-uhint-nudge {
+  0%, 10% { transform: translateX(0); }
+  15%, 23% { transform: translateX(-5px); }
+  30%, 55% { transform: translateX(0); }
+  60%, 68% { transform: translateX(5px); }
+  75%, 100% { transform: translateX(0); }
+}
+@keyframes lg-uhint-left {
+  0%, 11% { opacity: .6; }
+  15%, 23% { opacity: 1; }
+  30%, 100% { opacity: .6; }
+}
+@keyframes lg-uhint-right {
+  0%, 56% { opacity: .6; }
+  60%, 68% { opacity: 1; }
+  75%, 100% { opacity: .6; }
+}
+/* Pointer-fine devices do not swipe: they got the buttons in A1. */
+@media (hover: hover) and (pointer: fine) {
+  .liquid-glass .lg-uhint { display: none; }
+}
+
+.liquid-glass .lg-hero-spacer { flex: 1; min-height: 8px; }
+
+/* orb + actions (GSAP glides this left on wide screens while recording).
+   Browser mode keeps the original 108px — it has NO bottom padding
+   reservation, so 72px put Record Meeting onto the dock (Igor caught it on
+   desktop, 2026-08-01). The step-1 orb-down (72px) is scoped to the shell,
+   whose padding-bottom (dock knob + 98) absorbs it. */
 .liquid-glass .lg-hero-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 108px; }
+html.shell.liquid-glass .lg-hero-actions { margin-bottom: 72px; }
+/* idle bottom row: Record Meeting + the tour button share one line */
+.liquid-glass .lg-idlerow { display: flex; align-items: center; gap: 10px; }
+.liquid-glass .lg-btn.lg-helpbtn { padding: 11px 14px; }
 
 /* ── Recording-stage bottom budget (Fix A, 2026-07-27) ───────────────────────
    Idle Home is untouched (v39 geometry, Igor-verified) — every rule here is
@@ -1543,13 +1805,16 @@ html.shell.liquid-glass .lg-hero-col.rec {
 }
 
 @media (min-width: 640px) {
-  .liquid-glass .lg-hero-col { max-width: 620px; padding: 64px 40px 0; }
-  .liquid-glass .lg-upnext { margin-top: 36px; }
+  /* tablet: the column (and so the card) uses the width — 620 -> 680 (step 1) */
+  .liquid-glass .lg-hero-col { max-width: 680px; padding: 64px 40px 0; }
+  .liquid-glass .lg-upnext { margin-top: 36px; max-height: 480px; }
   .liquid-glass .lg-orb { width: 132px; height: 132px; }
 }
 /* wide screens: centred by default; recording opens the side-by-side stage */
 @media (min-width: 1000px) {
-  .liquid-glass .lg-hero-col { max-width: 640px; }
+  /* desktop idle 640 -> 760; MUST match the GSAP idle return width in
+     Home.tsx (the rec-exit animation lands on this number before clearProps) */
+  .liquid-glass .lg-hero-col { max-width: 760px; }
   /* .rec expansion width is animated by GSAP in Home.tsx (geometry-aware) */
   .liquid-glass .lg-orb { width: 150px; height: 150px; }
   .liquid-glass .lg-orb-core { width: 36px; height: 36px; }
@@ -1570,6 +1835,7 @@ html.shell.liquid-glass .lg-hero-col.rec {
   .liquid-glass .lg-upnext .lg-utask:nth-child(n + 3) { display: none; }
   .liquid-glass .lg-orb { width: 118px; height: 118px; }
   .liquid-glass .lg-hero-actions { margin-bottom: 92px; }
+  html.shell.liquid-glass .lg-hero-actions { margin-bottom: 64px; }
 }
 
 /* empty content panel: fully transparent so the wallpaper shows (fix: blank slab) */
@@ -1720,6 +1986,16 @@ html.shell.liquid-glass .lg-hero-col.rec {
   background: var(--chip);
   border-color: var(--chip-brd);
 }
+/* Focus lives ON the box: border takes the ring token (plus the shared inset
+   line from ui/input+textarea) — nothing painted outside the box, so the
+   scrolling dialog body can never clip the ring (Igor device-found 2026-08-01,
+   replacing the stock outside-shadow ring that showed broken). */
+.liquid-glass [role='dialog'] input:not([type='color']):not([type='checkbox']):focus-visible,
+.liquid-glass [role='dialog'] textarea:focus-visible,
+.liquid-glass [data-side-panel] input:not([type='color']):not([type='checkbox']):focus-visible,
+.liquid-glass [data-side-panel] textarea:focus-visible {
+  border-color: hsl(var(--ring));
+}
 .liquid-glass [role='dialog'] button:not([role='checkbox']):not([role='radio']),
 .liquid-glass [role='alertdialog'] button:not([role='checkbox']):not([role='radio']),
 .liquid-glass [data-side-panel] button:not([role='checkbox']):not([role='radio']) {
@@ -1746,6 +2022,10 @@ html.shell.liquid-glass .lg-hero-col.rec {
   top: 10px !important;
 }
 .liquid-glass .lg-pagehead button { border-radius: 999px; }
+/* Tall multi-line page headers (meeting detail) read as a glass CARD, not a
+   stretched capsule: the capsule's ends go semicircular once the bar holds
+   three lines. Same 26px every dialog and glass card uses. */
+.liquid-glass .lg-pagehead.lg-pagehead-card { border-radius: 26px; }
 
 /* page header pill matches the content column width, not the viewport — but
    never touches the screen edge: below 896px+gutters it keeps the shared
@@ -1823,4 +2103,24 @@ html.shell.liquid-glass .lg-hero-col.rec {
   .liquid-glass .lg-stream {
     transition-duration: 160ms !important;
   }
+  /* A2 gesture hint: purely decorative, and the ONE loop here that may stop
+     outright rather than slow down: there is nothing to comprehend in the
+     nudge, and both gestures stay named, centred and at rest without it. */
+  .liquid-glass .lg-uhint,
+  .liquid-glass .lg-uhint .l,
+  .liquid-glass .lg-uhint .r {
+    animation: none !important;
+  }
+  /* The swipe spring shortens but NEVER zeroes: the release handler retires a
+     settled row on transitionend, and a zero-duration transition never fires. */
+  .liquid-glass .lg-utask.lg-uspring {
+    transition-duration: 150ms !important;
+  }
 }
+
+/* Today's Focus rows are tappable (step 2, 2026-08-01). A1 (2026-08-01) moved
+   the tap target off the whole row onto the text region (.lg-utap, above), so
+   the tick / play / delete controls own their own hit areas. */
+
+/* tight X+play pair on Today's Focus rows (Igor 2026-08-01) */
+.liquid-glass .lg-uacts { display: flex; align-items: center; gap: 4px; flex: none; }

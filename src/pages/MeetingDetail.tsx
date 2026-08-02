@@ -123,6 +123,19 @@ const MeetingDetail = () => {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [allProjects, setAllProjects] = useState<TaskProject[]>([]);
+  // Action-items tabs. A tap must never vanish the row it hit (Igor,
+  // 2026-08-01): when the user's own action flips a task's status while a
+  // status-filtered tab is active (play in To Do, uncheck in Done), the row is
+  // pinned into the ACTIVE tab until they switch tabs. Completing is the
+  // designed exception — it fades out. Both set in tap handlers, never effects.
+  const [actionTab, setActionTab] = useState('all');
+  const [stickyTaskIds, setStickyTaskIds] = useState<Set<string>>(new Set());
+  // One predicate for a tab's rows AND its count, so they can never disagree:
+  // the true status filter, plus the pinned rows while their tab is active.
+  const tabTasks = (tab: string, tasks: (Task & { assignedToEmail?: string })[]) =>
+    tasks.filter((t) =>
+      (tab === 'all' ? t.status !== 'completed' : t.status === tab) ||
+      (tab === actionTab && stickyTaskIds.has(t.id) && t.status !== 'completed'));
   const [transcript, setTranscript] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
@@ -644,6 +657,18 @@ const MeetingDetail = () => {
     // If the task's project changed, put it at the TOP of the destination
     // project's priority group (list is sorted by sort_order ASC).
     const original = savedTasks.find((t) => t.id === updatedTask.id);
+    // Pin the row into the active status tab when this very update would
+    // otherwise remove it mid-interaction (see stickyTaskIds above). Set here,
+    // synchronously in the tap path, before the write awaits.
+    if (
+      original &&
+      actionTab !== 'all' &&
+      original.status === actionTab &&
+      updatedTask.status !== original.status &&
+      updatedTask.status !== 'completed'
+    ) {
+      setStickyTaskIds((prev) => new Set(prev).add(updatedTask.id));
+    }
     const projectChanged = !!updatedTask.projectId
       && updatedTask.projectId !== original?.projectId;
     let newSortOrder: number | undefined;
@@ -671,6 +696,7 @@ const MeetingDetail = () => {
         timer_total_seconds: updatedTask.timer.totalSeconds,
         timer_is_running: updatedTask.timer.isRunning,
         timer_start_time: updatedTask.timer.startTime || null,
+        completed_by_email: updatedTask.completedByEmail || null,
         ...(projectChanged ? { sort_order: newSortOrder } : {}),
       })
       .eq('id', updatedTask.id);
@@ -879,8 +905,10 @@ const MeetingDetail = () => {
   return (
     <>
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div className="sticky top-0 z-10 lg-pagehead">
+      {/* Header. lg-pagehead-card: this header is THREE lines tall, and the
+          shared capsule radius turns tall ends into semicircles — it takes the
+          house card radius instead (Igor, 2026-08-01). */}
+      <div className="sticky top-0 z-10 lg-pagehead lg-pagehead-card">
         <div className="max-w-4xl mx-auto lg-gutter py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/meetings')}>
             <ArrowLeft className="h-5 w-5" />
@@ -1253,22 +1281,26 @@ const MeetingDetail = () => {
                     </div>
                   </div>
 
-                  <Tabs defaultValue="all" className="mb-3">
+                  {/* PROJECT rules, not meeting-specific ones (Igor 2026-08-01):
+                      All = open tasks only, the same predicate as Index.tsx:1991,
+                      and every task carries its sharedRecipients so TaskListItem
+                      renders share state (and the strike rule) exactly as the
+                      project lists do — no side-channel badge. */}
+                  <Tabs value={actionTab} onValueChange={(v) => { setActionTab(v); setStickyTaskIds(new Set()); }} className="mb-3">
                     <TabsList className="w-full">
-                      <TabsTrigger value="all" className="flex-1">All({savedTasks.length})</TabsTrigger>
-                      <TabsTrigger value="todo" className="flex-1">To Do({savedTasks.filter(t => t.status === 'todo').length})</TabsTrigger>
-                      <TabsTrigger value="in-progress" className="flex-1">Progress({savedTasks.filter(t => t.status === 'in-progress').length})</TabsTrigger>
-                      <TabsTrigger value="completed" className="flex-1">Done({savedTasks.filter(t => t.status === 'completed').length})</TabsTrigger>
+                      <TabsTrigger value="all" className="flex-1">All({tabTasks('all', savedTasks).length})</TabsTrigger>
+                      <TabsTrigger value="todo" className="flex-1">To Do({tabTasks('todo', savedTasks).length})</TabsTrigger>
+                      <TabsTrigger value="in-progress" className="flex-1">Progress({tabTasks('in-progress', savedTasks).length})</TabsTrigger>
+                      <TabsTrigger value="completed" className="flex-1">Done({tabTasks('completed', savedTasks).length})</TabsTrigger>
                     </TabsList>
                     {['all', 'todo', 'in-progress', 'completed'].map((filterValue) => (
                       <TabsContent key={filterValue} value={filterValue}>
                         <div className="space-y-2">
-                          {savedTasks
-                            .filter(t => filterValue === 'all' || t.status === filterValue)
+                          {tabTasks(filterValue, savedTasks)
                             .map((task) => (
                               <div key={task.id} className="relative group/task">
                                 <TaskListItem
-                                  task={task}
+                                  task={{ ...task, sharedRecipients: taskSharedWithMap[task.id] }}
                                   onUpdate={handleSavedTaskUpdate}
                                   onEditTask={setEditingTask}
                                   onAssignTask={(t) => handleAssignTask(t)}
@@ -1278,11 +1310,6 @@ const MeetingDetail = () => {
                                   onTaskClick={() => toggleExpand(task.id)}
                                   projects={allProjects}
                                 />
-                                {taskSharedWithMap[task.id] && taskSharedWithMap[task.id].length > 0 && (
-                                  <div className="mt-1 ml-8">
-                                    <ShareStatusPopover recipients={taskSharedWithMap[task.id]} itemType="Task" />
-                                  </div>
-                                )}
                               </div>
                             ))}
                         </div>

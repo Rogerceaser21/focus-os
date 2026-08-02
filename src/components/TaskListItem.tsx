@@ -377,9 +377,13 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
       }, 1000);
     } else {
       setIsChecked(false);
+      // Reopening clears the completed-by stamp too: leaving it made a todo
+      // task render as completed forever (the meeting-page zombie, 2026-08-01).
+      // The share rows still hold the recipient's completion history.
       onUpdate({
         ...task,
-        status: 'todo'
+        status: 'todo',
+        completedByEmail: undefined
       });
     }
   };
@@ -441,7 +445,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               onBlur={handleTitleBlur}
               onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
               rows={1}
-              className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 min-w-0 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
+              className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 min-w-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:shadow-none border-none bg-transparent resize-none"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
@@ -549,6 +553,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
             size="sm"
             onClick={(e) => { e.stopPropagation(); handleStartStop(); }}
             className="h-7 w-7 p-0 shrink-0"
+            aria-label={timer.isRunning ? 'Pause timer' : 'Start timer'}
           >
             {timer.isRunning ? (
               <Pause className="h-3.5 w-3.5" />
@@ -595,7 +600,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 rows={1}
-                className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
+                className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:shadow-none border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
@@ -680,6 +685,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               size="sm"
               onClick={handleStartStop}
               className="h-8 w-8 p-0 shrink-0"
+              aria-label={timer.isRunning ? 'Pause timer' : 'Start timer'}
             >
               {timer.isRunning ? (
                 <Pause className="h-4 w-4" />
@@ -698,7 +704,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 rows={1}
-                className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
+                className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:shadow-none text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
@@ -968,7 +974,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 onBlur={handleTitleBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
                 rows={1}
-                className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 border-none bg-transparent resize-none"
+                className="font-semibold text-sm min-h-0 h-auto py-0.5 px-1.5 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:shadow-none border-none bg-transparent resize-none"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
@@ -1054,6 +1060,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               size="sm"
               onClick={handleStartStop}
               className="h-8 w-8 p-0 shrink-0"
+              aria-label={timer.isRunning ? 'Pause timer' : 'Start timer'}
             >
               {timer.isRunning ? (
                 <Pause className="h-4 w-4" />
@@ -1072,7 +1079,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
                 onChange={(e) => setEditedDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 rows={1}
-                className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-muted-foreground resize-none flex-1"
+                className="text-sm min-h-0 h-auto py-0.5 px-1.5 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:shadow-none text-muted-foreground resize-none flex-1"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (

@@ -5,12 +5,25 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 
 if (import.meta.env.DEV) (window as any).__gsap = gsap;
-import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown } from 'lucide-react';
+import { Video, HelpCircle, Check, Mic, Pencil, Trash2, Loader2, Calendar, FolderOpen, Plus, ArrowDown, ArrowLeft, ArrowRight, Clock, Play, Pause, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
-import { APP_DATA_STALE_TIME } from '@/lib/appDataFetchers';
+import { APP_DATA_STALE_TIME, appDataKeys } from '@/lib/appDataFetchers';
+import type { Task, Project } from '@/types/task';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { saveBrainDumpTasks } from '@/lib/brainDumpSave';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
@@ -41,6 +54,116 @@ interface UpNextTask {
   status: string;
   due_date: string | null;
   project_id: string | null;
+  priority: string;
+  // Timer columns so the card can SHOW a running timer the same way the
+  // project rows do (glow ring + pause icon), including one started elsewhere.
+  timer_total_seconds: number | null;
+  timer_is_running: boolean | null;
+  timer_start_time: number | null;
+}
+
+/* ── "Today's Focus" ranking (Dynamic Bar step 2, 2026-08-01) ────────────────
+   Replaces the placeholder "soonest due first" pick, which let the longest-
+   overdue fossils squat the card forever. Tiers:
+     0 — due today or newly overdue (1..7 days): today's plate.
+     1 — everything else open: future dues, no due date, 8..30 days overdue.
+     2 — fossils (>30 days overdue): demoted so they can't pin the card.
+   Within a tier: priority (urgent→low), then nearest due date (no date last).
+   Pure function of (tasks, todayYmd) so the render derives it — no effects. */
+const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+export const rankTodaysFocus = (tasks: UpNextTask[], todayYmd: string): UpNextTask[] => {
+  const dayMs = 86400000;
+  const t0 = new Date(`${todayYmd}T00:00:00`).getTime();
+  const meta = (t: UpNextTask) => {
+    if (!t.due_date) return { tier: 1, due: Number.POSITIVE_INFINITY };
+    // due_date arrives as a full timestamp ('2025-11-20T20:00:00+00:00') from
+    // the DB, or date-only in older rows/tests — slice to the day either way
+    // (day-level maths; appending T00:00:00 to a timestamp would yield NaN
+    // and silently randomise every tier, live-data-proven 2026-08-01).
+    const due = new Date(`${t.due_date.slice(0, 10)}T00:00:00`).getTime();
+    const daysLate = Math.floor((t0 - due) / dayMs);
+    const tier = daysLate > 30 ? 2 : daysLate >= 0 && daysLate <= 7 ? 0 : 1;
+    return { tier, due };
+  };
+  return [...tasks].sort((a, b) => {
+    const ma = meta(a);
+    const mb = meta(b);
+    if (ma.tier !== mb.tier) return ma.tier - mb.tier;
+    const pa = PRIORITY_RANK[a.priority] ?? 4;
+    const pb = PRIORITY_RANK[b.priority] ?? 4;
+    if (pa !== pb) return pa - pb;
+    return ma.due - mb.due;
+  });
+};
+
+/* ── A2: swipe gestures on the Today's Focus rows (2026-08-01) ───────────────
+   Touch only, since desktop keeps the buttons A1 gave it. Right past +72px
+   completes through the SAME handler the tick fires; left past -72px sets aside
+   for TODAY, which is a per-day localStorage key the ranked memo re-reads during
+   render. Intent threshold: the finger is only ours once it has travelled more
+   than 12px across AND 1.5x further across than down, so a tap still opens the
+   edit pane and a vertical drag still scrolls .lg-uprows natively (touch-action:
+   pan-y hands the browser the vertical axis outright, so the threshold only ever
+   arbitrates the horizontal one). */
+const SWIPE_INTENT_PX = 12;    // under this the gesture is still undecided
+const SWIPE_ACTION_PX = 72;    // release past this and the action fires
+const SWIPE_RESIST_PX = 120;   // past this the row drags at 35% of the finger
+const SWIPE_SETTLE_MS = 420;   // belt for a transitionend that never arrives
+const DISMISS_KEY_PREFIX = 'fos-dismissed:';
+
+/** Rubber band past SWIPE_RESIST_PX, so a long drag never tracks the finger all
+ *  the way to the edge of the screen. */
+function swipeResist(dx: number): number {
+  const a = Math.abs(dx);
+  if (a <= SWIPE_RESIST_PX) return dx;
+  return Math.sign(dx) * (SWIPE_RESIST_PX + (a - SWIPE_RESIST_PX) * 0.35);
+}
+
+/** Today's "set aside" ids. PURE read, called from the ranked memo during render
+ *  and never from an effect. A missing key, private mode or a corrupt value all
+ *  read as "nothing dismissed" rather than throwing the card away. */
+function readDismissed(ymd: string): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(`${DISMISS_KEY_PREFIX}${ymd}`);
+    const list = raw ? JSON.parse(raw) : null;
+    return new Set(Array.isArray(list) ? (list as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** Add one id to today's set and drop every OTHER day's key in the same pass
+ *  (lazy cleanup: yesterday's set is dead the moment today writes). Called
+ *  synchronously from the release handler, so the render that follows reads back
+ *  exactly what was written. */
+function writeDismissed(ymd: string, id: string): void {
+  try {
+    const key = `${DISMISS_KEY_PREFIX}${ymd}`;
+    const next = readDismissed(ymd);
+    next.add(id);
+    for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(DISMISS_KEY_PREFIX) && k !== key) window.localStorage.removeItem(k);
+    }
+    window.localStorage.setItem(key, JSON.stringify([...next]));
+  } catch {
+    /* private mode / quota: the dismissal then lives only as long as this render */
+  }
+}
+
+/** One gesture, one state object (latches are STATE here, never refs).
+ *  pending = finger down, intent undecided · drag = ours, tracking the finger ·
+ *  settle = released short, springing back · exit = released past the threshold,
+ *  sliding out. `base` is where the row already sat when the finger landed, so a
+ *  new touch can take over a spring-back mid-flight. */
+type SwipeMode = 'pending' | 'drag' | 'settle' | 'exit';
+interface SwipeState {
+  id: string;
+  startX: number;
+  startY: number;
+  base: number;
+  dx: number;
+  mode: SwipeMode;
 }
 
 /* ── ?fakedump=N — URL-param-gated dev/demo affordance ───────────────────────
@@ -84,6 +207,35 @@ function makeFakeTask(index: number, total: number): BrainDumpTask {
     priority: FAKE_DUMP_PRIORITIES[index % FAKE_DUMP_PRIORITIES.length],
     destination: toToday ? 'today' : 'new-project',
     projectName: toToday ? undefined : FAKE_DUMP_PROJECT,
+  };
+}
+
+/* Row -> Task mapping for the edit pane. VERBATIM copy of Index.tsx's
+   transformDbTask (src/pages/Index.tsx:304) so a task opened from Home is the
+   same object shape /app hands EditTaskDialog. Copied, not imported: Index is a
+   page component and importing it here would drag its whole module in. */
+function transformDbTask(dbTask: any): Task {
+  return {
+    id: dbTask.id,
+    title: dbTask.title,
+    description: dbTask.description,
+    priority: dbTask.priority,
+    status: dbTask.status,
+    startDate: dbTask.start_date ? new Date(dbTask.start_date) : undefined,
+    endDate: dbTask.end_date ? new Date(dbTask.end_date) : undefined,
+    dueDate: dbTask.due_date ? new Date(dbTask.due_date) : undefined,
+    images: dbTask.images ? (dbTask.images as string[]) : [],
+    timer: {
+      totalSeconds: dbTask.timer_total_seconds,
+      isRunning: dbTask.timer_is_running,
+      startTime: dbTask.timer_start_time,
+    },
+    projectId: dbTask.project_id,
+    sortOrder: dbTask.sort_order ?? 0,
+    completedByEmail: dbTask.completed_by_email ?? undefined,
+    assignedToEmail: dbTask.assigned_to_email ?? undefined,
+    changeRequestMessage: dbTask.change_request_message ?? undefined,
+    googleCalendarEventId: dbTask.google_calendar_event_id ?? undefined,
   };
 }
 
@@ -198,7 +350,9 @@ const Home = () => {
     },
   });
 
-  // Up Next card: the next few open tasks (soonest due first) + the total open count.
+  // Today's Focus card: bounded slim fetch of open tasks; the pick order is
+  // derived during render (rankTodaysFocus) so it rolls over at midnight
+  // without effects and stays testable as a pure function.
   const { data: upNextData } = useQuery({
     queryKey: ['focusos-home-upnext', user?.id],
     enabled: !!user,
@@ -206,19 +360,338 @@ const Home = () => {
     queryFn: async () => {
       const { data, count } = await (supabase as any)
         .from('focusos_tasks')
-        .select('id, title, status, due_date, project_id', { count: 'exact' })
+        .select('id, title, status, due_date, project_id, priority, timer_total_seconds, timer_is_running, timer_start_time', { count: 'exact' })
         .eq('user_id', user!.id)
         .neq('status', 'completed')
         .order('due_date', { ascending: true, nullsFirst: false })
-        .limit(3);
+        .limit(500);
       return {
-        upNext: (data ?? []) as UpNextTask[],
+        openTasks: (data ?? []) as UpNextTask[],
         openCount: typeof count === 'number' ? count : 0,
       };
     },
   });
-  const upNext = upNextData?.upNext ?? [];
+  // en-CA locale = YYYY-MM-DD in the user's own timezone
+  const todayYmd = new Date().toLocaleDateString('en-CA');
+  // A2: bumped by a swipe-left dismissal, from the release handler and never
+  // from an effect. It is only the memo's re-derivation trigger: localStorage
+  // stays the single source of truth and is re-read during render, so a same-day
+  // reload lands on the same list with no mirror state to drift out of step.
+  const [dismissedRev, setDismissedRev] = useState(0);
+  // 10 rows now (was 3): the card scrolls internally (.lg-uprows), so the extra
+  // rows cost height only up to the card's own max-height. Tasks set aside today
+  // are filtered here, during render, so no effect ever removes a row after paint.
+  const upNext = useMemo(() => {
+    void dismissedRev;
+    const dismissed = readDismissed(todayYmd);
+    const open = (upNextData?.openTasks ?? []).filter((t) => !dismissed.has(t.id));
+    return rankTodaysFocus(open, todayYmd).slice(0, 10);
+  }, [upNextData, todayYmd, dismissedRev]);
   const openCount = upNextData?.openCount ?? 0;
+
+  /* ── A1: interactive Today's Focus rows ────────────────────────────────────
+     Tick completes, Play starts the timer, X deletes (house confirm), and the
+     task text opens the shared edit pane over Home. Every write is the same
+     field set the project rows write through Index.handleUpdateTask /
+     handleDeleteTask; the refill is pure invalidation -> refetch -> re-rank
+     during render (rankTodaysFocus), never a post-paint correction. */
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  // Set in the click handlers (never in an effect): the row shows its result
+  // immediately and the invalidated query then removes/refreshes it for real.
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+  // Optimistic timer flip, set in the tap handler (never an effect): `want` is
+  // what the row should show NOW, `serverAtTap` is what the fetched row said at
+  // tap time. The override only wins while the server still reports its at-tap
+  // value; once the invalidated refetch lands, the server row takes over.
+  const [timerFlips, setTimerFlips] = useState<Map<string, { want: boolean; serverAtTap: boolean }>>(new Map());
+  const [timerBusyIds, setTimerBusyIds] = useState<Set<string>>(new Set());
+  const rowTimerRunning = useCallback((t: UpNextTask): boolean => {
+    const server = !!t.timer_is_running;
+    const ov = timerFlips.get(t.id);
+    return ov && server === ov.serverAtTap ? ov.want : server;
+  }, [timerFlips]);
+
+  // Both key families: Home's own card AND the /app task caches (inactive while
+  // Home is mounted, so this marks them stale for the next visit: no starved
+  // fetch, no fabricated data).
+  const invalidateTaskCaches = useCallback(() => {
+    if (!user) return;
+    queryClient.invalidateQueries({ queryKey: ['focusos-home-upnext', user.id] });
+    queryClient.invalidateQueries({ queryKey: appDataKeys.tasks(user.id) });
+    queryClient.invalidateQueries({ queryKey: appDataKeys.completedTasks(user.id) });
+  }, [queryClient, user]);
+
+  // Complete: status 'completed' is the ONLY field a completion changes; the
+  // rest of Index's payload echoes the row back unchanged (Index.tsx:1514-1532),
+  // and completed_at is set by the DB trigger, never by the client (the MCP
+  // complete_task tool writes exactly this too, focusos-mcp/index.ts:380).
+  // Returns whether the write landed, so A2's swipe can un-park a row whose
+  // completion failed. The payload itself is untouched.
+  const handleCompleteTask = useCallback(async (taskId: string): Promise<boolean> => {
+    if (completingIds.has(taskId)) return false;
+    setCompletingIds((prev) => new Set(prev).add(taskId));
+    const { error } = await (supabase as any)
+      .from('focusos_tasks')
+      .update({ status: 'completed' })
+      .eq('id', taskId);
+    if (error) {
+      setCompletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+      toast.error('Failed to update task');
+      return false;
+    }
+    invalidateTaskCaches();
+    return true;
+  }, [completingIds, invalidateTaskCaches]);
+
+  // Toggle the timer: BOTH branches of TaskListItem.handleStartStop
+  // (TaskListItem.tsx:340-364) once Index maps them to columns (Index.tsx:1526-1528).
+  // Start writes status 'in-progress' + timer_is_running true + timer_start_time =
+  // Date.now(), leaving the accrued total untouched. Stop writes timer_total_seconds
+  // += elapsed and timer_is_running false; like the house stop branch it does not
+  // touch status and drops timer_start_time (reads of it are guarded by is_running).
+  // Project rows never stop another task's timer (no global single-timer rule
+  // anywhere), so neither does this.
+  const handleToggleTimer = useCallback(async (t: UpNextTask) => {
+    if (timerBusyIds.has(t.id)) return;
+    const running = rowTimerRunning(t);
+    setTimerBusyIds((prev) => new Set(prev).add(t.id));
+    setTimerFlips((prev) => new Map(prev).set(t.id, { want: !running, serverAtTap: !!t.timer_is_running }));
+    const payload = running
+      ? {
+          timer_total_seconds:
+            (t.timer_total_seconds ?? 0) +
+            (t.timer_start_time ? Math.floor((Date.now() - t.timer_start_time) / 1000) : 0),
+          timer_is_running: false,
+        }
+      : {
+          status: 'in-progress',
+          timer_is_running: true,
+          timer_start_time: Date.now(),
+        };
+    const { error } = await (supabase as any).from('focusos_tasks').update(payload).eq('id', t.id);
+    setTimerBusyIds((prev) => {
+      const next = new Set(prev);
+      next.delete(t.id);
+      return next;
+    });
+    if (error) {
+      setTimerFlips((prev) => {
+        const next = new Map(prev);
+        next.delete(t.id);
+        return next;
+      });
+      toast.error(running ? 'Failed to pause the timer' : 'Failed to start the timer');
+      return;
+    }
+    invalidateTaskCaches();
+  }, [timerBusyIds, rowTimerRunning, invalidateTaskCaches]);
+
+  // Delete: same sequence as Index.handleDeleteTask (Index.tsx:1717-1749):
+  // recipient clones go first, the shared_items rows are neutralised, then the
+  // task row is hard-deleted.
+  const handleDeleteTask = useCallback(async (taskId: string) => {
+    try {
+      const { data: sharedRows } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('id, recipient_task_id')
+        .eq('item_id', taskId)
+        .eq('item_type', 'task');
+
+      if (sharedRows && sharedRows.length > 0) {
+        const recipientTaskIds = sharedRows.map((r: any) => r.recipient_task_id).filter(Boolean);
+        if (recipientTaskIds.length > 0) {
+          await (supabase as any).from('focusos_tasks').delete().in('id', recipientTaskIds);
+        }
+        await (supabase as any)
+          .from('focusos_shared_items')
+          .update({ recipient_task_id: null, status: 'declined' })
+          .in('id', sharedRows.map((r: any) => r.id));
+      }
+
+      const { error } = await (supabase as any).from('focusos_tasks').delete().eq('id', taskId);
+      if (error) throw error;
+      toast.success('Task deleted');
+      invalidateTaskCaches();
+    } catch (err: any) {
+      console.error('Delete task error:', err);
+      toast.error('Failed to delete task');
+    }
+  }, [invalidateTaskCaches]);
+
+  // Tapping the task TEXT: the card's rows are slim (six columns), so the pane
+  // needs the full row. ONE row, by id, so no new broad fetch.
+  const handleOpenTask = useCallback(async (taskId: string) => {
+    const { data, error } = await (supabase as any)
+      .from('focusos_tasks')
+      .select('*')
+      .eq('id', taskId)
+      .limit(1);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row) {
+      toast.error('Could not open that task');
+      return;
+    }
+    setEditingTask(transformDbTask(row));
+  }, []);
+
+  /* ── A2: the swipe gesture itself ──────────────────────────────────────────
+     Touch events only, so a mouse never drags anything (desktop has buttons).
+     Everything the gesture knows lives in ONE state object: the row's transform
+     is derived from it during render, and the release handler writes through
+     the A1 completion path or the per-day dismiss key. No effect anywhere. */
+  const [swipe, setSwipe] = useState<SwipeState | null>(null);
+
+  /** A finger that became a swipe must not also fire the tap it lands on. */
+  const swipeBlocksTap = useCallback(
+    (id: string) => !!swipe && swipe.id === id && swipe.mode !== 'pending',
+    [swipe],
+  );
+
+  const onRowTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>, id: string) => {
+    if (e.touches.length !== 1) return;         // pinch / second finger: not a swipe
+    // Let a leaving row leave, but ONLY while it is still rendered. Once the
+    // refill has unmounted it, its transitionend can never arrive; a stale
+    // 'exit' here must not block the next gesture forever (device-found
+    // 2026-08-01: one successful swipe, then the feature was dead).
+    if (swipe && swipe.mode === 'exit' && upNext.some((t) => t.id === swipe.id)) return;
+    const touch = e.touches[0];
+    // Take over a spring-back mid-flight: start from where the row IS on screen,
+    // read live off the transform, not from the value the state settled on.
+    const tr = window.getComputedStyle(e.currentTarget).transform;
+    let base = 0;
+    if (tr && tr !== 'none') {
+      try { base = new DOMMatrixReadOnly(tr).m41; } catch { base = 0; }
+    }
+    setSwipe({ id, startX: touch.clientX, startY: touch.clientY, base, dx: base, mode: 'pending' });
+  }, [swipe, upNext]);
+
+  const onRowTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>, id: string) => {
+    const s = swipe;
+    if (!s || s.id !== id || s.mode === 'settle' || s.mode === 'exit') return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = touch.clientX - s.startX;
+    const dy = touch.clientY - s.startY;
+    if (s.mode === 'pending') {
+      // Down the list, not across it: hand the whole gesture back to the scroll
+      // box and never look at it again (a tap ends here too, untouched).
+      if (Math.abs(dy) > SWIPE_INTENT_PX && Math.abs(dx) <= 1.5 * Math.abs(dy)) {
+        setSwipe(null);
+        return;
+      }
+      if (Math.abs(dx) <= SWIPE_INTENT_PX || Math.abs(dx) <= 1.5 * Math.abs(dy)) return;
+      setSwipe({ ...s, mode: 'drag', dx: swipeResist(s.base + dx) });
+      return;
+    }
+    setSwipe({ ...s, dx: swipeResist(s.base + dx) });
+  }, [swipe]);
+
+  const onRowTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>, id: string) => {
+    const s = swipe;
+    if (!s || s.id !== id) return;
+    if (s.mode !== 'drag') {
+      if (s.mode === 'pending') setSwipe(null); // it was a tap: leave the click alone
+      return;
+    }
+    const out = (e.currentTarget.offsetWidth || 360) + 48;
+    if (s.dx >= SWIPE_ACTION_PX) {
+      // Slide out right on the EXISTING row element (transform only), then the
+      // invalidation -> refetch -> re-rank refill takes the row away for real.
+      setSwipe({ ...s, mode: 'exit', dx: out });
+      // The SAME write the tick fires: one completion path, one field set.
+      void handleCompleteTask(id).then((ok) => {
+        if (!ok) setSwipe((cur) => (cur && cur.id === id ? null : cur));
+      });
+      // Success belt: the refill usually unmounts the row BEFORE its exit
+      // transition ends, so transitionend never arrives and the 'exit' state
+      // would block every later swipe (device-found 2026-08-01). Clear it.
+      window.setTimeout(
+        () => setSwipe((cur) => (cur && cur.id === id && cur.mode === 'exit' ? null : cur)),
+        SWIPE_SETTLE_MS,
+      );
+      return;
+    }
+    if (s.dx <= -SWIPE_ACTION_PX) {
+      writeDismissed(todayYmd, id);   // synchronous: the memo re-reads this
+      setSwipe({ ...s, mode: 'exit', dx: -out });
+      // The row leaves the ranked list when its exit transform lands
+      // (onRowTransitionEnd); this is the belt for a transitionend that never
+      // arrives, and it ALSO clears the exit state (same stale-'exit' trap as
+      // the right swipe).
+      window.setTimeout(() => {
+        setDismissedRev((n) => n + 1);
+        setSwipe((cur) => (cur && cur.id === id && cur.mode === 'exit' ? null : cur));
+      }, SWIPE_SETTLE_MS);
+      return;
+    }
+    setSwipe({ ...s, mode: 'settle', dx: 0 });
+    window.setTimeout(
+      () => setSwipe((cur) => (cur && cur.id === id && cur.mode === 'settle' ? null : cur)),
+      SWIPE_SETTLE_MS,
+    );
+  }, [swipe, handleCompleteTask, todayYmd]);
+
+  const onRowTouchCancel = useCallback((id: string) => {
+    setSwipe((cur) => (cur && cur.id === id && cur.mode !== 'exit' ? { ...cur, mode: 'settle', dx: 0 } : cur));
+  }, []);
+
+  const onRowTransitionEnd = useCallback((e: React.TransitionEvent<HTMLDivElement>, id: string) => {
+    if (e.target !== e.currentTarget || e.propertyName !== 'transform') return;
+    const s = swipe;
+    if (!s || s.id !== id) return;
+    if (s.mode === 'settle') { setSwipe(null); return; }         // idle again
+    if (s.mode === 'exit') {
+      if (s.dx < 0) setDismissedRev((n) => n + 1); // set aside
+      setSwipe(null); // the exit landed: the engine is idle for the next gesture
+    }
+  }, [swipe]);
+
+  // Save from the pane: the column mapping of Index.handleUpdateTask's DB update
+  // (Index.tsx:1514-1532). Index's local-state choreography (optimistic list
+  // patch, collaborator gating, project-move sort_order) stays in Index:
+  // Home has no task list to keep in step, it re-reads via invalidation.
+  const handleUpdateTaskFromPane = useCallback(async (updatedTask: Task) => {
+    const { error } = await (supabase as any).from('focusos_tasks').update({
+      title: updatedTask.title,
+      description: updatedTask.description,
+      priority: updatedTask.priority,
+      status: updatedTask.status,
+      start_date: updatedTask.startDate?.toISOString(),
+      end_date: updatedTask.endDate?.toISOString(),
+      due_date: updatedTask.dueDate?.toISOString(),
+      // The pane was opened from a select('*'), so images here are the stored
+      // ones, so the pre-hydration ambiguity Index guards against cannot occur.
+      images: updatedTask.images || [],
+      timer_total_seconds: updatedTask.timer.totalSeconds,
+      timer_is_running: updatedTask.timer.isRunning,
+      timer_start_time: updatedTask.timer.startTime,
+      project_id: updatedTask.projectId || null,
+      sort_order: updatedTask.sortOrder ?? 0,
+      completed_by_email: updatedTask.completedByEmail || null,
+    }).eq('id', updatedTask.id);
+    if (error) {
+      toast.error('Failed to update task');
+      return;
+    }
+    setEditingTask(null);
+    invalidateTaskCaches();
+  }, [invalidateTaskCaches]);
+
+  // EditTaskDialog wants full Project objects; Home's projects query is slim
+  // (id/name/color), so the timer stub mirrors Index.applyProjectRows.
+  const editProjects = useMemo<Project[]>(
+    () => projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color || '#8a94a6',
+      timer: { totalSeconds: 0, isRunning: false },
+    })),
+    [projects],
+  );
 
   useEffect(() => {
     const interval = setInterval(() => setSubtitleIndex((p) => (p + 1) % SUBTITLES.length), 4000);
@@ -232,7 +705,9 @@ const Home = () => {
     const wide = window.matchMedia('(min-width: 1000px)').matches;
     const col = colRef.current;
     if (col && wide) {
-      const targetW = rec ? Math.min(1120, window.innerWidth - 16) : 640;
+      // idle 760 MUST match .lg-hero-col max-width in the @media(min-width:1000px)
+      // block — the rec-exit animation lands here before clearProps hands back to CSS
+      const targetW = rec ? Math.min(1120, window.innerWidth - 16) : 760;
       gsap.to(col, {
         maxWidth: targetW,
         duration: 0.55,
@@ -504,27 +979,131 @@ const Home = () => {
           </div>
         </div>
 
-        {/* Up Next — real open tasks (fades away while recording) */}
+        {/* Today's Focus — ranked open tasks (fades away while recording).
+            A1 (2026-08-01): the rows WORK here. Tick completes, Play starts the
+            timer, X deletes behind the house confirm, and the task text opens
+            the shared edit pane over Home. Nothing navigates away. */}
         {upNext.length > 0 &&
         <div className="lg-glass lg-upnext">
             <div className="lg-uphead">
-              <span className="ttl">UP NEXT</span>
+              <span className="ttl">TODAY'S FOCUS</span>
               <span className="cnt">{openCount} open</span>
             </div>
-            <div style={{ paddingBottom: 8 }}>
-              {upNext.map((t) =>
-            <div key={t.id} className="lg-utask">
-                  <div className="lg-tick" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="lg-utitle">{t.title}</div>
+            {/* .lg-uprows is the scroll box: flex:1/min-height:0/overflow-y:auto
+                so rows scroll INSIDE the card instead of spilling past its
+                max-height. Rows stay its DIRECT children, which is what the
+                @media(max-height:800px) nth-child(n+3) hide rule matches. */}
+            <div className="lg-uprows">
+              {upNext.map((t) => {
+              const done = completingIds.has(t.id);
+              // Running-timer state, derived during render from the fetched row
+              // (+ the optimistic flip). Drives the SAME visual the project rows
+              // use: border-glow-pulse ring + Pause icon (TaskListItem.tsx:577).
+              const running = rowTimerRunning(t);
+              // A2: the row's own gesture state, derived during render. `moving`
+              // is 0 until the gesture is decided, so a tap never nudges a pixel.
+              const sw = swipe && swipe.id === t.id ? swipe : null;
+              const moving = sw && sw.mode !== 'pending' ? sw.dx : 0;
+              const reveal = Math.min(1, Math.abs(moving) / SWIPE_ACTION_PX);
+              return (
+                <div
+                  key={t.id}
+                  className={`lg-utask${sw && (sw.mode === 'settle' || sw.mode === 'exit') ? ' lg-uspring' : ''}${running ? ' running border-glow-pulse' : ''}`}
+                  style={sw ? { transform: `translateX(${moving}px)` } : undefined}
+                  onTouchStart={(e) => onRowTouchStart(e, t.id)}
+                  onTouchMove={(e) => onRowTouchMove(e, t.id)}
+                  onTouchEnd={(e) => onRowTouchEnd(e, t.id)}
+                  onTouchCancel={() => onRowTouchCancel(t.id)}
+                  onTransitionEnd={(e) => onRowTransitionEnd(e, t.id)}>
+                  {/* Swipe affordance. ALWAYS mounted (never born mid-gesture,
+                      per the white-flash law), invisible until the drag drives its
+                      opacity, and counter-translated so the tint stays put in
+                      the card while the row slides off it. */}
+                  <div
+                    className="lg-uswipe"
+                    aria-hidden="true"
+                    data-dir={moving > 0 ? 'right' : moving < 0 ? 'left' : undefined}
+                    style={sw ? { transform: `translateX(${-moving}px)`, opacity: reveal } : undefined}>
+                    <Check className="i done" size={14} strokeWidth={3} />
+                    <Clock className="i later" size={13} strokeWidth={2.5} />
+                  </div>
+                  <button
+                    type="button"
+                    className={`lg-tick${done ? ' done' : ''}`}
+                    aria-label={`Complete ${t.title}`}
+                    onClick={() => { if (swipeBlocksTap(t.id)) return; handleCompleteTask(t.id); }}>
+                    <Check size={13} strokeWidth={3} />
+                  </button>
+                  <div
+                    className="lg-utap"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => { if (swipeBlocksTap(t.id)) return; handleOpenTask(t.id); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenTask(t.id); }}>
+                    <div className={`lg-utitle${done ? ' done' : ''}`}>{t.title}</div>
                     {t.project_id &&
-                <div className="lg-umeta">
+                    <div className="lg-umeta">
                         <span className="lg-udot" style={{ background: projectColor(t.project_id) }} />
                         {projects.find((p) => p.id === t.project_id)?.name}
                       </div>}
                   </div>
-                  {dueLabel(t.due_date) && <span className="lg-uchip">{dueLabel(t.due_date)}</span>}
-                </div>)}
+                  {/* Igor 2026-08-01: no due chip on the card, X before play
+                      (project-row order), tight button pair. */}
+                  <div className="lg-uacts">
+                    {/* Same AlertDialog the project rows use (TaskListItem.tsx:1012),
+                        same copy, same house liquid-glass restyle. */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        {/* preventDefault is how a Radix trigger is stopped: it
+                            composes our handler first and skips its own once the
+                            event is defaulted. The swipe must not also open the
+                            confirm behind itself. */}
+                        <button
+                          type="button"
+                          className="lg-uact del"
+                          aria-label={`Delete ${t.title}`}
+                          title="Delete task"
+                          onClick={(e) => { if (swipeBlocksTap(t.id)) e.preventDefault(); }}>
+                          <X size={14} strokeWidth={2.5} />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the task. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteTask(t.id)}>
+                            Yes, Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <button
+                      type="button"
+                      className="lg-uact play"
+                      aria-label={running ? `Pause timer for ${t.title}` : `Start timer for ${t.title}`}
+                      title={running ? 'Pause timer' : 'Start timer'}
+                      onClick={() => { if (swipeBlocksTap(t.id)) return; handleToggleTimer(t); }}>
+                      {running ? <Pause size={14} /> : <Play size={14} />}
+                    </button>
+                  </div>
+                </div>);
+            })}
+            </div>
+            {/* A2 gesture hint. ONE persistent line on the card's bottom edge:
+                mounted for as long as the card is, so it is never born or killed
+                mid-transition (white-flash law), and it fades with the card
+                during recording exactly like every other pixel of it. Motion is
+                CSS keyframes on transform/opacity only, and it is hidden on
+                pointer-fine devices, which swipe nothing and have the buttons. */}
+            <div className="lg-uhint" aria-hidden="true">
+              <span className="l"><ArrowLeft size={11} strokeWidth={2.5} />set aside</span>
+              <span className="w">swipe</span>
+              <span className="r">complete<ArrowRight size={11} strokeWidth={2.5} /></span>
             </div>
           </div>}
 
@@ -620,33 +1199,49 @@ const Home = () => {
               </button>
             </div> :
 
-          <button
-            data-home-tour-step="record-meeting"
-            onClick={() => navigate('/meetings')}
-            className="lg-btn"
-            style={{ padding: '11px 22px', fontSize: 14 }}>
-              <Video size={16} />
-              <span>Record Meeting</span>
-            </button>}
+          /* Idle row: Record Meeting + the tour button share the line (step-1
+             Dynamic Bar prep). Both ride the same rec-flip swap as before —
+             the pattern the stage transition was device-proven with. */
+          <div className="lg-idlerow">
+              <button
+              data-home-tour-step="record-meeting"
+              onClick={() => navigate('/meetings')}
+              className="lg-btn"
+              style={{ padding: '11px 22px', fontSize: 14 }}>
+                <Video size={16} />
+                <span>Record Meeting</span>
+              </button>
+              <button
+              onClick={() => setTourOpen(true)}
+              aria-label="Take the Home tour"
+              className="lg-btn lg-helpbtn">
+                <HelpCircle size={16} />
+              </button>
+            </div>}
         </div>
       </div>
 
       {/* ?debug=1 — production-safe live diagnostics (renders nothing without the param) */}
       <BrainDumpDebugOverlay />
 
-      {/* Help / replay tour button */}
-      <button
-        onClick={() => setTourOpen(true)}
-        aria-label="Take the Home tour"
-        className="lg-helpfab fixed right-4 z-30 flex items-center justify-center w-10 h-10 rounded-full border border-border bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors shadow-md"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}>
-
-        <HelpCircle className="w-5 h-5" />
-      </button>
-
       <BottomNav projects={projects} />
 
       <HomeTour isOpen={tourOpen} onComplete={handleTourComplete} />
+
+      {/* Task edit pane, opened by tapping a Today's Focus row's text. Mounted
+          ONLY while a task is open (Radix law: never forceMount a modal layer),
+          the same conditional-render pattern Index uses for its mobile pane.
+          No `desktopDocked`, so it is the plain modal dialog on every width;
+          closing leaves the user on /home, nothing navigates. */}
+      {editingTask &&
+      <EditTaskDialog
+        task={editingTask}
+        open={!!editingTask}
+        onOpenChange={(open) => { if (!open) setEditingTask(null); }}
+        onUpdateTask={handleUpdateTaskFromPane}
+        projects={editProjects}
+        currentUserId={user?.id}
+        onDeleteTask={(task) => handleDeleteTask(task.id)} />}
 
       {/* Review + save: the existing dialog machinery, fed by the inline session.
           `user &&` only ever matters in the signed-out ?fakedump demo — on the
