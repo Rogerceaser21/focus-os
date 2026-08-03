@@ -50,6 +50,7 @@ import { TaskListItem } from '@/components/TaskListItem';
 import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
+import { ProjectsDrawerHost } from '@/components/ProjectsDrawerHost';
 import RecordFAB from '@/components/RecordFAB';
 import type { BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -105,6 +106,9 @@ const MeetingDetail = () => {
   const tourPhase = searchParams.get('phase');
   const tourActive = searchParams.get('tour') === 'meetings';
   const [demoTourOpen, setDemoTourOpen] = useState(false);
+
+  // Projects drawer, opened OVER this page by the dock (never navigates on open).
+  const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (isDemo && tourActive && tourPhase === 'detail') {
@@ -1538,6 +1542,15 @@ const MeetingDetail = () => {
       preferences={preferences}
       prefsLoading={prefsLoading}
       onSavePreferences={updatePreferences}
+      onOpenProjectsDrawer={() => setProjectsDrawerOpen((o) => !o)}
+    />
+
+    {/* Projects drawer: PERMANENTLY mounted, closed by default (white-flash
+        law). Opens over the meeting; only a pick inside it navigates. */}
+    <ProjectsDrawerHost
+      open={projectsDrawerOpen}
+      onOpenChange={setProjectsDrawerOpen}
+      userId={user?.id}
     />
     <MeetingsTour
       isOpen={demoTourOpen}
@@ -1548,7 +1561,9 @@ const MeetingDetail = () => {
         navigate('/meetings');
       }}
     />
-    <RecordFAB compact onBrainDump={() => setBrainDumpOpen(true)} />
+    {/* Radial FAB — hidden behind every modal surface, the Projects drawer
+        included (same guard shape as /app). */}
+    {!projectsDrawerOpen && <RecordFAB compact onBrainDump={() => setBrainDumpOpen(true)} />}
     </>
   );
 };

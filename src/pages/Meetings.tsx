@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Mic, MicOff, Clock, FileText, ChevronRight, Plus, Folder, Square, Loader2, X, UserPlus, Trash2, Pause, Play, RefreshCw, Share2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
+import { ProjectsDrawerHost } from '@/components/ProjectsDrawerHost';
 import RecordFAB from '@/components/RecordFAB';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import { MeetingsTour } from '@/components/MeetingsTour';
@@ -73,6 +74,9 @@ const Meetings = () => {
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const { preferences, markMeetingsTourComplete } = useUserPreferences(user?.id);
+
+  // Projects drawer, opened OVER this page by the dock (never navigates on open).
+  const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
 
   // Tour state — open if explicitly requested OR auto-launch for first-time users once preferences load
   const [tourOpen, setTourOpen] = useState(false);
@@ -1275,7 +1279,13 @@ const Meetings = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    <RecordFAB onBrainDump={() => navigate('/home?braindump=1')} />
+    {/* Radial FAB — hidden behind every modal surface, the Projects drawer
+        included (same guard shape as /app: the FAB is not portalled and sits at
+        z-100, so without this it paints over, and stays clickable through, an
+        open drawer). */}
+    {!projectsDrawerOpen && (
+      <RecordFAB onBrainDump={() => navigate('/home?braindump=1')} />
+    )}
     {user && (
       <BrainDumpLiveDialog
         open={brainDumpOpen}
@@ -1288,7 +1298,15 @@ const Meetings = () => {
         }}
       />
     )}
-    <BottomNav />
+    <BottomNav onOpenProjectsDrawer={() => setProjectsDrawerOpen((o) => !o)} />
+
+    {/* Projects drawer: PERMANENTLY mounted, closed by default (white-flash
+        law). Opens over /meetings; only a pick inside it navigates. */}
+    <ProjectsDrawerHost
+      open={projectsDrawerOpen}
+      onOpenChange={setProjectsDrawerOpen}
+      userId={user?.id}
+    />
     <MeetingsTour
       isOpen={tourOpen}
       phase="list"

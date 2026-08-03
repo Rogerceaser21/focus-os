@@ -10,6 +10,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface BottomNavProps {
   projects?: { id: string; name: string; color?: string }[];
   onToggleSidebar?: () => void;
+  /**
+   * Pages that mount their own overlay Projects drawer (ProjectsDrawerHost:
+   * /home, /meetings, /meetings/:id) pass this so the dock's Projects button
+   * opens the drawer OVER the current page. Without it the button keeps the old
+   * behaviour and navigates to /app?openSidebar=true (DrawerRepro and any other
+   * consumer).
+   */
+  onOpenProjectsDrawer?: () => void;
   preferences?: UserPreferences | null;
   prefsLoading?: boolean;
   onSavePreferences?: (updates: Partial<UserPreferences>) => Promise<void>;
@@ -20,6 +28,7 @@ interface BottomNavProps {
 const BottomNav = ({
   projects = [],
   onToggleSidebar,
+  onOpenProjectsDrawer,
   preferences: providedPreferences,
   prefsLoading: providedPrefsLoading,
   onSavePreferences,
@@ -72,6 +81,11 @@ const BottomNav = ({
           onClick={() => {
             if (location.pathname === '/app' && onToggleSidebar) {
               onToggleSidebar();
+            } else if (onOpenProjectsDrawer) {
+              // Host page owns an overlay drawer: open it OVER this page. No
+              // navigation — the background must not change until the user
+              // picks something inside the drawer.
+              onOpenProjectsDrawer();
             } else {
               navigate('/app?openSidebar=true');
             }

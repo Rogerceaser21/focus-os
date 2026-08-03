@@ -27,6 +27,7 @@ import {
 import { saveBrainDumpTasks } from '@/lib/brainDumpSave';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
+import { ProjectsDrawerHost } from '@/components/ProjectsDrawerHost';
 import { HomeTour } from '@/components/HomeTour';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { useBrainDumpLive, type BrainDumpTask, type ProjectInfo } from '@/hooks/useBrainDumpLive';
@@ -259,6 +260,8 @@ const Home = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const [subtitleIndex, setSubtitleIndex] = useState(0);
+  // Projects drawer, opened OVER this page by the dock (never navigates on open).
+  const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [reviewTasks, setReviewTasks] = useState<BrainDumpTask[] | undefined>(undefined);
@@ -1224,7 +1227,19 @@ const Home = () => {
       {/* ?debug=1 — production-safe live diagnostics (renders nothing without the param) */}
       <BrainDumpDebugOverlay />
 
-      <BottomNav projects={projects} />
+      <BottomNav
+        projects={projects}
+        onOpenProjectsDrawer={() => setProjectsDrawerOpen((o) => !o)}
+      />
+
+      {/* Projects drawer: PERMANENTLY mounted, closed by default (white-flash
+          law — the overlay/panel layers are born once and only ever transition).
+          Opens over /home; only a pick inside it navigates. */}
+      <ProjectsDrawerHost
+        open={projectsDrawerOpen}
+        onOpenChange={setProjectsDrawerOpen}
+        userId={user?.id}
+      />
 
       <HomeTour isOpen={tourOpen} onComplete={handleTourComplete} />
 

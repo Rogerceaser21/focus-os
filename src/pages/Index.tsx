@@ -208,6 +208,8 @@ const Index = () => {
   // can reopen the drawer. Latched on consume, cleared once the param leaves the
   // URL, so a fresh navigation with ?openSidebar=true is still handled once.
   const openSidebarHandledRef = useRef(false);
+  // Same one-shot shape for the ?tour= handshake (see the effect below).
+  const tourParamHandledRef = useRef(false);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState('');
   const [isReorderMode, setIsReorderMode] = useState(false);
@@ -1125,6 +1127,37 @@ const Index = () => {
       navigate(cleanSearch ? `/app?${cleanSearch}` : '/app', { replace: true });
     }
   }, [location.search, preferencesLoaded, preferences, isMobile, navigate, projects]);
+
+  // ?tour=tasks | ?tour=projects handshake. The Projects drawer on the HOST pages
+  // (/home, /meetings, /meetings/:id — ProjectsDrawerHost) shows the same Help menu,
+  // but those pages cannot start /app's tours: the tour state, the demo rows and the
+  // spotlight targets all live here. So the host's handler navigates to /app with this
+  // param and hands off. Same one-shot latch discipline as ?openSidebar above: consume
+  // once, strip the param, reset when it has left the URL. Gated on a finished initial
+  // load so the spotlight measures real, painted targets rather than the skeleton.
+  useEffect(() => {
+    if (!user || !preferencesLoaded || !initialLoadComplete) return;
+    const urlParams = new URLSearchParams(location.search);
+    const wants = urlParams.get('tour');
+
+    if (wants !== 'tasks' && wants !== 'projects') {
+      tourParamHandledRef.current = false;
+      return;
+    }
+    if (tourParamHandledRef.current) return;
+    tourParamHandledRef.current = true;
+
+    // Strip first so a re-run before the tour's own state lands cannot double-start it.
+    urlParams.delete('tour');
+    const cleanSearch = urlParams.toString();
+    navigate(cleanSearch ? `/app?${cleanSearch}` : '/app', { replace: true });
+
+    if (wants === 'tasks') {
+      handleStartTaskTour();
+    } else {
+      handleStartProjectsTour();
+    }
+  }, [location.search, user, preferencesLoaded, initialLoadComplete, navigate]);
 
   // Reset reorder mode when switching projects/views
   useEffect(() => {

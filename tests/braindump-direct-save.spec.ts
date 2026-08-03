@@ -239,7 +239,11 @@ test('the ?fakedump demo stage keeps all three exits inert and network-free', as
   await page.getByRole('button', { name: 'Edit Tasks' }).click();
   await page.waitForTimeout(700);
   expect(page.url(), 'still on the demo stage').toContain('fakedump=3');
-  await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+  // No OPEN dialog. /home permanently mounts the overlay Projects drawer
+  // (ProjectsDrawerHost — white-flash law: the layer is born once, never on
+  // open), and that panel carries role="dialog" with aria-hidden while closed,
+  // so the raw attribute selector alone would now always match it.
+  await expect(page.locator('[role="dialog"]:not([aria-hidden="true"])')).toHaveCount(0);
   await expect(page.locator('.lg-stask')).toHaveCount(3);
 
   // Discard is the one demo-safe action: it resets the synthetic stream.
