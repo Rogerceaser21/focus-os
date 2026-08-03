@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,11 +46,28 @@ interface ProjectSidebarProps {
   isTourActive?: boolean;
   userId?: string;
   senderProjectSharedMap?: Record<string, SharedRecipient[]>;
+  /**
+   * OVERLAY MODE (host pages: /home, /meetings, /meetings/:id — see
+   * ProjectsDrawerHost.tsx). The drawer opens OVER whatever page the user is
+   * on: the portalled overlay+panel branch renders at EVERY width (desktop
+   * included), open/close comes from the `open` / `onOpenChange` pair instead
+   * of the SidebarProvider context (host pages have no provider — useSidebar
+   * falls back to a no-op there), and the component's own data layer stays
+   * asleep until the drawer is first opened.
+   *
+   * Default (prop omitted) = /app behaviour, unchanged: mobile portal branch,
+   * desktop in-flow panel, context-driven, fetch on mount.
+   */
+  overlayMode?: boolean;
+  /** Overlay mode only: the host's open state. */
+  open?: boolean;
+  /** Overlay mode only: the host's setter. */
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const ProjectSidebar = ({ 
-  selectedProjectId, 
-  onSelectProject, 
+export const ProjectSidebar = ({
+  selectedProjectId,
+  onSelectProject,
   onSelectSpecialList,
   selectedSpecialList,
   projectRefreshTrigger,
@@ -62,8 +79,12 @@ export const ProjectSidebar = ({
   onCreateDialogOpenChange,
   isTourActive,
   userId,
-  senderProjectSharedMap = {}
+  senderProjectSharedMap = {},
+  overlayMode,
+  open: overlayOpen,
+  onOpenChange: overlayOnOpenChange,
 }: ProjectSidebarProps) => {
+  const isOverlay = !!overlayMode;
   const [projects, setProjects] = useState<Project[]>([]);
   const [sharedProjects, setSharedProjects] = useState<Project[]>([]);
   const [meetings, setMeetings] = useState<{ id: string; title: string }[]>([]);
@@ -103,25 +124,40 @@ export const ProjectSidebar = ({
   const isCreateOpen = createDialogOpen !== undefined ? createDialogOpen : isCreateOpenInternal;
   const setIsCreateOpen = onCreateDialogOpenChange || setIsCreateOpenInternal;
 
+  // PERF, overlay mode only: the host pages mount this drawer PERMANENTLY but
+  // closed (white-flash law), so none of its own cost may land on their page
+  // load — no projects/meetings/shared-items/invitations reads, no realtime
+  // channels, no RSVP edge sync — until the drawer is first opened. Latched on
+  // at that first open and never off again (reopening must not refetch from
+  // scratch). The latch is STATE, adjusted during render, not a ref: a ref
+  // mutation survives a discarded router transition while the queued state
+  // update dies, and the replay would then skip the arming (render-phase law).
+  // /app (isOverlay false) starts armed, so its fetch-on-mount is untouched.
+  const [dataArmed, setDataArmed] = useState(!overlayMode);
+  if (isOverlay && overlayOpen && !dataArmed) setDataArmed(true);
+  // The single gate every data effect keys off: undefined => that effect is a
+  // no-op and holds no subscription.
+  const dataUserId = dataArmed ? userId : undefined;
+
   useEffect(() => {
-    if (!userId) return;
+    if (!dataUserId) return;
     fetchProjects();
     fetchMeetings();
     fetchSharedItems();
     fetchProjectInvitations();
-  }, [projectRefreshTrigger, userId]);
+  }, [projectRefreshTrigger, dataUserId]);
 
   // Deferred RSVP sync: 3s pushes the 2.5-11s edge call past the login critical path
   // (first task card paints ~2.8s). Once per load via rsvpSyncedRef.
   useEffect(() => {
-    if (!userId) return;
+    if (!dataUserId) return;
     const t = window.setTimeout(syncRsvpThenRefresh, 3000);
     return () => window.clearTimeout(t);
-  }, [userId]);
+  }, [dataUserId]);
 
   // React to Supabase auth events after mount.
   useEffect(() => {
-    if (!userId) return;
+    if (!dataUserId) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
         // A real sign-in must always (re)load, even right after a load. New session ->
@@ -146,11 +182,11 @@ export const ProjectSidebar = ({
       }
     });
     return () => subscription.unsubscribe();
-  }, [userId]);
+  }, [dataUserId]);
 
   // Supabase Realtime: live shared items for current user (as recipient)
   useEffect(() => {
-    if (!userId) return;
+    if (!dataUserId) return;
 
     const channel = supabase
       .channel('shared-items-realtime')
@@ -199,7 +235,7 @@ export const ProjectSidebar = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [dataUserId]);
 
   // Realtime: keep shared-project visibility live when this user's tasks change (status /
   // change-request updates). No full fetchProjects / fetchSharedItems fan-out per event —
@@ -209,7 +245,7 @@ export const ProjectSidebar = ({
   // be targeted; an emptied shared project stays visible under the no-tasks rule and the
   // next fetchProjects self-heals, so this is acceptable.)
   useEffect(() => {
-    if (!userId) return;
+    if (!dataUserId) return;
 
     const taskChannel = supabase
       .channel('sidebar-tasks-realtime')
@@ -243,7 +279,7 @@ export const ProjectSidebar = ({
         sharedVisibilityDebounceRef.current = null;
       }
     };
-  }, [userId]);
+  }, [dataUserId]);
 
   // Helper: resolve a user's display name from profilesMap, falling back to email
   const resolveDisplayName = (userId: string | null, email: string) => {
@@ -497,7 +533,7 @@ export const ProjectSidebar = ({
 
   // Realtime for project invitations
   useEffect(() => {
-    if (!userId) return;
+    if (!dataUserId) return;
     const channel = supabase
       .channel('project-invitations-realtime')
       .on(
@@ -520,7 +556,7 @@ export const ProjectSidebar = ({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [userId]);
+  }, [dataUserId]);
 
   const handleAcceptProjectInvite = async (memberId: string) => {
     setAcceptingInviteId(memberId);
@@ -696,9 +732,14 @@ export const ProjectSidebar = ({
   const handleCreateProject = async (name: string, color: string) => {
     if (!userId) return;
 
-    const { error } = await (supabase as any)
+    // `.select('id')` so overlay mode can open the project it just created (the
+    // same insert+select pattern as brainDumpSave.ts / Index's demo projects).
+    // /app ignores the returned row and behaves exactly as before.
+    const { data: created, error } = await (supabase as any)
       .from('focusos_projects')
-      .insert({ name, color, user_id: userId });
+      .insert({ name, color, user_id: userId })
+      .select('id')
+      .maybeSingle();
 
     if (error) {
       toast.error('Failed to create project');
@@ -709,6 +750,14 @@ export const ProjectSidebar = ({
     fetchProjects({ fresh: true });
     setIsCreateOpen(false);
     onProjectCreated?.();
+
+    // Overlay mode: creating from a host page (/home, /meetings) lands the user
+    // in the new project, the same route a pick in the list takes. Nothing
+    // happens without an id — the refreshed list above still shows it.
+    if (isOverlay && created?.id) {
+      handleSelectProject(created.id);
+      setOpenMobile(false);
+    }
   };
 
   const handleSelectProject = (projectId: string) => {
@@ -729,7 +778,28 @@ export const ProjectSidebar = ({
   // always in lockstep with the provider's `open`/`sidebarOpen` state, so
   // there's no window where the desktop-styled div and the mobile Sheet can
   // both exist/mount back-to-back for the same view.
-  const { open: sidebarOpen, setOpen: setSidebarOpen, openMobile, setOpenMobile, isMobile } = useSidebar();
+  const {
+    open: sidebarOpen,
+    setOpen: setSidebarOpen,
+    openMobile: ctxOpenMobile,
+    setOpenMobile: ctxSetOpenMobile,
+    isMobile: ctxIsMobile,
+  } = useSidebar();
+
+  const setOverlayOpen = useCallback(
+    (next: boolean) => { overlayOnOpenChange?.(next); },
+    [overlayOnOpenChange],
+  );
+
+  // Overlay mode runs on the host's open state, not the provider's (host pages
+  // have no SidebarProvider — useSidebar returns its no-op fallback there), and
+  // it renders the portalled drawer at EVERY width. So `isMobile` — which in
+  // this component means "the drawer is the portalled overlay panel", gating
+  // close-after-pick, Escape-to-close and the grab-and-throw gesture — is
+  // aliased to true. Non-overlay reads stay exactly as before.
+  const isMobile = isOverlay ? true : ctxIsMobile;
+  const openMobile = isOverlay ? !!overlayOpen : ctxOpenMobile;
+  const setOpenMobile = isOverlay ? setOverlayOpen : ctxSetOpenMobile;
 
   // Ghost-click latch for the mobile drawer overlay. The overlay closes the
   // drawer only when ONE gesture both starts (pointerdown) and ends (click) on
@@ -1384,6 +1454,8 @@ export const ProjectSidebar = ({
 
   // On mobile, use Sheet overlay - dialog is OUTSIDE the Sheet
   // BUT when tour is active, use a simple fixed div to avoid Radix focus/event trapping
+  // Overlay mode aliases isMobile to true (see the useSidebar block), so a host
+  // page gets this same portalled drawer at every width — desktop included.
   if (isMobile) {
     if (isTourActive) {
       // Tour mode: Bypass Sheet entirely, use simple fixed positioning
@@ -1458,6 +1530,13 @@ export const ProjectSidebar = ({
               ref={dragPanelRef}
               role="dialog"
               aria-label="Projects"
+              // Overlay mode only (so /app's drawer is untouched): the host
+              // pages keep this panel mounted permanently, and a closed, off-
+              // screen drawer must not sit in the a11y tree of the page behind
+              // it — nor answer to getByRole('dialog') alongside that page's own
+              // dialogs. Attribute only: no style, so the compositing layer is
+              // never touched (white-flash law).
+              aria-hidden={isOverlay && !openMobile ? true : undefined}
               data-state={openMobile ? 'open' : 'closed'}
               className="fixed inset-y-0 left-0 h-full z-50 w-[280px] p-0 lg-side flex flex-col gap-4"
               onPointerDown={onPanelPointerDown}
