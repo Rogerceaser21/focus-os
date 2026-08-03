@@ -8,6 +8,8 @@ import {
   fetchMeetingsList as fetchMeetingsListShared,
   fetchSharedItems as fetchSharedItemsShared,
   fetchProjectInvitations as fetchProjectInvitationsShared,
+  appDataKeys,
+  mergeByIdDesc,
 } from '@/lib/appDataFetchers';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
@@ -30,6 +32,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+// Module scope on purpose: the RSVP edge sync must dedup across MOUNTS (host-page
+// drawer -> /app drawer is two mounts in one journey), which a ref cannot do.
+let lastRsvpSyncAt = 0;
 
 interface ProjectSidebarProps {
   selectedProjectId: string | null;
@@ -463,7 +469,12 @@ export const ProjectSidebar = ({
   // shared-items read re-runs to reconcile whatever the sync changed.
   const syncRsvpThenRefresh = async () => {
     if (rsvpSyncedRef.current) return;
+    // Cross-MOUNT dedup: the drawer now also lives on the host pages, so opening it on
+    // /home and then picking a project fires this once per mount — twice for one
+    // journey. Same 60s window the TOKEN_REFRESHED guard above uses.
+    if (Date.now() - lastRsvpSyncAt < 60_000) return;
     rsvpSyncedRef.current = true;
+    lastRsvpSyncAt = Date.now();
     try {
       await (supabase as any).functions.invoke('focusos-sync-shared-rsvp');
     } catch (e) {
@@ -732,13 +743,13 @@ export const ProjectSidebar = ({
   const handleCreateProject = async (name: string, color: string) => {
     if (!userId) return;
 
-    // `.select('id')` so overlay mode can open the project it just created (the
-    // same insert+select pattern as brainDumpSave.ts / Index's demo projects).
-    // /app ignores the returned row and behaves exactly as before.
+    // `.select()` so overlay mode can open the project it just created AND seed the
+    // row into the shared cache (the same insert+select pattern as brainDumpSave.ts /
+    // Index's demo projects). /app ignores the returned row and behaves as before.
     const { data: created, error } = await (supabase as any)
       .from('focusos_projects')
       .insert({ name, color, user_id: userId })
-      .select('id')
+      .select()
       .maybeSingle();
 
     if (error) {
@@ -755,6 +766,19 @@ export const ProjectSidebar = ({
     // in the new project, the same route a pick in the list takes. Nothing
     // happens without an id — the refreshed list above still shows it.
     if (isOverlay && created?.id) {
+      // The new row must be visible to /app BEFORE we navigate. fetchProjects above
+      // is deliberately unawaited, and /app never waits for it: Index seeds DURING
+      // RENDER from this cache (warm start), and even its cold branch's non-fresh
+      // fetchQuery short-circuits to the same entry inside APP_DATA_STALE_TIME. So
+      // without this patch the deep-linked id is missing from the list on arrival and
+      // Index's deleted-project fallback bounces the user to Today. Same patch
+      // brainDumpSave.ts makes for its new projects: only patch a cache that already
+      // holds data (fabricating one would mark it fresh and starve the real fetch),
+      // mergeByIdDesc dedupes by id and keeps the created_at desc order loadProjects
+      // produces.
+      queryClient.setQueryData(appDataKeys.projects(userId), (prev: any[] | undefined) =>
+        prev ? mergeByIdDesc([created, ...prev]) : prev,
+      );
       handleSelectProject(created.id);
       setOpenMobile(false);
     }
@@ -787,7 +811,20 @@ export const ProjectSidebar = ({
   } = useSidebar();
 
   const setOverlayOpen = useCallback(
-    (next: boolean) => { overlayOnOpenChange?.(next); },
+    (next: boolean) => {
+      // Move focus OUT of the panel before it closes. Two reasons, both device-class
+      // problems rather than cosmetics: Chrome refuses to apply aria-hidden to a
+      // subtree that retains focus ('retained focus' — the drawer would stay in the
+      // a11y tree), and `inert` on a subtree holding the caret strands the keyboard.
+      // Only ever fires on a close, only when focus really is inside (dragPanelRef is
+      // read at call time, long after it is assigned).
+      if (!next) {
+        const panel = dragPanelRef.current;
+        const active = document.activeElement as HTMLElement | null;
+        if (panel && active && panel.contains(active)) active.blur();
+      }
+      overlayOnOpenChange?.(next);
+    },
     [overlayOnOpenChange],
   );
 
@@ -800,6 +837,16 @@ export const ProjectSidebar = ({
   const isMobile = isOverlay ? true : ctxIsMobile;
   const openMobile = isOverlay ? !!overlayOpen : ctxOpenMobile;
   const setOpenMobile = isOverlay ? setOverlayOpen : ctxSetOpenMobile;
+
+  // A closed, off-screen drawer must be unreachable by KEYBOARD too, not just by
+  // pointer: aria-hidden hides it from the a11y tree but leaves every control in the
+  // tab order, and the CSS pointer-events:none only stops the mouse — so Tab on a host
+  // page used to walk straight into the closed panel. `inert` closes both holes.
+  // Attribute only: no style, no layout, no compositing change, so the permanently
+  // mounted layers are untouched (white-flash law). React 18 does not know `inert`, so
+  // it is passed as an empty-string attribute (the HTML boolean-attribute form).
+  // Overlay mode only, so /app's drawer stays byte-identical.
+  const closedInert = (isOverlay && !openMobile ? { inert: '' } : {}) as Record<string, string>;
 
   // Ghost-click latch for the mobile drawer overlay. The overlay closes the
   // drawer only when ONE gesture both starts (pointerdown) and ends (click) on
@@ -985,7 +1032,12 @@ export const ProjectSidebar = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48 bg-popover">
-              <DropdownMenuItem onClick={() => navigate('/home?tour=home')}>
+              <DropdownMenuItem onClick={() => {
+                // Close first, exactly like the Meetings Tour item below: tapped from
+                // /home the drawer would otherwise sit open over the running tour.
+                if (isMobile) setOpenMobile(false);
+                navigate('/home?tour=home');
+              }}>
                 Home Tour
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
@@ -1511,6 +1563,7 @@ export const ProjectSidebar = ({
           <>
             <div
               data-state={openMobile ? 'open' : 'closed'}
+              {...closedInert}
               className="fixed inset-0 z-50 lg-side-overlay"
               // Tap-outside-to-close, but ONLY when the gesture both started and
               // ended on this overlay. onPointerDown latches the start; onClick
@@ -1537,6 +1590,7 @@ export const ProjectSidebar = ({
               // dialogs. Attribute only: no style, so the compositing layer is
               // never touched (white-flash law).
               aria-hidden={isOverlay && !openMobile ? true : undefined}
+              {...closedInert}
               data-state={openMobile ? 'open' : 'closed'}
               className="fixed inset-y-0 left-0 h-full z-50 w-[280px] p-0 lg-side flex flex-col gap-4"
               onPointerDown={onPanelPointerDown}

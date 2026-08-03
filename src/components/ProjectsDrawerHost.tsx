@@ -47,6 +47,14 @@ export const ProjectsDrawerHost = ({ open, onOpenChange, userId }: ProjectsDrawe
       onSelectSpecialList={(list) => {
         if (list) navigate(`/app?view=${list}`);
       }}
+      // The Help menu's Tasks / Projects tours belong to /app (tour state, demo rows
+      // and spotlight targets all live in Index). Without these two the drawer would
+      // fall through to a FALSE "Coming soon!" toast on host pages, so hand off via
+      // the ?tour= param Index consumes on arrival (one-shot, same shape as
+      // ?openSidebar). ProjectSidebar already closes the drawer and shows its loading
+      // overlay before calling them.
+      onStartTaskTour={() => navigate('/app?tour=tasks')}
+      onStartProjectsTour={() => navigate('/app?tour=projects')}
       userId={userId}
     />
   );

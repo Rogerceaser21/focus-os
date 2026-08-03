@@ -1561,7 +1561,9 @@ const MeetingDetail = () => {
         navigate('/meetings');
       }}
     />
-    <RecordFAB compact onBrainDump={() => setBrainDumpOpen(true)} />
+    {/* Radial FAB — hidden behind every modal surface, the Projects drawer
+        included (same guard shape as /app). */}
+    {!projectsDrawerOpen && <RecordFAB compact onBrainDump={() => setBrainDumpOpen(true)} />}
     </>
   );
 };

@@ -1279,7 +1279,13 @@ const Meetings = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    <RecordFAB onBrainDump={() => navigate('/home?braindump=1')} />
+    {/* Radial FAB — hidden behind every modal surface, the Projects drawer
+        included (same guard shape as /app: the FAB is not portalled and sits at
+        z-100, so without this it paints over, and stays clickable through, an
+        open drawer). */}
+    {!projectsDrawerOpen && (
+      <RecordFAB onBrainDump={() => navigate('/home?braindump=1')} />
+    )}
     {user && (
       <BrainDumpLiveDialog
         open={brainDumpOpen}

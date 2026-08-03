@@ -51,6 +51,25 @@ interface DrawerReads {
   rsvpSync: number;
 }
 
+const NEW_PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const NEW_PROJECT_NAME = 'Fresh overlay project';
+
+/** Mutable server state for the write-flow specs. */
+interface Harness {
+  reads: DrawerReads;
+  /** Rows GET focusos_projects returns; a POST appends to it. */
+  projects: any[];
+  /** True once a project has been created through the UI. */
+  projectInserted: boolean;
+  /**
+   * Stall applied to GET focusos_projects AFTER an insert. It models the only thing
+   * that matters for the create-then-navigate race: /app reaching first paint before
+   * the (unawaited) fresh projects fetch has landed. With the stall, the ONLY way /app
+   * can know the new project is the cache seed the create handler writes.
+   */
+  postInsertGetStallMs: number;
+}
+
 const projectRow = () => ({
   id: PROJECT_ID,
   name: PROJECT_NAME,
@@ -111,7 +130,8 @@ const taskRow = (n: number) => ({
   created_at: new Date(Date.now() - n * 60_000).toISOString(),
 });
 
-async function installIntercepts(context: BrowserContext, reads: DrawerReads): Promise<void> {
+async function installIntercepts(context: BrowserContext, h: Harness): Promise<void> {
+  const reads = h.reads;
   await context.route('**/auth/v1/**', (route) => {
     const user = {
       id: USER_ID,
@@ -139,7 +159,7 @@ async function installIntercepts(context: BrowserContext, reads: DrawerReads): P
     });
   });
 
-  await context.route('**/rest/v1/**', (route) => {
+  await context.route('**/rest/v1/**', async (route) => {
     const req = route.request();
     const url = decodeURIComponent(req.url());
     const method = req.method();
@@ -162,12 +182,44 @@ async function installIntercepts(context: BrowserContext, reads: DrawerReads): P
     if (url.includes('focusos_project_members')) return reply([]);
     if (url.includes('focusos_shared_items')) return reply([]);
 
-    if (method !== 'GET' && method !== 'HEAD') return reply(wantsObject ? {} : []);
+    if (method !== 'GET' && method !== 'HEAD') {
+      // Project create: return the inserted row (the app reads its id) and remember it
+      // as server state, exactly like the real insert+select round trip.
+      if (url.includes('focusos_projects')) {
+        let name = NEW_PROJECT_NAME;
+        try {
+          const body = req.postDataJSON();
+          name = (Array.isArray(body) ? body[0]?.name : body?.name) ?? name;
+        } catch { /* keep the default */ }
+        const row = {
+          id: NEW_PROJECT_ID,
+          name,
+          color: '#3b82f6',
+          is_shared: false,
+          user_id: USER_ID,
+          created_at: new Date().toISOString(),
+        };
+        h.projects = [row, ...h.projects];
+        h.projectInserted = true;
+        return reply(wantsObject ? row : [row]);
+      }
+      // Task create (the Tasks tour seeds its demo task through this path).
+      if (url.includes('focusos_tasks')) {
+        const row = { ...taskRow(9), id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', title: 'Plan Holidays' };
+        return reply(wantsObject ? row : [row]);
+      }
+      return reply(wantsObject ? {} : []);
+    }
     if (url.includes('focusos_user_preferences')) return reply(wantsObject ? prefRow() : [prefRow()]);
     if (url.includes('focusos_profiles')) {
       return reply(wantsObject ? { first_name: 'Igor' } : [{ first_name: 'Igor' }]);
     }
-    if (url.includes('focusos_projects')) return reply(wantsObject ? projectRow() : [projectRow()]);
+    if (url.includes('focusos_projects')) {
+      if (h.projectInserted && h.postInsertGetStallMs > 0) {
+        await new Promise((r) => setTimeout(r, h.postInsertGetStallMs));
+      }
+      return reply(wantsObject ? h.projects[0] : h.projects);
+    }
     if (url.includes('focusos_tasks')) {
       const rows = [taskRow(1), taskRow(2), taskRow(3)];
       return reply(rows, {
@@ -189,21 +241,27 @@ async function openPage(
   viewport: { width: number; height: number },
   url: string,
   ready: string,
-): Promise<{ context: BrowserContext; page: Page; reads: DrawerReads }> {
+  opts?: { postInsertGetStallMs?: number },
+): Promise<{ context: BrowserContext; page: Page; reads: DrawerReads; harness: Harness }> {
   const touch = viewport.width < 1024;
-  const reads: DrawerReads = { meetingsSlim: 0, inbox: 0, invitations: 0, rsvpSync: 0 };
+  const harness: Harness = {
+    reads: { meetingsSlim: 0, inbox: 0, invitations: 0, rsvpSync: 0 },
+    projects: [projectRow()],
+    projectInserted: false,
+    postInsertGetStallMs: opts?.postInsertGetStallMs ?? 0,
+  };
   const context = await browser.newContext({
     viewport,
     hasTouch: touch,
     isMobile: touch,
     timezoneId: 'UTC',
   });
-  await installIntercepts(context, reads);
+  await installIntercepts(context, harness);
   const page = await context.newPage();
   await seedSession(page);
   await page.goto(url);
   await page.waitForSelector(ready, { timeout: 25_000 });
-  return { context, page, reads };
+  return { context, page, reads: harness.reads, harness };
 }
 
 /** Tap on touch contexts, click on the desktop one. */
@@ -397,6 +455,189 @@ test('393x852 /home: drawer fetches nothing until it is first opened', async ({ 
   await expect.poll(() => reads.rsvpSync, { timeout: 15_000 }).toBeGreaterThan(0);
   // And the list it fetched is really there.
   await expect(page.locator(`${PANEL} button:has-text("${PROJECT_NAME}")`)).toBeVisible();
+
+  await context.close();
+});
+
+// ===========================================================================
+// Review round 2 (adversarial review of 83fdc5f) — the four majors + FAB minor.
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// MAJOR 1. Creating a project from the overlay lands IN that project, not Today.
+//
+// handleCreateProject fires its refresh unawaited and navigates in the same tick;
+// /app seeds during render from the shared projects cache, so without the cache
+// seed the new id is missing on arrival and Index's deleted-project fallback
+// resets the view to Today. The harness stalls every projects GET after the
+// insert, so the seed is the only possible source of truth at first paint.
+// ---------------------------------------------------------------------------
+test('393x852 /home: creating a project from the drawer lands in that project, not Today', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { context, page } = await openPage(browser, MOBILE, '/home?fakedump=0', FOCUS_CARD, {
+    postInsertGetStallMs: 2_500,
+  });
+
+  await press(page, DOCK_PROJECTS);
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
+
+  await press(page, `${PANEL} button:has-text("New Project")`);
+  await page.locator('#project-name').fill(NEW_PROJECT_NAME);
+  await press(page, 'button:has-text("Create Project")');
+
+  await expect
+    .poll(() => new URL(page.url()).pathname + new URL(page.url()).search, { timeout: 15_000 })
+    .toBe(`/app?view=${NEW_PROJECT_ID}`);
+
+  // Inside the stall window: the only way this title can be right is the cache seed.
+  await expect(page.locator('[data-testid="onebar-title"]')).toContainText(NEW_PROJECT_NAME, {
+    timeout: 2_000,
+  });
+
+  // And it stays put once the real (stalled) list finally lands — no late bounce.
+  await page.waitForTimeout(3_500);
+  await expect(page.locator('[data-testid="onebar-title"]')).toContainText(NEW_PROJECT_NAME);
+  expect(page.url(), 'still the project deep link').toContain(`view=${NEW_PROJECT_ID}`);
+
+  await context.close();
+});
+
+// ---------------------------------------------------------------------------
+// MAJOR 2a. A closed drawer is not in the tab order. aria-hidden alone does not
+// do this — only `inert` does.
+// ---------------------------------------------------------------------------
+test('393x852 /home: Tab never walks into the closed drawer', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { context, page } = await openPage(browser, MOBILE, '/home?fakedump=0', FOCUS_CARD);
+
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'closed');
+  // Proof the attribute really reached the DOM (React 18 knows nothing about inert).
+  expect(await page.locator(PANEL).getAttribute('inert'), 'panel inert while closed').not.toBeNull();
+  expect(await page.locator(OVERLAY).getAttribute('inert'), 'overlay inert while closed').not.toBeNull();
+
+  const insideHits: string[] = [];
+  for (let i = 0; i < 40; i++) {
+    await page.keyboard.press('Tab');
+    const hit = await page.evaluate(() => {
+      const panel = document.querySelector('[role="dialog"][aria-label="Projects"]');
+      const active = document.activeElement as HTMLElement | null;
+      if (!panel || !active) return null;
+      return panel.contains(active) ? active.outerHTML.slice(0, 80) : null;
+    });
+    if (hit) insideHits.push(hit);
+  }
+  expect(insideHits, 'focus never entered the closed panel').toEqual([]);
+
+  // Sanity: once open, the panel IS reachable — the guard is state-driven, not a wall.
+  await press(page, DOCK_PROJECTS);
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
+  expect(await page.locator(PANEL).getAttribute('inert'), 'inert lifted when open').toBeNull();
+
+  await context.close();
+});
+
+// ---------------------------------------------------------------------------
+// MAJOR 2b. Closing with focus INSIDE the drawer: focus must leave first, or
+// Chrome refuses to apply aria-hidden ('retained focus') and the drawer stays
+// in the a11y tree.
+// ---------------------------------------------------------------------------
+test('393x852 /home: Escape with focus in the drawer moves focus out and hides it', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { context, page } = await openPage(browser, MOBILE, '/home?fakedump=0', FOCUS_CARD);
+
+  await press(page, DOCK_PROJECTS);
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
+
+  // Focus the drawer's own search field.
+  await page.locator(`${PANEL} input[placeholder="Search projects & meetings..."]`).focus();
+  expect(
+    await page.evaluate(() => {
+      const panel = document.querySelector('[role="dialog"][aria-label="Projects"]');
+      return !!(panel && document.activeElement && panel.contains(document.activeElement));
+    }),
+    'focus really is inside the drawer',
+  ).toBe(true);
+
+  await page.keyboard.press('Escape');
+
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'closed');
+  expect(await page.locator(PANEL).getAttribute('aria-hidden'), 'aria-hidden applied').toBe('true');
+  expect(
+    await page.evaluate(() => {
+      const panel = document.querySelector('[role="dialog"][aria-label="Projects"]');
+      return !!(panel && document.activeElement && panel.contains(document.activeElement));
+    }),
+    'focus left the panel',
+  ).toBe(false);
+  expect(new URL(page.url()).pathname, 'Escape does not navigate').toBe('/home');
+
+  await context.close();
+});
+
+// ---------------------------------------------------------------------------
+// MAJOR 3. The Help menu's Tasks Tour really starts the tour on /app instead of
+// dead-ending in a false 'Coming soon!' toast.
+// ---------------------------------------------------------------------------
+test('393x852 /home: Tasks Tour from the drawer starts the tour on /app', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { context, page } = await openPage(browser, MOBILE, '/home?fakedump=0', FOCUS_CARD);
+
+  await press(page, DOCK_PROJECTS);
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
+
+  await press(page, `${PANEL} button:has-text("Help")`);
+  await press(page, '[role="menuitem"]:has-text("Tasks Tour")');
+
+  // No lie: the "coming soon" toast must never appear.
+  await expect(page.locator('text=Coming soon!')).toHaveCount(0);
+
+  await expect.poll(() => new URL(page.url()).pathname, { timeout: 20_000 }).toBe('/app');
+  // The tour is actually running (its spotlight mask is in the DOM)…
+  await expect(page.locator('#task-spotlight-mask')).toHaveCount(1, { timeout: 20_000 });
+  // …and the handshake param was stripped, one-shot style.
+  expect(page.url(), 'tour param stripped').not.toContain('tour=');
+
+  await context.close();
+});
+
+// ---------------------------------------------------------------------------
+// MAJOR 4. Home Tour tapped from the drawer while already on /home: the drawer
+// must get out of the way of the tour it just launched.
+// ---------------------------------------------------------------------------
+test('393x852 /home: Home Tour from the drawer closes the drawer and runs', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { context, page } = await openPage(browser, MOBILE, '/home?fakedump=0', FOCUS_CARD);
+
+  await press(page, DOCK_PROJECTS);
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
+
+  await press(page, `${PANEL} button:has-text("Help")`);
+  await press(page, '[role="menuitem"]:has-text("Home Tour")');
+
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'closed');
+  await expect(page.locator('#home-spotlight-mask')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator(PANEL), 'still closed once the tour is up').toHaveAttribute('data-state', 'closed');
+
+  await context.close();
+});
+
+// ---------------------------------------------------------------------------
+// MINOR A. The z-100 record FAB is not portalled, so it must hide behind the
+// open drawer — the same guard /app already applies to its sheets.
+// ---------------------------------------------------------------------------
+test('393x852 /meetings: the record FAB hides behind the open drawer', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { context, page } = await openPage(browser, MOBILE, '/meetings', DOCK_PROJECTS);
+
+  await expect(page.locator('[data-tour-step="menu-fab"]')).toBeVisible();
+
+  await press(page, DOCK_PROJECTS);
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'open');
+  await expect(page.locator('[data-tour-step="menu-fab"]'), 'FAB gone while the drawer is open').toHaveCount(0);
+
+  await page.touchscreen.tap(360, 200);
+  await expect(page.locator(PANEL)).toHaveAttribute('data-state', 'closed');
+  await expect(page.locator('[data-tour-step="menu-fab"]'), 'FAB back after close').toBeVisible();
 
   await context.close();
 });
