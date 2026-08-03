@@ -2142,6 +2142,15 @@ https://www.skyscanner.com`,
     return <AppBootSkeleton />;
   }
 
+  // Is a DOCKED Add/Edit pane on screen? Mirrors the exact render condition of
+  // the desktop panel below, so the two can never disagree. The pane is
+  // position:fixed glass (.liquid-glass [data-side-panel] in src/index.css), so
+  // it takes no space in this flex row and would float OVER the task list —
+  // .lg-pane-open is how the content column reserves its width instead.
+  // Derived DURING RENDER from the same state that renders the pane: the
+  // reservation and the pane land in the same commit, never a post-paint effect.
+  const dockedPaneOpen = !isMobile && (!!editingTask || addTaskDialogOpen);
+
   return <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <MobileSidebarController tourStep={lastProcessedTourStep} isTourActive={showProjectsTour} currentTourStep={projectsTourCurrentStep} openSidebarRequested={openSidebarRequested} onOpenSidebarHandled={handleOpenSidebarHandled} />
       <div className="h-screen flex w-full relative overflow-hidden lg-shell">
@@ -2152,7 +2161,7 @@ https://www.skyscanner.com`,
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 min-w-0 flex flex-col min-h-0 overflow-x-hidden">
-              <div className="flex flex-col flex-1 min-h-0 w-full lg-maincol">
+              <div className={`flex flex-col flex-1 min-h-0 w-full lg-maincol${dockedPaneOpen ? ' lg-pane-open' : ''}`}>
 
           {/* Actions Bar — mock .pw-row1: search + view seg + density seg + Add Task.
               DESKTOP ONLY (≥lg); below lg .lg-onebar below replaces it. */}
