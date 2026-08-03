@@ -1972,6 +1972,26 @@ html.shell.liquid-glass .lg-hero-col.rec {
   overflow: hidden;
 }
 
+/* …and the /app content column reserves the width it floats over (2026-08-03).
+   The rule above is what makes the pane escape the flex row: fixed positioning
+   takes no space, so the task list kept its full width and the pane covered its
+   right edge (Igor-reported). The pane stays exactly as it is — the column
+   yields instead, so the list simply shrinks into the space beside it.
+   380px pane + its 14px right offset + one gutter of air between the two.
+   Desktop only: below lg both panes render as the Radix dialog, never docked,
+   and there is no room to shrink into. The class is derived during render in
+   src/pages/Index.tsx from the same state that renders the pane, so column and
+   pane move in one commit. Transition sits on the base selector, not the open
+   one, so the column travels back the same way it went. */
+@media (min-width: 1024px) {
+  .liquid-glass .lg-maincol {
+    transition: padding-right var(--dur-panel-out) var(--ease-sheet);
+  }
+  .liquid-glass .lg-maincol.lg-pane-open {
+    padding-right: calc(380px + 14px + var(--sp-gutter));
+  }
+}
+
 /* dialog + panel form polish: mock pw-input / pw-choice look.
    [role='alertdialog'] rides every rule here for the same reason as the
    material rule above — confirms are dialogs, not a parallel family. */
@@ -2078,6 +2098,11 @@ html.shell.liquid-glass .lg-hero-col.rec {
   .liquid-glass .lg-btn,
   .liquid-glass .lg-iconbtn,
   .liquid-glass .lg-dock button {
+    transition-duration: 120ms !important;
+  }
+  /* Docked-pane reservation: the column still travels rather than jumping the
+     list sideways under the reader, it just gets there quicker. */
+  .liquid-glass .lg-maincol {
     transition-duration: 120ms !important;
   }
   .liquid-glass .lg-side[data-state='open'],
