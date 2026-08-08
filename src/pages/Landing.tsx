@@ -144,6 +144,20 @@ const FilmPlayer = () => {
     setWithSound(true);
   };
 
+  /* iPhone Safari has no requestFullscreen on video; webkitEnterFullscreen
+     opens the system player (sound + controls). Everything else gets the
+     standard API. */
+  const enterFullscreen = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const wk = v as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+    if (typeof v.requestFullscreen === 'function') {
+      v.requestFullscreen().catch(() => wk.webkitEnterFullscreen?.());
+    } else {
+      wk.webkitEnterFullscreen?.();
+    }
+  };
+
   return (
     <div
       className={
@@ -152,10 +166,11 @@ const FilmPlayer = () => {
           ? 'w-full max-w-[min(380px,34svh)]'
           : 'w-full max-w-[min(1024px,96svh)]')
       }
+      style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)' }}
     >
       <video
         ref={videoRef}
-        className="block h-auto w-full"
+        className="block h-auto w-full rounded-[25px]"
         style={{ aspectRatio: portrait ? '9 / 16' : '16 / 9' }}
         controls
         autoPlay
@@ -168,12 +183,25 @@ const FilmPlayer = () => {
         <source src={`${BASE}media/focus-os-promo-${ratio}.mp4`} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
+      <button
+        onClick={enterFullscreen}
+        aria-label="Watch full screen"
+        title="Watch full screen"
+        className="absolute right-3 top-3 rounded-full border border-white/25 bg-white/12 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-md transition-colors hover:bg-white/20 active:scale-[0.97]"
+      >
+        <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+          <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+          <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+          <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+        </svg>
+      </button>
       {!withSound && (
         <button
           onClick={playWithSound}
           aria-label="Watch with sound"
           title="Watch with sound"
-          className="absolute right-3 top-3 rounded-full border border-white/25 bg-white/12 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-md transition-colors hover:bg-white/20 active:scale-[0.97]"
+          className="absolute right-14 top-3 rounded-full border border-white/25 bg-white/12 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-md transition-colors hover:bg-white/20 active:scale-[0.97]"
         >
           <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none" />
@@ -207,6 +235,12 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
     return () => io.disconnect();
   }, [reduce]);
 
+  /* radius lives on the media element itself: iOS Safari does not clip a
+     composited video layer with the parent's border-radius */
+  const mediaRadius = feature.cssBezel
+    ? 'rounded-[38px] sm:rounded-[49px] lg:rounded-[54px]'
+    : 'rounded-[48px] sm:rounded-[61px] lg:rounded-[67px]';
+
   const media = reduce ? (
     <img
       src={`${BASE}media/clips/${feature.clip}-poster.jpg`}
@@ -215,7 +249,7 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
       decoding="async"
       width={718}
       height={1342}
-      className="block w-full"
+      className={`block w-full ${mediaRadius}`}
     />
   ) : (
     <video
@@ -228,7 +262,7 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
       height={1342}
       poster={`${BASE}media/clips/${feature.clip}-poster.jpg`}
       aria-label={feature.alt}
-      className="block w-full"
+      className={`block w-full ${mediaRadius}`}
     >
       <source src={`${BASE}media/clips/${feature.clip}.mp4`} type="video/mp4" />
     </video>
@@ -241,13 +275,17 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
     <div
       className={`relative mx-auto w-[min(300px,78vw)] rounded-[48px] bg-[#1d232c] p-[10px] ${shadow} sm:w-full sm:max-w-[380px] sm:rounded-[61px] sm:p-[12px] lg:max-w-[420px] lg:rounded-[67px] lg:p-[13px]`}
     >
-      <div className="overflow-hidden rounded-[38px] sm:rounded-[49px] lg:rounded-[54px]">
+      <div
+        className="overflow-hidden rounded-[38px] sm:rounded-[49px] lg:rounded-[54px]"
+        style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)' }}
+      >
         {media}
       </div>
     </div>
   ) : (
     <div
       className={`relative mx-auto w-[min(300px,78vw)] overflow-hidden rounded-[48px] ${shadow} sm:w-full sm:max-w-[380px] sm:rounded-[61px] lg:max-w-[420px] lg:rounded-[67px]`}
+      style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)' }}
     >
       {media}
     </div>
