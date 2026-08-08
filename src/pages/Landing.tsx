@@ -22,9 +22,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
+import { toast } from 'sonner';
 import { AppBootSkeleton } from '@/components/AppSkeletons';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -184,11 +195,282 @@ const PhoneShot = ({ feature }: { feature: Feature }) => (
   </div>
 );
 
+type AuthMode = 'signin' | 'signup';
+
+/* The auth card, in the landing's own glass. The handlers are the ones from
+   src/pages/Auth.tsx verbatim; on success the card closes and the landing's
+   user-redirect effect carries the session to /home. /auth stays untouched
+   for deep links. */
+const AuthDialog = ({
+  open,
+  mode,
+  onOpenChange,
+  onModeChange,
+}: {
+  open: boolean;
+  mode: AuthMode;
+  onOpenChange: (open: boolean) => void;
+  onModeChange: (mode: AuthMode) => void;
+}) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    const isCustomDomain =
+      !window.location.hostname.includes('lovable.app') &&
+      !window.location.hostname.includes('lovableproject.com') &&
+      !window.location.hostname.includes('localhost');
+
+    if (isCustomDomain) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
+        },
+      });
+      if (error) {
+        toast.error(error.message);
+      }
+    }
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Welcome back!', { duration: 1500 });
+      onOpenChange(false);
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password || !firstName.trim() || !lastName.trim()) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
+        data: {
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        },
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Account created! Logging you in...', { duration: 1500 });
+      onOpenChange(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error('Please enter your email');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}reset-password`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Password reset link sent! Check your email.');
+      setForgotPassword(false);
+    }
+  };
+
+  const fieldCls =
+    'h-11 rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/35 focus-visible:ring-[#0f7490] focus-visible:ring-offset-0';
+  /* inline, deliberately: the theme Input CSS out-cascades utilities (same as
+     the card surface) */
+  const fieldStyle = {
+    background: 'rgba(255,255,255,0.09)',
+    borderColor: 'rgba(255,255,255,0.16)',
+    color: '#ffffff',
+  } as const;
+  const labelCls = 'text-white/70';
+  const primaryCls =
+    'w-full h-11 rounded-xl bg-[#0f7490] font-semibold text-white hover:bg-[#0d6580] active:scale-[0.98]';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* inline style, deliberately: DialogContent's glass-card CSS paints the
+          frost material and out-cascades Tailwind utilities; the landing's dark
+          glass must win on the dark ground. */}
+      <DialogContent
+        className="w-[min(92vw,420px)] border p-6 text-white"
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(24,30,44,0.97) 0%, rgba(17,20,31,0.97) 100%)',
+          borderColor: 'rgba(255,255,255,0.16)',
+          borderRadius: 26,
+          boxShadow:
+            '0 40px 90px -30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.12)',
+        }}
+      >
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-2xl font-bold tracking-[-0.02em]">
+            Focus OS
+          </DialogTitle>
+          <DialogDescription className="text-white/60">
+            Stress less. Free to start, no credit card required.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Button
+          variant="outline"
+          className="w-full gap-2 rounded-xl border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white active:scale-[0.98]"
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+          </svg>
+          Continue with Google
+        </Button>
+
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-white/12" />
+          <span className="text-xs text-white/40">or</span>
+          <span className="h-px flex-1 bg-white/12" />
+        </div>
+
+        <div className="flex rounded-full bg-white/8 p-1">
+          {(['signin', 'signup'] as const).map(m => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => {
+                onModeChange(m);
+                setForgotPassword(false);
+              }}
+              className={
+                'flex-1 rounded-full py-1.5 text-sm font-medium transition-colors active:scale-[0.98] ' +
+                (mode === m ? 'bg-white text-[#11141f]' : 'text-white/65 hover:text-white')
+              }
+            >
+              {m === 'signin' ? 'Sign In' : 'Sign Up'}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'signin' ? (
+          forgotPassword ? (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ld-forgot-email" className={labelCls}>Email</Label>
+                <Input id="ld-forgot-email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} className={fieldCls} style={fieldStyle} />
+              </div>
+              <Button type="submit" className={primaryCls} disabled={loading}>
+                {loading ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+              <button
+                type="button"
+                className="w-full text-sm text-white/55 transition-colors hover:text-white"
+                onClick={() => setForgotPassword(false)}
+              >
+                Back to Sign In
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ld-signin-email" className={labelCls}>Email</Label>
+                <Input id="ld-signin-email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} className={fieldCls} style={fieldStyle} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ld-signin-password" className={labelCls}>Password</Label>
+                <Input id="ld-signin-password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} className={fieldCls} style={fieldStyle} />
+              </div>
+              <Button type="submit" className={primaryCls} disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+              <button
+                type="button"
+                className="w-full text-sm text-white/55 transition-colors hover:text-white"
+                onClick={() => setForgotPassword(true)}
+              >
+                Forgot Password?
+              </button>
+            </form>
+          )
+        ) : (
+          <form onSubmit={handleSignUp} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="ld-signup-firstname" className={labelCls}>First Name</Label>
+                <Input id="ld-signup-firstname" type="text" placeholder="John" value={firstName} onChange={e => setFirstName(e.target.value)} disabled={loading} className={fieldCls} style={fieldStyle} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ld-signup-lastname" className={labelCls}>Surname</Label>
+                <Input id="ld-signup-lastname" type="text" placeholder="Smith" value={lastName} onChange={e => setLastName(e.target.value)} disabled={loading} className={fieldCls} style={fieldStyle} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ld-signup-email" className={labelCls}>Email</Label>
+              <Input id="ld-signup-email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} className={fieldCls} style={fieldStyle} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ld-signup-password" className={labelCls}>Password</Label>
+              <Input id="ld-signup-password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} className={fieldCls} style={fieldStyle} />
+            </div>
+            <Button type="submit" className={primaryCls} disabled={loading}>
+              {loading ? 'Creating account...' : 'Start Free Today'}
+            </Button>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const reduce = useReducedMotion();
-  const heroRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>('signup');
 
   useEffect(() => {
     if (!loading && user) {
@@ -206,29 +488,39 @@ const Landing = () => {
   }
 
   const enter = reduce ? quiet : materialize;
-  const toAuth = () => navigate('/auth');
+  const openAuth = (m: AuthMode) => {
+    setAuthMode(m);
+    setAuthOpen(true);
+  };
+  const toTop = () => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
 
   return (
     <div
+      ref={scrollRef}
       data-landing-scroll
       className="h-[100dvh] overflow-y-auto overflow-x-hidden overscroll-y-none bg-[#11141f] text-white"
     >
       {/* ==== NAV: one dark glass pill, legible over both grounds ==== */}
       <header className="fixed inset-x-0 top-0 z-40 px-3 pt-3 sm:px-6">
         <div className="mx-auto flex w-fit items-center gap-5 rounded-full border border-white/15 bg-[#141925]/90 py-1.5 pl-5 pr-1.5 shadow-[0_14px_36px_-14px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md">
-          <span className="text-[16px] font-semibold tracking-[-0.01em] text-white/95">
+          <button
+            type="button"
+            onClick={toTop}
+            aria-label="Back to top"
+            className="text-[16px] font-semibold tracking-[-0.01em] text-white/95 transition-opacity hover:opacity-80 active:scale-[0.98]"
+          >
             Focus OS
-          </span>
+          </button>
           <div className="flex items-center gap-1.5">
             <Button
               variant="ghost"
-              onClick={toAuth}
+              onClick={() => openAuth('signin')}
               className="h-9 rounded-full text-white/80 hover:bg-white/10 hover:text-white active:scale-[0.97]"
             >
               Sign In
             </Button>
             <Button
-              onClick={toAuth}
+              onClick={() => openAuth('signup')}
               className="h-9 rounded-full bg-white px-5 text-[#11141f] hover:bg-white/90 active:scale-[0.97]"
             >
               Start Free
@@ -238,10 +530,7 @@ const Landing = () => {
       </header>
 
       {/* ============================== HERO ============================= */}
-      <section
-        ref={heroRef}
-        className="relative overflow-hidden px-4 pb-16 pt-20 sm:px-6 sm:pb-24 sm:pt-24"
-      >
+      <section className="relative overflow-hidden px-4 pb-16 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
         {/* the film's dark ground: same two washes as the smoke act */}
         <div
           aria-hidden
@@ -289,7 +578,7 @@ const Landing = () => {
           >
             <Button
               size="lg"
-              onClick={toAuth}
+              onClick={() => openAuth('signup')}
               className="rounded-full bg-[#0f7490] px-9 py-6 text-lg font-semibold text-white shadow-[0_18px_40px_-12px_rgba(15,116,144,0.55)] hover:bg-[#0d6580] active:scale-[0.97]"
             >
               Start Free Today
@@ -390,7 +679,7 @@ const Landing = () => {
           </p>
           <Button
             size="lg"
-            onClick={toAuth}
+            onClick={() => openAuth('signup')}
             className="mt-9 rounded-full bg-[#0f7490] px-9 py-6 text-lg font-semibold text-white shadow-[0_18px_40px_-12px_rgba(15,116,144,0.55)] hover:bg-[#0d6580] active:scale-[0.97]"
           >
             Start Free Today
@@ -404,13 +693,20 @@ const Landing = () => {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 text-sm text-white/45 sm:flex-row">
           <span>Focus OS</span>
           <button
-            onClick={toAuth}
+            onClick={() => openAuth('signin')}
             className="underline-offset-4 hover:text-white/80 hover:underline"
           >
             Sign in
           </button>
         </div>
       </footer>
+
+      <AuthDialog
+        open={authOpen}
+        mode={authMode}
+        onOpenChange={setAuthOpen}
+        onModeChange={setAuthMode}
+      />
     </div>
   );
 };
