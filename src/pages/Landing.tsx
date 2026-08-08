@@ -61,8 +61,11 @@ type Feature = {
   label: string;
   head: string;
   body: string;
-  shot: string;
+  clip: string;
   alt: string;
+  /* the four film crops carry the device bezel in their own pixels; the
+     calendar scene was authored as a lifted panel, so it gets the CSS bezel */
+  cssBezel?: boolean;
 };
 
 /* Copy law: the film's narration and Igor's approved benefit lines only.
@@ -74,7 +77,7 @@ const FEATURES: Feature[] = [
     head: 'Speak your todo list into existence!',
     body:
       'Press a button and talk. Everything you say appears on screen as you speak, in order, grouped into projects. No typing. No sorting. No cleanup. Just works!',
-    shot: 'braindump-full.png',
+    clip: 'braindump',
     alt: 'Focus OS listening while spoken tasks appear grouped into projects',
   },
   {
@@ -83,7 +86,7 @@ const FEATURES: Feature[] = [
     head: 'Hand the work to your AI',
     body:
       'See a task you think an AI can do for you? Press a button and it is transferred to your favourite AI. Once received, the AI already knows exactly what to do!',
-    shot: 'handoff-full.png',
+    clip: 'handoff',
     alt: 'Hand off to AI sheet with the generated prompt ready to send',
   },
   {
@@ -92,7 +95,7 @@ const FEATURES: Feature[] = [
     head: 'Never lose an action item again',
     body:
       'Have a meeting? Record it, get the transcript and the summary, and send it to your team. Then turn any action item into a task and choose what to focus on. Easy work!',
-    shot: 'meeting-phone-full.png',
+    clip: 'meetings',
     alt: 'A recorded meeting with its overview, outline and action items',
   },
   {
@@ -101,7 +104,7 @@ const FEATURES: Feature[] = [
     head: 'Delegate to anyone. Watch it get done',
     body:
       'Who is best for this task? Share it with Sarah or Steve, even whole projects, by email or calendar invite. When the task is complete, you get notified. Now that is collaboration!',
-    shot: 'share-dialog-full.png',
+    clip: 'sharing',
     alt: 'Share Task dialog sending a task to a teammate by email',
   },
   {
@@ -110,7 +113,8 @@ const FEATURES: Feature[] = [
     head: 'Your plan lands on your calendar',
     body:
       'One tap sends your plan to a dedicated calendar, with real invites and a free/busy availability picker.',
-    shot: 'calendar-availability-full.png',
+    clip: 'calendar',
+    cssBezel: true,
     alt: 'Free/busy availability picker over a day grid',
   },
 ];
@@ -167,33 +171,86 @@ const FilmPlayer = () => {
       {!withSound && (
         <button
           onClick={playWithSound}
-          className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-white/25 bg-white/12 px-4 py-2 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-md transition-colors hover:bg-white/20 active:scale-[0.97]"
+          aria-label="Watch with sound"
+          title="Watch with sound"
+          className="absolute right-3 top-3 rounded-full border border-white/25 bg-white/12 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-md transition-colors hover:bg-white/20 active:scale-[0.97]"
         >
-          <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none" />
             <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
             <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
           </svg>
-          Watch with sound
         </button>
       )}
     </div>
   );
 };
 
-const PhoneShot = ({ feature }: { feature: Feature }) => (
-  <div className="relative mx-auto w-[min(300px,78vw)] rounded-[44px] bg-[#1d232c] p-[10px] shadow-[0_34px_70px_-28px_rgba(15,40,52,0.55),inset_0_1px_0_rgba(255,255,255,0.14)] sm:w-full sm:max-w-[380px] lg:max-w-[420px]">
+/* Each phone plays its scene from the approved film (Igor: the animations we
+   already have). Muted loop, plays only while on screen, poster = the clip's
+   own first frame so nothing jumps at load. Reduced motion gets the poster. */
+const ScenePhone = ({ feature }: { feature: Feature }) => {
+  const reduce = useReducedMotion();
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || reduce) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) void v.play().catch(() => {});
+        else v.pause();
+      },
+      { threshold: 0.25 },
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, [reduce]);
+
+  const media = reduce ? (
     <img
-      src={`${BASE}media/shots/${feature.shot}`}
+      src={`${BASE}media/clips/${feature.clip}-poster.jpg`}
       alt={feature.alt}
       loading="lazy"
       decoding="async"
-      width={780}
-      height={1688}
-      className="block w-full rounded-[34px]"
+      width={718}
+      height={1342}
+      className="block w-full"
     />
-  </div>
-);
+  ) : (
+    <video
+      ref={videoRef}
+      muted
+      loop
+      playsInline
+      preload="none"
+      width={718}
+      height={1342}
+      poster={`${BASE}media/clips/${feature.clip}-poster.jpg`}
+      aria-label={feature.alt}
+      className="block w-full"
+    >
+      <source src={`${BASE}media/clips/${feature.clip}.mp4`} type="video/mp4" />
+    </video>
+  );
+
+  const shadow =
+    'shadow-[0_34px_70px_-28px_rgba(15,40,52,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]';
+
+  return feature.cssBezel ? (
+    <div
+      className={`relative mx-auto w-[min(300px,78vw)] rounded-[13%] bg-[#1d232c] p-[3%] ${shadow} sm:w-full sm:max-w-[380px] lg:max-w-[420px]`}
+    >
+      <div className="overflow-hidden rounded-[11%]">{media}</div>
+    </div>
+  ) : (
+    <div
+      className={`relative mx-auto w-[min(300px,78vw)] overflow-hidden rounded-[13%] ${shadow} sm:w-full sm:max-w-[380px] lg:max-w-[420px]`}
+    >
+      {media}
+    </div>
+  );
+};
 
 type AuthMode = 'signin' | 'signup';
 
@@ -624,7 +681,7 @@ const Landing = () => {
                   }
                 >
                   <div className={flip ? 'sm:justify-self-start' : 'sm:justify-self-end'}>
-                    <PhoneShot feature={f} />
+                    <ScenePhone feature={f} />
                   </div>
                   <div className="max-w-[46ch]">
                     <p className="mb-3 flex items-center gap-3 text-[13px] font-semibold uppercase tracking-[0.22em] text-[#0f7490]">
