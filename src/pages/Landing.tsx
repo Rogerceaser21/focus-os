@@ -161,16 +161,19 @@ const FilmPlayer = () => {
   return (
     <div
       className={
-        'relative overflow-hidden rounded-[26px] border border-white/15 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.18)] bg-black/40 ' +
+        'relative overflow-hidden rounded-[26px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] bg-black/40 ' +
         (portrait
           ? 'w-full max-w-[min(380px,34svh)]'
           : 'w-full max-w-[min(1024px,96svh)]')
       }
       style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)' }}
     >
+      {/* scale-[1.01]: the picture reaches past any sub-pixel inset Safari
+          gives the video layer, so no dark ring can show inside the edge.
+          The specular border is the overlay ring below, drawn ABOVE the video. */}
       <video
         ref={videoRef}
-        className="block h-auto w-full rounded-[25px]"
+        className="block h-auto w-full scale-[1.01] rounded-[26px]"
         style={{ aspectRatio: portrait ? '9 / 16' : '16 / 9' }}
         controls
         autoPlay
@@ -183,6 +186,10 @@ const FilmPlayer = () => {
         <source src={`${BASE}media/focus-os-promo-${ratio}.mp4`} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-[26px] border border-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+      />
       <button
         onClick={enterFullscreen}
         aria-label="Watch full screen"
@@ -249,7 +256,7 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
       decoding="async"
       width={718}
       height={1342}
-      className={`block w-full ${mediaRadius}`}
+      className={`block w-full scale-[1.01] ${mediaRadius}`}
     />
   ) : (
     <video
@@ -262,7 +269,7 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
       height={1342}
       poster={`${BASE}media/clips/${feature.clip}-poster.jpg`}
       aria-label={feature.alt}
-      className={`block w-full ${mediaRadius}`}
+      className={`block w-full scale-[1.01] ${mediaRadius}`}
     >
       <source src={`${BASE}media/clips/${feature.clip}.mp4`} type="video/mp4" />
     </video>
@@ -288,6 +295,10 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
       style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)' }}
     >
       {media}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-[48px] shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] sm:rounded-[61px] lg:rounded-[67px]"
+      />
     </div>
   );
 };
