@@ -239,13 +239,15 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
 
   return feature.cssBezel ? (
     <div
-      className={`relative mx-auto w-[min(300px,78vw)] rounded-[13%] bg-[#1d232c] p-[3%] ${shadow} sm:w-full sm:max-w-[380px] lg:max-w-[420px]`}
+      className={`relative mx-auto w-[min(300px,78vw)] rounded-[48px] bg-[#1d232c] p-[10px] ${shadow} sm:w-full sm:max-w-[380px] sm:rounded-[61px] sm:p-[12px] lg:max-w-[420px] lg:rounded-[67px] lg:p-[13px]`}
     >
-      <div className="overflow-hidden rounded-[11%]">{media}</div>
+      <div className="overflow-hidden rounded-[38px] sm:rounded-[49px] lg:rounded-[54px]">
+        {media}
+      </div>
     </div>
   ) : (
     <div
-      className={`relative mx-auto w-[min(300px,78vw)] overflow-hidden rounded-[13%] ${shadow} sm:w-full sm:max-w-[380px] lg:max-w-[420px]`}
+      className={`relative mx-auto w-[min(300px,78vw)] overflow-hidden rounded-[48px] ${shadow} sm:w-full sm:max-w-[380px] sm:rounded-[61px] lg:max-w-[420px] lg:rounded-[67px]`}
     >
       {media}
     </div>
