@@ -299,7 +299,7 @@ const McpPanel = () => {
   const reduce = useReducedMotion();
   const V = reduce ? undefined : panelItem;
   const hostRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(344 / 390);
+  const [scale, setScale] = useState(309 / 390);
   useLayoutEffect(() => {
     const el = hostRef.current;
     if (!el) return;
@@ -367,19 +367,20 @@ const PHONE_SHADOW =
    the ring reads as one continuous edge. Media just fills the screen via
    object-cover — no bezel baked into the pixels here, so no scale-[1.01] is
    needed to hide a sub-pixel seam. */
-/* Sizes are ~12% under the first shipped cut (Igor, 2026-08-09: phones read
-   too large on desktop). max-w-full is the overflow law: the two-column act
+/* Sizes are ~21% under the first shipped cut (Igor, 2026-08-09, two rounds:
+   "too large on desktop", then "still too tall — 10% smaller and we move
+   on"). max-w-full is the overflow law: the two-column act
    grid starts at 640px where a fixed-width frame can exceed its column and
    punch out of the viewport — the frame must clamp to whatever its cell
    gives it, never clip. Radii stay concentric: inner = outer - padding. */
 const PhoneFrame = ({ children }: { children: ReactNode }) => (
   <div
     data-testid="phone-frame"
-    className={`relative mx-auto w-[min(264px,78vw)] max-w-full rounded-[42px] bg-[#1d232c] p-[9px] ${PHONE_SHADOW} sm:w-[334px] sm:rounded-[54px] sm:p-[11px] lg:w-[368px] lg:rounded-[59px] lg:p-[12px]`}
+    className={`relative mx-auto w-[min(238px,78vw)] max-w-full rounded-[38px] bg-[#1d232c] p-[8px] ${PHONE_SHADOW} sm:w-[301px] sm:rounded-[49px] sm:p-[10px] lg:w-[331px] lg:rounded-[53px] lg:p-[11px]`}
   >
     <div
       data-testid="phone-frame-screen"
-      className="overflow-hidden rounded-[33px] sm:rounded-[43px] lg:rounded-[47px]"
+      className="overflow-hidden rounded-[30px] sm:rounded-[39px] lg:rounded-[42px]"
       style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)', aspectRatio: '390 / 844' }}
     >
       {children}

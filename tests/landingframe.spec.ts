@@ -52,8 +52,8 @@ async function openLanding(
 // or the mcp panel's scaled 390x844 canvas).
 // ---------------------------------------------------------------------------
 for (const [label, viewport, expected] of [
-  ['393x852 (base)', MOBILE, { outerRadius: '42px', screenRadius: '33px', width: 264 }],
-  ['1280x900 (lg)', DESKTOP, { outerRadius: '59px', screenRadius: '47px', width: 368 }],
+  ['393x852 (base)', MOBILE, { outerRadius: '38px', screenRadius: '30px', width: 238 }],
+  ['1280x900 (lg)', DESKTOP, { outerRadius: '53px', screenRadius: '42px', width: 331 }],
 ] as const) {
   test(`${label}: all 9 PhoneFrame instances share identical computed geometry`, async ({ browser }) => {
     const { context, page } = await openLanding(browser, viewport);
@@ -84,12 +84,12 @@ for (const [label, viewport, expected] of [
         };
       }, i);
 
-      // Outer bezel: pixel radius + the min(264px,78vw)/334/368 width band.
+      // Outer bezel: pixel radius + the min(238px,78vw)/301/331 width band.
       expect(rects.outerRadius, `frame ${i} outer radius`).toBe(expected.outerRadius);
       expect(rects.outer.width, `frame ${i} outer width`).toBeGreaterThan(expected.width - 2);
       expect(rects.outer.width, `frame ${i} outer width`).toBeLessThan(expected.width + 2);
 
-      // Screen: radius = outer radius minus the bezel padding (42-9=33, 59-12=47).
+      // Screen: radius = outer radius minus the bezel padding (38-8=30, 53-11=42).
       expect(rects.screenRadius, `frame ${i} screen radius`).toBe(expected.screenRadius);
 
       // Screen box holds the 390:844 ratio, within 1%.
