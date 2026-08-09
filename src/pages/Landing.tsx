@@ -19,7 +19,7 @@ FORM: single scroll, film order: film, five feature acts, dark close. Concept
 FINISH: unreviewed and undocumented is unfinished; this build ends with the
   finish review, the verdict, and DESIGN.md.
 */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -416,6 +416,30 @@ const CollabPanel = () => {
   );
 };
 
+const PHONE_SHADOW =
+  'shadow-[0_34px_70px_-28px_rgba(15,40,52,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]';
+
+/* Unified CSS phone frame (sample-first gate: braindump only for now, the
+   other eight stay on their current bezel path until this sample is signed
+   off). The frame owns bezel + screen geometry; screen radius = outer radius
+   minus padding, so the ring reads as one continuous edge. Media just fills
+   the screen via object-cover — no bezel baked into the pixels here, so no
+   scale-[1.01] is needed to hide a sub-pixel seam. */
+const PhoneFrame = ({ children }: { children: ReactNode }) => (
+  <div
+    data-testid="phone-frame"
+    className={`relative mx-auto w-[min(300px,78vw)] rounded-[48px] bg-[#1d232c] p-[10px] ${PHONE_SHADOW} sm:w-[380px] sm:rounded-[61px] sm:p-[12px] lg:w-[420px] lg:rounded-[67px] lg:p-[13px]`}
+  >
+    <div
+      data-testid="phone-frame-screen"
+      className="overflow-hidden rounded-[38px] sm:rounded-[49px] lg:rounded-[54px]"
+      style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)', aspectRatio: '390 / 844' }}
+    >
+      {children}
+    </div>
+  </div>
+);
+
 /* Each phone plays its scene from the approved film (Igor: the animations we
    already have). Muted loop, plays only while on screen, poster = the clip's
    own first frame so nothing jumps at load. Reduced motion gets the poster. */
@@ -443,6 +467,16 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
     ? 'rounded-[38px] sm:rounded-[49px] lg:rounded-[54px]'
     : 'rounded-[48px] sm:rounded-[61px] lg:rounded-[67px]';
 
+  /* PhoneFrame sample (braindump only): the frame supplies the screen's
+     radius via overflow-hidden + mask, so the clip is re-rendered
+     screen-only at 780x1688 (390:844) and just fills it edge to edge. */
+  const inFrame = feature.id === 'braindump';
+  const clipW = inFrame ? 780 : 718;
+  const clipH = inFrame ? 1688 : 1342;
+  const clipClassName = inFrame
+    ? 'block h-full w-full object-cover'
+    : `block w-full scale-[1.01] ${mediaRadius}`;
+
   const media = feature.panel ? (
     feature.panel === 'mcp' ? (
       <McpPanel />
@@ -466,9 +500,9 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
       alt={feature.alt}
       loading="lazy"
       decoding="async"
-      width={718}
-      height={1342}
-      className={`block w-full scale-[1.01] ${mediaRadius}`}
+      width={clipW}
+      height={clipH}
+      className={clipClassName}
     />
   ) : (
     <video
@@ -477,18 +511,19 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
       loop
       playsInline
       preload="none"
-      width={718}
-      height={1342}
+      width={clipW}
+      height={clipH}
       poster={`${BASE}media/clips/${feature.clip}-poster.jpg`}
       aria-label={feature.alt}
-      className={`block w-full scale-[1.01] ${mediaRadius}`}
+      className={clipClassName}
     >
       <source src={`${BASE}media/clips/${feature.clip}.mp4`} type="video/mp4" />
     </video>
   );
 
-  const shadow =
-    'shadow-[0_34px_70px_-28px_rgba(15,40,52,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]';
+  const shadow = PHONE_SHADOW;
+
+  if (inFrame) return <PhoneFrame>{media}</PhoneFrame>;
 
   return feature.cssBezel ? (
     <div
