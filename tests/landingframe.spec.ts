@@ -1,18 +1,19 @@
 /**
- * PhoneFrame geometry spec (2026-08-09).
+ * PhoneFrame geometry spec (2026-08-09, extended).
  *
- * braindump is the sample-first gate for the unified CSS PhoneFrame: bezel +
+ * All nine feature sections now share the one unified CSS PhoneFrame: bezel +
  * screen geometry live in the frame's own classes (Landing.tsx PhoneFrame),
- * not baked into the clip's pixels. This spec pins the frame's computed
- * geometry at the two Tailwind edges that matter (base <640, lg >=1024) and
- * guards that the other eight feature phones — still on the old bezel paths
- * — did not move.
+ * never in per-feature bezel/radius branches. This spec pins the frame's
+ * computed geometry at the two Tailwind edges that matter (base <640, lg
+ * >=1024) and asserts all 9 instances are identical — no drift, no leftover
+ * bezel path.
  *
- * Video dims: public/media/clips/braindump.mp4 + -poster.jpg are mid
- * re-render to 780x1688 (390:844, screen-only, no baked bezel). The frame
- * controls the SCREEN's aspect-ratio via CSS (aspectRatio on the screen div),
- * not the file's intrinsic size, so this spec asserts the CONTAINER geometry
- * and never depends on which file happens to be on disk when it runs.
+ * Video dims: public/media/clips/*.mp4 + *-poster.jpg (plus the new collab
+ * clip) are mid re-render to 780x1688 (390:844, screen-only, no baked
+ * bezel). The frame controls the SCREEN's aspect-ratio via CSS (aspectRatio
+ * on the screen div), not the file's intrinsic size or its presence on disk,
+ * so this spec asserts the CONTAINER geometry only. Missing clip files/poster
+ * 404s during the parallel re-render window must not fail this spec.
  *
  * HERMETIC-adjacent, unlike the /app suites: Landing ("/") is a public route,
  * no seeded session needed. useAuth() resolves loading=false/user=null from
@@ -26,6 +27,7 @@ const DESKTOP = { width: 1280, height: 900 };
 
 const FRAME = '[data-testid="phone-frame"]';
 const SCREEN = '[data-testid="phone-frame-screen"]';
+const FEATURE_COUNT = 9;
 
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -39,88 +41,79 @@ async function openLanding(
   const context = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch });
   const page = await context.newPage();
   await page.goto('/');
-  await expect(page.locator(FRAME)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(FRAME).first()).toBeVisible({ timeout: 15_000 });
   return { context, page };
 }
 
-async function requireBox(locator: { boundingBox(): Promise<Box | null> }): Promise<Box> {
-  const b = await locator.boundingBox();
-  expect(b).not.toBeNull();
-  return b as Box;
-}
-
 // ---------------------------------------------------------------------------
-// 1+2+3. Frame geometry at the two breakpoints that matter: base (<640) and
-//    lg (>=1024). Outer radius/width, screen radius, screen aspect ratio, and
-//    the media never bleeding past the screen box.
+// Exactly 9 PhoneFrame instances (one per FEATURES entry), all sharing
+// identical computed geometry: outer radius/width, screen radius, screen
+// aspect ratio, and no bleed of whatever fills the screen (clip video/img,
+// or the mcp panel's scaled 390x844 canvas).
 // ---------------------------------------------------------------------------
 for (const [label, viewport, expected] of [
   ['393x852 (base)', MOBILE, { outerRadius: '48px', screenRadius: '38px', width: 300 }],
   ['1280x900 (lg)', DESKTOP, { outerRadius: '67px', screenRadius: '54px', width: 420 }],
 ] as const) {
-  test(`${label}: braindump PhoneFrame computed geometry`, async ({ browser }) => {
+  test(`${label}: all 9 PhoneFrame instances share identical computed geometry`, async ({ browser }) => {
     const { context, page } = await openLanding(browser, viewport);
 
-    const outer = page.locator(FRAME);
-    const screen = page.locator(SCREEN);
+    await expect(page.locator(FRAME)).toHaveCount(FEATURE_COUNT);
 
-    // Outer bezel: pixel radius + the min(300px,78vw)/380/420 width band.
-    const outerRadius = await outer.evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
-    expect(outerRadius).toBe(expected.outerRadius);
-    const outerBox = await requireBox(outer);
-    expect(outerBox.width).toBeGreaterThan(expected.width - 2);
-    expect(outerBox.width).toBeLessThan(expected.width + 2);
+    for (let i = 0; i < FEATURE_COUNT; i++) {
+      await page.locator(FRAME).nth(i).scrollIntoViewIfNeeded();
 
-    // Screen: radius = outer radius minus the bezel padding (48-10=38, 67-13=54).
-    const screenRadius = await screen.evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
-    expect(screenRadius).toBe(expected.screenRadius);
+      // Every box (outer, screen, content) and both computed radii are read
+      // in one atomic evaluate: two round-trip reads of an in-flow scroll
+      // container can straddle a reflow and disagree by a px or two even
+      // with no scroll-behavior:smooth in play — one snapshot removes that.
+      const rects = await page.evaluate((idx) => {
+        const outerEl = document.querySelectorAll('[data-testid="phone-frame"]')[idx] as HTMLElement;
+        const screenEl = document.querySelectorAll('[data-testid="phone-frame-screen"]')[idx] as HTMLElement;
+        const contentEl = screenEl.querySelector('video, img, div') as HTMLElement | null;
+        const box = (el: HTMLElement) => {
+          const r = el.getBoundingClientRect();
+          return { x: r.x, y: r.y, width: r.width, height: r.height };
+        };
+        return {
+          outerRadius: getComputedStyle(outerEl).borderTopLeftRadius,
+          screenRadius: getComputedStyle(screenEl).borderTopLeftRadius,
+          outer: box(outerEl),
+          screen: box(screenEl),
+          content: contentEl ? box(contentEl) : null,
+        };
+      }, i);
 
-    // Screen box holds the 390:844 ratio, within 1%.
-    const screenBox = await requireBox(screen);
-    const ratio = screenBox.width / screenBox.height;
-    const target = 390 / 844;
-    expect(Math.abs(ratio - target) / target).toBeLessThan(0.01);
+      // Outer bezel: pixel radius + the min(300px,78vw)/380/420 width band.
+      expect(rects.outerRadius, `frame ${i} outer radius`).toBe(expected.outerRadius);
+      expect(rects.outer.width, `frame ${i} outer width`).toBeGreaterThan(expected.width - 2);
+      expect(rects.outer.width, `frame ${i} outer width`).toBeLessThan(expected.width + 2);
 
-    // No bleed: the media fills the screen (object-cover) but never exceeds it.
-    const media = page.locator(`${SCREEN} video, ${SCREEN} img`).first();
-    const mediaBox = await requireBox(media);
-    expect(mediaBox.x).toBeGreaterThanOrEqual(screenBox.x - 1);
-    expect(mediaBox.y).toBeGreaterThanOrEqual(screenBox.y - 1);
-    expect(mediaBox.x + mediaBox.width).toBeLessThanOrEqual(screenBox.x + screenBox.width + 1);
-    expect(mediaBox.y + mediaBox.height).toBeLessThanOrEqual(screenBox.y + screenBox.height + 1);
+      // Screen: radius = outer radius minus the bezel padding (48-10=38, 67-13=54).
+      expect(rects.screenRadius, `frame ${i} screen radius`).toBe(expected.screenRadius);
+
+      // Screen box holds the 390:844 ratio, within 1%.
+      const screenBox = rects.screen;
+      const ratio = screenBox.width / screenBox.height;
+      const target = 390 / 844;
+      expect(Math.abs(ratio - target) / target, `frame ${i} screen aspect`).toBeLessThan(0.01);
+
+      // No bleed: the screen's own content (video/img for clips, or the mcp
+      // panel's scaled canvas div) fills the screen but never exceeds it.
+      // querySelector in DOM order always lands on the direct child
+      // PhoneFrame was given — nothing else precedes it.
+      expect(rects.content, `frame ${i} content exists`).not.toBeNull();
+      const contentBox = rects.content as Box;
+      expect(contentBox.x, `frame ${i} content x`).toBeGreaterThanOrEqual(screenBox.x - 1);
+      expect(contentBox.y, `frame ${i} content y`).toBeGreaterThanOrEqual(screenBox.y - 1);
+      expect(contentBox.x + contentBox.width, `frame ${i} content right`).toBeLessThanOrEqual(
+        screenBox.x + screenBox.width + 1,
+      );
+      expect(contentBox.y + contentBox.height, `frame ${i} content bottom`).toBeLessThanOrEqual(
+        screenBox.y + screenBox.height + 1,
+      );
+    }
 
     await context.close();
   });
 }
-
-// ---------------------------------------------------------------------------
-// 4. Sample-leak guard: the meetings phone (still baked-bezel, film-crop)
-//    must keep its exact current classes — old radius on the media itself,
-//    the scale-[1.01] safety margin, 718-wide attrs, no PhoneFrame wrapper.
-// ---------------------------------------------------------------------------
-test('393x852: meetings phone is untouched by the braindump PhoneFrame sample', async ({ browser }) => {
-  const { context, page } = await openLanding(browser, MOBILE);
-
-  // Exactly one PhoneFrame instance exists on the page (braindump only, this
-  // wave) — the guard that the sample did not leak onto another section.
-  await expect(page.locator(FRAME)).toHaveCount(1);
-
-  const meetingsVideo = page.locator('video[poster*="meetings-poster.jpg"]');
-  await expect(meetingsVideo).toHaveCount(1);
-  await expect(meetingsVideo).toHaveAttribute('width', '718');
-  await expect(meetingsVideo).toHaveAttribute('height', '1342');
-
-  const cls = (await meetingsVideo.getAttribute('class')) ?? '';
-  expect(cls).toContain('scale-[1.01]');
-  expect(cls).toContain('rounded-[48px]');
-  expect(cls).not.toContain('object-cover');
-
-  // Baked-bezel wrapper: overflow-hidden + rounded-[48px], no bezel bg/padding
-  // (the film-crop path never gets the #1d232c bezel — it is IN the pixels).
-  const wrapperCls = (await meetingsVideo.locator('xpath=..').getAttribute('class')) ?? '';
-  expect(wrapperCls).toContain('overflow-hidden');
-  expect(wrapperCls).toContain('rounded-[48px]');
-  expect(wrapperCls).not.toContain('bg-[#1d232c]');
-
-  await context.close();
-});
