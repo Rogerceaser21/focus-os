@@ -146,7 +146,7 @@ const FEATURES: Feature[] = [
     head: 'See the whole project on one line',
     body:
       'Every task becomes a bar on the month, next to everything else on the plan. Drag a bar to move its dates and the plan reshapes itself. Planning is just dragging.',
-    shot: 'gantt.png',
+    clip: 'gantt',
     cssBezel: true,
     alt: 'A project timeline with task bars laid across the month',
   },
@@ -156,7 +156,7 @@ const FEATURES: Feature[] = [
     head: 'Know where your time went',
     body:
       'Every task has a play button. Press it and Focus OS counts the minutes, flips the task into progress, and charts your hours by project and task. The proof of a day of work, drawn for you.',
-    shot: 'time.png',
+    clip: 'time',
     cssBezel: true,
     alt: 'Tracked hours charted per project and task',
   },
@@ -237,7 +237,7 @@ const FilmPlayer = () => {
         onClick={enterFullscreen}
         aria-label="Watch full screen"
         title="Watch full screen"
-        className="absolute right-3 top-3 rounded-full border border-white/25 bg-white/12 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-md transition-colors hover:bg-white/20 active:scale-[0.97]"
+        className="absolute right-3 top-3 rounded-full border border-white/15 bg-[#141925]/85 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md transition-colors hover:bg-[#1d2433]/90 active:scale-[0.97]"
       >
         <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M8 3H5a2 2 0 0 0-2 2v3" />
@@ -251,7 +251,7 @@ const FilmPlayer = () => {
           onClick={playWithSound}
           aria-label="Watch with sound"
           title="Watch with sound"
-          className="absolute right-14 top-3 rounded-full border border-white/25 bg-white/12 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-md transition-colors hover:bg-white/20 active:scale-[0.97]"
+          className="absolute right-14 top-3 rounded-full border border-white/15 bg-[#141925]/85 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md transition-colors hover:bg-[#1d2433]/90 active:scale-[0.97]"
         >
           <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none" />
@@ -266,14 +266,35 @@ const FilmPlayer = () => {
 
 /* Authored product-styled panels for features the film never staged. Demo
    persona data (Ivy, Sarah Chen); real capabilities only. Decorative: the
-   surrounding figure carries the alt text. */
-const McpPanel = () => (
-  <div
+   surrounding figure carries the alt text. Blocks stagger in on scroll, in
+   the page's spring register. */
+const panelStagger = {
+  hidden: {},
+  shown: { transition: { staggerChildren: 0.16, delayChildren: 0.1 } },
+};
+const panelItem = {
+  hidden: { opacity: 0, y: 14 },
+  shown: {
+    opacity: 1,
+    y: 0,
+    transition: { type: 'spring' as const, bounce: 0, duration: 0.5 },
+  },
+};
+
+const McpPanel = () => {
+  const reduce = useReducedMotion();
+  const V = reduce ? undefined : panelItem;
+  return (
+  <motion.div
     aria-hidden
     className="flex flex-col gap-3 bg-[#f4f5f7] p-4 text-[#1b1f24]"
     style={{ aspectRatio: '504 / 942' }}
+    variants={reduce ? undefined : panelStagger}
+    initial={reduce ? false : 'hidden'}
+    whileInView={reduce ? undefined : 'shown'}
+    viewport={{ once: true, amount: 0.3 }}
   >
-    <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm">
+    <motion.div variants={V} className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm">
       <span className="flex items-center gap-2 text-[13px] font-semibold">
         <span className="h-2 w-2 rounded-full bg-[#34c759]" />
         Assistant connected
@@ -281,30 +302,31 @@ const McpPanel = () => (
       <span className="rounded-full bg-[#0f7490]/10 px-2.5 py-0.5 text-[11px] font-bold text-[#0f7490]">
         MCP
       </span>
-    </div>
-    <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-[#11141f] px-4 py-2.5 text-[13px] leading-relaxed text-white">
+    </motion.div>
+    <motion.div variants={V} className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-[#11141f] px-4 py-2.5 text-[13px] leading-relaxed text-white">
       What is on my plate today?
-    </div>
-    <div className="mr-auto max-w-[92%] rounded-2xl rounded-bl-md bg-white px-4 py-2.5 text-[13px] leading-relaxed shadow-sm">
+    </motion.div>
+    <motion.div variants={V} className="mr-auto max-w-[92%] rounded-2xl rounded-bl-md bg-white px-4 py-2.5 text-[13px] leading-relaxed shadow-sm">
       Three tasks today: homepage mockups for Sarah (high), the pricing page
       copy, and booking the photographer.
-    </div>
-    <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-[#11141f] px-4 py-2.5 text-[13px] leading-relaxed text-white">
+    </motion.div>
+    <motion.div variants={V} className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-[#11141f] px-4 py-2.5 text-[13px] leading-relaxed text-white">
       Add one: send Sarah the final logo files.
-    </div>
-    <div className="mr-auto flex max-w-[92%] items-center gap-2 rounded-2xl border border-[#34c759]/30 bg-[#34c759]/10 px-4 py-2.5 text-[13px] font-medium text-[#1b6f3d]">
+    </motion.div>
+    <motion.div variants={V} className="mr-auto flex max-w-[92%] items-center gap-2 rounded-2xl border border-[#34c759]/30 bg-[#34c759]/10 px-4 py-2.5 text-[13px] font-medium text-[#1b6f3d]">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 6 9 17l-5-5" />
       </svg>
       Task created · Website Redesign
-    </div>
-    <div className="mt-auto flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-[#22303a]/60">
+    </motion.div>
+    <motion.div variants={V} className="mt-auto flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-[#22303a]/60">
       <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Claude</span>
       <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">ChatGPT</span>
       <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">any MCP client</span>
-    </div>
-  </div>
-);
+    </motion.div>
+  </motion.div>
+  );
+};
 
 const CollabRow = ({
   initial,
@@ -333,13 +355,20 @@ const CollabRow = ({
   </div>
 );
 
-const CollabPanel = () => (
-  <div
+const CollabPanel = () => {
+  const reduce = useReducedMotion();
+  const V = reduce ? undefined : panelItem;
+  return (
+  <motion.div
     aria-hidden
     className="flex flex-col gap-3 bg-[#f4f5f7] p-4 text-[#1b1f24]"
     style={{ aspectRatio: '504 / 942' }}
+    variants={reduce ? undefined : panelStagger}
+    initial={reduce ? false : 'hidden'}
+    whileInView={reduce ? undefined : 'shown'}
+    viewport={{ once: true, amount: 0.3 }}
   >
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <motion.div variants={V} className="rounded-2xl bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-[15px] font-bold">
           <span className="h-2.5 w-2.5 rounded-full bg-[#8b5cf6]" />
@@ -354,8 +383,8 @@ const CollabPanel = () => (
         <CollabRow initial="S" name="Sarah Chen" role="Collaborator" color="#8b5cf6" online />
         <CollabRow initial="M" name="Marco Ruiz" role="Viewer" color="#d97941" />
       </div>
-    </div>
-    <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
+    </motion.div>
+    <motion.div variants={V} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#34c759] text-white">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
@@ -376,12 +405,16 @@ const CollabPanel = () => (
           live
         </span>
       </div>
-    </div>
-    <div className="mt-auto self-center rounded-full bg-[#0f7490] px-5 py-2 text-[13px] font-semibold text-white shadow-sm">
+    </motion.div>
+    <motion.div
+      variants={V}
+      className="mt-auto self-center rounded-full bg-[#0f7490] px-5 py-2 text-[13px] font-semibold text-white shadow-sm"
+    >
       + Invite member
-    </div>
-  </div>
-);
+    </motion.div>
+  </motion.div>
+  );
+};
 
 /* Each phone plays its scene from the approved film (Igor: the animations we
    already have). Muted loop, plays only while on screen, poster = the clip's
