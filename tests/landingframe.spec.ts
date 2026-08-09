@@ -52,8 +52,8 @@ async function openLanding(
 // or the mcp panel's scaled 390x844 canvas).
 // ---------------------------------------------------------------------------
 for (const [label, viewport, expected] of [
-  ['393x852 (base)', MOBILE, { outerRadius: '48px', screenRadius: '38px', width: 300 }],
-  ['1280x900 (lg)', DESKTOP, { outerRadius: '67px', screenRadius: '54px', width: 420 }],
+  ['393x852 (base)', MOBILE, { outerRadius: '42px', screenRadius: '33px', width: 264 }],
+  ['1280x900 (lg)', DESKTOP, { outerRadius: '59px', screenRadius: '47px', width: 368 }],
 ] as const) {
   test(`${label}: all 9 PhoneFrame instances share identical computed geometry`, async ({ browser }) => {
     const { context, page } = await openLanding(browser, viewport);
@@ -84,12 +84,12 @@ for (const [label, viewport, expected] of [
         };
       }, i);
 
-      // Outer bezel: pixel radius + the min(300px,78vw)/380/420 width band.
+      // Outer bezel: pixel radius + the min(264px,78vw)/334/368 width band.
       expect(rects.outerRadius, `frame ${i} outer radius`).toBe(expected.outerRadius);
       expect(rects.outer.width, `frame ${i} outer width`).toBeGreaterThan(expected.width - 2);
       expect(rects.outer.width, `frame ${i} outer width`).toBeLessThan(expected.width + 2);
 
-      // Screen: radius = outer radius minus the bezel padding (48-10=38, 67-13=54).
+      // Screen: radius = outer radius minus the bezel padding (42-9=33, 59-12=47).
       expect(rects.screenRadius, `frame ${i} screen radius`).toBe(expected.screenRadius);
 
       // Screen box holds the 390:844 ratio, within 1%.
@@ -117,3 +117,59 @@ for (const [label, viewport, expected] of [
     await context.close();
   });
 }
+
+// ---------------------------------------------------------------------------
+// Overflow law (Igor's 2026-08-09 desktop clip bug): at NO window width may
+// the page scroll horizontally, and every frame must sit fully inside the
+// viewport. The 640-1023 band is the killer: two-column grid + fixed-width
+// frame used to punch out of the right edge; max-w-full + fit-content cells
+// clamp it now. Sweep the band edges plus the shipped breakpoints.
+// ---------------------------------------------------------------------------
+test('no horizontal overflow and every frame fits, 640-1280 sweep', async ({ browser }) => {
+  test.setTimeout(120000);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto('/');
+  await expect(page.locator(FRAME).first()).toBeVisible({ timeout: 15_000 });
+
+  for (const width of [640, 700, 768, 900, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const audit = await page.evaluate(() => {
+      const doc = document.documentElement;
+      const frames = [...document.querySelectorAll('[data-testid="phone-frame"]')].map((el) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right, width: r.width };
+      });
+      return { scrollWidth: doc.scrollWidth, clientWidth: doc.clientWidth, frames };
+    });
+    expect(audit.scrollWidth, `page overflows at ${width}px`).toBeLessThanOrEqual(
+      audit.clientWidth + 1,
+    );
+    expect(audit.frames.length, `frame count at ${width}px`).toBe(FEATURE_COUNT);
+    const widths = audit.frames.map((f) => f.width);
+    for (const [i, f] of audit.frames.entries()) {
+      expect(f.left, `frame ${i} left edge at ${width}px`).toBeGreaterThanOrEqual(-1);
+      expect(f.right, `frame ${i} right edge at ${width}px`).toBeLessThanOrEqual(width + 1);
+      // Identity holds at every width, not just the shipped breakpoints.
+      expect(Math.abs(f.width - widths[0]), `frame ${i} width drift at ${width}px`).toBeLessThan(2);
+    }
+  }
+
+  await context.close();
+});
+
+// ---------------------------------------------------------------------------
+// The film's sound control is a persistent TOGGLE (Igor's 2026-08-09 bug: the
+// old conditional render unmounted the button after its first click).
+// ---------------------------------------------------------------------------
+test('film sound button survives clicking and toggles its label', async ({ browser }) => {
+  const { context, page } = await openLanding(browser, DESKTOP);
+  const sound = page.getByRole('button', { name: 'Watch with sound' });
+  await expect(sound).toBeVisible();
+  await sound.click();
+  const mute = page.getByRole('button', { name: 'Mute' });
+  await expect(mute).toBeVisible(); // still mounted, flipped state
+  await mute.click();
+  await expect(page.getByRole('button', { name: 'Watch with sound' })).toBeVisible();
+  await context.close();
+});

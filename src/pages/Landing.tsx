@@ -19,7 +19,7 @@ FORM: single scroll, film order: film, five feature acts, dark close. Concept
 FINISH: unreviewed and undocumented is unfinished; this build ends with the
   finish review, the verdict, and DESIGN.md.
 */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -170,15 +170,23 @@ const FilmPlayer = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const portrait = ratio === 'portrait';
 
-  /* The narration carries the whole pitch: an authored restart-with-sound
-     control in the world's own glass, alongside the familiar native controls. */
-  const playWithSound = () => {
+  /* The narration carries the whole pitch: a persistent sound TOGGLE in the
+     world's own glass, alongside the familiar native controls. Unmuting
+     restarts from the top so the pitch is heard whole; muting just mutes.
+     The button never unmounts (Igor, 2026-08-09: a control that vanishes
+     after its first click reads as a bug). */
+  const toggleSound = () => {
     const v = videoRef.current;
     if (!v) return;
-    v.muted = false;
-    v.currentTime = 0;
-    void v.play();
-    setWithSound(true);
+    if (withSound) {
+      v.muted = true;
+      setWithSound(false);
+    } else {
+      v.muted = false;
+      v.currentTime = 0;
+      void v.play();
+      setWithSound(true);
+    }
   };
 
   /* iPhone Safari has no requestFullscreen on video; webkitEnterFullscreen
@@ -240,20 +248,26 @@ const FilmPlayer = () => {
           <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
         </svg>
       </button>
-      {!withSound && (
-        <button
-          onClick={playWithSound}
-          aria-label="Watch with sound"
-          title="Watch with sound"
-          className="absolute right-14 top-3 rounded-full border border-white/15 bg-[#141925]/85 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md transition-colors hover:bg-[#1d2433]/90 active:scale-[0.97]"
-        >
+      <button
+        onClick={toggleSound}
+        aria-label={withSound ? 'Mute' : 'Watch with sound'}
+        title={withSound ? 'Mute' : 'Watch with sound'}
+        className="absolute right-14 top-3 rounded-full border border-white/15 bg-[#141925]/85 p-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md transition-colors hover:bg-[#1d2433]/90 active:scale-[0.97]"
+      >
+        {withSound ? (
+          <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none" />
+            <line x1="15" y1="9" x2="21" y2="15" />
+            <line x1="21" y1="9" x2="15" y2="15" />
+          </svg>
+        ) : (
           <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none" />
             <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
             <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
           </svg>
-        </button>
-      )}
+        )}
+      </button>
     </div>
   );
 };
@@ -275,20 +289,35 @@ const panelItem = {
   },
 };
 
-/* Native phone metrics, no JS measurement: the panel is laid out once on a
-   fixed 390x844 canvas (390pt = a real phone screen) and CSS-scaled down to
-   whichever screen width PhoneFrame is showing. Screen inner widths are
-   exactly 280/356/394 (base/sm/lg — outer width minus the bezel padding), so
-   scale = 280/390, 356/390, 394/390 per breakpoint. Uniform scale keeps the
-   390-canvas aspect ratio, which already matches the screen's own 390:844. */
-const PANEL_SCALE = 'origin-top-left scale-[0.717949] sm:scale-[0.912821] lg:scale-[1.010256]';
-
+/* Native phone metrics: the panel is laid out once on a fixed 390x844 canvas
+   (390pt = a real phone screen) and CSS-scaled to the screen's MEASURED width.
+   Measured, not per-breakpoint constants: the frame clamps to its grid column
+   below 1024 (max-w-full), so the screen can sit anywhere under its breakpoint
+   width. ResizeObserver fires after layout, before paint; the initial value
+   only carries the very first frame. */
 const McpPanel = () => {
   const reduce = useReducedMotion();
   const V = reduce ? undefined : panelItem;
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(344 / 390);
+  useLayoutEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setScale(e.contentRect.width / 390));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <div className={PANEL_SCALE} style={{ width: 390, height: 844 }}>
-      <motion.div
+    <div ref={hostRef} className="h-full w-full">
+      <div className="origin-top-left" style={{ width: 390, height: 844, transform: `scale(${scale})` }}>
+        <McpPanelBody reduce={reduce} V={V} />
+      </div>
+    </div>
+  );
+};
+
+const McpPanelBody = ({ reduce, V }: { reduce: boolean | null; V?: typeof panelItem }) => (
+    <motion.div
         aria-hidden
         className="flex h-full w-full flex-col gap-4 bg-[#f4f5f7] p-5 text-[#1b1f24]"
         variants={reduce ? undefined : panelStagger}
@@ -326,10 +355,8 @@ const McpPanel = () => {
           <span className="rounded-full bg-white px-3 py-1.5 shadow-sm">ChatGPT</span>
           <span className="rounded-full bg-white px-3 py-1.5 shadow-sm">any MCP client</span>
         </motion.div>
-      </motion.div>
-    </div>
-  );
-};
+    </motion.div>
+);
 
 const PHONE_SHADOW =
   'shadow-[0_34px_70px_-28px_rgba(15,40,52,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]';
@@ -340,14 +367,19 @@ const PHONE_SHADOW =
    the ring reads as one continuous edge. Media just fills the screen via
    object-cover — no bezel baked into the pixels here, so no scale-[1.01] is
    needed to hide a sub-pixel seam. */
+/* Sizes are ~12% under the first shipped cut (Igor, 2026-08-09: phones read
+   too large on desktop). max-w-full is the overflow law: the two-column act
+   grid starts at 640px where a fixed-width frame can exceed its column and
+   punch out of the viewport — the frame must clamp to whatever its cell
+   gives it, never clip. Radii stay concentric: inner = outer - padding. */
 const PhoneFrame = ({ children }: { children: ReactNode }) => (
   <div
     data-testid="phone-frame"
-    className={`relative mx-auto w-[min(300px,78vw)] rounded-[48px] bg-[#1d232c] p-[10px] ${PHONE_SHADOW} sm:w-[380px] sm:rounded-[61px] sm:p-[12px] lg:w-[420px] lg:rounded-[67px] lg:p-[13px]`}
+    className={`relative mx-auto w-[min(264px,78vw)] max-w-full rounded-[42px] bg-[#1d232c] p-[9px] ${PHONE_SHADOW} sm:w-[334px] sm:rounded-[54px] sm:p-[11px] lg:w-[368px] lg:rounded-[59px] lg:p-[12px]`}
   >
     <div
       data-testid="phone-frame-screen"
-      className="overflow-hidden rounded-[38px] sm:rounded-[49px] lg:rounded-[54px]"
+      className="overflow-hidden rounded-[33px] sm:rounded-[43px] lg:rounded-[47px]"
       style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)', aspectRatio: '390 / 844' }}
     >
       {children}
@@ -839,7 +871,10 @@ const Landing = () => {
                     (flip ? 'sm:[&>*:first-child]:order-2' : '')
                   }
                 >
-                  <div className={flip ? 'sm:justify-self-start' : 'sm:justify-self-end'}>
+                  {/* min-w-0 + the frame's own max-w-full: a justify-self cell
+                      sizes fit-content, which clamps at the 1fr column — the
+                      frame then fills the clamped cell instead of clipping */}
+                  <div className={'min-w-0 max-w-full ' + (flip ? 'sm:justify-self-start' : 'sm:justify-self-end')}>
                     <ScenePhone feature={f} />
                   </div>
                   <div className="max-w-[46ch]">
