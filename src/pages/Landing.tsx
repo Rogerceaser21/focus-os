@@ -61,10 +61,13 @@ type Feature = {
   label: string;
   head: string;
   body: string;
-  clip: string;
   alt: string;
-  /* the four film crops carry the device bezel in their own pixels; the
-     calendar scene was authored as a lifted panel, so it gets the CSS bezel */
+  /* clip: scene cropped from the film. shot: real app components captured with
+     demo data. panel: authored product-styled JSX. The four film crops carry
+     the device bezel in their own pixels; everything else gets the CSS bezel. */
+  clip?: string;
+  shot?: string;
+  panel?: 'mcp' | 'collab';
   cssBezel?: boolean;
 };
 
@@ -90,6 +93,16 @@ const FEATURES: Feature[] = [
     alt: 'Hand off to AI sheet with the generated prompt ready to send',
   },
   {
+    id: 'mcp',
+    label: 'MCP Server',
+    head: 'Plug your AI straight into your tasks',
+    body:
+      'Focus OS speaks MCP, the open standard AI assistants use. Connect once and your assistant can read your task list, add new tasks and tick things off, right from the chat you already live in.',
+    panel: 'mcp',
+    cssBezel: true,
+    alt: 'An AI assistant connected to Focus OS listing and creating tasks over MCP',
+  },
+  {
     id: 'meetings',
     label: 'Meetings',
     head: 'Never lose an action item again',
@@ -108,6 +121,16 @@ const FEATURES: Feature[] = [
     alt: 'Share Task dialog sending a task to a teammate by email',
   },
   {
+    id: 'collab',
+    label: 'Collaboration',
+    head: 'One project. Everyone in it.',
+    body:
+      'Invite your people into a project as collaborators or viewers. Everyone works on the same tasks, live. No copies, no versions, no forwarding. Sharing hands one task out; collaboration brings the whole team in.',
+    panel: 'collab',
+    cssBezel: true,
+    alt: 'A shared project with its members and tasks being completed together',
+  },
+  {
     id: 'calendar',
     label: 'Calendar',
     head: 'Your plan lands on your calendar',
@@ -116,6 +139,26 @@ const FEATURES: Feature[] = [
     clip: 'calendar',
     cssBezel: true,
     alt: 'Free/busy availability picker over a day grid',
+  },
+  {
+    id: 'timelines',
+    label: 'Timelines',
+    head: 'See the whole project on one line',
+    body:
+      'Every task becomes a bar on the month, next to everything else on the plan. Drag a bar to move its dates and the plan reshapes itself. Planning is just dragging.',
+    shot: 'gantt.png',
+    cssBezel: true,
+    alt: 'A project timeline with task bars laid across the month',
+  },
+  {
+    id: 'time',
+    label: 'Time Tracking',
+    head: 'Know where your time went',
+    body:
+      'Every task has a play button. Press it and Focus OS counts the minutes, flips the task into progress, and charts your hours by project and task. The proof of a day of work, drawn for you.',
+    shot: 'time.png',
+    cssBezel: true,
+    alt: 'Tracked hours charted per project and task',
   },
 ];
 
@@ -221,6 +264,125 @@ const FilmPlayer = () => {
   );
 };
 
+/* Authored product-styled panels for features the film never staged. Demo
+   persona data (Ivy, Sarah Chen); real capabilities only. Decorative: the
+   surrounding figure carries the alt text. */
+const McpPanel = () => (
+  <div
+    aria-hidden
+    className="flex flex-col gap-3 bg-[#f4f5f7] p-4 text-[#1b1f24]"
+    style={{ aspectRatio: '504 / 942' }}
+  >
+    <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm">
+      <span className="flex items-center gap-2 text-[13px] font-semibold">
+        <span className="h-2 w-2 rounded-full bg-[#34c759]" />
+        Assistant connected
+      </span>
+      <span className="rounded-full bg-[#0f7490]/10 px-2.5 py-0.5 text-[11px] font-bold text-[#0f7490]">
+        MCP
+      </span>
+    </div>
+    <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-[#11141f] px-4 py-2.5 text-[13px] leading-relaxed text-white">
+      What is on my plate today?
+    </div>
+    <div className="mr-auto max-w-[92%] rounded-2xl rounded-bl-md bg-white px-4 py-2.5 text-[13px] leading-relaxed shadow-sm">
+      Three tasks today: homepage mockups for Sarah (high), the pricing page
+      copy, and booking the photographer.
+    </div>
+    <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-[#11141f] px-4 py-2.5 text-[13px] leading-relaxed text-white">
+      Add one: send Sarah the final logo files.
+    </div>
+    <div className="mr-auto flex max-w-[92%] items-center gap-2 rounded-2xl border border-[#34c759]/30 bg-[#34c759]/10 px-4 py-2.5 text-[13px] font-medium text-[#1b6f3d]">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+      Task created · Website Redesign
+    </div>
+    <div className="mt-auto flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-[#22303a]/60">
+      <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Claude</span>
+      <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">ChatGPT</span>
+      <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">any MCP client</span>
+    </div>
+  </div>
+);
+
+const CollabRow = ({
+  initial,
+  name,
+  role,
+  color,
+  online,
+}: {
+  initial: string;
+  name: string;
+  role: string;
+  color: string;
+  online?: boolean;
+}) => (
+  <div className="flex items-center gap-3">
+    <span className="relative flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-bold text-white" style={{ background: color }}>
+      {initial}
+      {online && (
+        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#34c759]" />
+      )}
+    </span>
+    <span className="flex-1 text-[13px] font-medium">{name}</span>
+    <span className="rounded-full bg-[#22303a]/5 px-2.5 py-0.5 text-[11px] font-semibold text-[#22303a]/60">
+      {role}
+    </span>
+  </div>
+);
+
+const CollabPanel = () => (
+  <div
+    aria-hidden
+    className="flex flex-col gap-3 bg-[#f4f5f7] p-4 text-[#1b1f24]"
+    style={{ aspectRatio: '504 / 942' }}
+  >
+    <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 text-[15px] font-bold">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#8b5cf6]" />
+          Product Launch
+        </span>
+        <span className="text-[11px] font-bold uppercase tracking-wide text-[#22303a]/45">
+          3 members
+        </span>
+      </div>
+      <div className="mt-3 space-y-2.5">
+        <CollabRow initial="I" name="Ivy (you)" role="Owner" color="#0f7490" online />
+        <CollabRow initial="S" name="Sarah Chen" role="Collaborator" color="#8b5cf6" online />
+        <CollabRow initial="M" name="Marco Ruiz" role="Viewer" color="#d97941" />
+      </div>
+    </div>
+    <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#34c759] text-white">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        </span>
+        <span className="flex-1">
+          <span className="block text-[13px] font-medium text-[#22303a]/50 line-through">
+            Book photographer for Tuesday
+          </span>
+          <span className="block text-[11px] text-[#22303a]/45">completed by Sarah</span>
+        </span>
+      </div>
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 h-5 w-5 rounded-full border-2 border-[#22303a]/25" />
+        <span className="flex-1 text-[13px] font-medium">Draft the announcement email</span>
+        <span className="rounded-full bg-[#0f7490]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0f7490]">
+          live
+        </span>
+      </div>
+    </div>
+    <div className="mt-auto self-center rounded-full bg-[#0f7490] px-5 py-2 text-[13px] font-semibold text-white shadow-sm">
+      + Invite member
+    </div>
+  </div>
+);
+
 /* Each phone plays its scene from the approved film (Igor: the animations we
    already have). Muted loop, plays only while on screen, poster = the clip's
    own first frame so nothing jumps at load. Reduced motion gets the poster. */
@@ -248,7 +410,24 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
     ? 'rounded-[38px] sm:rounded-[49px] lg:rounded-[54px]'
     : 'rounded-[48px] sm:rounded-[61px] lg:rounded-[67px]';
 
-  const media = reduce ? (
+  const media = feature.panel ? (
+    feature.panel === 'mcp' ? (
+      <McpPanel />
+    ) : (
+      <CollabPanel />
+    )
+  ) : feature.shot ? (
+    // no loading="lazy" here: an unloaded zero-size image can never intersect,
+    // so it never loads, and the fit-content column collapses around it
+    <img
+      src={`${BASE}media/shots2/${feature.shot}`}
+      alt={feature.alt}
+      decoding="async"
+      width={820}
+      height={1532}
+      className={`block w-full scale-[1.01] ${mediaRadius}`}
+    />
+  ) : reduce ? (
     <img
       src={`${BASE}media/clips/${feature.clip}-poster.jpg`}
       alt={feature.alt}
@@ -280,7 +459,7 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
 
   return feature.cssBezel ? (
     <div
-      className={`relative mx-auto w-[min(300px,78vw)] rounded-[48px] bg-[#1d232c] p-[10px] ${shadow} sm:w-full sm:max-w-[380px] sm:rounded-[61px] sm:p-[12px] lg:max-w-[420px] lg:rounded-[67px] lg:p-[13px]`}
+      className={`relative mx-auto w-[min(300px,78vw)] rounded-[48px] bg-[#1d232c] p-[10px] ${shadow} sm:w-[380px] sm:rounded-[61px] sm:p-[12px] lg:w-[420px] lg:rounded-[67px] lg:p-[13px]`}
     >
       <div
         className="overflow-hidden rounded-[38px] sm:rounded-[49px] lg:rounded-[54px]"
@@ -291,7 +470,7 @@ const ScenePhone = ({ feature }: { feature: Feature }) => {
     </div>
   ) : (
     <div
-      className={`relative mx-auto w-[min(300px,78vw)] overflow-hidden rounded-[48px] ${shadow} sm:w-full sm:max-w-[380px] sm:rounded-[61px] lg:max-w-[420px] lg:rounded-[67px]`}
+      className={`relative mx-auto w-[min(300px,78vw)] overflow-hidden rounded-[48px] ${shadow} sm:w-[380px] sm:rounded-[61px] lg:w-[420px] lg:rounded-[67px]`}
       style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)' }}
     >
       {media}
