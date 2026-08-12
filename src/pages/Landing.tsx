@@ -944,12 +944,22 @@ const Landing = () => {
       <footer className="border-t border-white/10 px-4 py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 text-sm text-white/45 sm:flex-row">
           <span>Focus OS</span>
-          <button
-            onClick={() => openAuth('signin')}
-            className="underline-offset-4 hover:text-white/80 hover:underline"
-          >
-            Sign in
-          </button>
+          <div className="flex items-center gap-6">
+            <a
+              href={`${import.meta.env.BASE_URL}privacy.html`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-4 hover:text-white/80 hover:underline"
+            >
+              Privacy<span className="sr-only"> (opens in new tab)</span>
+            </a>
+            <button
+              onClick={() => openAuth('signin')}
+              className="underline-offset-4 hover:text-white/80 hover:underline"
+            >
+              Sign in
+            </button>
+          </div>
         </div>
       </footer>
 

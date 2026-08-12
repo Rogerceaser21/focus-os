@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -21,6 +21,7 @@ import PreviewApp from "./pages/PreviewApp";
 import DrawerRepro from "./pages/DrawerRepro";
 import BrainDumpRepro from "./pages/BrainDumpRepro";
 import MotionTweaks from "./components/dev/MotionTweaks";
+import { IS_SHELL } from "./lib/shell";
 
 
 const queryClient = new QueryClient();
@@ -31,6 +32,19 @@ const queryClient = new QueryClient();
 const showMotionTweaks =
   typeof window !== "undefined" && new URLSearchParams(window.location.search).has("tweaks");
 
+// Supabase persists its session in localStorage under this fixed key (see
+// integrations/supabase/client.ts: storage: localStorage, persistSession).
+// Reading it is synchronous, so the shell's "/" redirect target is derivable
+// during render. If the stored token turns out stale, Home's own auth guard
+// falls back to /auth — same as an expired session anywhere else in the app.
+const hasStoredSession = () => {
+  try {
+    return localStorage.getItem('sb-mshlbsgsyzzfxyxramjj-auth-token') !== null;
+  } catch {
+    return false;
+  }
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter basename={import.meta.env.BASE_URL}>
@@ -39,7 +53,13 @@ const App = () => (
       <Sonner />
       {showMotionTweaks && <MotionTweaks />}
       <Routes>
-        <Route path="/" element={<Landing />} />
+        {/* The iOS shell is the app, not the marketing site: "/" (cold start,
+            any legacy link back to root) goes straight to auth, or to /home
+            when a stored session exists (read synchronously so the login card
+            never paints for a signed-in launch). The branch is chosen during
+            render and Landing never mounts in the shell; the URL flip itself
+            is react-router's own effect. */}
+        <Route path="/" element={IS_SHELL ? <Navigate to={hasStoredSession() ? "/home" : "/auth"} replace /> : <Landing />} />
         <Route path="/home" element={<Home />} />
         <Route path="/app" element={<Index />} />
         <Route path="/auth" element={<Auth />} />

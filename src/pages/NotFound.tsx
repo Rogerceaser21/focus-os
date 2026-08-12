@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 
 const NotFound = () => {
@@ -13,9 +13,12 @@ const NotFound = () => {
       <div className="text-center">
         <h1 className="mb-4 text-4xl font-bold">404</h1>
         <p className="mb-4 text-xl text-gray-600">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 underline hover:text-blue-700">
+        {/* Router Link, not <a href="/">: a raw anchor escapes the /focus-os/
+            basename (lands on the Pages origin root 404, in-shell with no way
+            back) and would bypass the shell's "/" redirect. */}
+        <Link to="/" className="text-blue-500 underline hover:text-blue-700">
           Return to Home
-        </a>
+        </Link>
       </div>
     </div>
   );
