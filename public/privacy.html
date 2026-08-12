@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus OS Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0 auto; max-width: 42rem; padding: 2.5rem 1.25rem 4rem;
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1c1c1e; background: #fafafa;
+  }
+  h1 { font-size: 1.6rem; letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.1rem; margin-top: 2.2rem; letter-spacing: -0.01em; }
+  p, li { color: #3a3a3c; }
+  .meta { color: #6e6e73; font-size: 0.9rem; }
+  a { color: #0f7490; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #f2f2f7; background: #111114; }
+    p, li { color: #c7c7cc; }
+    .meta { color: #8e8e93; }
+    a { color: #5ac8e0; }
+  }
+</style>
+</head>
+<body>
+<h1>Focus OS Privacy Policy</h1>
+<p class="meta">Effective 12 August 2026</p>
+
+<p>Focus OS is a personal task, project and meeting manager. This page explains
+what data the app handles, where it lives, and what we never do with it.</p>
+
+<h2>What we store</h2>
+<ul>
+  <li><strong>Your account:</strong> your email address and a securely hashed
+      password, or your Google identity if you sign in with Google on the web.</li>
+  <li><strong>Your content:</strong> the tasks, projects, notes and meetings you
+      create, images you attach to tasks, and meeting recordings and transcripts
+      you choose to make. Meeting recordings and their transcripts are stored in
+      Google Cloud Storage; everything else lives in our Supabase database.</li>
+  <li><strong>Calendar connection (optional):</strong> if you connect Google
+      Calendar, we store the connection tokens and write events to a dedicated
+      "Focus OS" calendar in your Google account. You can disconnect at any time.</li>
+</ul>
+<p>Your tasks, projects and meetings are only accessible to your own account.
+Images attached to tasks are stored at hard-to-guess public links: they are not
+listed anywhere, but anyone who has the exact link can view that image (this is
+also what lets you hand an image link to an AI assistant from the app). Your
+session is kept in your browser's local storage so you stay signed in.</p>
+
+<h2>Voice features</h2>
+<p>When you use Brain Dump, your microphone audio is streamed in real time to
+Google's Gemini API to be turned into text and tasks; the live audio is
+processed and not kept as a recording. Meeting recordings that you explicitly
+start are stored (in Google Cloud Storage) with the meeting and transcribed, so
+you can read them back. If you use the dictation feature in the AI handoff
+dialog, that recording is transcribed by OpenAI's Whisper service. You are
+always the one who starts and stops any capture.</p>
+
+<h2>Emails</h2>
+<p>We send transactional email only (through Resend): password resets, task and
+meeting shares you initiate, and their notifications. No marketing lists, no
+newsletters.</p>
+
+<h2>What we never do</h2>
+<ul>
+  <li>No advertising and no advertising trackers.</li>
+  <li>No cross-site tracking or analytics profiles.</li>
+  <li>No selling or renting your data to anyone.</li>
+</ul>
+
+<h2>Services we rely on</h2>
+<p>Supabase (database, task-image storage, sign-in), Google (Gemini AI for
+voice and meeting processing, Cloud Storage for meeting recordings, and
+Calendar/sign-in if you use them), OpenAI (Whisper transcription for the AI
+handoff dictation), Resend (email delivery), and GitHub Pages (serving the app
+itself). Each processes only what the feature needs.</p>
+
+<h2>Your choices</h2>
+<p>You can delete your tasks, projects, meetings and recordings in the app at
+any time. To delete your entire account and its data, or to ask anything about
+this policy, contact
+<a href="mailto:igor.sesar@ais.ae">igor.sesar@ais.ae</a> and we will action it
+promptly.</p>
+
+<p class="meta">We will update this page if the app's data handling changes;
+the effective date above always reflects the current version.</p>
+</body>
+</html>

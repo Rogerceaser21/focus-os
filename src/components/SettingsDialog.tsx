@@ -24,6 +24,7 @@ import { PROVIDERS, AIProvider, ImageMode } from '@/lib/aiHandoff';
 import { WALLPAPERS, useWallpaper, usePlainColor, type WallpaperId } from '@/lib/wallpaper';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 import ApiTokensSection from '@/components/ApiTokensSection';
+import { IS_SHELL } from '@/lib/shell';
 
 interface Project {
   id: string;
@@ -350,12 +351,37 @@ export default function SettingsDialog({
 
             <Separator />
 
-            {/* Integrations */}
-            <GoogleCalendarIntegration />
+            {/* Integrations. Google's OAuth consent cannot complete inside the
+                shell's WKWebView, so the connect flow lives on the web only —
+                calendar data still shows here once connected there. */}
+            {IS_SHELL ? (
+              <div className="space-y-1">
+                <Label>Google Calendar</Label>
+                <p className="text-sm text-muted-foreground">
+                  Connect Google Calendar from focusos.tech in a web browser.
+                  Once connected there, your calendar shows up here too.
+                </p>
+              </div>
+            ) : (
+              <GoogleCalendarIntegration />
+            )}
 
             <Separator />
 
             <ApiTokensSection />
+
+            <Separator />
+
+            <p className="text-xs text-muted-foreground">
+              <a
+                href={`${import.meta.env.BASE_URL}privacy.html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                Privacy Policy<span className="sr-only"> (opens in new tab)</span>
+              </a>
+            </p>
           </div>
         )}
 
