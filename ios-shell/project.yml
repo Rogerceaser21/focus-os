@@ -23,6 +23,10 @@ targets:
     type: application
     platform: iOS
     sources: [FocusOSShell]
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1"
+
     info:
       path: FocusOSShell/Info.plist
       properties:
