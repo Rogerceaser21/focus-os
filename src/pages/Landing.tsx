@@ -751,16 +751,35 @@ const Landing = () => {
     >
       {/* ==== NAV: one dark glass pill, legible over both grounds ==== */}
       <header className="fixed inset-x-0 top-0 z-40 px-3 pt-3 sm:px-6">
-        <div className="mx-auto flex w-fit items-center gap-5 rounded-full border border-white/15 bg-[#141925]/90 py-1.5 pl-5 pr-1.5 shadow-[0_14px_36px_-14px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md">
+        <div className="mx-auto flex w-fit items-center gap-3 rounded-full border border-white/15 bg-[#141925]/90 py-1.5 pl-4 pr-1.5 shadow-[0_14px_36px_-14px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md sm:gap-5 sm:pl-5">
           <button
             type="button"
             onClick={toTop}
             aria-label="Back to top"
-            className="text-[16px] font-semibold tracking-[-0.01em] text-white/95 transition-opacity hover:opacity-80 active:scale-[0.98]"
+            className="whitespace-nowrap text-[16px] font-semibold tracking-[-0.01em] text-white/95 transition-opacity hover:opacity-80 active:scale-[0.98]"
           >
             Focus OS
           </button>
           <div className="flex items-center gap-1.5">
+            {/* TestFlight install link: shows "not accepting testers" until
+                Apple approves the current build, then works as-is. */}
+            <Button
+              asChild
+              variant="ghost"
+              className="h-9 rounded-full text-white/80 hover:bg-white/10 hover:text-white active:scale-[0.97]"
+            >
+              <a
+                href="https://testflight.apple.com/join/7jkBSvhA"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <svg viewBox="0 0 384 512" className="h-4 w-4 fill-current" aria-hidden>
+                  <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+                </svg>
+                <span className="hidden sm:inline">iOS App</span>
+                <span className="sr-only sm:hidden">iOS App</span>
+              </a>
+            </Button>
             <Button
               variant="ghost"
               onClick={() => openAuth('signin')}

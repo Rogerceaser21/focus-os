@@ -19,6 +19,13 @@ test.describe('browser mode (unchanged)', () => {
     expect(await privacy.getAttribute('href')).toContain('privacy.html');
   });
 
+  test('top menu carries the iOS App TestFlight link', async ({ page }) => {
+    await page.goto(`${BASE}/`);
+    const link = page.locator('header a', { hasText: 'iOS App' });
+    await expect(link).toBeVisible();
+    expect(await link.getAttribute('href')).toBe('https://testflight.apple.com/join/7jkBSvhA');
+  });
+
   test('/auth still offers Continue with Google', async ({ page }) => {
     await page.goto(`${BASE}/auth`);
     await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
