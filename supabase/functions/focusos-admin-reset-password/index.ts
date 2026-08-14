@@ -10,99 +10,59 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
+  auth: { autoRefreshToken: false, persistSession: false }
 });
 
-serve(async (req) => {
-  console.log('=== Admin Password Reset Function Started ===');
+function safeEqual(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
 
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  const json = (status: number, body: Record<string, unknown>) =>
+    new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   try {
-    const { userEmail, newPassword } = await req.json();
-    console.log('Processing password reset for user:', userEmail);
+    const { userEmail, newPassword, adminPassword, verifyOnly } = await req.json();
+
+    if (!adminPassword || typeof adminPassword !== 'string') {
+      return json(400, { success: false, error: 'Admin password is required' });
+    }
+    const { data: cfg, error: cfgError } = await supabase
+      .from('app_configuration').select('settings_password').limit(1).single();
+    if (cfgError || !cfg) return json(500, { success: false, error: 'Server configuration error' });
+    if (!safeEqual(adminPassword, cfg.settings_password ?? '')) {
+      return json(403, { success: false, error: 'Invalid admin password' });
+    }
+    if (verifyOnly) return json(200, { success: true, verified: true });
 
     if (!userEmail || !newPassword) {
-      throw new Error('User email and new password are required');
+      return json(400, { success: false, error: 'User email and new password are required' });
     }
 
-    // Self-healing: patch NULL email_change values that crash GoTrue's listUsers
-    console.log('Running self-healing patch for auth.users NULL email_change...');
     const { error: patchError } = await supabase.rpc('dreamlit_auth_admin_executor', {
       command: "UPDATE auth.users SET email_change = '' WHERE email_change IS NULL"
     });
-    if (patchError) {
-      console.warn('Self-healing patch warning (non-fatal):', patchError.message);
-    } else {
-      console.log('Self-healing patch completed successfully');
-    }
+    if (patchError) console.warn('Self-healing patch warning (non-fatal):', patchError.message);
 
-    // Find user by email with pagination handling
-    let targetUser = null;
-    let page = 1;
-    const perPage = 1000;
-
+    let targetUser = null; let page = 1; const perPage = 1000;
     while (!targetUser) {
-      const { data: users, error: userError } = await supabase.auth.admin.listUsers({
-        page,
-        perPage
-      });
-
-      if (userError) {
-        console.error('Error fetching users:', userError);
-        throw new Error('Failed to fetch users');
-      }
-
-      targetUser = users.users.find(user => user.email === userEmail);
-
-      if (users.users.length < perPage && !targetUser) {
-        break;
-      }
-
+      const { data: users, error: userError } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (userError) throw new Error('Failed to fetch users');
+      targetUser = users.users.find(u => u.email === userEmail);
+      if (users.users.length < perPage && !targetUser) break;
       page++;
     }
+    if (!targetUser) throw new Error(`User with email ${userEmail} not found`);
 
-    if (!targetUser) {
-      throw new Error(`User with email ${userEmail} not found`);
-    }
+    const { error: updateError } = await supabase.auth.admin.updateUserById(targetUser.id, { password: newPassword });
+    if (updateError) throw new Error(`Failed to update password: ${updateError.message}`);
 
-    console.log('Found target user:', targetUser.id);
-
-    const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(
-      targetUser.id,
-      { password: newPassword }
-    );
-
-    if (updateError) {
-      console.error('Error updating password:', updateError);
-      throw new Error(`Failed to update password: ${updateError.message}`);
-    }
-
-    console.log('Password updated successfully for user:', targetUser.id);
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: `Password updated successfully for ${userEmail}`,
-      userId: targetUser.id
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return json(200, { success: true, message: `Password updated successfully for ${userEmail}`, userId: targetUser.id });
   } catch (error) {
-    console.error('=== PASSWORD RESET ERROR ===');
-    console.error('Error message:', error.message);
-
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message
-    }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return json(400, { success: false, error: error.message });
   }
 });
