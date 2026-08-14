@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import UIKit
+import AuthenticationServices
 
 /// Observable state shared between SwiftUI and the WKWebView coordinator.
 final class ShellModel: ObservableObject {
@@ -29,6 +30,29 @@ enum ShellConfig {
     static let appHosts: Set<String> = [
         "rogerceaser21.github.io",
     ]
+
+    /// The only host the native OAuth bridge will open. The page posts the URL,
+    /// so anything wider would make the shell an open redirector for injected
+    /// script.
+    static let oauthHost = "mshlbsgsyzzfxyxramjj.supabase.co"
+
+    /// Callback scheme is claimed by ASWebAuthenticationSession itself, never by
+    /// a CFBundleURLTypes entry — registering it would hand the callback to the
+    /// app delegate instead and break the session's own capture.
+    static let oauthCallbackScheme = "focusos"
+}
+
+/// WKUserContentController retains its message handlers until they are removed
+/// by name, so registering the Coordinator directly outlives the view and leaks
+/// it. This proxy holds the target weakly and breaks the cycle.
+final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var target: WKScriptMessageHandler?
+
+    init(target: WKScriptMessageHandler) { self.target = target }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(controller, didReceive: message)
+    }
 }
 
 /// WKWebView never surfaces env(safe-area-inset-*) to this page (verified on
@@ -65,8 +89,12 @@ struct ShellWebView: UIViewRepresentable {
         // (display-mode: standalone) media query NEVER matches inside WKWebView
         // (WebKit resolves it from the app manifest, which a webview cannot have),
         // and navigator.standalone is Safari-only. Step 2 moves this into main.tsx.
+        // __FOCUSOS_SHELL_OAUTH__ is a CAPABILITY flag, separate from the shell
+        // flag: only a build carrying the native bridge below may show Google
+        // sign-in, because in a plain webview Google answers disallowed_useragent.
         let bootScript = """
         window.__FOCUSOS_SHELL__ = true;
+        window.__FOCUSOS_SHELL_OAUTH__ = true;
         document.documentElement.classList.add('standalone', 'shell');
         """
         config.userContentController.addUserScript(WKUserScript(
@@ -74,6 +102,14 @@ struct ShellWebView: UIViewRepresentable {
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         ))
+
+        // Native OAuth bridge: the page posts the Supabase authorize URL here and
+        // the shell runs it in ASWebAuthenticationSession (a real Safari context,
+        // which Google accepts). Weak proxy — see WeakScriptMessageHandler.
+        config.userContentController.add(
+            WeakScriptMessageHandler(target: context.coordinator),
+            name: "oauth"
+        )
 
         let webView = ShellWKWebView(frame: .zero, configuration: config)
         #if DEBUG
@@ -120,9 +156,13 @@ struct ShellWebView: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate,
+                             WKScriptMessageHandler, ASWebAuthenticationPresentationContextProviding {
         private let model: ShellModel
         private var lastInsets: UIEdgeInsets = .zero
+        /// ASWebAuthenticationSession deallocates itself mid-flight without an
+        /// owner, cancelling the sheet; this holds it for the session's lifetime.
+        private var authSession: ASWebAuthenticationSession?
         init(model: ShellModel) { self.model = model }
 
         @objc func handleRefresh(_ sender: UIRefreshControl) {
@@ -145,6 +185,66 @@ struct ShellWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
             injectSafeAreaVars(lastInsets, into: webView)
+        }
+
+        // MARK: - Native OAuth bridge
+
+        // Single entry point for window.webkit.messageHandlers.oauth.postMessage(url).
+        // Body must be a string; a non-string body or a URL outside the project's
+        // own Supabase host is answered with null rather than opened, so page
+        // script can never drive the session at an arbitrary origin.
+        func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "oauth" else { return }
+            guard let raw = message.body as? String,
+                  let url = URL(string: raw),
+                  url.scheme == "https",
+                  url.host == ShellConfig.oauthHost else {
+                deliverOAuthCallback(nil)
+                return
+            }
+            startAuthSession(url)
+        }
+
+        private func startAuthSession(_ url: URL) {
+            let session = ASWebAuthenticationSession(
+                url: url,
+                callbackURLScheme: ShellConfig.oauthCallbackScheme
+            ) { [weak self] callbackURL, _ in
+                self?.authSession = nil
+                self?.deliverOAuthCallback(callbackURL?.absoluteString)
+            }
+            session.presentationContextProvider = self
+            // Non-ephemeral: the ephemeral jar hides the user's existing Google
+            // session, forcing a full sign-in on every connect.
+            session.prefersEphemeralWebBrowserSession = false
+            authSession = session
+            session.start()
+        }
+
+        // The web app resolves its pending promise here. null = cancelled, failed,
+        // or rejected by the host check above.
+        private func deliverOAuthCallback(_ callback: String?) {
+            let argument = callback.flatMap(Coordinator.jsonString) ?? "null"
+            DispatchQueue.main.async { [weak self] in
+                self?.model.webView?.evaluateJavaScript(
+                    "window.__FOCUSOS_OAUTH_CALLBACK__ && window.__FOCUSOS_OAUTH_CALLBACK__(\(argument));"
+                )
+            }
+        }
+
+        // JSON encoding, not string interpolation: the callback URL carries
+        // provider-controlled query and fragment values that would otherwise
+        // escape the JS string literal.
+        private static func jsonString(_ value: String) -> String? {
+            guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed]),
+                  let encoded = String(data: data, encoding: .utf8) else { return nil }
+            return encoded
+        }
+
+        func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first?.keyWindow ?? ASPresentationAnchor()
         }
 
         // Mic: answer WebKit's per-origin capture prompt from the app's own
