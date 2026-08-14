@@ -1,29 +1,15 @@
-# Security fix: Admin Reset flow (edge function + secret lockdown + client)
+# Deploy iOS Google Calendar OAuth edge functions
 
-## Verified current state
-- `public.app_configuration` already has RLS enabled, but carries a policy `Allow anonymous read access to app_configuration` (SELECT, role `anon`, `USING true`) — so the anon key can read `settings_password` today. A second policy exists for the internal `dreamlit_app` role.
-- `public.get_app_configuration()` is SECURITY DEFINER, returns `settings_password` in its JSON, and its ACL grants EXECUTE to `PUBLIC`, `anon`, `authenticated`, `service_role`, `dreamlit_app`.
-- `focusos-admin-reset-password` currently performs no admin-password check; `verify_jwt = false` in config.toml, so it is callable by anyone with the anon key.
+## Goal
+Deploy the reviewed mobile-OAuth updates to the two Google Calendar OAuth edge functions exactly as provided from repo commit f20cbd7. No other files, tables, policies, or secrets change.
 
-## Change 1 — Edge function gate
-Replace `supabase/functions/focusos-admin-reset-password/index.ts` with the supplied implementation: it requires `adminPassword` on every call, compares it to `app_configuration.settings_password` (read via service role, constant-time compare), returns 403 on mismatch, supports a `verifyOnly` probe, and only then performs the existing self-heal + listUsers + password update path.
+## Changes
+1. Replace `supabase/functions/focusos-google-oauth-start/index.ts` with the version that accepts an optional `{"mobile": true}` body and appends an unsigned `.m` marker to the OAuth state.
+2. Replace `supabase/functions/focusos-google-oauth-callback/index.ts` with the version that strips the `.m` marker before HMAC verification and redirects mobile successes to `focusos://calendar-done`.
+3. Deploy both functions.
 
-## Change 2 — SQL migration (no data changes)
-- `DROP POLICY "Allow anonymous read access to app_configuration" ON public.app_configuration;` (RLS is already on; the `dreamlit_app` policy is left untouched.)
-- Revoke table-level SELECT from `anon` and `authenticated`, keep `service_role`.
-- `REVOKE EXECUTE ON FUNCTION public.get_app_configuration() FROM anon, authenticated, PUBLIC;` — function and table are kept; `service_role` retains execute.
-- The `settings_password` value is not read, written, or altered.
-
-## Change 3 — `src/pages/Auth.tsx`
-- `handleAdminVerify`: drop the direct `app_configuration` select; invoke the edge function with `{ adminPassword, verifyOnly: true }` and set `adminVerified` on `res.data?.verified`, otherwise toast the returned error.
-- `handleAdminReset`: add `adminPassword` to the invoke body alongside `userEmail` + `newPassword`.
-- Dialog markup, state resets and copy stay as-is.
-
-## Out of scope
-No other edge function, table, RPC, policy or UI is touched. No new dependencies.
-
-## Verification after ship
-- Anon-key REST SELECT on `app_configuration` → denied/empty.
-- Anon-key POST `rpc/get_app_configuration` → permission denied.
-- Edge function without / with wrong `adminPassword` → 400/403, no reset.
-- Correct password: `verifyOnly` → `verified: true`; full call still resets the target user.
+## Verification
+- Web callers (no marker) get the same state string and the same `/google-connected` redirect, byte-identical to the previous behavior.
+- An authenticated POST to `focusos-google-oauth-start` with body `{"mobile": true}` returns a consent URL whose `state` ends with `.m`.
+- A callback with the `.m` marker, after successful token storage, returns a 302 to `focusos://calendar-done`.
+- No other edge functions, database objects, secrets, or frontend files are modified.
