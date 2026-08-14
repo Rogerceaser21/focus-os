@@ -814,7 +814,7 @@ const Landing = () => {
             animate="shown"
             className="whitespace-nowrap text-[clamp(1.6rem,7vw,2.55rem)] font-bold leading-[1.05] tracking-[-0.025em] text-white sm:whitespace-normal sm:text-[clamp(2.3rem,6vw,4.2rem)]"
           >
-            Focus OS, Stress Less!
+            Focus OS, stress less!
           </motion.h1>
           <motion.p
             variants={enter}
