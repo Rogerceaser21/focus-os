@@ -336,7 +336,7 @@ function TaskRow({ t, density }: { t: Task; density: 'full' | 'compact' | 'minim
       <div className={`pw-tick ${done ? 'done' : ''}`}>{done && <Check size={13} strokeWidth={3} />}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className={`pw-ttl ${done ? 'done' : ''}`}>{t.title}</div>
-        {t.desc && density !== 'minimal' && (
+        {t.desc && (
           <div className="pw-desc">{t.desc.startsWith('http') ? <a href="#">{t.desc}</a> : t.desc}</div>
         )}
         <div className="pw-meta">

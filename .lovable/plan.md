@@ -1,50 +1,29 @@
-# Move-to-top on project change
+# Security fix: Admin Reset flow (edge function + secret lockdown + client)
 
-When a task is moved to a different project, set its `sort_order` to `min(existing sort_order in destination project for the same priority) - 1` so it appears at the TOP of its priority group (ascending sort).
+## Verified current state
+- `public.app_configuration` already has RLS enabled, but carries a policy `Allow anonymous read access to app_configuration` (SELECT, role `anon`, `USING true`) — so the anon key can read `settings_password` today. A second policy exists for the internal `dreamlit_app` role.
+- `public.get_app_configuration()` is SECURITY DEFINER, returns `settings_password` in its JSON, and its ACL grants EXECUTE to `PUBLIC`, `anon`, `authenticated`, `service_role`, `dreamlit_app`.
+- `focusos-admin-reset-password` currently performs no admin-password check; `verify_jwt = false` in config.toml, so it is callable by anyone with the anon key.
 
-## 1. Shared helper
+## Change 1 — Edge function gate
+Replace `supabase/functions/focusos-admin-reset-password/index.ts` with the supplied implementation: it requires `adminPassword` on every call, compares it to `app_configuration.settings_password` (read via service role, constant-time compare), returns 403 on mismatch, supports a `verifyOnly` probe, and only then performs the existing self-heal + listUsers + password update path.
 
-Add a small async helper (co-located in each file to avoid a new shared module, mirroring existing inline-helper style; identical implementation in both):
+## Change 2 — SQL migration (no data changes)
+- `DROP POLICY "Allow anonymous read access to app_configuration" ON public.app_configuration;` (RLS is already on; the `dreamlit_app` policy is left untouched.)
+- Revoke table-level SELECT from `anon` and `authenticated`, keep `service_role`.
+- `REVOKE EXECUTE ON FUNCTION public.get_app_configuration() FROM anon, authenticated, PUBLIC;` — function and table are kept; `service_role` retains execute.
+- The `settings_password` value is not read, written, or altered.
 
-```ts
-async function getTopSortOrderForProject(projectId: string, priority: string): Promise<number> {
-  const { data, error } = await supabase
-    .from('focusos_tasks')
-    .select('sort_order')
-    .eq('project_id', projectId)
-    .eq('priority', priority)
-    .order('sort_order', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return 0;
-  return (data.sort_order ?? 0) - 1;
-}
-```
+## Change 3 — `src/pages/Auth.tsx`
+- `handleAdminVerify`: drop the direct `app_configuration` select; invoke the edge function with `{ adminPassword, verifyOnly: true }` and set `adminVerified` on `res.data?.verified`, otherwise toast the returned error.
+- `handleAdminReset`: add `adminPassword` to the invoke body alongside `userEmail` + `newPassword`.
+- Dialog markup, state resets and copy stay as-is.
 
-Queried from DB (not local state) so both Index and MeetingDetail behave identically, per the brief.
+## Out of scope
+No other edge function, table, RPC, policy or UI is touched. No new dependencies.
 
-## 2. `handleUpdateTask` in `src/pages/Index.tsx`
-
-- Look up the original task from current state (`allTasks`/`tasks`) before the update to capture its previous `projectId`.
-- Compute `const projectChanged = updatedTask.projectId !== original.projectId`.
-- If `projectChanged`: `newSortOrder = await getTopSortOrderForProject(updatedTask.projectId, updatedTask.priority)`. Else keep `updatedTask.sortOrder ?? 0`.
-- Use `newSortOrder` in the supabase update payload (replacing the existing `sort_order` line).
-- Update the optimistic local state merge so the moved task carries `sortOrder: newSortOrder`, so the UI re-sorts it to the top immediately (no wait for realtime).
-- No other behavior changes.
-
-## 3. `handleSavedTaskUpdate` in `src/pages/MeetingDetail.tsx`
-
-- Fetch the original `project_id` (either from the passed task object if available, or a quick `select project_id` by id) and compare with the new one.
-- If changed: compute `newSortOrder` via the helper and include `sort_order: newSortOrder` in the update payload. If unchanged: do NOT include `sort_order` (preserve current behavior of omitting it).
-
-## Out of scope (unchanged)
-
-- Sorting/display logic, create path, drag-and-drop reordering, schema, RLS, realtime subscriptions, prior fixes.
-- No edits when project did not change.
-
-## Verification
-
-- Move a task across projects from the edit dialog on `/app` → appears at top of its priority group in destination.
-- Same from MeetingDetail's saved-task edit → top of group in destination project.
-- Edit title/due/priority without changing project → position unchanged.
-- `tsgo` type check clean.
+## Verification after ship
+- Anon-key REST SELECT on `app_configuration` → denied/empty.
+- Anon-key POST `rpc/get_app_configuration` → permission denied.
+- Edge function without / with wrong `adminPassword` → 400/403, no reset.
+- Correct password: `verifyOnly` → `verified: true`; full call still resets the target user.
