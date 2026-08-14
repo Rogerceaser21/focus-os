@@ -720,6 +720,7 @@ const Landing = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
+  const [iosOpen, setIosOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -761,24 +762,18 @@ const Landing = () => {
             Focus OS
           </button>
           <div className="flex items-center gap-1.5">
-            {/* TestFlight install link: shows "not accepting testers" until
-                Apple approves the current build, then works as-is. */}
+            {/* Opens the TestFlight-first install dialog: without the TestFlight
+                app, the join link dead-ends on an itms-beta:// error in Safari. */}
             <Button
-              asChild
               variant="ghost"
+              onClick={() => setIosOpen(true)}
               className="h-9 rounded-full text-white/80 hover:bg-white/10 hover:text-white active:scale-[0.97]"
             >
-              <a
-                href="https://testflight.apple.com/join/7jkBSvhA"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <svg viewBox="0 0 384 512" className="h-4 w-4 fill-current" aria-hidden>
-                  <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
-                </svg>
-                <span className="hidden sm:inline">iOS App</span>
-                <span className="sr-only sm:hidden">iOS App</span>
-              </a>
+              <svg viewBox="0 0 384 512" className="h-4 w-4 fill-current" aria-hidden>
+                <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+              </svg>
+              <span className="hidden sm:inline">iOS App</span>
+              <span className="sr-only sm:hidden">iOS App</span>
             </Button>
             <Button
               variant="ghost"
@@ -988,6 +983,87 @@ const Landing = () => {
         onOpenChange={setAuthOpen}
         onModeChange={setAuthMode}
       />
+
+      <Dialog open={iosOpen} onOpenChange={setIosOpen}>
+        {/* inline style, deliberately: DialogContent's glass-card CSS out-cascades
+            Tailwind utilities on the marketing surface (same as AuthDialog). */}
+        <DialogContent
+          className="max-h-[85dvh] w-[min(92vw,440px)] overflow-y-auto border p-6 text-white"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(24,30,44,0.97) 0%, rgba(17,20,31,0.97) 100%)',
+            borderColor: 'rgba(255,255,255,0.16)',
+            borderRadius: 26,
+            boxShadow:
+              '0 40px 90px -30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.12)',
+          }}
+        >
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-2xl font-bold tracking-[-0.02em]">
+              Install Focus OS on your iPhone
+            </DialogTitle>
+            <DialogDescription className="text-white/60">
+              Focus OS installs through Apple&apos;s TestFlight. Tap the two
+              links below, in order.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3">
+            <a
+              href="https://apps.apple.com/app/testflight/id899247664"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/20 bg-white/[0.12] p-4 transition-colors hover:bg-white/[0.16] active:scale-[0.99]"
+            >
+              <img
+                src={`${BASE}images/testflight-appstore-icon.jpg`}
+                alt=""
+                className="h-14 w-14 flex-shrink-0 rounded-2xl sm:h-16 sm:w-16"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-white/50">
+                  Step 1
+                </span>
+                <span className="block text-base font-semibold">
+                  Install TestFlight
+                </span>
+                <span className="block text-sm text-white/60">
+                  Free, from the Apple App Store
+                </span>
+              </span>
+            </a>
+
+            <a
+              href="https://testflight.apple.com/join/7jkBSvhA"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/[0.12] bg-white/[0.06] p-4 transition-colors hover:bg-white/10 active:scale-[0.99]"
+            >
+              <img
+                src={`${BASE}images/focusos-app-icon.png`}
+                alt=""
+                className="h-14 w-14 flex-shrink-0 rounded-2xl sm:h-16 sm:w-16"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-white/50">
+                  Step 2
+                </span>
+                <span className="block text-base font-semibold">
+                  Install Focus OS
+                </span>
+                <span className="block text-sm text-white/60">
+                  Opens in TestFlight
+                </span>
+              </span>
+            </a>
+          </div>
+
+          <p className="text-sm text-white/50">
+            Do Step 1 first. The Focus OS link only works once TestFlight is
+            installed.
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

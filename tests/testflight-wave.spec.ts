@@ -19,11 +19,27 @@ test.describe('browser mode (unchanged)', () => {
     expect(await privacy.getAttribute('href')).toContain('privacy.html');
   });
 
-  test('top menu carries the iOS App TestFlight link', async ({ page }) => {
+  test('iOS App button opens the TestFlight-first dialog with both links', async ({ page }) => {
     await page.goto(`${BASE}/`);
-    const link = page.locator('header a', { hasText: 'iOS App' });
-    await expect(link).toBeVisible();
-    expect(await link.getAttribute('href')).toBe('https://testflight.apple.com/join/7jkBSvhA');
+    const button = page.locator('header button', { hasText: 'iOS App' });
+    await expect(button).toBeVisible();
+    await button.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Install Focus OS on your iPhone')).toBeVisible();
+    // Step order is the point: TestFlight install first, join link second.
+    const links = dialog.locator('a');
+    await expect(links.nth(0)).toHaveAttribute(
+      'href',
+      'https://apps.apple.com/app/testflight/id899247664',
+    );
+    await expect(links.nth(1)).toHaveAttribute(
+      'href',
+      'https://testflight.apple.com/join/7jkBSvhA',
+    );
+    // Both step icons must actually load inside the card.
+    for (const img of await dialog.locator('img').all()) {
+      expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+    }
   });
 
   test('/auth still offers Continue with Google', async ({ page }) => {
