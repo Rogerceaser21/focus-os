@@ -39,6 +39,17 @@ import { supabase } from '@/integrations/supabase/client';
 
 const BASE = import.meta.env.BASE_URL;
 
+/* itms-beta:// deep-links straight into the TestFlight app, skipping Apple's
+   join web page — but it is a dead click anywhere TestFlight can't exist, so
+   only iOS devices get it (modern iPads report a Mac UA, hence the touch probe). */
+const IS_IOS_DEVICE =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+const TESTFLIGHT_JOIN = IS_IOS_DEVICE
+  ? 'itms-beta://testflight.apple.com/join/7jkBSvhA'
+  : 'https://testflight.apple.com/join/7jkBSvhA';
+
 /* The film's own spring register: critically damped, no overshoot (apple-design:
    damping 1.0, response ~0.5). One authored moment: surfaces MATERIALIZE
    (blur + rise together), they never just fade. */
@@ -1033,10 +1044,12 @@ const Landing = () => {
               </span>
             </a>
 
+            {/* No target="_blank" on the itms-beta form: a custom scheme in a
+                new tab leaves a dead blank tab behind in Safari. */}
             <a
-              href="https://testflight.apple.com/join/7jkBSvhA"
-              target="_blank"
-              rel="noopener noreferrer"
+              href={TESTFLIGHT_JOIN}
+              target={IS_IOS_DEVICE ? undefined : '_blank'}
+              rel={IS_IOS_DEVICE ? undefined : 'noopener noreferrer'}
               className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/[0.12] bg-white/[0.06] p-4 transition-colors hover:bg-white/10 active:scale-[0.99]"
             >
               <img

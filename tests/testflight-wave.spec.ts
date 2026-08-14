@@ -42,6 +42,21 @@ test.describe('browser mode (unchanged)', () => {
     }
   });
 
+  test('on an iPhone the Step 2 link deep-links straight into TestFlight', async ({ browser }) => {
+    const ctx = await browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    });
+    const page = await ctx.newPage();
+    await page.goto(`${BASE}/`);
+    await page.locator('header button', { hasText: 'iOS App' }).click();
+    const link = page.getByRole('dialog').locator('a').nth(1);
+    await expect(link).toHaveAttribute('href', 'itms-beta://testflight.apple.com/join/7jkBSvhA');
+    // Custom scheme must open in-place, not in a dead blank tab.
+    await expect(link).not.toHaveAttribute('target', '_blank');
+    await ctx.close();
+  });
+
   test('/auth still offers Continue with Google', async ({ page }) => {
     await page.goto(`${BASE}/auth`);
     await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
