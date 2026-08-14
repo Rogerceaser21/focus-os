@@ -14,3 +14,13 @@ export const IS_SHELL =
 export const SHELL_OAUTH =
   IS_SHELL &&
   (window as unknown as { __FOCUSOS_SHELL_OAUTH__?: boolean }).__FOCUSOS_SHELL_OAUTH__ === true;
+
+// Second CAPABILITY flag from the same documentStart bootScript, injected only
+// by a shell build whose native bridge also accepts the Google Calendar
+// authorize URL (shell build 3+: the host allowlist covers the Supabase edge
+// function, and the sheet closes on the focusos://calendar-done redirect).
+// Builds 1 and 2 are still in the field and must keep showing the
+// connect-on-the-web hint instead of the widget.
+export const SHELL_CAL =
+  IS_SHELL &&
+  (window as unknown as { __FOCUSOS_SHELL_CAL__?: boolean }).__FOCUSOS_SHELL_CAL__ === true;

@@ -5,6 +5,12 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Calendar, Loader2, CheckCircle2 } from 'lucide-react';
+import { SHELL_CAL } from '@/lib/shell';
+import {
+  postShellOauthUrl,
+  SHELL_CALENDAR_CONNECTED_EVENT,
+  SHELL_OAUTH_SETTLED_EVENT,
+} from '@/lib/shellOauth';
 
 interface TokenRow {
   user_id: string;
@@ -39,7 +45,46 @@ export default function GoogleCalendarIntegration() {
     return () => window.removeEventListener('focus', onFocus);
   }, []);
 
+  // Shell only: the consent runs in a native sheet outside this webview, so
+  // there is no popup to watch and no window 'focus' to trust. The bridge
+  // reports back instead — connected on focusos://calendar-done, settled on a
+  // cancel or an unusable bridge (src/lib/shellOauth.ts).
+  useEffect(() => {
+    const onConnected = () => { setWorking(false); load(); };
+    const onSettled = () => setWorking(false);
+    window.addEventListener(SHELL_CALENDAR_CONNECTED_EVENT, onConnected);
+    window.addEventListener(SHELL_OAUTH_SETTLED_EVENT, onSettled);
+    return () => {
+      window.removeEventListener(SHELL_CALENDAR_CONNECTED_EVENT, onConnected);
+      window.removeEventListener(SHELL_OAUTH_SETTLED_EVENT, onSettled);
+    };
+  }, []);
+
   const handleConnect = async () => {
+    // Shell build 3+: mobile:true makes the edge function mint a consent URL
+    // whose callback 302s to focusos://calendar-done, which is what closes the
+    // native sheet. No window.open here — a WKWebView popup would land on
+    // Google's disallowed_useragent.
+    if (SHELL_CAL) {
+      setWorking(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('focusos-google-oauth-start', {
+          body: { mobile: true },
+        });
+        if (error) throw error;
+        const url = (data as any)?.url;
+        if (!url) throw new Error('No auth URL returned');
+        // working stays true while the sheet is up; the bridge events above
+        // clear it.
+        postShellOauthUrl(url);
+      } catch (e: any) {
+        console.error(e);
+        toast.error(e.message || 'Could not start Google sign-in');
+        setWorking(false);
+      }
+      return;
+    }
+
     setWorking(true);
     try {
       const { data, error } = await supabase.functions.invoke('focusos-google-oauth-start');

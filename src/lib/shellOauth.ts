@@ -21,6 +21,16 @@ import { toast } from 'sonner';
 // Window CustomEvent, matching the tours and the wallpaper store.
 export const SHELL_OAUTH_SETTLED_EVENT = 'focusos:shell-oauth-settled';
 
+// Fired when the native sheet came back from the Google CALENDAR leg
+// (focusos://calendar-done): the edge function already stored the tokens
+// server-side, so there is nothing to install here — the widget just re-reads
+// its connection row. Same window-CustomEvent shape as the settled event.
+export const SHELL_CALENDAR_CONNECTED_EVENT = 'focusos:calendar-connected';
+
+// The calendar leg's terminal redirect. Prefix, not equality: the shell may
+// hand back a trailing slash or query on the same URL.
+const CALENDAR_CALLBACK_PREFIX = 'focusos://calendar-done';
+
 type OAuthMessageHandler = { postMessage: (url: string) => void };
 
 const settled = () => {
@@ -65,6 +75,16 @@ const handleCallback = async (raw: string | null | undefined) => {
   if (!raw) {
     toast('Google sign-in was cancelled');
     settled();
+    return;
+  }
+
+  // Routed by URL content, because ONE native bridge serves both legs: the
+  // sign-in leg returns focusos://auth-callback with tokens in the fragment,
+  // the calendar leg returns focusos://calendar-done with nothing to read.
+  // The calendar leg must not touch the session or navigate — the user is
+  // already signed in and sitting in the Settings dialog.
+  if (raw.toLowerCase().startsWith(CALENDAR_CALLBACK_PREFIX)) {
+    window.dispatchEvent(new CustomEvent(SHELL_CALENDAR_CONNECTED_EVENT));
     return;
   }
 

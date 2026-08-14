@@ -6,9 +6,28 @@
 // point at a localhost server or the DEPLOYED Pages root only — NOT the
 // preview channel: its 404 fallback bounces deep links back to the channel
 // root by design, which fails these tests for an environment reason.
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const BASE = process.env.WAVE_BASE_URL ?? '';
+
+// The Apple-review demo account (also in App Store Connect Test Information).
+const DEMO_EMAIL = 'apple.review@focusos.tech';
+const DEMO_PASSWORD = 'FocusOS-Review-2026';
+
+// Settings lives behind the session, so the calendar surface can only be read
+// after a real sign-in — same demo account and same form as the tests above.
+const openSettings = async (page: Page) => {
+  await page.goto(`${BASE}/auth`);
+  const panel = page.getByRole('tabpanel');
+  await panel.getByLabel(/email/i).fill(DEMO_EMAIL);
+  await panel.getByLabel(/password/i).first().fill(DEMO_PASSWORD);
+  await panel.getByRole('button', { name: /sign in/i }).click();
+  await page.waitForURL('**/home', { timeout: 20000 });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Google Calendar').first()).toBeVisible({ timeout: 15000 });
+  return dialog;
+};
 
 test.describe('browser mode (unchanged)', () => {
   test('/ renders the landing page with a Privacy footer link', async ({ page }) => {
@@ -91,7 +110,6 @@ test.describe('shell mode', () => {
   });
 
   test('sign-in goes straight to /home, never bouncing through /', async ({ page }) => {
-    // The Apple-review demo account (also in App Store Connect Test Information).
     const rootVisits: string[] = [];
     page.on('framenavigated', frame => {
       const path = new URL(frame.url()).pathname.replace(/\/$/, '');
@@ -180,6 +198,47 @@ test.describe('shell mode', () => {
       // a stored session is the proof.
       await expect(page.getByText('Focus OS Login')).toHaveCount(0);
       expect(await page.evaluate(readStoredSession)).not.toBeNull();
+    });
+
+    // Build 2's bridge accepts the SIGN-IN leg only, so Settings must still
+    // send the user to the web for the calendar connect.
+    test('Settings shows the connect-on-the-web hint, not the widget', async ({ page }) => {
+      test.setTimeout(60_000);
+      const dialog = await openSettings(page);
+      await expect(
+        dialog.getByText('Connect Google Calendar from focusos.tech in a web browser'),
+      ).toBeVisible();
+      await expect(dialog.getByText('Send Focus OS tasks and meetings')).toHaveCount(0);
+      await expect(
+        dialog.getByRole('button', { name: /connect google calendar/i }),
+      ).toHaveCount(0);
+    });
+
+    // Shell build 3+: the bootScript adds the calendar capability flag, because
+    // that build's host allowlist covers the Supabase consent URL and its sheet
+    // closes on focusos://calendar-done.
+    test.describe('with the native calendar bridge', () => {
+      test.beforeEach(async ({ page }) => {
+        await page.addInitScript(() => {
+          (window as unknown as { __FOCUSOS_SHELL_CAL__?: boolean }).__FOCUSOS_SHELL_CAL__ = true;
+        });
+      });
+
+      test('Settings renders the real Google Calendar widget', async ({ page }) => {
+        test.setTimeout(60_000);
+        const dialog = await openSettings(page);
+        await expect(dialog.getByText('Send Focus OS tasks and meetings')).toBeVisible();
+        await expect(
+          dialog.getByText('Connect Google Calendar from focusos.tech in a web browser'),
+        ).toHaveCount(0);
+        // The widget's own connection state must resolve: either the connect
+        // button or the connected badge, never the checking spinner forever.
+        await expect(
+          dialog
+            .getByRole('button', { name: /connect google calendar/i })
+            .or(dialog.getByText('Connected', { exact: true })),
+        ).toBeVisible({ timeout: 20000 });
+      });
     });
   });
 });

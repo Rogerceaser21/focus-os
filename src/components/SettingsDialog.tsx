@@ -24,7 +24,7 @@ import { PROVIDERS, AIProvider, ImageMode } from '@/lib/aiHandoff';
 import { WALLPAPERS, useWallpaper, usePlainColor, type WallpaperId } from '@/lib/wallpaper';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 import ApiTokensSection from '@/components/ApiTokensSection';
-import { IS_SHELL } from '@/lib/shell';
+import { IS_SHELL, SHELL_CAL } from '@/lib/shell';
 
 interface Project {
   id: string;
@@ -351,10 +351,13 @@ export default function SettingsDialog({
 
             <Separator />
 
-            {/* Integrations. Google's OAuth consent cannot complete inside the
-                shell's WKWebView, so the connect flow lives on the web only —
-                calendar data still shows here once connected there. */}
-            {IS_SHELL ? (
+            {/* Integrations. Google's OAuth consent cannot complete inside a
+                plain WKWebView, so shell builds without the native calendar
+                bridge (build 2 and older, still in the field) keep pointing at
+                the web; build 3+ connects in-app via SHELL_CAL. */}
+            {!IS_SHELL || SHELL_CAL ? (
+              <GoogleCalendarIntegration />
+            ) : (
               <div className="space-y-1">
                 <Label>Google Calendar</Label>
                 <p className="text-sm text-muted-foreground">
@@ -362,8 +365,6 @@ export default function SettingsDialog({
                   Once connected there, your calendar shows up here too.
                 </p>
               </div>
-            ) : (
-              <GoogleCalendarIntegration />
             )}
 
             <Separator />
