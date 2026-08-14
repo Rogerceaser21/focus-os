@@ -53,11 +53,24 @@ serve(async (req) => {
     }
     const userId = data.claims.sub as string;
 
+    // Optional JSON body { mobile: true } from the iOS shell. An absent or
+    // malformed body means a web caller, which behaves exactly as before.
+    let isMobile = false;
+    try {
+      const body = await req.json();
+      isMobile = body?.mobile === true;
+    } catch (_e) {
+      isMobile = false;
+    }
+
     const clientId = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID")!;
     const redirectUri = Deno.env.get("GOOGLE_OAUTH_REDIRECT_URI")!;
     const serviceSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const state = await signState(userId, serviceSecret);
+    const signedState = await signState(userId, serviceSecret);
+    // ".m" is an unsigned marker appended AFTER the signed part; the callback
+    // strips it before verifying, so the signed payload is unchanged.
+    const state = isMobile ? `${signedState}.m` : signedState;
 
     const params = new URLSearchParams({
       client_id: clientId,

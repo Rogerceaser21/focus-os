@@ -10,6 +10,11 @@ const corsHeaders = {
 // Override with APP_BASE_URL secret if you need a different host (e.g. preview vs prod).
 const APP_BASE_URL = Deno.env.get("APP_BASE_URL") ?? "https://focusos.tech";
 
+// Unsigned marker appended by focusos-google-oauth-start for mobile callers,
+// and the deep link that finishes the flow inside the iOS shell.
+const MOBILE_STATE_SUFFIX = ".m";
+const MOBILE_DONE_URL = "focusos://calendar-done";
+
 async function verifyState(state: string, secret: string): Promise<string | null> {
   const [userId, sigB64] = state.split(".");
   if (!userId || !sigB64) return null;
@@ -42,9 +47,15 @@ serve(async (req) => {
   if (errParam) return redirectResponse(false, `Google returned: ${errParam}`);
   if (!code || !state) return redirectResponse(false, "Missing code or state.");
 
+  // Strip the unsigned mobile marker before verifying, so the signature is
+  // always checked against exactly `${userId}.${sigB64}`. States issued
+  // before the marker existed verify unchanged.
+  const isMobile = state.endsWith(MOBILE_STATE_SUFFIX);
+  const signedState = isMobile ? state.slice(0, -MOBILE_STATE_SUFFIX.length) : state;
+
   try {
     const serviceSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const userId = await verifyState(state, serviceSecret);
+    const userId = await verifyState(signedState, serviceSecret);
     if (!userId) return redirectResponse(false, "Invalid state token.");
 
     const clientId = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID")!;
@@ -140,6 +151,14 @@ serve(async (req) => {
     if (upsertErr) {
       console.error("token upsert error", upsertErr);
       return redirectResponse(false, "Failed to save tokens.");
+    }
+
+    if (isMobile) {
+      // The iOS shell runs this flow in an ASWebAuthenticationSession opened
+      // with callbackURLScheme "focusos". That sheet only closes when the web
+      // flow redirects to a focusos:// URL, so the mobile success path MUST be
+      // this 302 and nothing else.
+      return new Response(null, { status: 302, headers: { Location: MOBILE_DONE_URL } });
     }
 
     return redirectResponse(true);
