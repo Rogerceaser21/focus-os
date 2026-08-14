@@ -147,20 +147,15 @@ const Auth = () => {
     }
     setAdminLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('app_configuration')
-        .select('settings_password')
-        .limit(1)
-        .single();
-      
-      if (error || !data) {
-        toast.error('Could not verify admin credentials');
-        setAdminLoading(false);
-        return;
-      }
+      // Verify against the server, never the browser: the admin secret is no
+      // longer readable by the client (app_configuration is RLS-locked). The
+      // edge function checks it with the service role and answers ok/deny.
+      const res = await supabase.functions.invoke('focusos-admin-reset-password', {
+        body: { adminPassword, verifyOnly: true },
+      });
 
-      if (adminPassword !== data.settings_password) {
-        toast.error('Invalid admin password');
+      if (res.error || res.data?.error || !res.data?.verified) {
+        toast.error(res.data?.error || 'Invalid admin password');
         setAdminLoading(false);
         return;
       }
@@ -183,6 +178,7 @@ const Auth = () => {
     try {
       const res = await supabase.functions.invoke('focusos-admin-reset-password', {
         body: {
+          adminPassword,
           userEmail: resetEmail.trim().toLowerCase(),
           newPassword: resetNewPassword,
         },
