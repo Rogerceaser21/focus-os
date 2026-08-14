@@ -31,10 +31,15 @@ enum ShellConfig {
         "rogerceaser21.github.io",
     ]
 
-    /// The only host the native OAuth bridge will open. The page posts the URL,
+    /// The only hosts the native OAuth bridge will open. The page posts the URL,
     /// so anything wider would make the shell an open redirector for injected
-    /// script.
-    static let oauthHost = "mshlbsgsyzzfxyxramjj.supabase.co"
+    /// script. accounts.google.com is the Calendar consent hop after the
+    /// Supabase login redirect; it does not touch appHosts above, which gates
+    /// page navigation, not this bridge.
+    static let oauthHosts: Set<String> = [
+        "mshlbsgsyzzfxyxramjj.supabase.co",
+        "accounts.google.com",
+    ]
 
     /// Callback scheme is claimed by ASWebAuthenticationSession itself, never by
     /// a CFBundleURLTypes entry — registering it would hand the callback to the
@@ -92,9 +97,13 @@ struct ShellWebView: UIViewRepresentable {
         // __FOCUSOS_SHELL_OAUTH__ is a CAPABILITY flag, separate from the shell
         // flag: only a build carrying the native bridge below may show Google
         // sign-in, because in a plain webview Google answers disallowed_useragent.
+        // __FOCUSOS_SHELL_CAL__ is the same pattern for the calendar widget:
+        // build 2 predates the oauth bridge's accounts.google.com allowance, so
+        // it lacks this flag and the web app keeps the widget hidden there.
         let bootScript = """
         window.__FOCUSOS_SHELL__ = true;
         window.__FOCUSOS_SHELL_OAUTH__ = true;
+        window.__FOCUSOS_SHELL_CAL__ = true;
         document.documentElement.classList.add('standalone', 'shell');
         """
         config.userContentController.addUserScript(WKUserScript(
@@ -190,15 +199,16 @@ struct ShellWebView: UIViewRepresentable {
         // MARK: - Native OAuth bridge
 
         // Single entry point for window.webkit.messageHandlers.oauth.postMessage(url).
-        // Body must be a string; a non-string body or a URL outside the project's
-        // own Supabase host is answered with null rather than opened, so page
+        // Body must be a string; a non-string body or a URL outside the
+        // allowlisted hosts is answered with null rather than opened, so page
         // script can never drive the session at an arbitrary origin.
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.name == "oauth" else { return }
             guard let raw = message.body as? String,
                   let url = URL(string: raw),
                   url.scheme == "https",
-                  url.host == ShellConfig.oauthHost else {
+                  let host = url.host,
+                  ShellConfig.oauthHosts.contains(host) else {
                 deliverOAuthCallback(nil)
                 return
             }
