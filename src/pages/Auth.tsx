@@ -10,7 +10,8 @@ import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Shield } from 'lucide-react';
-import { IS_SHELL } from '@/lib/shell';
+import { IS_SHELL, SHELL_OAUTH } from '@/lib/shell';
+import { postShellOauthUrl, SHELL_OAUTH_SETTLED_EVENT } from '@/lib/shellOauth';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ const Auth = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
 
   // Admin reset state
@@ -37,7 +39,37 @@ const Auth = () => {
     });
   }, [navigate]);
 
+  // Shell only: the native bridge fires this when the sign-in sheet closes
+  // without a session (cancel or error), so the button stops spinning.
+  useEffect(() => {
+    const onSettled = () => setGoogleLoading(false);
+    window.addEventListener(SHELL_OAUTH_SETTLED_EVENT, onSettled);
+    return () => window.removeEventListener(SHELL_OAUTH_SETTLED_EVENT, onSettled);
+  }, []);
+
   const handleGoogleSignIn = async () => {
+    // Shell with the native bridge: no redirect happens in this webview. The
+    // authorize URL goes to ASWebAuthenticationSession and the callback comes
+    // back through window.__FOCUSOS_OAUTH_CALLBACK__ (src/lib/shellOauth.ts),
+    // which installs the session and navigates.
+    if (SHELL_OAUTH) {
+      setGoogleLoading(true);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'focusos://auth-callback',
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error || !data?.url) {
+        toast.error(error?.message ?? 'Could not start Google sign-in');
+        setGoogleLoading(false);
+        return;
+      }
+      postShellOauthUrl(data.url);
+      return;
+    }
+
     const isCustomDomain =
       !window.location.hostname.includes("lovable.app") &&
       !window.location.hostname.includes("lovableproject.com") &&
@@ -209,16 +241,16 @@ const Auth = () => {
           <CardDescription>Organize your work with timers and visual planning</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Google OAuth cannot complete inside the shell's WKWebView (the
-              OAuth leg leaves for Safari and the session lands there, not
-              here) — email+password is the only working path in the shell. */}
-          {!IS_SHELL && (
+          {/* Google OAuth cannot complete inside a plain WKWebView, so the
+              shell only shows this once its native bridge is present
+              (SHELL_OAUTH) — shell build 1 has no bridge and still hides it. */}
+          {(!IS_SHELL || SHELL_OAUTH) && (
             <>
               <Button
                 variant="outline"
                 className="w-full mb-4 gap-2"
                 onClick={handleGoogleSignIn}
-                disabled={loading}
+                disabled={loading || googleLoading}
               >
                 <svg viewBox="0 0 24 24" className="h-5 w-5">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>

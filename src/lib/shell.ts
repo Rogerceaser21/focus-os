@@ -4,3 +4,13 @@
 export const IS_SHELL =
   typeof window !== 'undefined' &&
   (window as unknown as { __FOCUSOS_SHELL__?: boolean }).__FOCUSOS_SHELL__ === true;
+
+// Separate CAPABILITY flag, injected by the same documentStart bootScript but
+// only by a shell build that carries the native OAuth bridge
+// (ASWebAuthenticationSession + the "oauth" message handler). Google answers
+// disallowed_useragent to a plain WKWebView, so Google sign-in may only be
+// offered when this is true — shell build 1 is still in the field and must
+// keep hiding it.
+export const SHELL_OAUTH =
+  IS_SHELL &&
+  (window as unknown as { __FOCUSOS_SHELL_OAUTH__?: boolean }).__FOCUSOS_SHELL_OAUTH__ === true;

@@ -4,6 +4,10 @@ import { ThemeProvider } from "next-themes";
 import App from "./App.tsx";
 import { WallpaperController } from "./lib/wallpaper";
 import { installTransientScrollbar } from "./lib/transientScrollbar";
+// Side-effect import: registers window.__FOCUSOS_OAUTH_CALLBACK__ before the
+// app renders, so the shell's native OAuth bridge always has somewhere to
+// deliver its callback.
+import "./lib/shellOauth";
 import "./index.css";
 import "./components/ParticleEffect.css";
 

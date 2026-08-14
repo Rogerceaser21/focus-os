@@ -79,6 +79,9 @@ test.describe('shell mode', () => {
     await expect(page.getByText('Your day, back in order.')).toHaveCount(0);
   });
 
+  // Shell build 1 (no native OAuth bridge, still installed in the field):
+  // only __FOCUSOS_SHELL__ is injected, so Google MUST stay hidden — in that
+  // build the sign-in leg dies on Google's disallowed_useragent.
   test('/auth hides Google, keeps email+password', async ({ page }) => {
     await page.goto(`${BASE}/auth`);
     await expect(page.getByText('Focus OS Login')).toBeVisible();
@@ -101,6 +104,83 @@ test.describe('shell mode', () => {
     await panel.getByRole('button', { name: /sign in/i }).click();
     await page.waitForURL('**/home', { timeout: 20000 });
     expect(rootVisits).toEqual([]);
+  });
+
+  // Shell build 2+: the bootScript adds the OAuth capability flag on top of
+  // the shell flag, because that build carries the native
+  // ASWebAuthenticationSession bridge.
+  test.describe('with the native OAuth bridge', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        (window as unknown as { __FOCUSOS_SHELL_OAUTH__?: boolean }).__FOCUSOS_SHELL_OAUTH__ = true;
+      });
+    });
+
+    test('/auth offers Continue with Google again', async ({ page }) => {
+      await page.goto(`${BASE}/auth`);
+      await expect(page.getByText('Focus OS Login')).toBeVisible();
+      await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
+      await expect(page.getByRole('tab', { name: 'Sign In' })).toBeVisible();
+    });
+
+    test('the native callback installs the session and lands on /home', async ({ page }) => {
+      // No Google in this test — the point is the plumbing. Mint a REAL token
+      // pair with the Apple-review demo account, sign out locally, then feed
+      // window.__FOCUSOS_OAUTH_CALLBACK__ the exact shape the shell delivers.
+      // Implicit flow (supabase-js 2.110.0 default) => tokens in the fragment.
+      await page.goto(`${BASE}/auth`);
+      const panel = page.getByRole('tabpanel');
+      await panel.getByLabel(/email/i).fill('apple.review@focusos.tech');
+      await panel.getByLabel(/password/i).first().fill('FocusOS-Review-2026');
+      await panel.getByRole('button', { name: /sign in/i }).click();
+      await page.waitForURL('**/home', { timeout: 20000 });
+
+      const readStoredSession = () => {
+        const key = Object.keys(localStorage).find(k => /^sb-.*-auth-token$/.test(k));
+        if (!key) return null;
+        const raw = localStorage.getItem(key) ?? '';
+        const json = raw.startsWith('base64-') ? atob(raw.slice('base64-'.length)) : raw;
+        try {
+          const parsed = JSON.parse(json);
+          return {
+            access_token: parsed.access_token as string,
+            refresh_token: parsed.refresh_token as string,
+          };
+        } catch {
+          return null;
+        }
+      };
+
+      const tokens = await page.evaluate(readStoredSession);
+      expect(tokens?.access_token).toBeTruthy();
+      expect(tokens?.refresh_token).toBeTruthy();
+
+      // Local sign-out: drop the stored session without revoking the token
+      // pair server-side (a real Google callback arrives at a signed-out app).
+      await page.evaluate(() => localStorage.clear());
+      await page.goto(`${BASE}/auth`);
+      await expect(page.getByText('Focus OS Login')).toBeVisible();
+      expect(await page.evaluate(readStoredSession)).toBeNull();
+
+      const called = await page.evaluate(({ access_token, refresh_token }) => {
+        const cb = (window as unknown as {
+          __FOCUSOS_OAUTH_CALLBACK__?: (url: string | null) => void;
+        }).__FOCUSOS_OAUTH_CALLBACK__;
+        if (typeof cb !== 'function') return 'handler-missing';
+        cb(
+          `focusos://auth-callback#access_token=${access_token}` +
+            `&expires_in=3600&refresh_token=${refresh_token}&token_type=bearer`,
+        );
+        return 'called';
+      }, tokens!);
+      expect(called).toBe('called');
+
+      await page.waitForURL('**/home', { timeout: 20000 });
+      // Home bounces a signed-out visitor back to /auth, so staying here with
+      // a stored session is the proof.
+      await expect(page.getByText('Focus OS Login')).toHaveCount(0);
+      expect(await page.evaluate(readStoredSession)).not.toBeNull();
+    });
   });
 });
 
