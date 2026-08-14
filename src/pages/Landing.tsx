@@ -812,7 +812,7 @@ const Landing = () => {
             variants={enter}
             initial="hidden"
             animate="shown"
-            className="max-w-[18ch] text-[clamp(2.3rem,6vw,4.2rem)] font-bold leading-[1.05] tracking-[-0.025em] text-white"
+            className="whitespace-nowrap text-[clamp(1.6rem,7vw,2.55rem)] font-bold leading-[1.05] tracking-[-0.025em] text-white sm:whitespace-normal sm:text-[clamp(2.3rem,6vw,4.2rem)]"
           >
             Focus OS, Stress Less!
           </motion.h1>
