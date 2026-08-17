@@ -6,11 +6,35 @@ const MAX_DIMENSION = 2000;
 const COMPRESSION_SKIP_BYTES = 300 * 1024;
 const WEBP_QUALITY = 0.85;
 
+/* Wallpaper photos ride in the SAME bucket as task images, inside a
+   `wallpapers` folder under the owner's own folder. The bucket's INSERT policy
+   is `(storage.foldername(name))[1] = auth.uid()::text` (migration
+   20260315100505), so the user id MUST stay the FIRST path segment — verified
+   live against production storage: `{uid}/wallpapers/x.jpg` uploads 200 and
+   reads 200 unauthenticated (the bucket is public), while a top-level
+   `wallpapers/{uid}-x.jpg` is refused with "new row violates row-level
+   security policy". No migration, no new bucket, no policy change. */
+const WALLPAPER_FOLDER = 'wallpapers';
+
+export type EncodeImageOptions = {
+  /** Longest edge of the output, in pixels. Smaller inputs are never upscaled. */
+  maxDimension: number;
+  /** Output mime type, e.g. 'image/webp' or 'image/jpeg'. */
+  mime: string;
+  /** Encoder quality, 0-1. */
+  quality: number;
+};
+
 /**
- * Compress an image: downscale longest side to MAX_DIMENSION and re-encode as WebP.
- * Throws if compression isn't supported or fails — callers should fall back to original.
+ * Decode an image, downscale its longest side to opts.maxDimension and
+ * re-encode it as opts.mime at opts.quality. The single canvas path in the app
+ * (task images and wallpaper photos both use it). Throws if the browser cannot
+ * decode or cannot produce the requested type — callers decide the fallback.
  */
-export const compressImage = async (file: File | Blob): Promise<Blob> => {
+export const encodeImage = async (
+  file: File | Blob,
+  opts: EncodeImageOptions
+): Promise<Blob> => {
   let bitmap: ImageBitmap | null = null;
   let objectUrl: string | null = null;
   let width = 0;
@@ -39,7 +63,7 @@ export const compressImage = async (file: File | Blob): Promise<Blob> => {
     if (!width || !height) throw new Error('Invalid image dimensions');
 
     const longest = Math.max(width, height);
-    const scale = Math.min(1, MAX_DIMENSION / longest);
+    const scale = Math.min(1, opts.maxDimension / longest);
     const targetW = Math.round(width * scale);
     const targetH = Math.round(height * scale);
 
@@ -51,11 +75,11 @@ export const compressImage = async (file: File | Blob): Promise<Blob> => {
     ctx.drawImage(source, 0, 0, targetW, targetH);
 
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((b) => resolve(b), 'image/webp', WEBP_QUALITY);
+      canvas.toBlob((b) => resolve(b), opts.mime, opts.quality);
     });
 
     if (!blob || blob.size === 0) throw new Error('Canvas toBlob returned empty');
-    if (blob.type !== 'image/webp') throw new Error('WebP not supported by browser');
+    if (blob.type !== opts.mime) throw new Error(`${opts.mime} not supported by browser`);
 
     return blob;
   } finally {
@@ -63,6 +87,17 @@ export const compressImage = async (file: File | Blob): Promise<Blob> => {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
   }
 };
+
+/**
+ * Compress an image: downscale longest side to MAX_DIMENSION and re-encode as WebP.
+ * Throws if compression isn't supported or fails — callers should fall back to original.
+ */
+export const compressImage = (file: File | Blob): Promise<Blob> =>
+  encodeImage(file, {
+    maxDimension: MAX_DIMENSION,
+    mime: 'image/webp',
+    quality: WEBP_QUALITY,
+  });
 
 /**
  * Check if an image string is a legacy base64 data URL
@@ -126,6 +161,44 @@ export const uploadTaskImage = async (
 
   return path;
 };
+
+/**
+ * Upload a wallpaper photo and return its PUBLIC url (the bucket is public, so
+ * no signing and no auth are needed to paint it). Path shape:
+ * `{userId}/wallpapers/{timestamp}.jpg` — see WALLPAPER_FOLDER above for why
+ * the user id has to lead.
+ */
+export const uploadWallpaperImage = async (
+  file: Blob,
+  userId: string
+): Promise<string> => {
+  const path = `${userId}/${WALLPAPER_FOLDER}/${Date.now()}.jpg`;
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    cacheControl: '3600',
+    contentType: 'image/jpeg',
+    upsert: false,
+  });
+
+  if (error) {
+    throw new Error(`Wallpaper upload failed: ${error.message}`);
+  }
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+};
+
+/**
+ * Read a Blob back as a data URL (the instant-paint wallpaper cache is stored
+ * as a data URI, so it needs no network and no object-URL lifetime).
+ */
+export const blobToDataUri = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Could not read image data'));
+    reader.readAsDataURL(blob);
+  });
 
 /**
  * Convert a base64 data URL to a Blob

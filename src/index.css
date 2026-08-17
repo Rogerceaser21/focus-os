@@ -175,8 +175,13 @@ All colors MUST be HSL.
     --glass-glow: 193 81% 31% / 0.2;
   }
 
-  /* smoke — dark art (Van Gogh) */
-  .liquid-glass[data-wallpaper='starry'] {
+  /* smoke — dark art (Van Gogh), shared verbatim by Custom ("My Photo").
+     An arbitrary photo can be anything, so it wears the DARKEST built-in's
+     legibility treatment: the smoke token set plus Van Gogh's scrim veil over
+     the image. The accent is restated in the [data-wallpaper='custom'] block
+     right below — v1 never samples an accent out of the photo. */
+  .liquid-glass[data-wallpaper='starry'],
+  .liquid-glass[data-wallpaper='custom'] {
     --background: 228 32% 10%;
     --foreground: 220 60% 97%;
     --card: 227 25% 16%;
@@ -224,6 +229,23 @@ All colors MUST be HSL.
     --lg-hover: rgba(255, 255, 255, 0.06);
     --chip: rgba(125, 211, 252, 0.12);
     --chip-brd: rgba(125, 211, 252, 0.28);
+  }
+
+  /* Custom ("My Photo") — smoke material + Van Gogh's scrim inherited from the
+     shared block above, with the app's DEFAULT accent (Hokusai teal) instead of
+     smoke's own light blue. Smoke pairs its light-blue accent with a DARK
+     accent-foreground, so taking the dark teal means flipping those foregrounds
+     back to white; everything else stays smoke. */
+  .liquid-glass[data-wallpaper='custom'] {
+    --primary: 193 81% 31%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 193 81% 31%;
+    --accent-foreground: 0 0% 100%;
+    --ring: 193 81% 31%;
+    --sidebar-primary: 193 81% 31%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 193 81% 31%;
+    --glass-glow: 193 81% 31% / 0.2;
   }
 
   /* solid — no art (Plain). Base colour comes from the user's colour picker
@@ -568,7 +590,8 @@ All colors MUST be HSL.
 
 /* page shells: thin veil so the wallpaper shows through */
 .liquid-glass .bg-background { background-color: hsl(var(--background) / 0.2); }
-.liquid-glass[data-wallpaper='starry'] .bg-background { background-color: hsl(var(--background) / 0.3); }
+.liquid-glass[data-wallpaper='starry'] .bg-background,
+.liquid-glass[data-wallpaper='custom'] .bg-background { background-color: hsl(var(--background) / 0.3); }
 /* plain: page shell fully transparent so the picked --plain-color shows through */
 .liquid-glass[data-wallpaper='plain'] .bg-background { background-color: transparent; }
 
@@ -597,8 +620,11 @@ All colors MUST be HSL.
 }
 .liquid-glass .bg-popover { background-color: hsl(var(--popover) / 0.88); }
 .liquid-glass[data-wallpaper='starry'] .bg-card,
-.liquid-glass[data-wallpaper='starry'] .bg-sidebar { background-color: hsl(var(--card) / 0.6); }
-.liquid-glass[data-wallpaper='starry'] .bg-popover { background-color: hsl(var(--popover) / 0.88); }
+.liquid-glass[data-wallpaper='starry'] .bg-sidebar,
+.liquid-glass[data-wallpaper='custom'] .bg-card,
+.liquid-glass[data-wallpaper='custom'] .bg-sidebar { background-color: hsl(var(--card) / 0.6); }
+.liquid-glass[data-wallpaper='starry'] .bg-popover,
+.liquid-glass[data-wallpaper='custom'] .bg-popover { background-color: hsl(var(--popover) / 0.88); }
 .liquid-glass[data-wallpaper='plain'] .bg-card,
 .liquid-glass[data-wallpaper='plain'] .bg-sidebar { background-color: hsl(var(--card) / 0.92); }
 .liquid-glass[data-wallpaper='plain'] .bg-popover { background-color: hsl(var(--popover) / 0.97); }

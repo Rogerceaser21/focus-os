@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { UserPreferences } from '@/hooks/useUserPreferences';
 import { PROVIDERS, AIProvider, ImageMode } from '@/lib/aiHandoff';
-import { WALLPAPERS, useWallpaper, usePlainColor, type WallpaperId } from '@/lib/wallpaper';
+import {
+  WALLPAPERS,
+  useWallpaper,
+  usePlainColor,
+  useCustomWallpaper,
+  hasCustomWallpaper,
+  cacheCustomWallpaper,
+  setCustomWallpaperUrl,
+  clearCustomWallpaper,
+  CUSTOM_UPLOAD_MAX_DIM,
+  CUSTOM_UPLOAD_QUALITY,
+  CUSTOM_CACHE_MAX_DIM,
+  CUSTOM_CACHE_QUALITY,
+  CUSTOM_CACHE_FALLBACK_MAX_DIM,
+  CUSTOM_CACHE_FALLBACK_QUALITY,
+  type WallpaperId,
+} from '@/lib/wallpaper';
+import { encodeImage, blobToDataUri, uploadWallpaperImage } from '@/lib/taskImageStorage';
+import { useAuth } from '@/hooks/useAuth';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 import ApiTokensSection from '@/components/ApiTokensSection';
 import { IS_SHELL, SHELL_CAL } from '@/lib/shell';
@@ -51,6 +70,11 @@ export default function SettingsDialog({
 }: SettingsDialogProps) {
   const [wallpaper, setWallpaperChoice] = useWallpaper();
   const [plainColor, setPlainColorChoice] = usePlainColor();
+  const custom = useCustomWallpaper();
+  const hasPhoto = hasCustomWallpaper(custom);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const { user } = useAuth();
   const [defaultView, setDefaultView] = useState<string>('today');
   const [displayMode, setDisplayMode] = useState<'list' | 'grid' | 'gantt' | 'time'>('list');
   const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
@@ -88,6 +112,77 @@ export default function SettingsDialog({
     onOpenChange(false);
   };
 
+  /* "My Photo" pick. Two writes, in this order:
+     1. the small data-URI copy into localStorage — the instant-paint cache the
+        next cold start reads synchronously, so it must land BEFORE the wallpaper
+        is selected (a selection whose photo cannot be painted is the void bug);
+     2. the 2000px JPEG into the task-image bucket, best effort — that copy is
+        only the refresh / fresh-device fallback, so a failed upload still leaves
+        a working wallpaper on this device. */
+  const handlePhotoPick = async (file: File) => {
+    setPhotoBusy(true);
+    try {
+      let cached = false;
+      try {
+        const cacheBlob = await encodeImage(file, {
+          maxDimension: CUSTOM_CACHE_MAX_DIM,
+          mime: 'image/jpeg',
+          quality: CUSTOM_CACHE_QUALITY,
+        });
+        cached = cacheCustomWallpaper(await blobToDataUri(cacheBlob));
+        if (!cached) {
+          // Quota refused it — one retry at a smaller size, then give up
+          // rather than select a wallpaper this device cannot repaint.
+          const smaller = await encodeImage(file, {
+            maxDimension: CUSTOM_CACHE_FALLBACK_MAX_DIM,
+            mime: 'image/jpeg',
+            quality: CUSTOM_CACHE_FALLBACK_QUALITY,
+          });
+          cached = cacheCustomWallpaper(await blobToDataUri(smaller));
+        }
+      } catch {
+        toast.error('Could not read that photo');
+        return;
+      }
+      if (!cached) {
+        toast.error('No room left on this device to store that photo');
+        return;
+      }
+
+      setWallpaperChoice('custom');
+
+      if (!user?.id) {
+        toast.success('Photo set on this device');
+        return;
+      }
+      try {
+        const uploadBlob = await encodeImage(file, {
+          maxDimension: CUSTOM_UPLOAD_MAX_DIM,
+          mime: 'image/jpeg',
+          quality: CUSTOM_UPLOAD_QUALITY,
+        });
+        setCustomWallpaperUrl(await uploadWallpaperImage(uploadBlob, user.id));
+        toast.success('Photo set as your background');
+      } catch {
+        toast.error('Photo set on this device, but saving a copy to your account failed');
+      }
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const handlePhotoInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Clear the input so picking the same file again still fires a change.
+    e.target.value = '';
+    if (file) void handlePhotoPick(file);
+  };
+
+  const handlePhotoRemove = () => {
+    clearCustomWallpaper();
+    if (wallpaper === 'custom') setWallpaperChoice('wave');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
@@ -110,24 +205,84 @@ export default function SettingsDialog({
             <div className="space-y-3">
               <Label className="text-base font-semibold">Background</Label>
               <p className="text-sm text-muted-foreground">
-                Pick a wallpaper, or Plain with your own colour
+                Pick a wallpaper, your own photo, or Plain with your own colour
               </p>
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(WALLPAPERS) as WallpaperId[]).map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setWallpaperChoice(id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                      wallpaper === id
-                        ? 'bg-primary text-primary-foreground border-transparent'
-                        : 'bg-secondary/50 text-muted-foreground border-border hover:bg-secondary'
-                    }`}
-                  >
-                    {WALLPAPERS[id].name}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                {(Object.keys(WALLPAPERS) as WallpaperId[]).map((id) => {
+                  const tileClass = `px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    wallpaper === id
+                      ? 'bg-primary text-primary-foreground border-transparent'
+                      : 'bg-secondary/50 text-muted-foreground border-border hover:bg-secondary'
+                  }`;
+                  // "My Photo" opens the library the first time; once a photo is
+                  // cached the tile just selects it, and an × drops the cache.
+                  if (id === 'custom') {
+                    return (
+                      <span key={id} className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={photoBusy}
+                          onClick={() =>
+                            hasPhoto
+                              ? setWallpaperChoice('custom')
+                              : photoInputRef.current?.click()
+                          }
+                          className={`${tileClass} disabled:opacity-60`}
+                        >
+                          {photoBusy ? 'Adding photo…' : WALLPAPERS[id].name}
+                        </button>
+                        {hasPhoto && (
+                          <button
+                            type="button"
+                            aria-label="Remove photo"
+                            title="Remove photo"
+                            onClick={handlePhotoRemove}
+                            className="h-6 w-6 rounded-full border border-border bg-secondary/50 text-muted-foreground leading-none hover:bg-secondary"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    );
+                  }
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setWallpaperChoice(id)}
+                      className={tileClass}
+                    >
+                      {WALLPAPERS[id].name}
+                    </button>
+                  );
+                })}
               </div>
+              {/* On iPhone accept="image/*" opens the photo library directly. */}
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoInput}
+                aria-label="Choose a background photo"
+                className="hidden"
+              />
+              {wallpaper === 'custom' && (
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={photoBusy}
+                    onClick={() => photoInputRef.current?.click()}
+                  >
+                    Choose a different photo
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Your photo is stored on this device
+                    {custom.url ? ' and in your account' : ''}
+                  </span>
+                </div>
+              )}
               {wallpaper === 'plain' && (
                 <div className="flex items-center gap-3 pt-1">
                   <input
