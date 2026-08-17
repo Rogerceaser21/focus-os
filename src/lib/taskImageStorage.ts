@@ -6,11 +6,129 @@ const MAX_DIMENSION = 2000;
 const COMPRESSION_SKIP_BYTES = 300 * 1024;
 const WEBP_QUALITY = 0.85;
 
+/* Wallpaper photos ride in the SAME bucket as task images, inside a
+   `wallpapers` folder under the owner's own folder. The bucket's INSERT policy
+   is `(storage.foldername(name))[1] = auth.uid()::text` (migration
+   20260315100505), so the user id MUST stay the FIRST path segment — verified
+   live against production storage: `{uid}/wallpapers/x.jpg` uploads 200 and
+   reads 200 unauthenticated (the bucket is public), while a top-level
+   `wallpapers/{uid}-x.jpg` is refused with "new row violates row-level
+   security policy". No migration, no new bucket, no policy change. */
+const WALLPAPER_FOLDER = 'wallpapers';
+
+export type EncodeImageOptions = {
+  /** Longest edge of the output, in pixels. Smaller inputs are never upscaled. */
+  maxDimension: number;
+  /** Output mime type, e.g. 'image/webp' or 'image/jpeg'. */
+  mime: string;
+  /** Encoder quality, 0-1. */
+  quality: number;
+};
+
+/** What a photo LOOKS like, read off the downscale canvas: mean perceptual
+ *  brightness (0-1) and the dominant colour as #rrggbb (null when the photo
+ *  carries no usable hue at all — a greyscale or near-black picture).
+ *  The wallpaper module owns what these MEAN (see src/lib/wallpaper.tsx). */
+export type PhotoStats = { brightness: number; dominant: string | null };
+
+export type EncodedImage = { blob: Blob; stats: PhotoStats | null };
+
+/* Pixels sampled for the measurement. A stride keeps even a 2000px photo to a
+   few thousand reads; a tone flip and one accent hue do not get better with
+   more samples. */
+const STATS_MAX_SAMPLES = 8000;
+/* A pixel only joins the dominant-colour vote when it actually carries colour:
+   flat grey, near-black and near-white pixels have no hue worth taking. */
+const STATS_MIN_CHROMA = 20;
+const STATS_MIN_MAX_CHANNEL = 40;
+const STATS_MAX_MIN_CHANNEL = 245;
+/* 4 bits per channel — coarse enough that a photo's shades of one colour land
+   in the same bucket, fine enough that two real colours stay apart. */
+const STATS_BUCKET_SHIFT = 4;
+
 /**
- * Compress an image: downscale longest side to MAX_DIMENSION and re-encode as WebP.
- * Throws if compression isn't supported or fails — callers should fall back to original.
+ * Measure the canvas the downscale just drew: mean brightness over the whole
+ * frame, plus the modal colour bucket averaged back to one hex. Never throws —
+ * an unreadable canvas simply means the photo goes untreated.
  */
-export const compressImage = async (file: File | Blob): Promise<Blob> => {
+const measureCanvas = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number
+): PhotoStats | null => {
+  let data: Uint8ClampedArray;
+  try {
+    data = ctx.getImageData(0, 0, width, height).data;
+  } catch {
+    return null;
+  }
+
+  const pixels = width * height;
+  const stride = Math.max(1, Math.floor(pixels / STATS_MAX_SAMPLES));
+  const buckets = new Map<number, { n: number; r: number; g: number; b: number }>();
+  let lumSum = 0;
+  let samples = 0;
+
+  for (let p = 0; p < pixels; p += stride) {
+    const i = p * 4;
+    if (data[i + 3] < 128) continue; // transparent pixels paint as nothing
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    lumSum += (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    samples++;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max - min < STATS_MIN_CHROMA) continue;
+    if (max < STATS_MIN_MAX_CHANNEL || min > STATS_MAX_MIN_CHANNEL) continue;
+    const key =
+      ((r >> STATS_BUCKET_SHIFT) << 8) |
+      ((g >> STATS_BUCKET_SHIFT) << 4) |
+      (b >> STATS_BUCKET_SHIFT);
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.n++;
+      bucket.r += r;
+      bucket.g += g;
+      bucket.b += b;
+    } else {
+      buckets.set(key, { n: 1, r, g, b });
+    }
+  }
+
+  if (!samples) return null;
+
+  // Insertion order breaks ties, so the same photo always yields the same hex.
+  let top: { n: number; r: number; g: number; b: number } | null = null;
+  for (const bucket of buckets.values()) {
+    if (!top || bucket.n > top.n) top = bucket;
+  }
+  const chan = (sum: number, n: number) =>
+    Math.round(sum / n)
+      .toString(16)
+      .padStart(2, '0');
+
+  return {
+    brightness: Math.round((lumSum / samples) * 1000) / 1000,
+    dominant: top ? `#${chan(top.r, top.n)}${chan(top.g, top.n)}${chan(top.b, top.n)}` : null,
+  };
+};
+
+/**
+ * Decode an image, downscale its longest side to opts.maxDimension and
+ * re-encode it as opts.mime at opts.quality. The single canvas path in the app
+ * (task images and wallpaper photos both use it). Throws if the browser cannot
+ * decode or cannot produce the requested type — callers decide the fallback.
+ * `measure` reads the photo's brightness / dominant colour off the SAME canvas
+ * the downscale already drew (the wallpaper picker wants them; task images do
+ * not, and a full-frame getImageData is not free).
+ */
+const encodeCore = async (
+  file: File | Blob,
+  opts: EncodeImageOptions,
+  measure: boolean
+): Promise<EncodedImage> => {
   let bitmap: ImageBitmap | null = null;
   let objectUrl: string | null = null;
   let width = 0;
@@ -39,7 +157,7 @@ export const compressImage = async (file: File | Blob): Promise<Blob> => {
     if (!width || !height) throw new Error('Invalid image dimensions');
 
     const longest = Math.max(width, height);
-    const scale = Math.min(1, MAX_DIMENSION / longest);
+    const scale = Math.min(1, opts.maxDimension / longest);
     const targetW = Math.round(width * scale);
     const targetH = Math.round(height * scale);
 
@@ -50,19 +168,44 @@ export const compressImage = async (file: File | Blob): Promise<Blob> => {
     if (!ctx) throw new Error('Canvas 2D context unavailable');
     ctx.drawImage(source, 0, 0, targetW, targetH);
 
+    const stats = measure ? measureCanvas(ctx, targetW, targetH) : null;
+
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((b) => resolve(b), 'image/webp', WEBP_QUALITY);
+      canvas.toBlob((b) => resolve(b), opts.mime, opts.quality);
     });
 
     if (!blob || blob.size === 0) throw new Error('Canvas toBlob returned empty');
-    if (blob.type !== 'image/webp') throw new Error('WebP not supported by browser');
+    if (blob.type !== opts.mime) throw new Error(`${opts.mime} not supported by browser`);
 
-    return blob;
+    return { blob, stats };
   } finally {
     if (bitmap) bitmap.close();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
   }
 };
+
+/** Downscale + re-encode. */
+export const encodeImage = async (
+  file: File | Blob,
+  opts: EncodeImageOptions
+): Promise<Blob> => (await encodeCore(file, opts, false)).blob;
+
+/** Downscale + re-encode, and hand back what the photo looks like (wallpaper). */
+export const encodeImageWithStats = (
+  file: File | Blob,
+  opts: EncodeImageOptions
+): Promise<EncodedImage> => encodeCore(file, opts, true);
+
+/**
+ * Compress an image: downscale longest side to MAX_DIMENSION and re-encode as WebP.
+ * Throws if compression isn't supported or fails — callers should fall back to original.
+ */
+export const compressImage = (file: File | Blob): Promise<Blob> =>
+  encodeImage(file, {
+    maxDimension: MAX_DIMENSION,
+    mime: 'image/webp',
+    quality: WEBP_QUALITY,
+  });
 
 /**
  * Check if an image string is a legacy base64 data URL
@@ -126,6 +269,44 @@ export const uploadTaskImage = async (
 
   return path;
 };
+
+/**
+ * Upload a wallpaper photo and return its PUBLIC url (the bucket is public, so
+ * no signing and no auth are needed to paint it). Path shape:
+ * `{userId}/wallpapers/{timestamp}.jpg` — see WALLPAPER_FOLDER above for why
+ * the user id has to lead.
+ */
+export const uploadWallpaperImage = async (
+  file: Blob,
+  userId: string
+): Promise<string> => {
+  const path = `${userId}/${WALLPAPER_FOLDER}/${Date.now()}.jpg`;
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    cacheControl: '3600',
+    contentType: 'image/jpeg',
+    upsert: false,
+  });
+
+  if (error) {
+    throw new Error(`Wallpaper upload failed: ${error.message}`);
+  }
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+};
+
+/**
+ * Read a Blob back as a data URL (the instant-paint wallpaper cache is stored
+ * as a data URI, so it needs no network and no object-URL lifetime).
+ */
+export const blobToDataUri = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Could not read image data'));
+    reader.readAsDataURL(blob);
+  });
 
 /**
  * Convert a base64 data URL to a Blob

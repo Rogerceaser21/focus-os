@@ -175,8 +175,15 @@ All colors MUST be HSL.
     --glass-glow: 193 81% 31% / 0.2;
   }
 
-  /* smoke — dark art (Van Gogh) */
-  .liquid-glass[data-wallpaper='starry'] {
+  /* smoke — dark art (Van Gogh), shared verbatim by Custom ("My Photo") whenever
+     the photo is NOT measurably bright (data-custom-tone='dark', and the default
+     for any photo cached before the measurement shipped): an arbitrary dark or
+     mixed photo wears the DARKEST built-in's legibility treatment, the smoke
+     token set plus Van Gogh's scrim veil over the image. The accent is restated
+     in the [data-wallpaper='custom'] block right below; a bright photo takes the
+     light block after that instead. */
+  .liquid-glass[data-wallpaper='starry'],
+  .liquid-glass[data-wallpaper='custom'] {
     --background: 228 32% 10%;
     --foreground: 220 60% 97%;
     --card: 227 25% 16%;
@@ -224,6 +231,83 @@ All colors MUST be HSL.
     --lg-hover: rgba(255, 255, 255, 0.06);
     --chip: rgba(125, 211, 252, 0.12);
     --chip-brd: rgba(125, 211, 252, 0.28);
+  }
+
+  /* Custom ("My Photo") — smoke material + Van Gogh's scrim inherited from the
+     shared block above, with the accent SAMPLED FROM THE PHOTO: --custom-accent
+     / --custom-accent-fg are set inline on <html> by WallpaperController when
+     the photo's dominant colour clears the grey/dark guard rails. When it does
+     not (a greyscale or muddy photo, or a photo cached before this shipped) the
+     fallbacks below stand, and they are the app's DEFAULT accent (Hokusai teal)
+     instead of smoke's own light blue. Smoke pairs its light-blue accent with a
+     DARK accent-foreground, so taking the dark teal means flipping those
+     foregrounds back to white; everything else stays smoke. */
+  .liquid-glass[data-wallpaper='custom'] {
+    --primary: var(--custom-accent, 193 81% 31%);
+    --primary-foreground: var(--custom-accent-fg, 0 0% 100%);
+    --accent: var(--custom-accent, 193 81% 31%);
+    --accent-foreground: var(--custom-accent-fg, 0 0% 100%);
+    --ring: var(--custom-accent, 193 81% 31%);
+    --sidebar-primary: var(--custom-accent, 193 81% 31%);
+    --sidebar-primary-foreground: var(--custom-accent-fg, 0 0% 100%);
+    --sidebar-ring: var(--custom-accent, 193 81% 31%);
+    --glass-glow: var(--custom-accent, 193 81% 31%) / 0.2;
+  }
+
+  /* Custom, LIGHT tone — the photo measured genuinely bright at pick time
+     (mean luminance >= CUSTOM_LIGHT_BRIGHTNESS in wallpaper.tsx), so the smoke
+     smother would be a waste of it: frost material, dark text, and the veil
+     drops to a whisper of white that lifts contrast without hiding the picture.
+     Every token the smoke block sets has to be restated here, or smoke's value
+     leaks through. Same pattern as [data-plain-tone='dark'] below. */
+  .liquid-glass[data-wallpaper='custom'][data-custom-tone='light'] {
+    --background: 205 25% 94%;
+    --foreground: 203 19% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 203 19% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 203 19% 18%;
+    --primary: var(--custom-accent, 193 81% 31%);
+    --primary-foreground: var(--custom-accent-fg, 0 0% 100%);
+    --secondary: 204 20% 94%;
+    --secondary-foreground: 203 19% 22%;
+    --muted: 204 15% 90%;
+    --muted-foreground: 203 12% 36%;
+    --accent: var(--custom-accent, 193 81% 31%);
+    --accent-foreground: var(--custom-accent-fg, 0 0% 100%);
+    --border: 204 15% 82%;
+    --input: 204 15% 88%;
+    --ring: var(--custom-accent, 193 81% 31%);
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 203 19% 20%;
+    --sidebar-primary: var(--custom-accent, 193 81% 31%);
+    --sidebar-primary-foreground: var(--custom-accent-fg, 0 0% 100%);
+    --sidebar-accent: 204 20% 94%;
+    --sidebar-accent-foreground: 203 19% 20%;
+    --sidebar-border: 204 15% 84%;
+    --sidebar-ring: var(--custom-accent, 193 81% 31%);
+    --dock-background: 0 0% 100% / 0.78;
+    --glass-background: 0 0% 100% / 0.62;
+    --glass-border: 0 0% 100% / 0.68;
+    --glass-shadow: 203 42% 10% / 0.16;
+    --glass-blur: 26px;
+    --glass-glow: var(--custom-accent, 193 81% 31%) / 0.2;
+    --wallpaper-veil: linear-gradient(180deg, hsl(0 0% 100% / 0.1), hsl(0 0% 100% / 0.24));
+
+    /* material vars (frost, a shade more fill — a photo is busier than a painting) */
+    --t1: #22303a;
+    --t2: rgba(34, 48, 58, 0.55);
+    --t3: rgba(34, 48, 58, 0.35);
+    --gbg: linear-gradient(135deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.44) 100%);
+    --gbg-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.58) 100%);
+    --gbrd: rgba(255, 255, 255, 0.68);
+    --gshadow: 0 8px 32px rgba(10, 30, 40, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.85);
+    --lg-blur: 26px;
+    --lg-sat: 180%;
+    --row-line: rgba(34, 48, 58, 0.1);
+    --lg-hover: rgba(255, 255, 255, 0.45);
+    --chip: rgba(255, 255, 255, 0.55);
+    --chip-brd: rgba(255, 255, 255, 0.7);
   }
 
   /* solid — no art (Plain). Base colour comes from the user's colour picker
@@ -568,7 +652,10 @@ All colors MUST be HSL.
 
 /* page shells: thin veil so the wallpaper shows through */
 .liquid-glass .bg-background { background-color: hsl(var(--background) / 0.2); }
-.liquid-glass[data-wallpaper='starry'] .bg-background { background-color: hsl(var(--background) / 0.3); }
+.liquid-glass[data-wallpaper='starry'] .bg-background,
+.liquid-glass[data-wallpaper='custom'] .bg-background { background-color: hsl(var(--background) / 0.3); }
+/* a bright photo takes the frost veil, not smoke's heavier one */
+.liquid-glass[data-wallpaper='custom'][data-custom-tone='light'] .bg-background { background-color: hsl(var(--background) / 0.2); }
 /* plain: page shell fully transparent so the picked --plain-color shows through */
 .liquid-glass[data-wallpaper='plain'] .bg-background { background-color: transparent; }
 
@@ -597,8 +684,13 @@ All colors MUST be HSL.
 }
 .liquid-glass .bg-popover { background-color: hsl(var(--popover) / 0.88); }
 .liquid-glass[data-wallpaper='starry'] .bg-card,
-.liquid-glass[data-wallpaper='starry'] .bg-sidebar { background-color: hsl(var(--card) / 0.6); }
-.liquid-glass[data-wallpaper='starry'] .bg-popover { background-color: hsl(var(--popover) / 0.88); }
+.liquid-glass[data-wallpaper='starry'] .bg-sidebar,
+.liquid-glass[data-wallpaper='custom'] .bg-card,
+.liquid-glass[data-wallpaper='custom'] .bg-sidebar { background-color: hsl(var(--card) / 0.6); }
+.liquid-glass[data-wallpaper='starry'] .bg-popover,
+.liquid-glass[data-wallpaper='custom'] .bg-popover { background-color: hsl(var(--popover) / 0.88); }
+.liquid-glass[data-wallpaper='custom'][data-custom-tone='light'] .bg-card,
+.liquid-glass[data-wallpaper='custom'][data-custom-tone='light'] .bg-sidebar { background-color: hsl(var(--card) / 0.72); }
 .liquid-glass[data-wallpaper='plain'] .bg-card,
 .liquid-glass[data-wallpaper='plain'] .bg-sidebar { background-color: hsl(var(--card) / 0.92); }
 .liquid-glass[data-wallpaper='plain'] .bg-popover { background-color: hsl(var(--popover) / 0.97); }
@@ -626,6 +718,12 @@ All colors MUST be HSL.
 /* text that sits directly on the wallpaper (greetings, hero labels) */
 .liquid-glass .lg-onbg { color: #fff; text-shadow: 0 2px 24px rgba(0, 20, 30, 0.5), 0 1px 2px rgba(0, 20, 30, 0.3); }
 .liquid-glass[data-wallpaper='plain'] .lg-onbg { color: hsl(var(--foreground)); text-shadow: none; }
+/* light custom photo: the greeting is the ONLY text with no glass under it, so
+   dark type gets a soft white halo — the photo is bright but never uniform. */
+.liquid-glass[data-wallpaper='custom'][data-custom-tone='light'] .lg-onbg {
+  color: hsl(var(--foreground));
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 16px rgba(255, 255, 255, 0.6);
+}
 
 /* ---------------------------------------------------------------------------
    Structural: the /preview/app mock architecture, ported 1:1 (PreviewApp.tsx
