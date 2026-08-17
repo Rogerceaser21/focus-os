@@ -8,10 +8,18 @@
 // deduped SEQUENCE of data-wallpaper values and --wallpaper-url values on
 // <html>. One entry per list is the proof: no wave-then-photo swap, no flash.
 //
+// The adaptive treatment (W4) rides the same claim: the tone a photo earns and
+// the accent sampled from it are measured ONCE at pick time and cached beside
+// the photo, so the cold-start read that picks data-wallpaper also picks
+// data-custom-tone — the logger below records that sequence too, and one entry
+// is the proof that no photo is painted dark-then-light.
+//
 // Run: npx playwright test tests/custom-wallpaper.spec.ts
 // Default target is the config's own webServer (baseURL); WAVE_BASE_URL may
-// point at any localhost dev server serving this branch.
+// point at any localhost dev server serving this branch (the fixture tests
+// import the app's own modules by source path, which is a dev-server route).
 import { test, expect, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 const BASE = process.env.WAVE_BASE_URL ?? '';
 
@@ -21,6 +29,16 @@ const DEMO_PASSWORD = 'FocusOS-Review-2026';
 const LS_CHOICE = 'focusos-wallpaper';
 const LS_PHOTO = 'focusos-custom-wallpaper';
 const LS_PHOTO_URL = 'focusos-custom-wallpaper-url';
+const LS_PHOTO_META = 'focusos-custom-wallpaper-meta';
+
+/* Solid-colour 16x16 PNGs, generated deterministically (no image library):
+   amber #ffd24d is unmistakably bright, navy #14213d unmistakably dark. */
+const BRIGHT_PHOTO = 'photo-bright.png';
+const DARK_PHOTO = 'photo-dark.png';
+const TEAL_ACCENT = '193 81% 31%';
+
+const fixtureB64 = (name: string) =>
+  readFileSync(new URL(`./fixtures/${name}`, import.meta.url)).toString('base64');
 
 const WAVE_SRC =
   'https://mshlbsgsyzzfxyxramjj.supabase.co/storage/v1/object/public/wallpapers/great-wave.jpg';
@@ -33,14 +51,14 @@ const FIXTURE_URI = `data:image/jpeg;base64,${FIXTURE_B64}`;
 const FIXTURE_HEAD = FIXTURE_B64.slice(0, 48);
 const FIXTURE_BUFFER = Buffer.from(FIXTURE_B64, 'base64');
 
-type WpLog = { wp: string[]; url: string[] };
+type WpLog = { wp: string[]; url: string[]; tone: string[] };
 
-/** Records every distinct data-wallpaper / --wallpaper-url value ever set on
- *  <html>, from before the first app script to the assertion. */
+/** Records every distinct data-wallpaper / --wallpaper-url / data-custom-tone
+ *  value ever set on <html>, from before the first app script to the assertion. */
 const armWallpaperLogger = (page: Page) =>
   page.addInitScript(() => {
     const w = window as unknown as { __wpLog: WpLog };
-    w.__wpLog = { wp: [], url: [] };
+    w.__wpLog = { wp: [], url: [], tone: [] };
     const push = (arr: string[], v: string | null) => {
       if (v && (!arr.length || arr[arr.length - 1] !== v)) arr.push(v);
     };
@@ -49,13 +67,14 @@ const armWallpaperLogger = (page: Page) =>
       if (!el) return;
       push(w.__wpLog.wp, el.getAttribute('data-wallpaper'));
       push(w.__wpLog.url, el.style.getPropertyValue('--wallpaper-url') || null);
+      push(w.__wpLog.tone, el.getAttribute('data-custom-tone'));
     };
     // Observe the document node itself: documentElement may not exist yet when
     // an init script runs.
     new MutationObserver(scan).observe(document, {
       subtree: true,
       attributes: true,
-      attributeFilter: ['data-wallpaper', 'style'],
+      attributeFilter: ['data-wallpaper', 'data-custom-tone', 'style'],
     });
     scan();
   });
@@ -73,13 +92,49 @@ const bodyLayerImage = (page: Page) =>
 
 const readKeys = (page: Page) =>
   page.evaluate(
-    ([choice, photo, url]) => ({
+    ([choice, photo, url, meta]) => ({
       choice: localStorage.getItem(choice),
       photo: localStorage.getItem(photo),
       url: localStorage.getItem(url),
+      meta: localStorage.getItem(meta),
     }),
-    [LS_CHOICE, LS_PHOTO, LS_PHOTO_URL]
+    [LS_CHOICE, LS_PHOTO, LS_PHOTO_URL, LS_PHOTO_META]
   );
+
+const rootToken = (page: Page, name: string) =>
+  page.evaluate(
+    (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(),
+    name
+  );
+
+/** Put a fixture photo through the app's OWN encode + measure + cache path
+ *  (the picker's exact calls, minus the login and the bucket upload), then cold
+ *  start on it. The dynamic imports are source paths, so this needs the dev
+ *  server the suite already runs against. */
+const coldStartWithFixture = async (page: Page, fixture: string) => {
+  await page.goto(`${BASE}/auth`);
+  await page.evaluate(
+    async ([b64]) => {
+      const storagePath = '/src/lib/taskImageStorage.ts';
+      const wallpaperPath = '/src/lib/wallpaper.tsx';
+      const storage = await import(/* @vite-ignore */ storagePath);
+      const wallpaper = await import(/* @vite-ignore */ wallpaperPath);
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const file = new File([bytes], 'photo.png', { type: 'image/png' });
+      const { blob, stats } = await storage.encodeImageWithStats(file, {
+        maxDimension: wallpaper.CUSTOM_CACHE_MAX_DIM,
+        mime: 'image/jpeg',
+        quality: wallpaper.CUSTOM_CACHE_QUALITY,
+      });
+      wallpaper.cacheCustomWallpaper(await storage.blobToDataUri(blob), stats);
+      wallpaper.setWallpaper('custom');
+    },
+    [fixtureB64(fixture)]
+  );
+  await armWallpaperLogger(page);
+  await page.reload();
+  await expect(page.locator('html')).toHaveClass(/liquid-glass/);
+};
 
 /** Seed localStorage on the app's own origin, then arm the logger and reload —
  *  the reload is the cold start under test. */
@@ -126,6 +181,49 @@ test('custom wears the darkest built-in scrim with the default teal accent', asy
   // …and the app's default Hokusai teal accent, not smoke's light blue.
   expect(tokens.primary).toBe('193 81% 31%');
   expect(tokens.primaryFg).toBe('0 0% 100%');
+});
+
+test('a bright photo takes the light tone and an accent sampled from it', async ({ page }) => {
+  await coldStartWithFixture(page, BRIGHT_PHOTO);
+
+  await expect(page.locator('html')).toHaveAttribute('data-wallpaper', 'custom');
+  await expect(page.locator('html')).toHaveAttribute('data-custom-tone', 'light');
+
+  const meta = JSON.parse((await readKeys(page)).meta!);
+  expect(meta.brightness).toBeGreaterThan(0.62);
+  expect(meta.dominant).toBe('#ffd24d');
+
+  // Frost tokens and a near-clear veil, not smoke's scrim…
+  expect(await rootToken(page, '--background')).toBe('205 25% 94%');
+  expect(await rootToken(page, '--wallpaper-veil')).not.toContain('radial-gradient');
+  // …and the accent is the photo's amber hue, not the teal fallback.
+  const accent = await rootToken(page, '--custom-accent');
+  expect(accent).toMatch(/^4[0-9] \d+% 34%$/);
+  expect(await rootToken(page, '--primary')).toBe(accent);
+  expect(await rootToken(page, '--primary')).not.toBe(TEAL_ACCENT);
+
+  // No dark-then-light flip: one wallpaper, one image, one tone, ever.
+  const log = await readLog(page);
+  expect(log.wp).toEqual(['custom']);
+  expect(log.url).toHaveLength(1);
+  expect(log.tone).toEqual(['light']);
+});
+
+test('a dark photo keeps the smoke treatment', async ({ page }) => {
+  await coldStartWithFixture(page, DARK_PHOTO);
+
+  await expect(page.locator('html')).toHaveAttribute('data-wallpaper', 'custom');
+  await expect(page.locator('html')).toHaveAttribute('data-custom-tone', 'dark');
+
+  const meta = JSON.parse((await readKeys(page)).meta!);
+  expect(meta.brightness).toBeLessThan(0.62);
+
+  expect(await rootToken(page, '--background')).toBe('228 32% 10%');
+  expect(await rootToken(page, '--wallpaper-veil')).toContain('radial-gradient');
+
+  const log = await readLog(page);
+  expect(log.wp).toEqual(['custom']);
+  expect(log.tone).toEqual(['dark']);
 });
 
 test('no photo: the built-in default is untouched', async ({ page }) => {
@@ -202,6 +300,11 @@ test('the Settings tile picks a photo, keeps it when switching away, and removes
   const afterPick = await readKeys(page);
   expect(afterPick.choice).toBe('custom');
   expect(afterPick.photo?.startsWith('data:image/jpeg;base64,')).toBe(true);
+  // The pick measures the photo on the canvas it downscales on, and the numbers
+  // are cached with it — that is what the tone and accent read on cold start.
+  const pickedMeta = JSON.parse(afterPick.meta!);
+  expect(pickedMeta.brightness).toBeGreaterThanOrEqual(0);
+  expect(pickedMeta.brightness).toBeLessThanOrEqual(1);
   // Path shape the bucket's RLS accepts: the user id leads, wallpapers/ under it.
   expect(uploads).toHaveLength(1);
   expect(uploads[0]).toMatch(
@@ -223,5 +326,6 @@ test('the Settings tile picks a photo, keeps it when switching away, and removes
   const afterRemove = await readKeys(page);
   expect(afterRemove.photo).toBeNull();
   expect(afterRemove.url).toBeNull();
+  expect(afterRemove.meta).toBeNull();
   await expect(dialog.getByRole('button', { name: 'Remove photo' })).toHaveCount(0);
 });

@@ -39,7 +39,12 @@ import {
   CUSTOM_CACHE_FALLBACK_QUALITY,
   type WallpaperId,
 } from '@/lib/wallpaper';
-import { encodeImage, blobToDataUri, uploadWallpaperImage } from '@/lib/taskImageStorage';
+import {
+  encodeImage,
+  encodeImageWithStats,
+  blobToDataUri,
+  uploadWallpaperImage,
+} from '@/lib/taskImageStorage';
 import { useAuth } from '@/hooks/useAuth';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 import ApiTokensSection from '@/components/ApiTokensSection';
@@ -115,7 +120,10 @@ export default function SettingsDialog({
   /* "My Photo" pick. Two writes, in this order:
      1. the small data-URI copy into localStorage — the instant-paint cache the
         next cold start reads synchronously, so it must land BEFORE the wallpaper
-        is selected (a selection whose photo cannot be painted is the void bug);
+        is selected (a selection whose photo cannot be painted is the void bug).
+        The cache encode also measures the photo on the canvas it is already
+        drawing on, and those numbers are cached with it: they decide the tone
+        and the accent on every later cold start, with no re-reading of pixels;
      2. the 2000px JPEG into the task-image bucket, best effort — that copy is
         only the refresh / fresh-device fallback, so a failed upload still leaves
         a working wallpaper on this device. */
@@ -124,21 +132,21 @@ export default function SettingsDialog({
     try {
       let cached = false;
       try {
-        const cacheBlob = await encodeImage(file, {
+        const cache = await encodeImageWithStats(file, {
           maxDimension: CUSTOM_CACHE_MAX_DIM,
           mime: 'image/jpeg',
           quality: CUSTOM_CACHE_QUALITY,
         });
-        cached = cacheCustomWallpaper(await blobToDataUri(cacheBlob));
+        cached = cacheCustomWallpaper(await blobToDataUri(cache.blob), cache.stats);
         if (!cached) {
           // Quota refused it — one retry at a smaller size, then give up
           // rather than select a wallpaper this device cannot repaint.
-          const smaller = await encodeImage(file, {
+          const smaller = await encodeImageWithStats(file, {
             maxDimension: CUSTOM_CACHE_FALLBACK_MAX_DIM,
             mime: 'image/jpeg',
             quality: CUSTOM_CACHE_FALLBACK_QUALITY,
           });
-          cached = cacheCustomWallpaper(await blobToDataUri(smaller));
+          cached = cacheCustomWallpaper(await blobToDataUri(smaller.blob), smaller.stats);
         }
       } catch {
         toast.error('Could not read that photo');

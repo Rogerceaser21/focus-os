@@ -25,16 +25,110 @@ export type EncodeImageOptions = {
   quality: number;
 };
 
+/** What a photo LOOKS like, read off the downscale canvas: mean perceptual
+ *  brightness (0-1) and the dominant colour as #rrggbb (null when the photo
+ *  carries no usable hue at all — a greyscale or near-black picture).
+ *  The wallpaper module owns what these MEAN (see src/lib/wallpaper.tsx). */
+export type PhotoStats = { brightness: number; dominant: string | null };
+
+export type EncodedImage = { blob: Blob; stats: PhotoStats | null };
+
+/* Pixels sampled for the measurement. A stride keeps even a 2000px photo to a
+   few thousand reads; a tone flip and one accent hue do not get better with
+   more samples. */
+const STATS_MAX_SAMPLES = 8000;
+/* A pixel only joins the dominant-colour vote when it actually carries colour:
+   flat grey, near-black and near-white pixels have no hue worth taking. */
+const STATS_MIN_CHROMA = 20;
+const STATS_MIN_MAX_CHANNEL = 40;
+const STATS_MAX_MIN_CHANNEL = 245;
+/* 4 bits per channel — coarse enough that a photo's shades of one colour land
+   in the same bucket, fine enough that two real colours stay apart. */
+const STATS_BUCKET_SHIFT = 4;
+
+/**
+ * Measure the canvas the downscale just drew: mean brightness over the whole
+ * frame, plus the modal colour bucket averaged back to one hex. Never throws —
+ * an unreadable canvas simply means the photo goes untreated.
+ */
+const measureCanvas = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number
+): PhotoStats | null => {
+  let data: Uint8ClampedArray;
+  try {
+    data = ctx.getImageData(0, 0, width, height).data;
+  } catch {
+    return null;
+  }
+
+  const pixels = width * height;
+  const stride = Math.max(1, Math.floor(pixels / STATS_MAX_SAMPLES));
+  const buckets = new Map<number, { n: number; r: number; g: number; b: number }>();
+  let lumSum = 0;
+  let samples = 0;
+
+  for (let p = 0; p < pixels; p += stride) {
+    const i = p * 4;
+    if (data[i + 3] < 128) continue; // transparent pixels paint as nothing
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    lumSum += (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    samples++;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max - min < STATS_MIN_CHROMA) continue;
+    if (max < STATS_MIN_MAX_CHANNEL || min > STATS_MAX_MIN_CHANNEL) continue;
+    const key =
+      ((r >> STATS_BUCKET_SHIFT) << 8) |
+      ((g >> STATS_BUCKET_SHIFT) << 4) |
+      (b >> STATS_BUCKET_SHIFT);
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.n++;
+      bucket.r += r;
+      bucket.g += g;
+      bucket.b += b;
+    } else {
+      buckets.set(key, { n: 1, r, g, b });
+    }
+  }
+
+  if (!samples) return null;
+
+  // Insertion order breaks ties, so the same photo always yields the same hex.
+  let top: { n: number; r: number; g: number; b: number } | null = null;
+  for (const bucket of buckets.values()) {
+    if (!top || bucket.n > top.n) top = bucket;
+  }
+  const chan = (sum: number, n: number) =>
+    Math.round(sum / n)
+      .toString(16)
+      .padStart(2, '0');
+
+  return {
+    brightness: Math.round((lumSum / samples) * 1000) / 1000,
+    dominant: top ? `#${chan(top.r, top.n)}${chan(top.g, top.n)}${chan(top.b, top.n)}` : null,
+  };
+};
+
 /**
  * Decode an image, downscale its longest side to opts.maxDimension and
  * re-encode it as opts.mime at opts.quality. The single canvas path in the app
  * (task images and wallpaper photos both use it). Throws if the browser cannot
  * decode or cannot produce the requested type — callers decide the fallback.
+ * `measure` reads the photo's brightness / dominant colour off the SAME canvas
+ * the downscale already drew (the wallpaper picker wants them; task images do
+ * not, and a full-frame getImageData is not free).
  */
-export const encodeImage = async (
+const encodeCore = async (
   file: File | Blob,
-  opts: EncodeImageOptions
-): Promise<Blob> => {
+  opts: EncodeImageOptions,
+  measure: boolean
+): Promise<EncodedImage> => {
   let bitmap: ImageBitmap | null = null;
   let objectUrl: string | null = null;
   let width = 0;
@@ -74,6 +168,8 @@ export const encodeImage = async (
     if (!ctx) throw new Error('Canvas 2D context unavailable');
     ctx.drawImage(source, 0, 0, targetW, targetH);
 
+    const stats = measure ? measureCanvas(ctx, targetW, targetH) : null;
+
     const blob = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob((b) => resolve(b), opts.mime, opts.quality);
     });
@@ -81,12 +177,24 @@ export const encodeImage = async (
     if (!blob || blob.size === 0) throw new Error('Canvas toBlob returned empty');
     if (blob.type !== opts.mime) throw new Error(`${opts.mime} not supported by browser`);
 
-    return blob;
+    return { blob, stats };
   } finally {
     if (bitmap) bitmap.close();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
   }
 };
+
+/** Downscale + re-encode. */
+export const encodeImage = async (
+  file: File | Blob,
+  opts: EncodeImageOptions
+): Promise<Blob> => (await encodeCore(file, opts, false)).blob;
+
+/** Downscale + re-encode, and hand back what the photo looks like (wallpaper). */
+export const encodeImageWithStats = (
+  file: File | Blob,
+  opts: EncodeImageOptions
+): Promise<EncodedImage> => encodeCore(file, opts, true);
 
 /**
  * Compress an image: downscale longest side to MAX_DIMENSION and re-encode as WebP.
