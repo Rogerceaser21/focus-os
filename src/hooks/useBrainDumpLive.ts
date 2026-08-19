@@ -124,6 +124,14 @@ function flagEnabled(name: string, defaultOn: boolean): boolean {
   const initial = initialParams.get(name);
   if (initial === '1') return true;
   if (initial === '0') return false;
+  // localStorage fallback: the shell app has no URL bar, so query params are
+  // unreachable there — Settings writes focusos-flag-<name> instead. URLs keep
+  // precedence so query-driven A/Bs stay meaningful.
+  try {
+    const stored = window.localStorage.getItem(`focusos-flag-${name}`);
+    if (stored === '1') return true;
+    if (stored === '0') return false;
+  } catch { /* storage blocked — fall through */ }
   return defaultOn;
 }
 

@@ -104,6 +104,7 @@ const stats = {
   peakRms: 0,
   workletActive: false,
   lastError: '' as string,
+  contextRecreates: 0,
 };
 
 /* Live level feed for the hot-mic voice bars (Igor-approved 2026-07-29):
@@ -228,6 +229,24 @@ async function attachNode(ctx: AudioContext) {
   return node;
 }
 
+const RESUME_TIMEOUT_MS = 1500; // healthy resume() lands in <100ms; wedged = never
+
+/** Bounded resume: true once the context is actually running. A resume() that
+ *  neither resolves nor rejects (reclaimed iOS audio session) loses the race. */
+async function resumeToRunning(ctx: AudioContext): Promise<boolean> {
+  if (ctx.state === 'running') return true;
+  try {
+    await Promise.race([
+      ctx.resume(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`timeout after ${RESUME_TIMEOUT_MS}ms`)), RESUME_TIMEOUT_MS)),
+    ]);
+  } catch (err) {
+    stats.lastError = `resume: ${(err as Error)?.message ?? err}`;
+  }
+  return (ctx.state as string) === 'running';
+}
+
 /**
  * Acquire the mic and start streaming 16k PCM chunks to `onChunk`.
  * Call from inside the user gesture — `ctx.resume()` and the permission prompt
@@ -238,34 +257,59 @@ export async function startCapture(onChunk: (chunk: PcmChunk) => void): Promise<
   if (state.node) return; // already capturing — new sink attached above
 
   stats.captureStarts += 1;
-  const ctx = ensureContext();
-  try {
-    // iOS parks background/blurred contexts as 'suspended' (or 'interrupted');
-    // resume() inside the gesture is the sanctioned wake-up.
-    if (ctx.state !== 'running') await ctx.resume();
-  } catch (err) {
-    stats.lastError = `resume: ${(err as Error)?.message ?? err}`;
-  }
 
+  // Mic FIRST: getUserMedia must run while the tap's transient activation is
+  // alive; the resume ladder below can burn seconds on a wedged context, and
+  // a getUserMedia issued after that window hangs or prompts.
   const stream = await navigator.mediaDevices.getUserMedia({
     // NO sampleRate constraint — hardware rate in, engine resamples.
     audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
   });
   state.stream = stream;
+  try {
 
-  state.resamplePos = 0;
-  state.tail = new Float32Array(0);
-  state.accLen = 0;
+    let ctx = ensureContext();
+    // iOS parks background/blurred contexts as 'suspended' (or 'interrupted');
+    // resume() inside the gesture is the sanctioned wake-up. After a long
+    // background stay the OS can reclaim the audio session entirely — then
+    // resume() never settles (neither resolve nor reject), which used to hang
+    // the awaited tap handler forever (Igor's warm-return "does nothing",
+    // 2026-08-19). So: bounded resume, and a context that will not run is
+    // replaced — once, inside the same tap. The page-lifetime-context rule
+    // stays for healthy contexts; recreation happens only on a proven wedge.
+    if (!(await resumeToRunning(ctx))) {
+      stats.contextRecreates += 1;
+      try { void ctx.close(); } catch { /* already dead */ }
+      state.ctx = null;
+      state.workletLoaded = false; // worklet modules are per-context
+      state.workletFailed = false;
+      ctx = ensureContext();
+      if (!(await resumeToRunning(ctx))) {
+        stats.lastError = `resume: replacement context stuck in '${ctx.state}'`;
+      }
+    }
 
-  const source = ctx.createMediaStreamSource(stream);
-  state.source = source;
-  const node = await attachNode(ctx);
-  state.node = node;
+    state.resamplePos = 0;
+    state.tail = new Float32Array(0);
+    state.accLen = 0;
 
-  source.connect(node as AudioNode);
-  // Both node kinds must be pulled by the graph to produce data; a worklet with
-  // one silent output and a ScriptProcessor both idle unless routed somewhere.
-  (node as AudioNode).connect(ctx.destination);
+    const source = ctx.createMediaStreamSource(stream);
+    state.source = source;
+    const node = await attachNode(ctx);
+    state.node = node;
+
+    source.connect(node as AudioNode);
+    // Both node kinds must be pulled by the graph to produce data; a worklet with
+    // one silent output and a ScriptProcessor both idle unless routed somewhere.
+    (node as AudioNode).connect(ctx.destination);
+
+  } catch (err) {
+    // The mic is already live (acquired first, inside the gesture) — a failure
+    // past that point must not leave a hot mic behind.
+    stream.getTracks().forEach((t) => t.stop());
+    state.stream = null;
+    throw err;
+  }
 }
 
 /** Release the microphone and the graph. The context stays — closing it is the
@@ -307,5 +351,6 @@ export function getDebugSnapshot() {
     lastRms: Number(stats.lastRms.toFixed(4)),
     peakRms: Number(stats.peakRms.toFixed(4)),
     lastError: stats.lastError,
+    contextRecreates: stats.contextRecreates,
   };
 }
