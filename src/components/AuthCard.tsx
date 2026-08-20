@@ -1,0 +1,441 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Shield } from 'lucide-react';
+import { IS_SHELL, SHELL_OAUTH } from '@/lib/shell';
+import { postShellOauthUrl, SHELL_OAUTH_SETTLED_EVENT } from '@/lib/shellOauth';
+
+export type AuthMode = 'signin' | 'signup';
+
+/* THE auth card: one component behind both entrances — the landing page's
+   dialog and the /auth page (the logout target). Both render it with the
+   theme's own light glass, so the two can never drift apart again. The
+   wrapper differs per surface (DialogContent vs Card); everything the user
+   reads and touches lives here. */
+const AuthCard = ({
+  mode,
+  onModeChange,
+  onAuthed,
+}: {
+  mode: AuthMode;
+  onModeChange: (mode: AuthMode) => void;
+  /** Called after a successful sign-in / sign-up (the toast is already up). */
+  onAuthed: () => void;
+}) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
+
+  // Admin reset state
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [adminVerified, setAdminVerified] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
+
+  // Shell only: the native bridge fires this when the sign-in sheet closes
+  // without a session (cancel or error), so the button stops spinning.
+  useEffect(() => {
+    const onSettled = () => setGoogleLoading(false);
+    window.addEventListener(SHELL_OAUTH_SETTLED_EVENT, onSettled);
+    return () => window.removeEventListener(SHELL_OAUTH_SETTLED_EVENT, onSettled);
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    // Shell with the native bridge: no redirect happens in this webview. The
+    // authorize URL goes to ASWebAuthenticationSession and the callback comes
+    // back through window.__FOCUSOS_OAUTH_CALLBACK__ (src/lib/shellOauth.ts),
+    // which installs the session and navigates.
+    if (SHELL_OAUTH) {
+      setGoogleLoading(true);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'focusos://auth-callback',
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error || !data?.url) {
+        toast.error(error?.message ?? 'Could not start Google sign-in');
+        setGoogleLoading(false);
+        return;
+      }
+      postShellOauthUrl(data.url);
+      return;
+    }
+
+    const isCustomDomain =
+      !window.location.hostname.includes('lovable.app') &&
+      !window.location.hostname.includes('lovableproject.com') &&
+      !window.location.hostname.includes('localhost');
+
+    if (isCustomDomain) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
+        },
+      });
+      if (error) {
+        toast.error(error.message);
+      }
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password || !firstName.trim() || !lastName.trim()) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}home`,
+        data: {
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        },
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Account created! Logging you in...', { duration: 1500 });
+      onAuthed();
+    }
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Welcome back!', { duration: 1500 });
+      onAuthed();
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error('Please enter your email');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}reset-password`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Password reset link sent! Check your email.');
+      setForgotPassword(false);
+    }
+  };
+
+  const handleAdminVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminPassword) {
+      toast.error('Please enter the admin password');
+      return;
+    }
+    setAdminLoading(true);
+    try {
+      // Verify against the server, never the browser: the admin secret is no
+      // longer readable by the client (app_configuration is RLS-locked). The
+      // edge function checks it with the service role and answers ok/deny.
+      const res = await supabase.functions.invoke('focusos-admin-reset-password', {
+        body: { adminPassword, verifyOnly: true },
+      });
+
+      if (res.error || res.data?.error || !res.data?.verified) {
+        toast.error(res.data?.error || 'Invalid admin password');
+        setAdminLoading(false);
+        return;
+      }
+
+      setAdminVerified(true);
+      toast.success('Admin verified');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong');
+    }
+    setAdminLoading(false);
+  };
+
+  const handleAdminReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail || !resetNewPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    setAdminLoading(true);
+    try {
+      const res = await supabase.functions.invoke('focusos-admin-reset-password', {
+        body: {
+          adminPassword,
+          userEmail: resetEmail.trim().toLowerCase(),
+          newPassword: resetNewPassword,
+        },
+      });
+
+      if (res.error) {
+        toast.error(res.error.message || 'Failed to reset password');
+      } else if (res.data?.error) {
+        toast.error(res.data.error);
+      } else {
+        toast.success(`Password reset for ${resetEmail}!`);
+        setResetEmail('');
+        setResetNewPassword('');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong');
+    }
+    setAdminLoading(false);
+  };
+
+  return (
+    <div data-testid="auth-card" className="space-y-4">
+      <div className="space-y-1.5 text-left">
+        <h2 className="text-2xl font-semibold leading-none tracking-tight">Focus OS</h2>
+        <p className="text-sm text-muted-foreground">
+          Stress less. Free to start, no credit card required.
+        </p>
+      </div>
+
+      {/* Google OAuth cannot complete inside a plain WKWebView, so the
+          shell only shows this once its native bridge is present
+          (SHELL_OAUTH) — shell build 1 has no bridge and still hides it. */}
+      {(!IS_SHELL || SHELL_OAUTH) && (
+        <>
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={handleGoogleSignIn}
+            disabled={loading || googleLoading}
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </Button>
+
+          {/* no background mask on the label: the card sits on glass surfaces
+              whose fill bg-card can't match */}
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">or</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </>
+      )}
+
+      <Tabs value={mode} onValueChange={v => onModeChange(v as AuthMode)}>
+        <TabsList className="grid w-full grid-cols-2 border-0 bg-transparent">
+          <TabsTrigger value="signin">Sign In</TabsTrigger>
+          <TabsTrigger value="signup">Sign Up</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="signin">
+          {forgotPassword ? (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email">Email</Label>
+                <Input id="forgot-email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+              <Button type="button" variant="ghost" className="w-full text-sm" onClick={() => setForgotPassword(false)}>
+                Back to Sign In
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signin-email">Email</Label>
+                <Input id="signin-email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signin-password">Password</Label>
+                <Input id="signin-password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setForgotPassword(true)}
+                >
+                  Forgot Password?
+                </button>
+                <Dialog open={adminDialogOpen} onOpenChange={(open) => {
+                  setAdminDialogOpen(open);
+                  if (!open) {
+                    setAdminVerified(false);
+                    setAdminPassword('');
+                    setResetEmail('');
+                    setResetNewPassword('');
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                    >
+                      <Shield className="h-3 w-3" />
+                      Admin Reset
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    {!adminVerified ? (
+                      <>
+                        <DialogHeader>
+                          <DialogTitle>Sign-Up Access</DialogTitle>
+                          <DialogDescription>
+                            Enter the administrator password to access the password reset form
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleAdminVerify} className="space-y-4">
+                          <div className="space-y-2">
+                            <Input
+                              type="password"
+                              placeholder="Enter administrator password"
+                              value={adminPassword}
+                              onChange={e => setAdminPassword(e.target.value)}
+                              disabled={adminLoading}
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button type="button" variant="outline" onClick={() => setAdminDialogOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={adminLoading}>
+                              {adminLoading ? 'Verifying...' : 'Verify'}
+                            </Button>
+                          </div>
+                        </form>
+                      </>
+                    ) : (
+                      <>
+                        <DialogHeader>
+                          <DialogTitle>Admin Password Reset</DialogTitle>
+                          <DialogDescription>
+                            Change password for any user account
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleAdminReset} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="reset-user-email">User Email</Label>
+                            <Input
+                              id="reset-user-email"
+                              type="email"
+                              placeholder="user@example.com"
+                              value={resetEmail}
+                              onChange={e => setResetEmail(e.target.value)}
+                              disabled={adminLoading}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="reset-new-pw">New Password</Label>
+                            <Input
+                              id="reset-new-pw"
+                              type="password"
+                              placeholder="New password"
+                              value={resetNewPassword}
+                              onChange={e => setResetNewPassword(e.target.value)}
+                              disabled={adminLoading}
+                            />
+                          </div>
+                          <Button type="submit" className="w-full" disabled={adminLoading}>
+                            {adminLoading ? 'Resetting...' : 'Update User Password'}
+                          </Button>
+                        </form>
+                      </>
+                    )}
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </form>
+          )}
+        </TabsContent>
+
+        <TabsContent value="signup">
+          <form onSubmit={handleSignUp} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="signup-firstname">First Name</Label>
+                <Input id="signup-firstname" type="text" placeholder="John" value={firstName} onChange={e => setFirstName(e.target.value)} disabled={loading} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signup-lastname">Surname</Label>
+                <Input id="signup-lastname" type="text" placeholder="Smith" value={lastName} onChange={e => setLastName(e.target.value)} disabled={loading} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-email">Email</Label>
+              <Input id="signup-email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-password">Password</Label>
+              <Input id="signup-password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Creating account...' : 'Start Free Today'}
+            </Button>
+          </form>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default AuthCard;
