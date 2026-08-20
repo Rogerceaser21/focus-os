@@ -94,7 +94,7 @@ test.describe('shell mode', () => {
   test('/ redirects to /auth (landing never renders)', async ({ page }) => {
     await page.goto(`${BASE}/`);
     await page.waitForURL('**/auth');
-    await expect(page.getByText('Focus OS Login')).toBeVisible();
+    await expect(page.getByTestId('auth-card')).toBeVisible();
     await expect(page.getByText('Your day, back in order.')).toHaveCount(0);
   });
 
@@ -103,7 +103,7 @@ test.describe('shell mode', () => {
   // build the sign-in leg dies on Google's disallowed_useragent.
   test('/auth hides Google, keeps email+password', async ({ page }) => {
     await page.goto(`${BASE}/auth`);
-    await expect(page.getByText('Focus OS Login')).toBeVisible();
+    await expect(page.getByTestId('auth-card')).toBeVisible();
     await expect(page.getByRole('button', { name: /continue with google/i })).toHaveCount(0);
     await expect(page.getByRole('tab', { name: 'Sign In' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Sign Up' })).toBeVisible();
@@ -136,7 +136,7 @@ test.describe('shell mode', () => {
 
     test('/auth offers Continue with Google again', async ({ page }) => {
       await page.goto(`${BASE}/auth`);
-      await expect(page.getByText('Focus OS Login')).toBeVisible();
+      await expect(page.getByTestId('auth-card')).toBeVisible();
       await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Sign In' })).toBeVisible();
     });
@@ -177,7 +177,7 @@ test.describe('shell mode', () => {
       // pair server-side (a real Google callback arrives at a signed-out app).
       await page.evaluate(() => localStorage.clear());
       await page.goto(`${BASE}/auth`);
-      await expect(page.getByText('Focus OS Login')).toBeVisible();
+      await expect(page.getByTestId('auth-card')).toBeVisible();
       expect(await page.evaluate(readStoredSession)).toBeNull();
 
       const called = await page.evaluate(({ access_token, refresh_token }) => {
@@ -196,7 +196,7 @@ test.describe('shell mode', () => {
       await page.waitForURL('**/home', { timeout: 20000 });
       // Home bounces a signed-out visitor back to /auth, so staying here with
       // a stored session is the proof.
-      await expect(page.getByText('Focus OS Login')).toHaveCount(0);
+      await expect(page.getByTestId('auth-card')).toHaveCount(0);
       expect(await page.evaluate(readStoredSession)).not.toBeNull();
     });
 
