@@ -54,6 +54,7 @@ export function BrainDumpDebugOverlay() {
 
   return (
     <div
+      data-testid="bd-debug-overlay"
       style={{
         position: 'fixed', top: 8, left: 8, zIndex: 9999, pointerEvents: 'none',
         background: 'rgba(0,0,0,0.72)', color: '#9f9', borderRadius: 8,

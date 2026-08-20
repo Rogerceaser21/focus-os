@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { UserPreferences } from '@/hooks/useUserPreferences';
@@ -86,6 +87,11 @@ export default function SettingsDialog({
   const [taskCardView, setTaskCardView] = useState<'full' | 'compact' | 'minimal'>('compact');
   const [taskCardViewMobile, setTaskCardViewMobile] = useState<'full' | 'compact' | 'minimal'>('compact');
   const [saving, setSaving] = useState(false);
+  // Device-local diagnostics flag (focusos-flag-debug) — the shell app has no
+  // URL bar for ?debug=1, so this switch is the only way to reach the overlay there.
+  const [debugOverlay, setDebugOverlay] = useState(() => {
+    try { return localStorage.getItem('focusos-flag-debug') === '1'; } catch { return false; }
+  });
   const [aiProvider, setAiProvider] = useState<AIProvider | 'none'>('none');
   const [aiImageMode, setAiImageMode] = useState<ImageMode>('public_link');
 
@@ -533,6 +539,27 @@ export default function SettingsDialog({
             <Separator />
 
             <ApiTokensSection />
+
+            <Separator />
+
+            {/* Diagnostics — device-local, applies immediately, not part of Save */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Diagnostics</Label>
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Voice debug overlay. Shows live capture and connection counters
+                  over the home screen. Applies immediately on this device.
+                </p>
+                <Switch
+                  checked={debugOverlay}
+                  onCheckedChange={(on) => {
+                    setDebugOverlay(on);
+                    try { localStorage.setItem('focusos-flag-debug', on ? '1' : '0'); } catch { /* storage blocked */ }
+                  }}
+                  aria-label="Voice debug overlay"
+                />
+              </div>
+            </div>
 
             <Separator />
 
