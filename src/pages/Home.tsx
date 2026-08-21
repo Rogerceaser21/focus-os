@@ -906,6 +906,18 @@ const Home = () => {
       // genuinely fresh dump still starts clean.
       await start(projects, (idleStaged || liveTasks.length > 0) ? { preserveTasks: true } : undefined);
     } catch (error: any) {
+      // The audio engine gave up inside the tap (dead context / mic that never
+      // answers) AFTER its own reset-and-retry: the page's audio is wedged the
+      // way a long background stay wedges it. Say so, and hand over the one
+      // action that is known to fix it — never a silent "Listening…".
+      if (error?.name === 'AudioEngineError') {
+        toast.error('Voice needs a restart — the microphone did not come back after the app was in the background.', {
+          id: 'bd-engine-restart',
+          duration: 15000,
+          action: { label: 'Reload', onClick: () => window.location.reload() },
+        });
+        return;
+      }
       let msg = 'Could not start Brain Dump. ';
       if (error?.name === 'NotAllowedError') msg += 'Please allow microphone access in your browser settings.';else
       if (error?.name === 'NotFoundError') msg += 'No microphone found on this device.';else

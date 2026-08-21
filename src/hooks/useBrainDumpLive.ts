@@ -4,7 +4,7 @@ import {
 } from '@google/genai';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { startCapture as engineStartCapture, stopCapture as engineStopCapture, getDebugSnapshot as getAudioDebugSnapshot } from '@/lib/brainDumpAudio';
+import { startCapture as engineStartCapture, stopCapture as engineStopCapture, getDebugSnapshot as getAudioDebugSnapshot, resetEngine as engineReset, AudioEngineError } from '@/lib/brainDumpAudio';
 import type { TaskPriority } from '@/types/task';
 
 export interface BrainDumpTask {
@@ -161,6 +161,13 @@ export function debugFlagEnabled(): boolean {
   return flagEnabled('debug', false);
 }
 
+/** ?mocklive=1 fakes the socket; by default it ALSO skips the audio engine.
+ *  ?mocklive=1&realaudio=1 keeps the real engine under the fake socket so the
+ *  mic-side watchdogs are testable without Gemini. */
+function mockAudioSkipped(): boolean {
+  return mockLiveEnabled() && !flagEnabled('realaudio', false);
+}
+
 /* Audio capture lives in src/lib/brainDumpAudio.ts — ONE page-lifetime
    AudioContext at the hardware rate, AudioWorklet capture, 16k resample in
    code. The per-session `new AudioContext({sampleRate:16000})` + close() churn
@@ -184,8 +191,21 @@ export const brainDumpDebug = {
   lastServerMessageAt: 0,
   lastCloseInfo: '',
   model: '',
+  /** Warm-return hardening counters (2026-08-21). */
+  noAudioRecoveries: 0,
+  startRetries: 0,
   audio: () => getAudioDebugSnapshot(),
 };
+
+/* After the mic is "live", samples must actually arrive. A context that
+   reports running but never produces a block, or a track iOS handed back
+   muted, used to sit under "Listening… speak freely" forever. Bounded here;
+   the harness shortens it via window.__bdAudioTuning.noAudioMs. */
+const NO_AUDIO_MS = 5000;
+function noAudioWindowMs(): number {
+  const t = (typeof window !== 'undefined' && (window as unknown as { __bdAudioTuning?: { noAudioMs?: number } }).__bdAudioTuning) || {};
+  return t.noAudioMs ?? NO_AUDIO_MS;
+}
 // Reachable from a Safari Web Inspector (USB) or an automation probe without
 // the overlay mounted — same production-debuggability rationale as above.
 if (typeof window !== 'undefined') (window as any).__bdDebug = brainDumpDebug;
@@ -363,6 +383,7 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
   const reconnectTimerRef = useRef<number | null>(null);
   const goAwayTimerRef = useRef<number | null>(null);
   const idleTimerRef = useRef<number | null>(null);
+  const audioWatchdogRef = useRef<number | null>(null);
   /** Mirrored during render (idempotent, same precedent as connectRef below):
    *  the timer callback has to read the CURRENT value, not the one captured
    *  when it was armed. */
@@ -396,6 +417,16 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
     }
   }, []);
 
+  /** Separate from clearTimers on purpose: connect() sweeps the SOCKET timers
+   *  on every (re)connect, and the mic watchdog must survive that — it is
+   *  armed before the socket exists and judges the audio path, not the wire. */
+  const clearAudioWatchdog = useCallback(() => {
+    if (audioWatchdogRef.current !== null) {
+      window.clearTimeout(audioWatchdogRef.current);
+      audioWatchdogRef.current = null;
+    }
+  }, []);
+
   /** Drop the current socket. Bumping the sequence orphans its callbacks first. */
   const closeSession = useCallback(() => {
     const session = sessionRef.current;
@@ -413,13 +444,14 @@ export function useBrainDumpLive(options?: BrainDumpLiveOptions) {
    *  context churn is what killed second sessions. */
   const teardown = useCallback(() => {
     clearTimers();
+    clearAudioWatchdog();
     closeSession();
     engineStopCapture();
     bufferedAudioRef.current = [];
     pendingToolResponsesRef.current = [];
     setReconnecting(false);
     setCaptureLive(false);
-  }, [clearTimers, closeSession]);
+  }, [clearTimers, clearAudioWatchdog, closeSession]);
 
   useEffect(() => {
     return () => {
@@ -1322,6 +1354,78 @@ SILENT MODE:
   // close from finding an empty ref (an effect would run too late).
   connectRef.current = connect;
 
+  /** The engine failing INSIDE the tap (dead context, mic that never answers)
+   *  gets one clean retry from nothing — resetEngine() throws the old context
+   *  away so the second attempt is the cold-start path. A second failure
+   *  propagates as AudioEngineError: the caller shows the restart surface. */
+  const startEngineWithRetry = useCallback(async () => {
+    try {
+      await engineStartCapture(handleAudioChunk);
+    } catch (err) {
+      if (!(err instanceof AudioEngineError)) throw err;
+      brainDumpDebug.startRetries += 1;
+      engineReset(`retry:${err.code}`);
+      await engineStartCapture(handleAudioChunk);
+    }
+  }, [handleAudioChunk]);
+
+  /** Dead-audio exit: the pipe stayed silent through a reset and a retry. With
+   *  a capture in hand, land on the PAUSED surface (exits stay reachable, same
+   *  precedent as the reconnect give-up); otherwise plain error. Either way
+   *  the user is told, and handed the one action that works. */
+  const failDeadAudio = useCallback(() => {
+    intentionalStopRef.current = true;
+    activeRef.current = false;
+    teardown();
+    if (tasksRef.current.length > 0) {
+      setConnectionState('idle');
+      setIdleStopped(true);
+    } else {
+      setConnectionState('error');
+    }
+    toast.error('Voice needs a restart — the microphone went silent after the app was in the background.', {
+      id: 'bd-engine-restart',
+      duration: 15000,
+      action: { label: 'Reload', onClick: () => window.location.reload() },
+    });
+  }, [teardown]);
+
+  /** Samples must flow once the mic is "live". No block within the window, or
+   *  a track iOS handed back muted -> one engine reset + restart; still dead
+   *  after a second window -> failDeadAudio. Never a silent "Listening…". */
+  const armAudioWatchdog = useCallback(() => {
+    clearAudioWatchdog();
+    const windowMs = noAudioWindowMs();
+    const stillLive = () => activeRef.current && !intentionalStopRef.current;
+    const flowing = (since: number) => {
+      const snap = getAudioDebugSnapshot();
+      return snap.chunksEmitted > since && !snap.trackMuted;
+    };
+    const startChunks = getAudioDebugSnapshot().chunksEmitted;
+    audioWatchdogRef.current = window.setTimeout(async () => {
+      audioWatchdogRef.current = null;
+      if (!stillLive()) return;
+      if (flowing(startChunks)) return;
+      brainDumpDebug.noAudioRecoveries += 1;
+      engineReset('no-audio');
+      try {
+        await engineStartCapture(handleAudioChunk);
+      } catch (err) {
+        console.error('Brain dump: audio recovery failed', err);
+        if (stillLive()) failDeadAudio();
+        return;
+      }
+      if (!stillLive()) { engineStopCapture(); return; }
+      const again = getAudioDebugSnapshot().chunksEmitted;
+      audioWatchdogRef.current = window.setTimeout(() => {
+        audioWatchdogRef.current = null;
+        if (!stillLive()) return;
+        if (flowing(again)) return;
+        failDeadAudio();
+      }, windowMs);
+    }, windowMs);
+  }, [handleAudioChunk, failDeadAudio, clearAudioWatchdog]);
+
   const start = useCallback(async (projects: ProjectInfo[], options?: { preserveTasks?: boolean }) => {
     // Safety: release any leftover mic/session before starting fresh
     intentionalStopRef.current = true;
@@ -1370,8 +1474,8 @@ SILENT MODE:
       // prompt and AudioContext.resume() on a user-gesture stack. Capture runs
       // before the socket exists; handleAudioChunk buffers until onopen flushes,
       // so speech during the connect window is kept, not lost.
-      if (!mockLiveEnabled()) {
-        await engineStartCapture(handleAudioChunk);
+      if (!mockAudioSkipped()) {
+        await startEngineWithRetry();
       }
       // ZOMBIE GUARD (audit 2026-07-29): the engine await above is a real user
       // window on iOS (permission prompt + context resume) and the exit row is
@@ -1387,6 +1491,7 @@ SILENT MODE:
       // truthfully say "speak freely" while the socket is still opening. Set
       // AFTER the guard: a stop that won the race must not leave this stale.
       setCaptureLive(true);
+      if (!mockAudioSkipped()) armAudioWatchdog();
 
       await connect({ preserveTasks: options?.preserveTasks });
     } catch (error: any) {
@@ -1397,7 +1502,7 @@ SILENT MODE:
       setConnectionState('error');
       throw error;
     }
-  }, [connect, teardown, handleAudioChunk]);
+  }, [connect, teardown, handleAudioChunk, startEngineWithRetry, armAudioWatchdog]);
 
   const stop = useCallback(() => {
     // Deliberate teardown: stopSession marks it BEFORE the socket closes, so
