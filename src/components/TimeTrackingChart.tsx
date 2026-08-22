@@ -69,7 +69,7 @@ export const TimeTrackingChart = ({ tasks, projects }: TimeTrackingChartProps) =
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" data-testid="time-tracking-chart">
       {groupedTasks.map((group) => (
         <div key={group.projectId || 'unassigned'} className="space-y-3">
           {/* Project Header Bar */}
@@ -85,7 +85,7 @@ export const TimeTrackingChart = ({ tasks, projects }: TimeTrackingChartProps) =
                     minWidth: '200px'
                   }}
                 >
-                  <span className="truncate">{group.projectName}</span>
+                  <span className="truncate" data-testid="time-group-name">{group.projectName}</span>
                 </div>
               </div>
               <span className="text-sm font-mono text-muted-foreground min-w-[100px] text-right">

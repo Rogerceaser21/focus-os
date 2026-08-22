@@ -333,6 +333,27 @@ async function loadProjectInvitations(userId: string): Promise<any[]> {
   return res.data || [];
 }
 
+// Minimal shape of a raw focusos_projects row, for consumers that want to type
+// the loadProjects output narrowly instead of reaching for `any` — loadProjects
+// itself stays untyped (bare Supabase select('*') result) since that's the
+// existing convention throughout this file.
+export interface RawProjectRow {
+  id: string;
+  name: string;
+  color: string;
+  is_shared?: boolean;
+  user_id?: string;
+  archived_at?: string | null;
+}
+
+// Single choke point for "is this raw focusos_projects row archived". loadProjects
+// keeps returning EVERY row (archived included) — every consumer that needs an
+// active-only list filters through this one predicate instead of re-testing
+// `archived_at` inline, so the archive feature has exactly one place to change.
+export function isProjectArchived(row: { archived_at?: string | null }): boolean {
+  return !!row.archived_at;
+}
+
 async function loadProjects(client: QueryClient, userId: string): Promise<any[]> {
   await ensureSession();
   const memberIds = await fetchMemberProjectIds(client, userId);

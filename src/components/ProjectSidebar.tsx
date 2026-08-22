@@ -10,11 +10,13 @@ import {
   fetchProjectInvitations as fetchProjectInvitationsShared,
   appDataKeys,
   mergeByIdDesc,
+  isProjectArchived,
+  type RawProjectRow,
 } from '@/lib/appDataFetchers';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList, Users, Clock, EyeOff, X } from 'lucide-react';
+import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList, Users, Clock, EyeOff, X, ArchiveRestore, ChevronDown, ChevronRight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ShareStatusPopover, SharedRecipient } from './ShareStatusPopover';
 import { useNavigate } from 'react-router-dom';
@@ -93,6 +95,13 @@ export const ProjectSidebar = ({
   const isOverlay = !!overlayMode;
   const [projects, setProjects] = useState<Project[]>([]);
   const [sharedProjects, setSharedProjects] = useState<Project[]>([]);
+  // Owned projects with archived_at set — rendered in the Archived section at
+  // the bottom of the drawer (Restore only, no rename/delete there).
+  const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
+  // Quiet by default: the section starts collapsed so an account with several
+  // archived projects doesn't push "My Projects" further down the drawer.
+  const [archivedSectionOpen, setArchivedSectionOpen] = useState(false);
+  const [restoringProjectId, setRestoringProjectId] = useState<string | null>(null);
   const [meetings, setMeetings] = useState<{ id: string; title: string }[]>([]);
   const [sharedItems, setSharedItems] = useState<any[]>([]);
   const [projectInvitations, setProjectInvitations] = useState<any[]>([]);
@@ -405,10 +414,21 @@ export const ProjectSidebar = ({
     // Split into own projects and shared projects
     const ownProjects = data.filter((p: any) => !p.is_shared);
     const shared = data.filter((p: any) => p.is_shared);
-    setProjects(ownProjects.map((p: any) => ({
+    // "My Projects" stays active-only; archived owned projects move to their own
+    // section below instead — loadProjects itself still returns every row.
+    const activeOwn = ownProjects.filter((p: RawProjectRow) => !isProjectArchived(p));
+    const archivedOwn = ownProjects.filter((p: RawProjectRow) => isProjectArchived(p));
+    setProjects(activeOwn.map((p: RawProjectRow) => ({
       id: p.id,
       name: p.name,
       color: p.color,
+      timer: { totalSeconds: 0, isRunning: false }
+    })));
+    setArchivedProjects(archivedOwn.map((p: RawProjectRow) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      archivedAt: p.archived_at,
       timer: { totalSeconds: 0, isRunning: false }
     })));
 
@@ -781,6 +801,30 @@ export const ProjectSidebar = ({
       );
       handleSelectProject(created.id);
       setOpenMobile(false);
+    }
+  };
+
+  // Restore needs no confirm (Archive already gates the destructive-feeling half
+  // with the AlertDialog in Index.tsx). Same fetchProjects({fresh:true}) +
+  // onProjectCreated() shape handleCreateProject uses above, so Index's own
+  // project state (and TimeTrackingChart's report-facing copy) picks the
+  // restored project back up too.
+  const handleRestoreProject = async (projectId: string) => {
+    setRestoringProjectId(projectId);
+    try {
+      const { error } = await (supabase as any)
+        .from('focusos_projects')
+        .update({ archived_at: null })
+        .eq('id', projectId);
+      if (error) throw error;
+      toast.success('Project restored');
+      await fetchProjects({ fresh: true });
+      onProjectCreated?.();
+    } catch (error) {
+      console.error('[ProjectSidebar] Failed to restore project:', error);
+      toast.error('Failed to restore project');
+    } finally {
+      setRestoringProjectId(null);
     }
   };
 
@@ -1487,6 +1531,69 @@ export const ProjectSidebar = ({
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Archived section — BOTTOM of the drawer, collapsed/quiet by
+                default. Restore only; rename/delete stay owner actions on the
+                active project view and don't apply here. */}
+            {archivedProjects.length > 0 && (
+              <div className="mt-4 mb-2">
+                <button
+                  type="button"
+                  data-testid="archived-projects-toggle"
+                  className="w-full flex items-center gap-1.5 px-4 mb-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                  onClick={() => setArchivedSectionOpen((o) => !o)}
+                  aria-expanded={archivedSectionOpen}
+                >
+                  {archivedSectionOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <span>Archived ({archivedProjects.length})</span>
+                </button>
+                {archivedSectionOpen && (
+                  <div className="px-2 space-y-1" data-testid="archived-projects-list">
+                    {archivedProjects.map((project) => (
+                      <div
+                        key={project.id}
+                        className="w-full flex items-center gap-1"
+                      >
+                        {/* Tapping the row (not Restore) selects the project via
+                            the SAME path an active row uses — handleSelectProject
+                            + close the drawer on mobile — so an archived project's
+                            tasks/report stay reachable without restoring first. A
+                            sibling Button (not nested) avoids an invalid
+                            button-inside-button; the Restore button stays a
+                            separate hit target next to it. */}
+                        <Button
+                          variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                          className="flex-1 justify-start gap-2 min-w-0 text-muted-foreground"
+                          data-testid={`select-archived-project-${project.id}`}
+                          onClick={() => {
+                            handleSelectProject(project.id);
+                            if (isMobile) setOpenMobile(false);
+                          }}
+                        >
+                          <Folder className="h-4 w-4 shrink-0" style={{ color: project.color }} />
+                          <span className="truncate">{project.name}</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 gap-1 shrink-0"
+                          data-testid={`restore-project-${project.id}`}
+                          disabled={restoringProjectId === project.id}
+                          onClick={() => handleRestoreProject(project.id)}
+                        >
+                          <ArchiveRestore className="h-3.5 w-3.5" />
+                          <span className="text-xs">Restore</span>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>

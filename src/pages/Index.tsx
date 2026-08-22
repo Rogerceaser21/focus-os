@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X, Archive, ArchiveRestore } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   AlertDialog,
@@ -60,6 +60,8 @@ import {
   fetchTaskImages as fetchTaskImagesShared,
   appDataKeys,
   slimTaskRow,
+  isProjectArchived,
+  type RawProjectRow,
 } from '@/lib/appDataFetchers';
 import { TaskListSkeleton, AppBootSkeleton, LoadErrorPanel } from '@/components/AppSkeletons';
 
@@ -165,6 +167,12 @@ const Index = () => {
     signOut
   } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  // Full own+shared project rows, archived included — the ONE consumer that must
+  // keep seeing archived projects (report note #4: their timer totals stay
+  // findable by name/color in TimeTrackingChart's per-project grouping instead of
+  // collapsing into "Unassigned"). Every other reader of project data uses the
+  // active-only `projects` state above.
+  const [allProjectsForReports, setAllProjectsForReports] = useState<Project[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -278,6 +286,7 @@ const Index = () => {
   const [fabExpanded, setFabExpanded] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -383,17 +392,25 @@ const Index = () => {
   // a cross-route remount within staleTime re-reads cache instead of the network.
 
   const applyProjectRows = useCallback((rows: any[]) => {
-    setProjects(rows.map((p: any) => ({
+    const toProject = (p: RawProjectRow): Project => ({
       id: p.id,
       name: p.name,
       color: p.color,
       isShared: p.is_shared ?? false,
       userId: p.user_id,
+      archivedAt: p.archived_at ?? null,
       timer: {
         totalSeconds: 0,
         isRunning: false
       }
-    })));
+    });
+    // Active-only: the state every selector, list, Gantt and the drawer's own
+    // fetch read. Archived projects are excluded HERE, the single choke point —
+    // see isProjectArchived in appDataFetchers.
+    setProjects(rows.filter((p: RawProjectRow) => !isProjectArchived(p)).map(toProject));
+    // Archived included: TimeTrackingChart alone reads this, so its per-project
+    // name/color lookup never drops an archived project's total into "Unassigned".
+    setAllProjectsForReports(rows.map(toProject));
   }, []);
 
   // The shared task fetchers now return the NON-completed (open) set only; completed rows
@@ -1024,14 +1041,30 @@ const Index = () => {
     const warmProjects = queryClient.getQueryData(appDataKeys.projects(user.id)) as any[] | undefined;
     if (warmTasks && warmTasks.length > 0 && warmProjects) {
       setAllTasks(warmTasks.map(transformDbTask));
-      setProjects(warmProjects.map((p: any) => ({
+      const toWarmProject = (p: RawProjectRow): Project => ({
         id: p.id,
         name: p.name,
         color: p.color,
         isShared: p.is_shared ?? false,
         userId: p.user_id,
+        archivedAt: p.archived_at ?? null,
         timer: { totalSeconds: 0, isRunning: false },
-      })));
+      });
+      // Same active/full split as applyProjectRows (kept inline here — this branch
+      // must commit synchronously during render, not via a callback that could be
+      // stale on the first paint).
+      setProjects(warmProjects.filter((p: RawProjectRow) => !isProjectArchived(p)).map(toWarmProject));
+      // NOTE: allProjectsForReports is deliberately NOT set here. This block runs
+      // once during render (warmStartDone latch); adding a fourth during-render
+      // setState here shifted render timing enough to intermittently swallow a
+      // tap that lands in the same frame (bisected: it broke the reorder-mode
+      // gesture spec under full-suite load, 2026-08-22). The post-paint
+      // initial-load effect calls applyProjectRows(cachedProjects) a beat later,
+      // which DOES populate allProjectsForReports — so the archived-inclusive
+      // list is correct after the first paint. The only cost is that a warm
+      // start landing DIRECTLY on an already-archived selected project shows its
+      // header name one paint late, which is invisible; the fallback effect is
+      // length-guarded so it never false-ejects during that window.
       setFullDataLoaded(true);
     }
   }
@@ -1039,14 +1072,17 @@ const Index = () => {
   // Deleted/unavailable project fallback: an optimistically-applied project id (deep link
   // or stale default_view) falls back to Today once the real project list has loaded and
   // does not contain it. Guarded on a non-empty list so a transient empty apply can never
-  // false-trigger it.
+  // false-trigger it. Checked against `allProjectsForReports` (archived included), NOT the
+  // active-only `projects` — otherwise this fires the instant an archived project is
+  // selected (it's deliberately absent from `projects`) and immediately ejects back to
+  // Today, even though the project still exists and is meant to stay reachable/selected.
   useEffect(() => {
-    if (!initialLoadComplete || !selectedProjectId || projects.length === 0) return;
-    if (!projects.some(p => p.id === selectedProjectId)) {
+    if (!initialLoadComplete || !selectedProjectId || allProjectsForReports.length === 0) return;
+    if (!allProjectsForReports.some(p => p.id === selectedProjectId)) {
       setSelectedSpecialList('today');
       setSelectedProjectId(null);
     }
-  }, [initialLoadComplete, projects, selectedProjectId]);
+  }, [initialLoadComplete, allProjectsForReports, selectedProjectId]);
 
   useEffect(() => {
     if (!preferences) return;
@@ -1913,6 +1949,90 @@ https://www.skyscanner.com`,
     }
   };
 
+  // Archive: sets archived_at, keeps the project and its tasks (timer totals
+  // included) — unlike Delete, nothing is removed from the database. Same
+  // local-state + refresh-trigger shape as handleDeleteProject above.
+  const handleArchiveProject = async () => {
+    if (!selectedProjectId) return;
+    const archivedAt = new Date().toISOString();
+
+    try {
+      const { error } = await (supabase as any)
+        .from('focusos_projects')
+        .update({ archived_at: archivedAt })
+        .eq('id', selectedProjectId);
+
+      if (error) throw error;
+
+      // Update local state: drop from the active list, keep it (marked) in the
+      // full report-facing list so TimeTrackingChart still resolves its name.
+      setProjects(projects.filter(p => p.id !== selectedProjectId));
+      setAllProjectsForReports(prev => prev.map(p =>
+        p.id === selectedProjectId ? { ...p, archivedAt } : p
+      ));
+
+      // Reset selection to "Today" view — mirrors handleDeleteProject; an
+      // archived project is no longer selectable via the sidebar.
+      setSelectedProjectId(null);
+      setSelectedSpecialList('today');
+
+      // Refresh the SHARED projects cache first (fresh), THEN bump the sidebar
+      // trigger: the drawer's own fetch reads that cache non-fresh, so bumping
+      // before the refetch lands would show the pre-archive snapshot until the
+      // 5-min stale window expired. Sequencing here keeps the drawer's effect
+      // untouched (a refetch-on-bump inside the drawer broke the reorder-mode
+      // gesture spec — bisected 2026-08-22).
+      await fetchProjects();
+      setProjectRefreshTrigger(prev => prev + 1);
+
+      toast.success('Project archived');
+    } catch (error) {
+      console.error('Error archiving project:', error);
+      toast.error('Failed to archive project');
+    }
+  };
+
+  // Restore: reverse of handleArchiveProject above — clears archived_at, adds
+  // the project back into the active list (archiving removed it) and clears
+  // its archivedAt mark in the full report-facing list. Unlike Archive this
+  // does NOT reset selectedProjectId/selectedSpecialList: the project stays
+  // selected, now shown as active (header/actions re-derive that during
+  // render from allProjectsForReports the instant this state commits, no
+  // effect required). No confirm dialog — Archive already gates the
+  // destructive-feeling half of this pair.
+  const handleRestoreProject = async () => {
+    if (!selectedProjectId) return;
+
+    try {
+      // No `as any` here (unlike the neighbouring calls in this file): the
+      // generated Database type already covers focusos_projects.archived_at,
+      // so the typed client checks this update for free.
+      const { error } = await supabase
+        .from('focusos_projects')
+        .update({ archived_at: null })
+        .eq('id', selectedProjectId);
+
+      if (error) throw error;
+
+      const restoredProject = allProjectsForReports.find(p => p.id === selectedProjectId);
+      if (restoredProject && !projects.some(p => p.id === selectedProjectId)) {
+        setProjects([...projects, { ...restoredProject, archivedAt: null }]);
+      }
+      setAllProjectsForReports(allProjectsForReports.map(p =>
+        p.id === selectedProjectId ? { ...p, archivedAt: null } : p
+      ));
+
+      // Same sequencing as handleArchiveProject: fresh shared refetch, then bump.
+      await fetchProjects();
+      setProjectRefreshTrigger(prev => prev + 1);
+
+      toast.success('Project restored');
+    } catch (error) {
+      console.error('Error restoring project:', error);
+      toast.error('Failed to restore project');
+    }
+  };
+
   const getSelectedProjectName = (): string => {
     if (selectedSpecialList === 'today') return "Today's To-Do";
     if (selectedSpecialList === 'past-due') return "Past Due";
@@ -1931,24 +2051,35 @@ https://www.skyscanner.com`,
     minMatchCharLength: 2,
   }), [allTasks]);
 
+  // `projects` is already active-only (applyProjectRows filters archived out at
+  // the source) — this Set is just an O(1) membership test on top of it, reused
+  // below so search/Today/Past Due exclude tasks whose project got archived
+  // without re-testing archived_at anywhere.
+  const activeProjectIdSet = useMemo(() => new Set(projects.map(p => p.id)), [projects]);
+  const isTaskProjectActive = useCallback(
+    (task: Task) => !task.projectId || activeProjectIdSet.has(task.projectId),
+    [activeProjectIdSet],
+  );
+
   const filteredTasks = useMemo(() => {
     // If searching, fuzzy search across ALL tasks (ignore project filter)
     if (searchQuery.trim().length > 0) {
       const results = fuse.search(searchQuery.trim());
-      return results.map(r => r.item);
+      return results.map(r => r.item).filter(isTaskProjectActive);
     }
 
     // No search — filter by selected project or special list
     return allTasks.filter(task => {
       // Hide tasks with pending change requests in shared projects (they need to be re-accepted first)
       if (task.changeRequestMessage) return false;
-      
+
       if (selectedProjectId) {
         return task.projectId === selectedProjectId;
       } else if (selectedSpecialList === 'unassigned') {
         return !task.projectId;
       } else if (selectedSpecialList === 'today') {
         if (!task.dueDate) return false;
+        if (!isTaskProjectActive(task)) return false;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const taskDueDate = new Date(task.dueDate);
@@ -1956,6 +2087,7 @@ https://www.skyscanner.com`,
         return taskDueDate.getTime() === today.getTime();
       } else if (selectedSpecialList === 'past-due') {
         if (!task.dueDate) return false;
+        if (!isTaskProjectActive(task)) return false;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const taskDueDate = new Date(task.dueDate);
@@ -1964,7 +2096,7 @@ https://www.skyscanner.com`,
       }
       return true;
     });
-  }, [searchQuery, fuse, allTasks, selectedProjectId, selectedSpecialList]);
+  }, [searchQuery, fuse, allTasks, selectedProjectId, selectedSpecialList, isTaskProjectActive]);
 
   // Priority order for sorting
   const priorityOrder = {
@@ -1998,7 +2130,12 @@ https://www.skyscanner.com`,
     'in-progress': sortedTasks.filter(t => t.status === 'in-progress').length,
     'completed': sortedTasks.filter(t => t.status === 'completed').length,
   };
-  const onebarProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : undefined;
+  // Archived-inclusive lookup (allProjectsForReports, not the active-only
+  // `projects`): once a project is archived it's no longer selectable from the
+  // drawer, but it stays the SELECTED one until the user navigates away, so
+  // the header must still resolve its name/color instead of falling back to
+  // "All Tasks" / "Unknown Project".
+  const onebarProject = selectedProjectId ? allProjectsForReports.find(p => p.id === selectedProjectId) : undefined;
   const onebarSpecial = selectedSpecialList ? SPECIAL_LIST_CFG[selectedSpecialList] : undefined;
   // Same owner guard the project banner uses for its inline actions.
   const onebarIsCollaborator = (onebarProject?.isShared && onebarProject.userId !== user?.id) ?? false;
@@ -2016,7 +2153,10 @@ https://www.skyscanner.com`,
   // its context sheet. The mobile Status dropdown and the mobile ⋯ menu that
   // used to live in this bar are gone — the sheet owns them now.
   const renderProjectBar = () => {
-    const currentProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : undefined;
+    // Same archived-inclusive lookup as onebarProject above — otherwise this
+    // whole bar (name, Share, Archive/Restore, Delete) disappears the moment
+    // an archived project is selected.
+    const currentProject = selectedProjectId ? allProjectsForReports.find(p => p.id === selectedProjectId) : undefined;
     if (!currentProject) return null;
     const isCollaborator = (currentProject.isShared && currentProject.userId !== user?.id) ?? false;
     const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
@@ -2049,6 +2189,15 @@ https://www.skyscanner.com`,
               >
                 {currentProject.name}
               </span>
+            )}
+            {currentProject.archivedAt && (
+              <Badge
+                variant="outline"
+                data-testid="project-archived-badge"
+                className="bg-muted-foreground/10 text-muted-foreground border-muted-foreground/30 text-xs inline-flex items-center gap-1 shrink-0"
+              >
+                Archived
+              </Badge>
             )}
             {isCollaborator && assignedByEmail && (
               <Badge variant="outline" className="bg-purple-600/15 text-purple-400 border-purple-600/30 text-xs inline-flex items-center gap-1 shrink-0 max-w-[45%]">
@@ -2105,6 +2254,30 @@ https://www.skyscanner.com`,
                     <Share2 className="h-4 w-4" />
                     <span>Share</span>
                   </Button>
+
+                  {currentProject.archivedAt ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1"
+                      data-testid="desktop-restore"
+                      onClick={handleRestoreProject}
+                    >
+                      <ArchiveRestore className="h-4 w-4" />
+                      <span>Restore</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1"
+                      data-testid="desktop-archive"
+                      onClick={() => setArchiveConfirmOpen(true)}
+                    >
+                      <Archive className="h-4 w-4" />
+                      <span>Archive</span>
+                    </Button>
+                  )}
 
                   <Button
                     variant="ghost"
@@ -2265,6 +2438,15 @@ https://www.skyscanner.com`,
                     >
                       {onebarTitle}
                     </span>
+                    {onebarProject?.archivedAt && (
+                      <Badge
+                        variant="outline"
+                        data-testid="onebar-archived-badge"
+                        className="bg-muted-foreground/10 text-muted-foreground border-muted-foreground/30 text-[10px] leading-none px-1.5 py-0.5 inline-flex items-center gap-1 shrink-0"
+                      >
+                        Archived
+                      </Badge>
+                    )}
                     <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
                   </button>
                 </div>
@@ -2434,6 +2616,17 @@ https://www.skyscanner.com`,
                     <Share2 className="h-4 w-4 shrink-0" />
                     <span className="flex-1 text-left">Share</span>
                   </button>
+                  {onebarProject?.archivedAt ? (
+                    <button type="button" className="lg-onebar-row" data-testid="onebar-restore" onClick={() => { setOnebarSheet(null); handleRestoreProject(); }}>
+                      <ArchiveRestore className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">Restore Project</span>
+                    </button>
+                  ) : (
+                    <button type="button" className="lg-onebar-row" data-testid="onebar-archive" onClick={() => { setOnebarSheet(null); setArchiveConfirmOpen(true); }}>
+                      <Archive className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">Archive Project</span>
+                    </button>
+                  )}
                   <button type="button" className="lg-onebar-row lg-onebar-row-danger" data-testid="onebar-delete" onClick={() => { setOnebarSheet(null); setDeleteConfirmOpen(true); }}>
                     <Trash2 className="h-4 w-4 shrink-0" />
                     <span className="flex-1 text-left">Delete Project</span>
@@ -2678,7 +2871,10 @@ https://www.skyscanner.com`,
                 onOpenAddTask={() => handleAddTaskDialogOpen(true)}
               />
             </div> : <div className="flex-initial min-h-0 lg-content">
-              <TimeTrackingChart tasks={sortedTasks} projects={projects} />
+              {/* Archived included here on purpose (req #4): this is the one project
+                  time-summary surface, so its per-project name/color lookup must not
+                  drop an archived project's total into "Unassigned". */}
+              <TimeTrackingChart tasks={sortedTasks} projects={allProjectsForReports} />
             </div>}
               </div>
             </div>
@@ -2883,6 +3079,26 @@ https://www.skyscanner.com`,
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Archive-project confirm — same one-controlled-instance shape as the
+          Delete dialog above, serving both the desktop Archive button and the
+          mobile ⋯ menu item. */}
+      <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              By selecting Yes, the project will be hidden from your project list, Today, Past Due, Gantt and search. Its tasks and tracked time are kept, and you can restore it anytime from the Archived section at the bottom of the drawer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveProject}>
+              Yes, Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

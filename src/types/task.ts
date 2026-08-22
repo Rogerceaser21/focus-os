@@ -35,4 +35,9 @@ export interface Project {
   timer: TaskTimer;
   isShared?: boolean;
   userId?: string;
+  /** ISO timestamp, or null/undefined when active. Archived projects are filtered
+   * out at the loadProjects consumers (see appDataFetchers.isProjectArchived) —
+   * this field only needs to survive onto rows that intentionally keep archived
+   * ones (the drawer's Archived section, the time-report project lookup). */
+  archivedAt?: string | null;
 }

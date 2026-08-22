@@ -347,8 +347,11 @@ const Home = () => {
     enabled: !!user,
     staleTime: APP_DATA_STALE_TIME,
     queryFn: async () => {
+      // Archived projects are excluded here (single choke point for this
+      // consumer): the brain-dump destination list, BottomNav and the
+      // EditTaskDialog project picker all read from this one query.
       const { data } = await (supabase as any)
-        .from('focusos_projects').select('id, name, color').eq('user_id', user!.id).order('name');
+        .from('focusos_projects').select('id, name, color').eq('user_id', user!.id).is('archived_at', null).order('name');
       return (data ?? []) as (ProjectInfo & { color?: string })[];
     },
   });
