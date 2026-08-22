@@ -315,6 +315,43 @@ mcp.tool("create_project", {
   },
 });
 
+mcp.tool("archive_project", {
+  description:
+    "Archive a project owned by the authenticated user (sets archived_at). Archived projects disappear from the app's active lists but keep their tasks and tracked time; reversible via unarchive_project.",
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data, error } = await admin
+      .from("focusos_projects")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .select("id, name, archived_at")
+      .maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Project not found");
+    return ok(data);
+  },
+});
+
+mcp.tool("unarchive_project", {
+  description: "Restore an archived project owned by the authenticated user (clears archived_at).",
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data, error } = await admin
+      .from("focusos_projects")
+      .update({ archived_at: null })
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .select("id, name, archived_at")
+      .maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Project not found");
+    return ok(data);
+  },
+});
+
 mcp.tool("create_task", {
   description: "Create a task. due_date format YYYY-MM-DD.",
   inputSchema: z.object({
