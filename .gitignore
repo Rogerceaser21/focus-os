@@ -29,3 +29,4 @@ graphify-out/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+ios-shell/build-*/

@@ -41,3 +41,32 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         # Start URL lives here so a Dev flavour (preview channel) is a one-line change.
         FOSStartURL: "https://rogerceaser21.github.io/focus-os/"
+
+  # Igor's test bench (2026-08-21): the SAME shell, pointed at the PREVIEW
+  # channel, under its own bundle id (tech.focusos.FocusOSShellPreview) and a
+  # badged icon, so it installs side by side with the TestFlight app and picks
+  # up every preview push on its next launch — no merge needed to test.
+  FocusOSShellPreview:
+    type: application
+    platform: iOS
+    # The main target's Info.plist lives inside the shared source folder and
+    # must not ride along as a resource (two commands producing Info.plist).
+    sources:
+      - path: FocusOSShell
+        excludes: ["Info.plist"]
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconPreview
+    info:
+      path: FocusOSShellPreview/Info.plist
+      properties:
+        CFBundleDisplayName: Focus OS Preview
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "4"
+        NSMicrophoneUsageDescription: "Focus OS uses the microphone for Brain Dump voice capture."
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UILaunchScreen: {}
+        UIViewControllerBasedStatusBarAppearance: true
+        ITSAppUsesNonExemptEncryption: false
+        FOSStartURL: "https://rogerceaser21.github.io/focus-os/preview/"
