@@ -175,15 +175,19 @@ function getUserId(ctx: any): string {
 
 // ── READ TOOLS ────────────────────────────────────────────────────────────────
 mcp.tool("list_projects", {
-  description: "List all projects owned by the authenticated Focus OS user.",
-  inputSchema: z.object({}),
-  handler: async (_args, ctx) => {
+  description:
+    "List all projects owned by the authenticated Focus OS user. Archived projects are excluded unless include_archived is true. Rows carry archived_at (null = active) and parent_project_id (null = top-level).",
+  inputSchema: z.object({
+    include_archived: z.boolean().optional().describe("Include archived projects (default false)"),
+  }),
+  handler: async (args, ctx) => {
     const userId = getUserId(ctx);
-    const { data, error } = await admin
+    let q = admin
       .from("focusos_projects")
-      .select("id, name, color, created_at, updated_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .select("id, name, color, archived_at, parent_project_id, created_at, updated_at")
+      .eq("user_id", userId);
+    if (!args?.include_archived) q = q.is("archived_at", null);
+    const { data, error } = await q.order("created_at", { ascending: false });
     if (error) return err(error.message);
     return ok(data ?? []);
   },
@@ -307,6 +311,43 @@ mcp.tool("create_project", {
       .select()
       .single();
     if (error) return err(error.message);
+    return ok(data);
+  },
+});
+
+mcp.tool("archive_project", {
+  description:
+    "Archive a project owned by the authenticated user (sets archived_at). Archived projects disappear from the app's active lists but keep their tasks and tracked time; reversible via unarchive_project.",
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data, error } = await admin
+      .from("focusos_projects")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .select("id, name, archived_at")
+      .maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Project not found");
+    return ok(data);
+  },
+});
+
+mcp.tool("unarchive_project", {
+  description: "Restore an archived project owned by the authenticated user (clears archived_at).",
+  inputSchema: z.object({ id: z.string() }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data, error } = await admin
+      .from("focusos_projects")
+      .update({ archived_at: null })
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .select("id, name, archived_at")
+      .maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Project not found");
     return ok(data);
   },
 });
