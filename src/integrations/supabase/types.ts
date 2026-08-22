@@ -534,33 +534,47 @@ export type Database = {
       }
       focusos_projects: {
         Row: {
+          archived_at: string | null
           color: string
           created_at: string
           id: string
           is_shared: boolean
           name: string
+          parent_project_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
           color?: string
           created_at?: string
           id?: string
           is_shared?: boolean
           name: string
+          parent_project_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          archived_at?: string | null
           color?: string
           created_at?: string
           id?: string
           is_shared?: boolean
           name?: string
+          parent_project_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "focusos_projects_parent_project_id_fkey"
+            columns: ["parent_project_id"]
+            isOneToOne: false
+            referencedRelation: "focusos_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       focusos_recording_sessions: {
         Row: {
