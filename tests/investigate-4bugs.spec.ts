@@ -172,7 +172,7 @@ test.describe.serial('4-bugs investigation', () => {
     await page.locator('#signup-lastname').fill('FourBugs');
     await page.locator('#signup-email').fill(email);
     await page.locator('#signup-password').fill(password);
-    await page.getByRole('button', { name: /sign up/i }).click();
+    await page.locator('form:has(#signup-password) button[type="submit"]').click(); // v61 AuthCard: submit reads 'Start Free Today'
     await page.waitForURL((u) => !u.pathname.includes('/auth'), { timeout: 30_000 });
     knobs.userId = await extractUserId(page);
     fs.writeFileSync(CREDS_FILE, JSON.stringify({ email, password }));
@@ -335,7 +335,7 @@ test.describe.serial('4-bugs investigation', () => {
     await page.locator('#signup-lastname').fill('FlashCheck');
     await page.locator('#signup-email').fill(email);
     await page.locator('#signup-password').fill(password);
-    await page.getByRole('button', { name: /sign up/i }).click();
+    await page.locator('form:has(#signup-password) button[type="submit"]').click(); // v61 AuthCard: submit reads 'Start Free Today'
     await page.waitForURL((u) => !u.pathname.includes('/auth'), { timeout: 30_000 });
     knobs.userId = await extractUserId(page);
 
