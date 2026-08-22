@@ -2,7 +2,7 @@ import { Task, Project } from '@/types/task';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
-import { CalendarPlus, Loader2 } from 'lucide-react';
+import { CalendarPlus, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addMonths } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -16,14 +16,25 @@ interface GanttChartProps {
   projectName?: string;
   projectId?: string | null;
   projects?: Project[];
+  /** Sub-project grouping (P4). Passed ONLY when the selected project is a
+   * top-level project that actually has active sub-projects; without it this
+   * component renders exactly as it did before, one flat list of task rows. */
+  groupBy?: { parentId: string; subs: Project[] };
+  /** Owner of the persisted collapse map (localStorage key is per user). */
+  userId?: string;
   onTaskClick?: (task: Task) => void;
   onAddTask?: (task: Task) => void;
   onOpenAddTask?: () => void;
 }
 
-export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], onTaskClick, onAddTask, onOpenAddTask }: GanttChartProps) => {
+export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', projectId, projects = [], groupBy, userId, onTaskClick, onAddTask, onOpenAddTask }: GanttChartProps) => {
   const { isConnected, push, busy } = useGoogleCalendar();
   const [syncingAll, setSyncingAll] = useState(false);
+  // Per-sub expand state. This session's toggles only; the persisted map is read
+  // from localStorage DURING RENDER (groupOpen below) and the two are merged, so
+  // nothing here is corrected by a post-paint effect. SAME pattern as the
+  // drawer's sub-project tree (ProjectSidebar's storedTreeOpen/treeOpenOverride).
+  const [groupOpenOverride, setGroupOpenOverride] = useState<Record<string, boolean>>({});
 
   const syncAllToGCal = async () => {
     const ids = tasks.filter(t => t.startDate || t.endDate || t.dueDate).map(t => t.id);
@@ -55,13 +66,13 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
 
   const today = new Date();
 
-  const getTaskPosition = (task: Task, days: Date[], monthStart: Date, monthEnd: Date) => {
-    if (!task.startDate || !task.endDate) return null;
-    
-    // Clip task dates to month boundaries
-    const clippedStart = task.startDate < monthStart ? monthStart : task.startDate;
-    const clippedEnd = task.endDate > monthEnd ? monthEnd : task.endDate;
-    
+  // Same maths for a single task and for a sub-project's roll-up bar: clip the
+  // range to the month, then convert to percentages of the month's day columns.
+  const getRangePosition = (start: Date, end: Date, days: Date[], monthStart: Date, monthEnd: Date) => {
+    // Clip dates to month boundaries
+    const clippedStart = start < monthStart ? monthStart : start;
+    const clippedEnd = end > monthEnd ? monthEnd : end;
+
     const totalDays = days.length;
     const startIndex = days.findIndex(day => isSameDay(day, clippedStart));
     const endIndex = days.findIndex(day => isSameDay(day, clippedEnd));
@@ -72,6 +83,11 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
     const width = ((endIndex - startIndex + 1) / totalDays) * 100;
     
     return { left, width };
+  };
+
+  const getTaskPosition = (task: Task, days: Date[], monthStart: Date, monthEnd: Date) => {
+    if (!task.startDate || !task.endDate) return null;
+    return getRangePosition(task.startDate, task.endDate, days, monthStart, monthEnd);
   };
 
   const getTasksForMonth = (monthStart: Date, monthEnd: Date) => {
@@ -96,6 +112,42 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
     { bg: 'bg-rose-700', border: 'border-rose-700' }
   ];
 
+  // Persisted per-sub collapse, read straight from localStorage DURING RENDER and
+  // overlaid with this session's toggles (groupOpenOverride). Reading here rather
+  // than seeding state in an effect keeps the first paint correct, so a collapse
+  // survives a reload without a post-paint correction. Mirrors the drawer.
+  const storedGroupOpen = useMemo<Record<string, boolean>>(() => {
+    if (!userId) return {};
+    try {
+      const raw = window.localStorage.getItem(`focusos-gantt-open-${userId}`);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
+  }, [userId]);
+
+  const groupOpen = useMemo(
+    () => ({ ...storedGroupOpen, ...groupOpenOverride }),
+    [storedGroupOpen, groupOpenOverride],
+  );
+
+  const setGroupOpenFor = (subId: string, open: boolean) => {
+    const next = { ...groupOpen, [subId]: open };
+    setGroupOpenOverride(next);
+    if (userId) {
+      try {
+        window.localStorage.setItem(`focusos-gantt-open-${userId}`, JSON.stringify(next));
+      } catch { /* private mode / quota — the in-memory state still works */ }
+    }
+  };
+
+  // Default OPEN, same rule the drawer uses: only an explicit collapse is stored,
+  // so a newly dated task can never hide inside a closed group.
+  const toggleGroupOpen = (subId: string) => setGroupOpenFor(subId, !(groupOpen[subId] ?? true));
+
+  const subIdSet = useMemo(() => new Set((groupBy?.subs ?? []).map(sub => sub.id)), [groupBy]);
+
   if (tasksWithDates.length === 0) {
     return (
       <Card className="p-8 bg-card/80 backdrop-blur-sm border-2">
@@ -111,7 +163,72 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
 
       {months.map((month, monthIndex) => {
         const monthTasks = getTasksForMonth(month.start, month.end);
-        
+
+        // ---- Sub-project grouping (P4), derived during render ------------------
+        // Without groupBy both of these collapse to "everything is an own task",
+        // which is byte-for-byte the pre-P4 render.
+        const ownMonthTasks = monthTasks.filter(task => !task.projectId || !subIdSet.has(task.projectId));
+        const monthSubGroups = (groupBy?.subs ?? [])
+          .map(sub => {
+            const subTasks = monthTasks.filter(task => task.projectId === sub.id);
+            if (subTasks.length === 0) return null;
+            // Roll-up bar: min(start) .. max(end) across THIS month's tasks for
+            // this sub, through the same clipping maths a task bar uses.
+            const rollupStart = new Date(Math.min(...subTasks.map(t => t.startDate!.getTime())));
+            const rollupEnd = new Date(Math.max(...subTasks.map(t => t.endDate!.getTime())));
+            return {
+              sub,
+              subTasks,
+              rollup: getRangePosition(rollupStart, rollupEnd, month.days, month.start, month.end),
+            };
+          })
+          .filter((group): group is { sub: Project; subTasks: Task[]; rollup: { left: number; width: number } | null } => group !== null);
+
+        // ONE task-row markup, shared by the parent's own rows and a sub's rows —
+        // the sub rows differ only by the title's indent (the date bar must stay
+        // aligned to the month grid, so the row itself is never padded).
+        const renderTaskRow = (task: Task, indented = false) => {
+          const position = getTaskPosition(task, month.days, month.start, month.end);
+          if (!position) return null;
+
+          const taskColor = taskColors[tasksWithDates.findIndex(t => t.id === task.id) % taskColors.length];
+
+          return (
+            <div
+              key={task.id}
+              data-testid={`gantt-task-${task.id}`}
+              className="relative h-10 border-b border-border/50 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => onTaskClick?.(task)}
+            >
+              <div
+                className={`absolute ${indented ? 'left-6' : 'left-0'} top-1 text-sm font-medium truncate max-w-full sm:max-w-[45%] ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
+                title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
+              >
+                {task.title}
+              </div>
+              {/* Date range underline bar */}
+              <div
+                className={`absolute bottom-0 h-1.5 rounded-full ${taskColor.bg} ${task.status === 'completed' ? 'opacity-30' : 'opacity-90'}`}
+                style={{
+                  left: `${position.left}%`,
+                  width: `${position.width}%`
+                }}
+              >
+                {task.status === 'completed' && (
+                  <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none">
+                    <defs>
+                      <pattern id={`zigzag-${task.id}`} patternUnits="userSpaceOnUse" width="8" height="6" patternTransform="rotate(0)">
+                        <polyline points="0,6 4,0 8,6" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-foreground" />
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill={`url(#zigzag-${task.id})`} />
+                  </svg>
+                )}
+              </div>
+            </div>
+          );
+        };
+
         return (
           <Card key={monthIndex} className="p-6 overflow-x-auto bg-card/80 backdrop-blur-sm border-2">
             {/* Title row with buttons */}
@@ -218,39 +335,52 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
             {/* Tasks */}
             {monthTasks.length > 0 ? (
               <div className="space-y-3">
-                {monthTasks.map((task, index) => {
-                  const position = getTaskPosition(task, month.days, month.start, month.end);
-                  if (!position) return null;
+                {/* The parent's OWN tasks first, exactly as before P4. */}
+                {ownMonthTasks.map(task => renderTaskRow(task))}
 
-                  const taskColor = taskColors[tasksWithDates.findIndex(t => t.id === task.id) % taskColors.length];
-
+                {/* Then one group per sub-project that has dated tasks in this
+                    month: a header row carrying the sub's roll-up bar, and the
+                    sub's own task rows underneath. Collapse/expand is a plain
+                    conditional render — no animation, no layer being born or
+                    destroyed while anything moves (iOS Safari law). */}
+                {monthSubGroups.map(({ sub, subTasks, rollup }) => {
+                  const isOpen = groupOpen[sub.id] ?? true;
                   return (
-                    <div key={task.id} className="relative h-10 border-b border-border/50 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => onTaskClick?.(task)}>
-                      <div 
-                        className={`absolute left-0 top-1 text-sm font-medium truncate max-w-full sm:max-w-[45%] ${task.status === 'completed' ? 'line-through opacity-50' : ''}`}
-                        title={`${task.title} - ${format(task.startDate!, 'MMM d')} to ${format(task.endDate!, 'MMM d')}`}
-                      >
-                        {task.title}
-                      </div>
-                      {/* Date range underline bar */}
-                      <div 
-                        className={`absolute bottom-0 h-1.5 rounded-full ${taskColor.bg} ${task.status === 'completed' ? 'opacity-30' : 'opacity-90'}`}
-                        style={{ 
-                          left: `${position.left}%`, 
-                          width: `${position.width}%` 
-                        }}
-                      >
-                        {task.status === 'completed' && (
-                          <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none">
-                            <defs>
-                              <pattern id={`zigzag-${task.id}`} patternUnits="userSpaceOnUse" width="8" height="6" patternTransform="rotate(0)">
-                                <polyline points="0,6 4,0 8,6" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-foreground" />
-                              </pattern>
-                            </defs>
-                            <rect width="100%" height="100%" fill={`url(#zigzag-${task.id})`} />
-                          </svg>
+                    <div key={sub.id} className="space-y-3">
+                      <div className="relative h-10 border-b border-border/50" data-testid={`gantt-group-${sub.id}`}>
+                        <div className="absolute left-0 top-0 flex items-center gap-1 max-w-full sm:max-w-[45%] min-w-0">
+                          {/* SAME control the drawer's tree uses: plain button,
+                              ChevronDown/ChevronRight, aria-expanded. */}
+                          <button
+                            type="button"
+                            data-testid={`gantt-toggle-${sub.id}`}
+                            aria-expanded={isOpen}
+                            aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${sub.name}`}
+                            className="shrink-0 p-1 text-muted-foreground hover:text-foreground"
+                            onClick={() => toggleGroupOpen(sub.id)}
+                          >
+                            {isOpen ? (
+                              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                            )}
+                          </button>
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sub.color }} />
+                          <span className="text-sm font-medium truncate min-w-0" title={sub.name}>{sub.name}</span>
+                        </div>
+                        {rollup && (
+                          <div
+                            data-testid={`gantt-rollup-${sub.id}`}
+                            className="absolute bottom-0 h-1.5 rounded-full opacity-90"
+                            style={{
+                              left: `${rollup.left}%`,
+                              width: `${rollup.width}%`,
+                              backgroundColor: sub.color
+                            }}
+                          />
                         )}
                       </div>
+                      {isOpen && subTasks.map(task => renderTaskRow(task, true))}
                     </div>
                   );
                 })}

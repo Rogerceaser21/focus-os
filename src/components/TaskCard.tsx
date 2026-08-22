@@ -38,6 +38,9 @@ interface TaskCardProps {
   onDismissChangeRequest?: (task: Task) => void;
   onDeleteTask?: (task: Task) => void | Promise<void>;
   projects?: Project[];
+  /** Sub-project caption (P4): set only when this card is showing inside a
+   * PARENT project's view and the task actually lives in one of its subs. */
+  scopeLabel?: { name: string; color: string };
 }
 
 const priorityColors = {
@@ -53,7 +56,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, projects = [] }: TaskCardProps) => {
+export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, projects = [], scopeLabel }: TaskCardProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { preferences } = useUserPreferences();
   useTimerAlert({
@@ -251,6 +254,14 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
                   >
                     {editedTitle}
                   </h3>
+                )}
+                {/* Which sub-project this task really lives in — shown only in a
+                    parent's rolled-up view (P4). Plain caption, house classes. */}
+                {scopeLabel && (
+                  <div className="flex items-center gap-1 min-w-0 px-2 -mx-2 text-xs text-muted-foreground" data-testid="task-sub-label">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: scopeLabel.color }} />
+                    <span className="truncate">{scopeLabel.name}</span>
+                  </div>
                 )}
               </div>
               <div className="flex gap-1.5 shrink-0">

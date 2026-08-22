@@ -64,6 +64,7 @@ import {
   isSubProject,
   type RawProjectRow,
 } from '@/lib/appDataFetchers';
+import { subProjectIdsOf } from '@/lib/projectTree';
 import { TaskListSkeleton, AppBootSkeleton, LoadErrorPanel } from '@/components/AppSkeletons';
 
 // Special-list identity (icon + label + colour + whether Share applies). ONE
@@ -1077,6 +1078,64 @@ const Index = () => {
     }
   }
 
+  // ---- P4 roll-up scope -----------------------------------------------------
+  // A TOP-LEVEL project's view is the project PLUS its active sub-projects: the
+  // list, the Gantt and the time chart all read `sortedTasks`, so widening the
+  // scope here is what makes every one of them tree-aware at once. Derived
+  // DURING render from the same state the drawer reads (no effect, no extra
+  // state, nothing corrected after paint).
+  //
+  // Deliberately narrow:
+  //  - only a top-level project rolls up; a SUB's own view shows exactly its own
+  //    tasks (subProjectIdsOf returns an empty set for a sub).
+  //  - `projects` is the ACTIVE list, so an archived sub never drags its tasks
+  //    into its parent's view.
+  //  - the selected row is resolved archived-inclusive, because an archived
+  //    project stays selected until the user navigates away.
+  const selectedSubProjectIds = useMemo(() => {
+    if (!selectedProjectId) return new Set<string>();
+    const row = projects.find(p => p.id === selectedProjectId)
+      ?? allProjectsForReports.find(p => p.id === selectedProjectId);
+    if (row?.parentProjectId) return new Set<string>();
+    return subProjectIdsOf(projects, selectedProjectId);
+  }, [selectedProjectId, projects, allProjectsForReports]);
+
+  // "Does this task belong to the CURRENT project view?" — the one predicate
+  // every belongs-to-this-view test goes through, so the roll-up can never be
+  // half-applied (list says yes, timer glow says no).
+  const isTaskInSelectedScope = useCallback(
+    (task: Task) => {
+      if (!selectedProjectId) return false;
+      if (task.projectId === selectedProjectId) return true;
+      return !!task.projectId && selectedSubProjectIds.has(task.projectId);
+    },
+    [selectedProjectId, selectedSubProjectIds],
+  );
+
+  // Gantt grouping input: only a top-level project WITH active subs groups its
+  // chart; everything else leaves the Gantt exactly as it was before P4.
+  const ganttGroupBy = useMemo(() => {
+    if (!selectedProjectId || selectedSubProjectIds.size === 0) return undefined;
+    const subs = projects.filter(p => selectedSubProjectIds.has(p.id));
+    return subs.length > 0 ? { parentId: selectedProjectId, subs } : undefined;
+  }, [selectedProjectId, selectedSubProjectIds, projects]);
+
+  // Per-sub caption for a task shown in a PARENT's view: which sub-project it
+  // actually lives in. Undefined for the parent's own tasks (nothing to say) and
+  // for anything outside the roll-up scope, so a fuzzy search result from an
+  // unrelated project never picks up a chip. Archived-inclusive lookup so a sub
+  // archived mid-session still resolves its name/colour instead of blanking.
+  const scopeLabelFor = useCallback(
+    (task: Task): { name: string; color: string } | undefined => {
+      if (!task.projectId || task.projectId === selectedProjectId) return undefined;
+      if (!selectedSubProjectIds.has(task.projectId)) return undefined;
+      const sub = projects.find(p => p.id === task.projectId)
+        ?? allProjectsForReports.find(p => p.id === task.projectId);
+      return sub ? { name: sub.name, color: sub.color } : undefined;
+    },
+    [selectedProjectId, selectedSubProjectIds, projects, allProjectsForReports],
+  );
+
   // Deleted/unavailable project fallback: an optimistically-applied project id (deep link
   // or stale default_view) falls back to Today once the real project list has loaded and
   // does not contain it. Guarded on a non-empty list so a transient empty apply can never
@@ -1215,8 +1274,10 @@ const Index = () => {
     const currentProject = projects.find(p => p.id === selectedProjectId);
     if (!currentProject?.isShared) return;
 
+    // Roll-up scope (P4): the eject means "this VIEW is empty", so a shared
+    // parent whose only remaining tasks sit in its subs must NOT eject.
     const hasVisibleActiveTasks = allTasks.some(
-      t => t.projectId === selectedProjectId && t.status !== 'completed' && !t.changeRequestMessage
+      t => isTaskInSelectedScope(t) && t.status !== 'completed' && !t.changeRequestMessage
     );
 
     if (!hasVisibleActiveTasks) {
@@ -1224,7 +1285,7 @@ const Index = () => {
       setSelectedProjectId(null);
       setProjectRefreshTrigger(prev => prev + 1);
     }
-  }, [selectedProjectId, projects, allTasks, initialLoadComplete, fullDataLoaded]);
+  }, [selectedProjectId, projects, allTasks, initialLoadComplete, fullDataLoaded, isTaskInSelectedScope]);
 
   // Auto-show onboarding tour for new users
   useEffect(() => {
@@ -1702,11 +1763,13 @@ https://www.skyscanner.com`,
       }
 
       // Auto-redirect: if the last task in a shared project was just completed, go to Today's To-Do
-      if (selectedProjectId && updatedTask.projectId === selectedProjectId) {
+      if (selectedProjectId && isTaskInSelectedScope(updatedTask)) {
         const currentProject = projects.find(p => p.id === selectedProjectId);
         if (currentProject?.isShared) {
+          // Same roll-up scope as the list: a parent view still holding active
+          // tasks in a SUB is not empty, so it must not redirect (P4).
           const remainingActive = allTasks.filter(
-            t => t.projectId === selectedProjectId && t.id !== updatedTask.id && t.status !== 'completed' && !t.changeRequestMessage
+            t => isTaskInSelectedScope(t) && t.id !== updatedTask.id && t.status !== 'completed' && !t.changeRequestMessage
           );
           if (remainingActive.length === 0) {
             setSelectedSpecialList('today');
@@ -2149,7 +2212,9 @@ https://www.skyscanner.com`,
       if (task.changeRequestMessage) return false;
 
       if (selectedProjectId) {
-        return task.projectId === selectedProjectId;
+        // Roll-up scope, not a bare id match: a parent's view carries its active
+        // subs' tasks too (P4).
+        return isTaskInSelectedScope(task);
       } else if (selectedSpecialList === 'unassigned') {
         return !task.projectId;
       } else if (selectedSpecialList === 'today') {
@@ -2171,7 +2236,7 @@ https://www.skyscanner.com`,
       }
       return true;
     });
-  }, [searchQuery, fuse, allTasks, selectedProjectId, selectedSpecialList, isTaskProjectActive]);
+  }, [searchQuery, fuse, allTasks, selectedProjectId, selectedSpecialList, isTaskProjectActive, isTaskInSelectedScope]);
 
   // Priority order for sorting
   const priorityOrder = {
@@ -2227,6 +2292,9 @@ https://www.skyscanner.com`,
   const onebarSpecial = selectedSpecialList ? SPECIAL_LIST_CFG[selectedSpecialList] : undefined;
   // Same owner guard the project banner uses for its inline actions.
   const onebarIsCollaborator = (onebarProject?.isShared && onebarProject.userId !== user?.id) ?? false;
+  // NOT the roll-up scope on purpose: this reads the SELECTED project's own
+  // "shared by" metadata, so it must match that project exactly. A shared
+  // project is rendered flat anyway (a collaborator never sees a tree).
   const onebarAssignedByEmail = onebarIsCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
   // Context title: project name (in its colour) / special-list label / the
   // all-tasks label the app already uses for the nothing-selected state.
@@ -2247,9 +2315,14 @@ https://www.skyscanner.com`,
     const currentProject = selectedProjectId ? allProjectsForReports.find(p => p.id === selectedProjectId) : undefined;
     if (!currentProject) return null;
     const isCollaborator = (currentProject.isShared && currentProject.userId !== user?.id) ?? false;
+    // Exact id match, same reason as onebarAssignedByEmail above: this project's
+    // own share metadata, not a "is this task in the current view" test.
     const assignedByEmail = isCollaborator ? allTasks.find(t => t.projectId === selectedProjectId)?.assignedToEmail : null;
+    // Timer glow reads the same roll-up scope as the list (P4): a timer running
+    // on a SUB's task lights the parent's bar, because that task is visible in
+    // this view.
     return (
-      <div className={`hidden lg:block w-full shrink-0 lg-projbar ${allTasks.some(t => t.projectId === selectedProjectId && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
+      <div className={`hidden lg:block w-full shrink-0 lg-projbar ${allTasks.some(t => isTaskInSelectedScope(t) && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
         <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <span className="hidden sm:inline shrink-0" style={{ color: currentProject.color }}>📁</span>
@@ -2969,6 +3042,7 @@ https://www.skyscanner.com`,
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
                   projects={projects}
+                  getScopeLabel={scopeLabelFor}
                   isReorderMode={isReorderMode}
                 />
               </TabsContent>
@@ -2988,6 +3062,7 @@ https://www.skyscanner.com`,
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
                   projects={projects}
+                  getScopeLabel={scopeLabelFor}
                   isReorderMode={isReorderMode}
                 />
               </TabsContent>
@@ -3007,6 +3082,7 @@ https://www.skyscanner.com`,
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
                   projects={projects}
+                  getScopeLabel={scopeLabelFor}
                   isReorderMode={isReorderMode}
                 />
               </TabsContent>
@@ -3026,6 +3102,7 @@ https://www.skyscanner.com`,
                   expandedTaskIds={expandedTaskIds}
                   onTaskClick={handleTaskClick}
                   projects={projects}
+                  getScopeLabel={scopeLabelFor}
                   isReorderMode={isReorderMode}
                 />
               </TabsContent>
@@ -3048,19 +3125,19 @@ https://www.skyscanner.com`,
               {renderProjectBar()}
 
               <TabsContent value="all" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
-                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status !== 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} scopeLabel={scopeLabelFor(task)} />)}
               </TabsContent>
 
               <TabsContent value="todo" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
-                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'todo').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} scopeLabel={scopeLabelFor(task)} />)}
               </TabsContent>
 
               <TabsContent value="in-progress" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
-                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'in-progress').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} scopeLabel={scopeLabelFor(task)} />)}
               </TabsContent>
 
               <TabsContent value="completed" className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 content-start flex-initial min-h-0 lg-content">
-                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} />)}
+                {sortedTasks.filter(t => t.status === 'completed').map(task => <TaskCard key={task.id} task={task} onUpdate={handleUpdateTask} onEditTask={setEditingTask} onAssignTask={handleAssignTask} onRequestChanges={handleRequestChanges} onDismissChangeRequest={handleDismissChangeRequest} onDeleteTask={handleDeleteTask} projects={projects} scopeLabel={scopeLabelFor(task)} />)}
               </TabsContent>
             </Tabs> : viewMode === 'gantt' ? <div className="flex-initial min-h-0 lg-content">
               <GanttChart 
@@ -3077,6 +3154,8 @@ https://www.skyscanner.com`,
                 }
                 projectId={selectedProjectId}
                 projects={projects}
+                groupBy={ganttGroupBy}
+                userId={user?.id}
                 onTaskClick={setEditingTask}
                 onAddTask={handleAddTask}
                 onOpenAddTask={() => handleAddTaskDialogOpen(true)}

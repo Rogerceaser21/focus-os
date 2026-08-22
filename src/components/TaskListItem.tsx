@@ -47,6 +47,9 @@ interface TaskListItemProps {
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
   projects?: Project[];
+  /** Sub-project caption (P4): set only when this row is showing inside a
+   * PARENT project's view and the task actually lives in one of its subs. */
+  scopeLabel?: { name: string; color: string };
 }
 
 const priorityColors = {
@@ -62,7 +65,7 @@ const statusColors = {
   completed: 'bg-secondary text-foreground border-border',
 };
 
-export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onEditTaskDates, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [] }: TaskListItemProps) => {
+export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onEditTaskDates, onAssignTask, onRequestChanges, onDismissChangeRequest, onDeleteTask, globalViewMode, isIndividuallyExpanded, onTaskClick, projects = [], scopeLabel }: TaskListItemProps) => {
   const { timer, displaySeconds, startTimer, stopTimer, formatTime } = useTimer(task.timer);
   const { user } = useAuth();
   const { preferences } = useUserPreferences(user?.id);
@@ -419,6 +422,22 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
     return Object.entries(counts).map(([k, v]) => `${v}${k}`).join(', ');
   };
 
+  // Which sub-project this task really lives in — rendered only inside a PARENT
+  // project's rolled-up view (P4). ONE markup for every density; house caption
+  // classes (text-xs text-muted-foreground + truncate), same colour dot the
+  // project pickers use. Never wider than 40% of the row, so a long sub name can
+  // never push the title off a 393px screen.
+  const subLabel = scopeLabel ? (
+    <div
+      className="flex items-center gap-1 min-w-0 shrink-0 max-w-[40%] text-xs text-muted-foreground"
+      data-testid="task-sub-label"
+      title={scopeLabel.name}
+    >
+      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: scopeLabel.color }} />
+      <span className="truncate">{scopeLabel.name}</span>
+    </div>
+  ) : null;
+
   // Minimal view: single line with checkbox + title + condensed shared badge
   if (globalViewMode === 'minimal') {
     const sharedText = getCondensedSharedText();
@@ -463,6 +482,7 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               {editedTitle}
             </span>
           )}
+          {subLabel}
           {/* Mobile keeps the row lean: play + X only. Share/AI/calendar/edit
               live in the edit pane, opened by tapping the task. */}
           {sharedText && !isMobile && (
@@ -694,7 +714,9 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               )}
             </Button>
           </div>
-          
+
+          {subLabel}
+
           {/* Line 2: Description */}
           <div className="flex items-center gap-2">
             {isEditingDescription ? (
@@ -1069,6 +1091,8 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
               )}
             </Button>
           </div>
+
+          {subLabel}
 
           {/* Line 2: Description */}
           <div className="flex items-center gap-2">

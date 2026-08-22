@@ -74,3 +74,22 @@ export function groupProjectTree(projects: Project[]): ProjectTreeNode[] {
 export function countSubProjects(projects: Project[], parentId: string): number {
   return projects.filter((p) => p.parentProjectId === parentId).length;
 }
+
+/**
+ * Ids of the projects in `projects` that sit directly under `parentId`.
+ *
+ * Pure and defensive in the same way groupProjectTree is: it never walks past
+ * one level (a sub can't be a parent), and it only ever reports rows that are
+ * PRESENT in the list it was handed — so passing the active-only project list
+ * yields the ACTIVE subs, which is exactly the roll-up scope P4 wants (an
+ * archived sub must not drag its tasks into its parent's view).
+ *
+ * `parentId` being itself a sub yields an empty set, so a sub-project's own
+ * view always shows exactly its own tasks.
+ */
+export function subProjectIdsOf(projects: Project[], parentId: string | null | undefined): Set<string> {
+  if (!parentId) return new Set<string>();
+  const self = projects.find((p) => p.id === parentId);
+  if (self?.parentProjectId) return new Set<string>();
+  return new Set(projects.filter((p) => p.id !== parentId && p.parentProjectId === parentId).map((p) => p.id));
+}

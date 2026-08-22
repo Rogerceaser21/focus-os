@@ -40,6 +40,9 @@ interface DraggableTaskListProps {
   expandedTaskIds: Set<string>;
   onTaskClick: (taskId: string) => void;
   projects: Project[];
+  /** Per-task sub-project caption (P4). Computed by Index during render; this
+   * list only forwards it, so the label logic lives in exactly one place. */
+  getScopeLabel?: (task: Task) => { name: string; color: string } | undefined;
   isReorderMode?: boolean;
 }
 
@@ -66,6 +69,7 @@ interface SortableTaskItemProps {
   isIndividuallyExpanded: boolean;
   onTaskClick: () => void;
   projects: Project[];
+  scopeLabel?: { name: string; color: string };
   isReorderMode?: boolean;
 }
 
@@ -83,6 +87,7 @@ const SortableTaskItem = ({
   isIndividuallyExpanded,
   onTaskClick,
   projects,
+  scopeLabel,
   isReorderMode,
 }: SortableTaskItemProps) => {
   const {
@@ -128,6 +133,7 @@ const SortableTaskItem = ({
           isIndividuallyExpanded={isIndividuallyExpanded}
           onTaskClick={onTaskClick}
           projects={projects}
+          scopeLabel={scopeLabel}
         />
       </div>
     </div>
@@ -149,6 +155,7 @@ export const DraggableTaskList = ({
   expandedTaskIds,
   onTaskClick,
   projects,
+  getScopeLabel,
   isReorderMode,
 }: DraggableTaskListProps) => {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -293,6 +300,7 @@ export const DraggableTaskList = ({
             isIndividuallyExpanded={false}
             onTaskClick={() => {}}
             projects={projects}
+            scopeLabel={getScopeLabel?.(activeTask)}
           />
         </div>
       ) : null}
@@ -345,6 +353,7 @@ export const DraggableTaskList = ({
                       isIndividuallyExpanded={expandedTaskIds.has(task.id)}
                       onTaskClick={() => onTaskClick(task.id)}
                       projects={projects}
+                      scopeLabel={getScopeLabel?.(task)}
                       isReorderMode={isReorderMode}
                     />
                   ))}
