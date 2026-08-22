@@ -30,3 +30,9 @@ graphify-out/
 /blob-report/
 /playwright/.cache/
 ios-shell/build-*/
+# repo-local tooling + build debris that must never ride into a commit
+.claude/skills/
+.github/skills/
+.github/agents/
+.github/hooks/
+deno.lock
