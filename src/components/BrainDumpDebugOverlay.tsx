@@ -42,6 +42,13 @@ export function BrainDumpDebugOverlay() {
         'audio ctx': `${audio.ctxState} @${audio.ctxRate}`,
         capture: `${audio.capturing ? 'ON' : 'off'} ${audio.worklet ? 'worklet' : 'scriptproc'} x${audio.captureStarts}`,
         'rms last/peak': `${audio.lastRms}/${audio.peakRms}`,
+        // Flight recorder (2026-08-21): the step in flight (with its age) and
+        // per-step timings — a hung tap now NAMES its step on screen.
+        step: `${audio.step}${audio.stepMs ? ` ${Math.round(audio.stepMs / 1000)}s` : ''}`,
+        'mic/resume/graph ms': `${audio.micMs}/${audio.resumeMs}/${audio.graphMs}`,
+        track: `${audio.trackState || '—'}${audio.trackMuted ? ' MUTED' : ''}`,
+        resets: `${audio.engineResets}${audio.lastResetReason ? ` (${audio.lastResetReason})` : ''} recov ${brainDumpDebug.noAudioRecoveries} retry ${brainDumpDebug.startRetries}`,
+        'bg gap': audio.lastBackgroundGapMs ? `${Math.round(audio.lastBackgroundGapMs / 1000)}s` : '—',
         'audio err': audio.lastError || '—',
       });
     };

@@ -105,7 +105,62 @@ const stats = {
   workletActive: false,
   lastError: '' as string,
   contextRecreates: 0,
+  /* Flight recorder (2026-08-21): which step of the tap path is in flight and
+     how long each took. A tap that never comes back leaves `step` pointing at
+     the hang, visible in the ?debug=1 overlay without any other tooling. */
+  step: 'idle' as string,
+  stepStartedAt: 0,
+  micMs: 0,
+  resumeMs: 0,
+  graphMs: 0,
+  trackMuted: false,
+  trackState: '' as string,
+  engineResets: 0,
+  lastResetReason: '' as string,
+  lastBackgroundGapMs: 0,
 };
+
+function setStep(step: string) {
+  stats.step = step;
+  stats.stepStartedAt = Date.now();
+}
+
+/** Thrown by startCapture when the audio path cannot be made to work inside
+ *  this tap. Callers decide between a retry after resetEngine() and a visible
+ *  "restart the app" surface — the one thing that must never happen again is
+ *  a silent "Listening…" over a dead pipe (Igor's phone, 2026-08-20). */
+export class AudioEngineError extends Error {
+  code: 'context-dead' | 'mic-timeout';
+  constructor(code: 'context-dead' | 'mic-timeout', message: string) {
+    super(message);
+    this.name = 'AudioEngineError';
+    this.code = code;
+  }
+}
+
+/** Test/tuning hooks read at call time (never cached): the Playwright harness
+ *  shortens the bounds so a hang is provable in seconds, production keeps the
+ *  defaults. */
+function tuning(): { micTimeoutMs: number; workletTimeoutMs: number; longGapMs: number } {
+  const t = (typeof window !== 'undefined' && (window as unknown as { __bdAudioTuning?: Partial<Record<'micTimeoutMs' | 'workletTimeoutMs' | 'longGapMs', number>> }).__bdAudioTuning) || {};
+  return {
+    micTimeoutMs: t.micTimeoutMs ?? MIC_TIMEOUT_MS,
+    workletTimeoutMs: t.workletTimeoutMs ?? WORKLET_TIMEOUT_MS,
+    longGapMs: t.longGapMs ?? LONG_BACKGROUND_GAP_MS,
+  };
+}
+
+/* getUserMedia has no timeout of its own. The first-ever call waits on the
+   permission prompt (a human), so the bound is generous — it exists to turn a
+   FOREVER (reclaimed capture after a long background stay) into an error. */
+const MIC_TIMEOUT_MS = 20000;
+/* audioWorklet.addModule() after a long background stay is another observed
+   forever on iOS; a bound here falls back to the ScriptProcessor path. */
+const WORKLET_TIMEOUT_MS = 4000;
+/* A page that sat hidden this long is treated as cold: its AudioContext is
+   discarded so the next tap builds a fresh one INSIDE the gesture — the
+   engine-layer equivalent of the kill-and-reopen that always works. */
+const LONG_BACKGROUND_GAP_MS = 5 * 60 * 1000;
 
 /* Live level feed for the hot-mic voice bars (Igor-approved 2026-07-29):
    per-BLOCK loudness at ~43Hz (a block is ~2048 frames at the hardware rate),
@@ -204,7 +259,12 @@ async function attachNode(ctx: AudioContext) {
   if (!state.workletFailed && !state.workletLoaded) {
     try {
       const url = URL.createObjectURL(new Blob([WORKLET_SOURCE], { type: 'application/javascript' }));
-      await ctx.audioWorklet.addModule(url);
+      const { workletTimeoutMs } = tuning();
+      await Promise.race([
+        ctx.audioWorklet.addModule(url),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`addModule timeout after ${workletTimeoutMs}ms`)), workletTimeoutMs)),
+      ]);
       URL.revokeObjectURL(url);
       state.workletLoaded = true;
     } catch (err) {
@@ -257,17 +317,52 @@ export async function startCapture(onChunk: (chunk: PcmChunk) => void): Promise<
   if (state.node) return; // already capturing — new sink attached above
 
   stats.captureStarts += 1;
+  stats.micMs = 0; stats.resumeMs = 0; stats.graphMs = 0;
+  stats.trackMuted = false; stats.trackState = '';
 
   // Mic FIRST: getUserMedia must run while the tap's transient activation is
   // alive; the resume ladder below can burn seconds on a wedged context, and
   // a getUserMedia issued after that window hangs or prompts.
-  const stream = await navigator.mediaDevices.getUserMedia({
+  // BOUNDED: a reclaimed capture after a long background stay can make this
+  // call never settle — that was invisible before (no step, no error).
+  setStep('mic');
+  const micStartedAt = Date.now();
+  const { micTimeoutMs } = tuning();
+  const micPromise = navigator.mediaDevices.getUserMedia({
     // NO sampleRate constraint — hardware rate in, engine resamples.
     audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
   });
+  let micTimer: number | undefined;
+  const stream = await Promise.race([
+    micPromise,
+    new Promise<MediaStream>((_, reject) => {
+      micTimer = window.setTimeout(() => reject(new AudioEngineError('mic-timeout', `microphone did not answer within ${micTimeoutMs}ms`)), micTimeoutMs);
+    }),
+  ]).catch((err) => {
+    if (err instanceof AudioEngineError) {
+      // A late stream must not become a hot mic nobody owns.
+      micPromise.then((late) => late.getTracks().forEach((t) => t.stop())).catch(() => { /* denied */ });
+      stats.lastError = `mic: ${err.message}`;
+      setStep('idle');
+    }
+    throw err;
+  });
+  window.clearTimeout(micTimer);
+  stats.micMs = Date.now() - micStartedAt;
   state.stream = stream;
+  const track = stream.getAudioTracks()[0];
+  if (track) {
+    stats.trackMuted = track.muted;
+    stats.trackState = track.readyState;
+    // iOS flips a reclaimed capture to muted rather than ending it — keep the
+    // overlay truthful either way.
+    track.onmute = () => { stats.trackMuted = true; };
+    track.onunmute = () => { stats.trackMuted = false; };
+    track.onended = () => { stats.trackState = 'ended'; };
+  }
   try {
-
+    setStep('resume');
+    const resumeStartedAt = Date.now();
     let ctx = ensureContext();
     // iOS parks background/blurred contexts as 'suspended' (or 'interrupted');
     // resume() inside the gesture is the sanctioned wake-up. After a long
@@ -285,14 +380,25 @@ export async function startCapture(onChunk: (chunk: PcmChunk) => void): Promise<
       state.workletFailed = false;
       ctx = ensureContext();
       if (!(await resumeToRunning(ctx))) {
-        stats.lastError = `resume: replacement context stuck in '${ctx.state}'`;
+        // v60 logged this and CARRIED ON — wiring the mic into a context that
+        // will never produce a sample, opening the socket, and showing
+        // "Listening… speak freely" over silence. A dead context is a FAILURE:
+        // the engine is torn down so the caller can retry from nothing or tell
+        // the user, never pretend.
+        const reason = `replacement context stuck in '${ctx.state}'`;
+        stats.lastError = `resume: ${reason}`;
+        stats.resumeMs = Date.now() - resumeStartedAt;
+        throw new AudioEngineError('context-dead', reason);
       }
     }
+    stats.resumeMs = Date.now() - resumeStartedAt;
 
     state.resamplePos = 0;
     state.tail = new Float32Array(0);
     state.accLen = 0;
 
+    setStep('graph');
+    const graphStartedAt = Date.now();
     const source = ctx.createMediaStreamSource(stream);
     state.source = source;
     const node = await attachNode(ctx);
@@ -302,14 +408,59 @@ export async function startCapture(onChunk: (chunk: PcmChunk) => void): Promise<
     // Both node kinds must be pulled by the graph to produce data; a worklet with
     // one silent output and a ScriptProcessor both idle unless routed somewhere.
     (node as AudioNode).connect(ctx.destination);
+    stats.graphMs = Date.now() - graphStartedAt;
+    setStep('capturing');
 
   } catch (err) {
     // The mic is already live (acquired first, inside the gesture) — a failure
     // past that point must not leave a hot mic behind.
     stream.getTracks().forEach((t) => t.stop());
     state.stream = null;
+    state.source = null;
+    state.node = null;
+    if (err instanceof AudioEngineError) {
+      resetEngine(err.code);
+    }
+    setStep('idle');
     throw err;
   }
+}
+
+/** Throw the whole engine away: capture released, context closed, worklet
+ *  flags cleared. The next startCapture builds a fresh context INSIDE its
+ *  gesture — the cold-start path, which is the one that always works. */
+export function resetEngine(reason: string): void {
+  stopCapture();
+  if (state.ctx) {
+    try { void state.ctx.close(); } catch { /* already dead */ }
+    state.ctx = null;
+  }
+  state.workletLoaded = false;
+  state.workletFailed = false;
+  stats.engineResets += 1;
+  stats.lastResetReason = reason;
+}
+
+/* Long-background guard: a page hidden for LONG_BACKGROUND_GAP_MS or more comes
+   back with its context discarded (unless a capture is live — the hook owns
+   that case). Igor's rule of thumb "5 minutes fine, 30 minutes dead, kill the
+   app and it works" is exactly the cold-vs-warm split; this makes every warm
+   return past the threshold behave like the cold start. */
+let hiddenAt = 0;
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      return;
+    }
+    if (!hiddenAt) return;
+    const gap = Date.now() - hiddenAt;
+    hiddenAt = 0;
+    stats.lastBackgroundGapMs = gap;
+    if (gap >= tuning().longGapMs && !state.node && state.ctx) {
+      resetEngine('long-background');
+    }
+  });
 }
 
 /** Release the microphone and the graph. The context stays — closing it is the
@@ -333,6 +484,7 @@ export function stopCapture(): void {
   state.accLen = 0;
   state.tail = new Float32Array(0);
   levelRing.fill(0);
+  setStep('idle');
 }
 
 export function isCapturing(): boolean {
@@ -352,5 +504,15 @@ export function getDebugSnapshot() {
     peakRms: Number(stats.peakRms.toFixed(4)),
     lastError: stats.lastError,
     contextRecreates: stats.contextRecreates,
+    step: stats.step,
+    stepMs: stats.step === 'idle' || stats.step === 'capturing' ? 0 : Date.now() - stats.stepStartedAt,
+    micMs: stats.micMs,
+    resumeMs: stats.resumeMs,
+    graphMs: stats.graphMs,
+    trackMuted: stats.trackMuted,
+    trackState: stats.trackState,
+    engineResets: stats.engineResets,
+    lastResetReason: stats.lastResetReason,
+    lastBackgroundGapMs: stats.lastBackgroundGapMs,
   };
 }

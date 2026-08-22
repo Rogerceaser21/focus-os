@@ -7,13 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		26AB254EA6295D851A83BA9E /* ShellWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */; };
 		40DCE7BC5A84304383161A5F /* ShellWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */; };
 		6D385F27CD270A6F6551772A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */; };
+		935814E3924B73347F1FFD79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */; };
 		9A20A0A473124C0C0EE284E8 /* FocusOSShellApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30DC28D12373418B01347AE /* FocusOSShellApp.swift */; };
+		E4286A0A9DCFC9200550C34B /* FocusOSShellApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30DC28D12373418B01347AE /* FocusOSShellApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		09535CCC4511D88B046CC9EE /* FocusOSShell.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FocusOSShell.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		36ECB147F2F18BC91531E35C /* FocusOSShellPreview.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FocusOSShellPreview.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellWebView.swift; sourceTree = "<group>"; };
 		C30DC28D12373418B01347AE /* FocusOSShellApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusOSShellApp.swift; sourceTree = "<group>"; };
@@ -25,6 +29,7 @@
 			isa = PBXGroup;
 			children = (
 				09535CCC4511D88B046CC9EE /* FocusOSShell.app */,
+				36ECB147F2F18BC91531E35C /* FocusOSShellPreview.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -69,6 +74,24 @@
 			productReference = 09535CCC4511D88B046CC9EE /* FocusOSShell.app */;
 			productType = "com.apple.product-type.application";
 		};
+		DD1F589FF2CF743A240BB36A /* FocusOSShellPreview */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 449CA4D210F50BDA1D3764F9 /* Build configuration list for PBXNativeTarget "FocusOSShellPreview" */;
+			buildPhases = (
+				CCEA7F7F658E36B10EECFD6A /* Sources */,
+				86C13EE66C50B81D77FD9630 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FocusOSShellPreview;
+			packageProductDependencies = (
+			);
+			productName = FocusOSShellPreview;
+			productReference = 36ECB147F2F18BC91531E35C /* FocusOSShellPreview.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -79,6 +102,10 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					DB369BF227D81CC9AAC164C1 = {
+						DevelopmentTeam = 3V9TZC8UU4;
+						ProvisioningStyle = Automatic;
+					};
+					DD1F589FF2CF743A240BB36A = {
 						DevelopmentTeam = 3V9TZC8UU4;
 						ProvisioningStyle = Automatic;
 					};
@@ -99,6 +126,7 @@
 			projectRoot = "";
 			targets = (
 				DB369BF227D81CC9AAC164C1 /* FocusOSShell */,
+				DD1F589FF2CF743A240BB36A /* FocusOSShellPreview */,
 			);
 		};
 /* End PBXProject section */
@@ -112,9 +140,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		86C13EE66C50B81D77FD9630 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				935814E3924B73347F1FFD79 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		CCEA7F7F658E36B10EECFD6A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E4286A0A9DCFC9200550C34B /* FocusOSShellApp.swift in Sources */,
+				26AB254EA6295D851A83BA9E /* ShellWebView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DADF4492528ECE88DF9469EA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -138,6 +183,22 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = tech.focusos.FocusOSShell;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		759178DAC9B74DEAE5F46D42 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconPreview;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = FocusOSShellPreview/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = tech.focusos.FocusOSShellPreview;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -223,6 +284,22 @@
 			};
 			name = Debug;
 		};
+		C6586F7622F04914D8E0466E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconPreview;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = FocusOSShellPreview/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = tech.focusos.FocusOSShellPreview;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 		F43DF81FD56EDD216A9A92A3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -297,6 +374,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		449CA4D210F50BDA1D3764F9 /* Build configuration list for PBXNativeTarget "FocusOSShellPreview" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C6586F7622F04914D8E0466E /* Debug */,
+				759178DAC9B74DEAE5F46D42 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		601FFB6FF9E723393EB5E050 /* Build configuration list for PBXProject "FocusOSShell" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
