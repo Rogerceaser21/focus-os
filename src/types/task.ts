@@ -40,4 +40,12 @@ export interface Project {
    * this field only needs to survive onto rows that intentionally keep archived
    * ones (the drawer's Archived section, the time-report project lookup). */
   archivedAt?: string | null;
+  /** Id of the project this one sits under, or null/undefined when it is top
+   * level. ONE level deep only, enforced in app code (see groupProjectTree in
+   * src/lib/projectTree.ts and the move guard in Index.tsx): a project that is
+   * itself a sub can never be a parent. A sub IS an ordinary project row in
+   * every other respect — routing, timers, task CRUD, calendar sync and
+   * sharing are all unchanged by this field. Shared projects are always
+   * rendered flat in a member's drawer, whatever it holds. */
+  parentProjectId?: string | null;
 }

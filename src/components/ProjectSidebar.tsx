@@ -11,8 +11,10 @@ import {
   appDataKeys,
   mergeByIdDesc,
   isProjectArchived,
+  isSubProject,
   type RawProjectRow,
 } from '@/lib/appDataFetchers';
+import { groupProjectTree, countSubProjects } from '@/lib/projectTree';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +53,13 @@ interface ProjectSidebarProps {
   onStartProjectsTour?: () => void;
   createDialogOpen?: boolean;
   onCreateDialogOpenChange?: (open: boolean) => void;
+  /**
+   * Parent project preselected in the Create Project dialog when it is opened
+   * by whoever controls `createDialogOpen` (the onebar's "New sub-project"
+   * row). Ignored when the dialog is opened from the drawer's own
+   * "New Project" button, which always starts at "None (top level)".
+   */
+  createParentProjectId?: string | null;
   isTourActive?: boolean;
   userId?: string;
   senderProjectSharedMap?: Record<string, SharedRecipient[]>;
@@ -85,6 +94,7 @@ export const ProjectSidebar = ({
   onStartProjectsTour,
   createDialogOpen,
   onCreateDialogOpenChange,
+  createParentProjectId = null,
   isTourActive,
   userId,
   senderProjectSharedMap = {},
@@ -102,6 +112,11 @@ export const ProjectSidebar = ({
   // archived projects doesn't push "My Projects" further down the drawer.
   const [archivedSectionOpen, setArchivedSectionOpen] = useState(false);
   const [restoringProjectId, setRestoringProjectId] = useState<string | null>(null);
+  // Per-parent expand state for the sub-project tree, keyed by parent id. This
+  // session's toggles only; the persisted map is read from localStorage DURING
+  // RENDER (treeOpen below) and the two are merged, so nothing here is corrected
+  // by a post-paint effect.
+  const [treeOpenOverride, setTreeOpenOverride] = useState<Record<string, boolean>>({});
   const [meetings, setMeetings] = useState<{ id: string; title: string }[]>([]);
   const [sharedItems, setSharedItems] = useState<any[]>([]);
   const [projectInvitations, setProjectInvitations] = useState<any[]>([]);
@@ -422,6 +437,7 @@ export const ProjectSidebar = ({
       id: p.id,
       name: p.name,
       color: p.color,
+      parentProjectId: isSubProject(p) ? p.parent_project_id : null,
       timer: { totalSeconds: 0, isRunning: false }
     })));
     setArchivedProjects(archivedOwn.map((p: RawProjectRow) => ({
@@ -429,6 +445,7 @@ export const ProjectSidebar = ({
       name: p.name,
       color: p.color,
       archivedAt: p.archived_at,
+      parentProjectId: isSubProject(p) ? p.parent_project_id : null,
       timer: { totalSeconds: 0, isRunning: false }
     })));
 
@@ -460,6 +477,10 @@ export const ProjectSidebar = ({
       return projectTasks.length === 0 || visibleActiveTasks.length > 0;
     });
 
+    // Deliberately NO parentProjectId here: a shared project is always rendered
+    // FLAT in a member's drawer, whatever parent it may sit under in the owner's
+    // own tree (P3 rule — membership is per project, the hierarchy is the
+    // owner's private organisation).
     setSharedProjects(activeShared.map((p) => ({
       id: p.id,
       name: p.name,
@@ -756,19 +777,85 @@ export const ProjectSidebar = ({
     minMatchCharLength: 2,
   }), [meetings]);
 
+  // ---- Sub-project tree (P3) ------------------------------------------------
+  // Everything below is DERIVED DURING RENDER from state that already exists —
+  // no effects, no post-paint corrections.
+
+  // The one-level tree "My Projects" renders: top-level rows, each carrying its
+  // active subs. Pure function, so the grouping rules live in one testable place.
+  const projectTree = useMemo(() => groupProjectTree(projects), [projects]);
+
+  // Only reserve the chevron column once this account actually HAS a parent with
+  // sub-projects. An account that never uses the feature renders its rows at
+  // exactly the geometry it had before P3; an account that does gets every
+  // top-level row aligned with the ones that carry a chevron, instead of a
+  // ragged mix of inset and flush rows.
+  const treeGutter = useMemo(() => projectTree.some((n) => n.subs.length > 0), [projectTree]);
+
+  // Persisted expand state, read straight from localStorage during render and
+  // overlaid with this session's toggles (treeOpenOverride). Reading here rather
+  // than seeding state in an effect keeps the first paint correct.
+  const storedTreeOpen = useMemo<Record<string, boolean>>(() => {
+    if (!userId) return {};
+    try {
+      const raw = window.localStorage.getItem(`focusos-tree-open-${userId}`);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
+  }, [userId]);
+
+  const treeOpen = useMemo(
+    () => ({ ...storedTreeOpen, ...treeOpenOverride }),
+    [storedTreeOpen, treeOpenOverride],
+  );
+
+  const setTreeOpenFor = (parentId: string, open: boolean) => {
+    const next = { ...treeOpen, [parentId]: open };
+    setTreeOpenOverride(next);
+    if (userId) {
+      try {
+        window.localStorage.setItem(`focusos-tree-open-${userId}`, JSON.stringify(next));
+      } catch { /* private mode / quota — the in-memory state still works */ }
+    }
+  };
+
+  const toggleTreeOpen = (parentId: string) => setTreeOpenFor(parentId, !(treeOpen[parentId] ?? true));
+
+  // Archived section rows. An archived sub whose PARENT is archived too (the
+  // cascade case) is folded into the parent's row as a count suffix instead of
+  // getting its own row — restoring the parent brings it back with it. An
+  // archived sub whose parent is still active keeps its own row and its own
+  // Restore.
+  const archivedRows = useMemo(() => {
+    const archivedIds = new Set(archivedProjects.map((p) => p.id));
+    return archivedProjects
+      .filter((p) => !(p.parentProjectId && archivedIds.has(p.parentProjectId)))
+      .map((p) => ({ project: p, cascadedSubCount: countSubProjects(archivedProjects, p.id) }));
+  }, [archivedProjects]);
+
   const isSearching = sidebarSearchQuery.trim().length > 0;
   const matchedProjects = isSearching ? projectFuse.search(sidebarSearchQuery.trim()).map(r => r.item) : [];
   const matchedMeetings = isSearching ? meetingFuse.search(sidebarSearchQuery.trim()).map(r => r.item) : [];
 
-  const handleCreateProject = async (name: string, color: string) => {
+  const handleCreateProject = async (name: string, color: string, parentProjectId: string | null = null) => {
     if (!userId) return;
+
+    // One level only: the dialog offers TOP-LEVEL projects as parents, but guard
+    // here too so no caller can create a grandchild. A parent that is itself a
+    // sub is silently promoted to top level rather than nesting two deep.
+    const parentIsSub = parentProjectId
+      ? projects.some((p) => p.id === parentProjectId && !!p.parentProjectId)
+      : false;
+    const effectiveParentId = parentIsSub ? null : parentProjectId;
 
     // `.select()` so overlay mode can open the project it just created AND seed the
     // row into the shared cache (the same insert+select pattern as brainDumpSave.ts /
     // Index's demo projects). /app ignores the returned row and behaves as before.
     const { data: created, error } = await (supabase as any)
       .from('focusos_projects')
-      .insert({ name, color, user_id: userId })
+      .insert({ name, color, user_id: userId, parent_project_id: effectiveParentId })
       .select()
       .maybeSingle();
 
@@ -778,6 +865,9 @@ export const ProjectSidebar = ({
     }
 
     toast.success('Project created!');
+    // A new sub lands inside a parent row that may be collapsed — open it, or the
+    // create looks like it did nothing.
+    if (effectiveParentId) setTreeOpenFor(effectiveParentId, true);
     fetchProjects({ fresh: true });
     setIsCreateOpen(false);
     onProjectCreated?.();
@@ -812,10 +902,14 @@ export const ProjectSidebar = ({
   const handleRestoreProject = async (projectId: string) => {
     setRestoringProjectId(projectId);
     try {
+      // CASCADE: restoring a parent restores the sub-projects that were archived
+      // with it (the archive action archives them together, so they come back
+      // together). `.or()` keeps the same single RLS-scoped statement the
+      // `.eq('id', …)` form used — a sub-project row belongs to the same owner.
       const { error } = await (supabase as any)
         .from('focusos_projects')
         .update({ archived_at: null })
-        .eq('id', projectId);
+        .or(`id.eq.${projectId},parent_project_id.eq.${projectId}`);
       if (error) throw error;
       toast.success('Project restored');
       await fetchProjects({ fresh: true });
@@ -1501,30 +1595,95 @@ export const ProjectSidebar = ({
                   <h3 className="text-sm font-medium text-muted-foreground">My Projects ({projects.length})</h3>
                 </div>
                 <div className="px-2 space-y-1">
-                  {projects.map((project) => {
+                  {projectTree.map(({ parent: project, subs }) => {
                     const dataAttrs =
                       selectedProjectId === project.id && project.name.startsWith('Demo Project')
                         ? { 'data-projects-tour-step': 'demo-project' as const }
                         : {};
+                    // Default OPEN: a parent's subs are visible unless the
+                    // user has explicitly collapsed that parent (the collapse is
+                    // what gets persisted). Anything else makes a just-created or
+                    // just-moved sub vanish into a closed row and read as a bug.
+                    const isOpen = treeOpen[project.id] ?? true;
                     return (
                       <div key={project.id} className="w-full" {...dataAttrs}>
-                        <Button
-                          variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
-                          className="w-full justify-start gap-2"
-                          onClick={() => {
-                            handleSelectProject(project.id);
-                            if (isMobile) setOpenMobile(false);
-                          }}
-                        >
-                          <Folder
-                            className="h-4 w-4"
-                            style={{ color: project.color }}
-                          />
-                          <span className="truncate">{project.name}</span>
-                        </Button>
+                        <div className="w-full flex items-center gap-1">
+                          {/* Chevron expand — SAME control the Archived section
+                              uses (plain button, ChevronDown/ChevronRight,
+                              aria-expanded), only rendered for a parent that
+                              actually has sub-projects. Sibling of the row
+                              button, never nested inside it. No animation: the
+                              subs are a plain conditional render, so no
+                              compositing layer is created while anything moves
+                              (iOS Safari law). */}
+                          {subs.length === 0 && treeGutter && (
+                            <span className="shrink-0 w-[22px]" aria-hidden="true" />
+                          )}
+                          {subs.length > 0 && (
+                            <button
+                              type="button"
+                              data-testid={`tree-toggle-${project.id}`}
+                              aria-expanded={isOpen}
+                              /* NOTE: the accessible name must NOT contain the
+                                 word "projects" — the drawer itself is
+                                 aria-label="Projects" and the BottomNav has a
+                                 "Projects" button, so any substring match would
+                                 become ambiguous. */
+                              aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${project.name}`}
+                              className="shrink-0 p-1 text-muted-foreground hover:text-foreground"
+                              onClick={() => toggleTreeOpen(project.id)}
+                            >
+                              {isOpen ? (
+                                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                              )}
+                            </button>
+                          )}
+                          <Button
+                            variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                            className="flex-1 justify-start gap-2 min-w-0"
+                            data-testid={`select-project-${project.id}`}
+                            onClick={() => {
+                              handleSelectProject(project.id);
+                              if (isMobile) setOpenMobile(false);
+                            }}
+                          >
+                            <Folder
+                              className="h-4 w-4 shrink-0"
+                              style={{ color: project.color }}
+                            />
+                            <span className="truncate">{project.name}</span>
+                          </Button>
+                        </div>
                         {senderProjectSharedMap[project.id] && (
                           <div className="ml-8 mt-0.5 mb-1">
                             <ShareStatusPopover recipients={senderProjectSharedMap[project.id]} itemType="Project" />
+                          </div>
+                        )}
+                        {subs.length > 0 && isOpen && (
+                          <div className="mt-1 space-y-1" data-testid={`tree-subs-${project.id}`}>
+                            {subs.map((sub) => (
+                              <div key={sub.id} className="w-full pl-10" data-testid={`tree-sub-${sub.id}`}>
+                                <Button
+                                  variant={selectedProjectId === sub.id ? 'secondary' : 'ghost'}
+                                  className="w-full justify-start gap-2 min-w-0"
+                                  data-testid={`select-project-${sub.id}`}
+                                  onClick={() => {
+                                    handleSelectProject(sub.id);
+                                    if (isMobile) setOpenMobile(false);
+                                  }}
+                                >
+                                  <Folder className="h-4 w-4 shrink-0" style={{ color: sub.color }} />
+                                  <span className="truncate">{sub.name}</span>
+                                </Button>
+                                {senderProjectSharedMap[sub.id] && (
+                                  <div className="ml-8 mt-0.5 mb-1">
+                                    <ShareStatusPopover recipients={senderProjectSharedMap[sub.id]} itemType="Project" />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -1551,11 +1710,15 @@ export const ProjectSidebar = ({
                   ) : (
                     <ChevronRight className="h-3.5 w-3.5 shrink-0" />
                   )}
-                  <span>Archived ({archivedProjects.length})</span>
+                  {/* Counts RENDERED rows, not raw archived projects: a sub
+                      archived by the cascade is folded into its parent's row
+                      (with its own "(N sub-projects)" suffix there), so counting
+                      raw rows would advertise more entries than the list shows. */}
+                  <span>Archived ({archivedRows.length})</span>
                 </button>
                 {archivedSectionOpen && (
                   <div className="px-2 space-y-1" data-testid="archived-projects-list">
-                    {archivedProjects.map((project) => (
+                    {archivedRows.map(({ project, cascadedSubCount }) => (
                       <div
                         key={project.id}
                         className="w-full flex items-center gap-1"
@@ -1571,6 +1734,12 @@ export const ProjectSidebar = ({
                           variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
                           className="flex-1 justify-start gap-2 min-w-0 text-muted-foreground"
                           data-testid={`select-archived-project-${project.id}`}
+                          /* Explicit accessible name when the row carries the
+                             cascaded-sub suffix: the visible "(2 sub-projects)"
+                             text would otherwise land in the accessible name,
+                             where the substring "projects" collides with the
+                             drawer's own aria-label="Projects". */
+                          aria-label={cascadedSubCount > 0 ? `${project.name}, ${cascadedSubCount} archived with it` : undefined}
                           onClick={() => {
                             handleSelectProject(project.id);
                             if (isMobile) setOpenMobile(false);
@@ -1578,6 +1747,19 @@ export const ProjectSidebar = ({
                         >
                           <Folder className="h-4 w-4 shrink-0" style={{ color: project.color }} />
                           <span className="truncate">{project.name}</span>
+                          {/* Sub-projects archived BY THE CASCADE are folded into
+                              their parent's row rather than listed separately —
+                              Restore here brings the whole set back. A sub
+                              archived on its own (parent still active) keeps its
+                              own row and is not counted here. */}
+                          {cascadedSubCount > 0 && (
+                            <span
+                              className="text-xs shrink-0 opacity-70"
+                              data-testid={`archived-sub-count-${project.id}`}
+                            >
+                              ({cascadedSubCount} sub-project{cascadedSubCount === 1 ? '' : 's'})
+                            </span>
+                          )}
                         </Button>
                         <Button
                           size="sm"
@@ -1608,6 +1790,11 @@ export const ProjectSidebar = ({
       open={isCreateOpen}
       onOpenChange={setIsCreateOpen}
       onCreate={handleCreateProject}
+      /* Eligible parents: this user's OWN active TOP-LEVEL projects. Sub-projects
+         are excluded so nothing two levels deep can be created (shared projects
+         never reach this list — `projects` is the own-only state). */
+      parentOptions={projectTree.map((node) => node.parent)}
+      defaultParentId={createParentProjectId}
     />
   );
 

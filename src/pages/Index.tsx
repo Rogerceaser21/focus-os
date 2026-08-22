@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X, Archive, ArchiveRestore } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X, Archive, ArchiveRestore, Folder, FolderPlus } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   AlertDialog,
@@ -61,6 +61,7 @@ import {
   appDataKeys,
   slimTaskRow,
   isProjectArchived,
+  isSubProject,
   type RawProjectRow,
 } from '@/lib/appDataFetchers';
 import { TaskListSkeleton, AppBootSkeleton, LoadErrorPanel } from '@/components/AppSkeletons';
@@ -264,7 +265,7 @@ const Index = () => {
   // whether the bar has swapped into search mode. viewMode / globalCardView /
   // activeTab / searchInput keep their own state, defaults and persistence paths
   // untouched — the bar only moves where they are set from. ----
-  const [onebarSheet, setOnebarSheet] = useState<null | 'context' | 'status'>(null);
+  const [onebarSheet, setOnebarSheet] = useState<null | 'context' | 'status' | 'move'>(null);
   const [onebarSearchOpen, setOnebarSearchOpen] = useState(false);
   const onebarSearchRef = useRef<HTMLInputElement | null>(null);
   // WKWebView drops programmatic focus that happens outside the user-gesture call
@@ -287,6 +288,11 @@ const Index = () => {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  // "New sub-project" (onebar): opens the DRAWER's own Create Project dialog with
+  // a parent preselected, rather than standing up a second create surface. While
+  // this is set, Index controls that dialog's open state (see the ProjectSidebar
+  // props below); when it clears, the drawer goes back to owning it.
+  const [newSubParentId, setNewSubParentId] = useState<string | null>(null);
   const [memberRefreshTrigger, setMemberRefreshTrigger] = useState(0);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -399,6 +405,7 @@ const Index = () => {
       isShared: p.is_shared ?? false,
       userId: p.user_id,
       archivedAt: p.archived_at ?? null,
+      parentProjectId: isSubProject(p) ? p.parent_project_id : null,
       timer: {
         totalSeconds: 0,
         isRunning: false
@@ -1048,6 +1055,7 @@ const Index = () => {
         isShared: p.is_shared ?? false,
         userId: p.user_id,
         archivedAt: p.archived_at ?? null,
+        parentProjectId: isSubProject(p) ? p.parent_project_id : null,
         timer: { totalSeconds: 0, isRunning: false },
       });
       // Same active/full split as applyProjectRows (kept inline here — this branch
@@ -1955,20 +1963,30 @@ https://www.skyscanner.com`,
   const handleArchiveProject = async () => {
     if (!selectedProjectId) return;
     const archivedAt = new Date().toISOString();
+    const targetId = selectedProjectId;
+    // CASCADE (P3): archiving a parent archives its sub-projects with it, in ONE
+    // statement, so the pair can never end up half-archived. `.or()` keeps the
+    // same RLS-scoped shape the `.eq('id', …)` form had — a sub-project row is
+    // owned by the same user. Restoring the parent reverses both (see
+    // handleRestoreProject).
+    const cascadeIds = new Set([
+      targetId,
+      ...allProjectsForReports.filter(p => p.parentProjectId === targetId).map(p => p.id),
+    ]);
 
     try {
       const { error } = await (supabase as any)
         .from('focusos_projects')
         .update({ archived_at: archivedAt })
-        .eq('id', selectedProjectId);
+        .or(`id.eq.${targetId},parent_project_id.eq.${targetId}`);
 
       if (error) throw error;
 
       // Update local state: drop from the active list, keep it (marked) in the
       // full report-facing list so TimeTrackingChart still resolves its name.
-      setProjects(projects.filter(p => p.id !== selectedProjectId));
+      setProjects(projects.filter(p => !cascadeIds.has(p.id)));
       setAllProjectsForReports(prev => prev.map(p =>
-        p.id === selectedProjectId ? { ...p, archivedAt } : p
+        cascadeIds.has(p.id) ? { ...p, archivedAt } : p
       ));
 
       // Reset selection to "Today" view — mirrors handleDeleteProject; an
@@ -2002,6 +2020,13 @@ https://www.skyscanner.com`,
   // destructive-feeling half of this pair.
   const handleRestoreProject = async () => {
     if (!selectedProjectId) return;
+    const targetId = selectedProjectId;
+    // Mirror image of the archive cascade above: restoring a parent restores the
+    // sub-projects that went down with it.
+    const cascadeIds = new Set([
+      targetId,
+      ...allProjectsForReports.filter(p => p.parentProjectId === targetId).map(p => p.id),
+    ]);
 
     try {
       // No `as any` here (unlike the neighbouring calls in this file): the
@@ -2010,16 +2035,18 @@ https://www.skyscanner.com`,
       const { error } = await supabase
         .from('focusos_projects')
         .update({ archived_at: null })
-        .eq('id', selectedProjectId);
+        .or(`id.eq.${targetId},parent_project_id.eq.${targetId}`);
 
       if (error) throw error;
 
-      const restoredProject = allProjectsForReports.find(p => p.id === selectedProjectId);
-      if (restoredProject && !projects.some(p => p.id === selectedProjectId)) {
-        setProjects([...projects, { ...restoredProject, archivedAt: null }]);
+      const restored = allProjectsForReports
+        .filter(p => cascadeIds.has(p.id) && !projects.some(a => a.id === p.id))
+        .map(p => ({ ...p, archivedAt: null }));
+      if (restored.length > 0) {
+        setProjects([...projects, ...restored]);
       }
       setAllProjectsForReports(allProjectsForReports.map(p =>
-        p.id === selectedProjectId ? { ...p, archivedAt: null } : p
+        cascadeIds.has(p.id) ? { ...p, archivedAt: null } : p
       ));
 
       // Same sequencing as handleArchiveProject: fresh shared refetch, then bump.
@@ -2030,6 +2057,54 @@ https://www.skyscanner.com`,
     } catch (error) {
       console.error('Error restoring project:', error);
       toast.error('Failed to restore project');
+    }
+  };
+
+  const openNewSubProjectDialog = (parentId: string) => setNewSubParentId(parentId);
+
+  // Move to… — re-parents the selected project. `targetParentId === null` means
+  // "Top level (no parent)", which is always allowed. Same local-state +
+  // fresh-refetch + trigger-bump sequencing as handleArchiveProject above.
+  const handleMoveProject = async (targetParentId: string | null) => {
+    if (!selectedProjectId) return;
+    const movingId = selectedProjectId;
+    if (targetParentId === movingId) return; // a project can never be its own parent
+
+    // ONE LEVEL DEEP, enforced here: a project that still has sub-projects of its
+    // own (active OR archived — allProjectsForReports holds both) can never
+    // become someone else's sub, because that would nest two deep. Refused
+    // BEFORE any database write, so nothing is half-applied.
+    if (targetParentId && allProjectsForReports.some(p => p.parentProjectId === movingId)) {
+      toast.error('Move its sub-projects first');
+      return;
+    }
+    // Second half of the same rule: the target must be top level itself.
+    const target = targetParentId ? allProjectsForReports.find(p => p.id === targetParentId) : null;
+    if (targetParentId && (!target || target.parentProjectId)) {
+      toast.error('Move its sub-projects first');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('focusos_projects')
+        .update({ parent_project_id: targetParentId })
+        .eq('id', movingId);
+
+      if (error) throw error;
+
+      setProjects(projects.map(p => (p.id === movingId ? { ...p, parentProjectId: targetParentId } : p)));
+      setAllProjectsForReports(allProjectsForReports.map(p =>
+        p.id === movingId ? { ...p, parentProjectId: targetParentId } : p
+      ));
+
+      await fetchProjects();
+      setProjectRefreshTrigger(prev => prev + 1);
+
+      toast.success(target ? `Moved under ${target.name}` : 'Moved to top level');
+    } catch (error) {
+      console.error('Error moving project:', error);
+      toast.error('Failed to move project');
     }
   };
 
@@ -2136,6 +2211,19 @@ https://www.skyscanner.com`,
   // the header must still resolve its name/color instead of falling back to
   // "All Tasks" / "Unknown Project".
   const onebarProject = selectedProjectId ? allProjectsForReports.find(p => p.id === selectedProjectId) : undefined;
+  // Sub-project context, DERIVED DURING RENDER (no effect, no extra state): the
+  // parent row of the selected project, its own sub-projects, and the list of
+  // projects it may be moved under.
+  const onebarParentProject = onebarProject?.parentProjectId
+    ? allProjectsForReports.find(p => p.id === onebarProject.parentProjectId)
+    : undefined;
+  const onebarIsParent = !!onebarProject && !onebarProject.parentProjectId;
+  const onebarHasSubProjects = !!onebarProject && allProjectsForReports.some(p => p.parentProjectId === onebarProject.id);
+  // Eligible move targets: the user's OWN active TOP-LEVEL projects, never the
+  // project itself and never a sub-project (one level deep).
+  const onebarMoveTargets = onebarProject
+    ? projects.filter(p => !p.isShared && !p.parentProjectId && p.id !== onebarProject.id)
+    : [];
   const onebarSpecial = selectedSpecialList ? SPECIAL_LIST_CFG[selectedSpecialList] : undefined;
   // Same owner guard the project banner uses for its inline actions.
   const onebarIsCollaborator = (onebarProject?.isShared && onebarProject.userId !== user?.id) ?? false;
@@ -2165,6 +2253,15 @@ https://www.skyscanner.com`,
         <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <span className="hidden sm:inline shrink-0" style={{ color: currentProject.color }}>📁</span>
+
+            {/* Sub-project breadcrumb, same derivation as the one-bar's
+                (onebarParentProject) — the desktop banner is the header at lg+. */}
+            {onebarParentProject && (
+              <span className="flex items-center gap-1 shrink-0 min-w-0 max-w-[35%] text-sm text-muted-foreground">
+                <span className="truncate min-w-0" data-testid="desktop-parent-name">{onebarParentProject.name}</span>
+                <span className="opacity-60">/</span>
+              </span>
+            )}
 
             {isEditingProjectName && !isCollaborator ? (
               <Input
@@ -2255,6 +2352,35 @@ https://www.skyscanner.com`,
                     <span>Share</span>
                   </Button>
 
+                  {/* Sub-projects (P3), same pair the one-bar sheet offers and
+                      the same handlers. "New sub-project" only on a TOP-LEVEL
+                      project; both hidden while the project is archived. */}
+                  {!currentProject.parentProjectId && !currentProject.archivedAt && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1"
+                      data-testid="desktop-new-sub"
+                      onClick={() => openNewSubProjectDialog(currentProject.id)}
+                    >
+                      <FolderPlus className="h-4 w-4" />
+                      <span>New sub-project</span>
+                    </Button>
+                  )}
+
+                  {!currentProject.archivedAt && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1"
+                      data-testid="desktop-move"
+                      onClick={() => setOnebarSheet('move')}
+                    >
+                      <FolderKanban className="h-4 w-4" />
+                      <span>Move to...</span>
+                    </Button>
+                  )}
+
                   {currentProject.archivedAt ? (
                     <Button
                       variant="ghost"
@@ -2330,7 +2456,7 @@ https://www.skyscanner.com`,
         <div className="flex flex-1 relative w-full flex-col min-h-0">
           <div className="flex flex-1 relative min-h-0">
             {/* Sidebar */}
-            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => { setProjectRefreshTrigger(prev => prev + 1); fetchTasks(); }} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : undefined} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : undefined} isTourActive={showProjectsTour} userId={user?.id} senderProjectSharedMap={senderProjectSharedMap} />
+            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => { setProjectRefreshTrigger(prev => prev + 1); fetchTasks(); }} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : (newSubParentId ? true : undefined)} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : (newSubParentId ? ((open: boolean) => { if (!open) setNewSubParentId(null); }) : undefined)} createParentProjectId={newSubParentId} isTourActive={showProjectsTour} userId={user?.id} senderProjectSharedMap={senderProjectSharedMap} />
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 min-w-0 flex flex-col min-h-0 overflow-x-hidden">
@@ -2432,6 +2558,22 @@ https://www.skyscanner.com`,
                     {...(onebarProject ? { 'data-projects-tour-step': 'project-name' } : {})}
                   >
                     {OnebarIcon && <OnebarIcon className={`h-4 w-4 shrink-0 ${onebarSpecial.color}`} />}
+                    {/* Sub-project breadcrumb: the parent's name ahead of the
+                        project's own, derived during render from
+                        allProjectsForReports so an archived parent still
+                        resolves. Capped so a long parent name can never crowd
+                        out the project it is labelling. */}
+                    {onebarParentProject && (
+                      <>
+                        <span
+                          className="truncate min-w-0 max-w-[40%] text-xs opacity-70"
+                          data-testid="onebar-parent-name"
+                        >
+                          {onebarParentProject.name}
+                        </span>
+                        <span className="shrink-0 text-xs opacity-50">/</span>
+                      </>
+                    )}
                     <span
                       className={`truncate min-w-0 ${onebarSpecial ? onebarSpecial.color : ''}`}
                       style={onebarProject ? { color: onebarProject.color } : undefined}
@@ -2616,6 +2758,31 @@ https://www.skyscanner.com`,
                     <Share2 className="h-4 w-4 shrink-0" />
                     <span className="flex-1 text-left">Share</span>
                   </button>
+                  {/* Sub-projects (P3). "New sub-project" only where a sub can
+                      legally live — under a TOP-LEVEL project — and only while
+                      the project is active. "Move to…" opens its own sheet. */}
+                  {onebarIsParent && !onebarProject?.archivedAt && (
+                    <button
+                      type="button"
+                      className="lg-onebar-row"
+                      data-testid="onebar-new-sub"
+                      onClick={() => { setOnebarSheet(null); openNewSubProjectDialog(onebarProject!.id); }}
+                    >
+                      <FolderPlus className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">New sub-project</span>
+                    </button>
+                  )}
+                  {!onebarProject?.archivedAt && (
+                    <button
+                      type="button"
+                      className="lg-onebar-row"
+                      data-testid="onebar-move"
+                      onClick={() => setOnebarSheet('move')}
+                    >
+                      <FolderKanban className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">Move to...</span>
+                    </button>
+                  )}
                   {onebarProject?.archivedAt ? (
                     <button type="button" className="lg-onebar-row" data-testid="onebar-restore" onClick={() => { setOnebarSheet(null); handleRestoreProject(); }}>
                       <ArchiveRestore className="h-4 w-4 shrink-0" />
@@ -2651,6 +2818,50 @@ https://www.skyscanner.com`,
                   )}
                 </div>
               )}
+            </SheetContent>
+          </Sheet>
+
+          {/* Move-to sheet (P3) — the SAME plain open-on-tap Radix Sheet +
+              lg-onebar-row list the context sheet uses, so nothing new was
+              invented for it. Targets are the user's own active TOP-LEVEL
+              projects; a sub-project is never offered, which is half of the
+              one-level rule. The other half (a project that HAS subs cannot
+              become a sub) is enforced in handleMoveProject, which refuses with
+              a toast before any database write. */}
+          <Sheet open={onebarSheet === 'move'} onOpenChange={(o) => { if (!o) setOnebarSheet(null); }}>
+            <SheetContent side="bottom" className="lg-onebar-sheet" data-testid="onebar-move-sheet" aria-describedby={undefined}>
+              <SheetHeader>
+                <SheetTitle className="truncate pr-8">Move to...</SheetTitle>
+              </SheetHeader>
+              <div className="lg-onebar-sec">
+                {onebarHasSubProjects && (
+                  <div className="lg-onebar-lbl" data-testid="onebar-move-has-subs-note">
+                    This project has sub-projects, so it can only sit at top level.
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="lg-onebar-row"
+                  data-testid="onebar-move-top"
+                  onClick={() => { setOnebarSheet(null); handleMoveProject(null); }}
+                >
+                  <span className="flex-1 text-left">Top level (no parent)</span>
+                  {!onebarProject?.parentProjectId && <Check className="h-4 w-4 shrink-0" />}
+                </button>
+                {onebarMoveTargets.map((target) => (
+                  <button
+                    key={target.id}
+                    type="button"
+                    className="lg-onebar-row"
+                    data-testid={`onebar-move-to-${target.id}`}
+                    onClick={() => { setOnebarSheet(null); handleMoveProject(target.id); }}
+                  >
+                    <Folder className="h-4 w-4 shrink-0" style={{ color: target.color }} />
+                    <span className="flex-1 text-left truncate">{target.name}</span>
+                    {onebarProject?.parentProjectId === target.id && <Check className="h-4 w-4 shrink-0" />}
+                  </button>
+                ))}
+              </div>
             </SheetContent>
           </Sheet>
 

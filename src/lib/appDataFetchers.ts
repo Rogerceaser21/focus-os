@@ -344,6 +344,7 @@ export interface RawProjectRow {
   is_shared?: boolean;
   user_id?: string;
   archived_at?: string | null;
+  parent_project_id?: string | null;
 }
 
 // Single choke point for "is this raw focusos_projects row archived". loadProjects
@@ -352,6 +353,15 @@ export interface RawProjectRow {
 // `archived_at` inline, so the archive feature has exactly one place to change.
 export function isProjectArchived(row: { archived_at?: string | null }): boolean {
   return !!row.archived_at;
+}
+
+// Companion choke point for "is this raw focusos_projects row a SUB-project".
+// Same shape and reasoning as isProjectArchived above: one predicate the raw-row
+// consumers share instead of re-testing `parent_project_id` inline. The tree
+// itself is built from mapped Project objects, not raw rows — see
+// groupProjectTree in src/lib/projectTree.ts.
+export function isSubProject(row: { parent_project_id?: string | null }): boolean {
+  return !!row.parent_project_id;
 }
 
 async function loadProjects(client: QueryClient, userId: string): Promise<any[]> {
