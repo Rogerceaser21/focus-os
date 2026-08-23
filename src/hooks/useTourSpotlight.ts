@@ -82,10 +82,25 @@ export function useTourSpotlight(
     };
     tryFind();
 
-    // Re-measure on viewport changes
-    const handleViewportChange = () => measure();
+    // Re-measure on scroll. On RESIZE also re-resolve the target: a width
+    // change can flip WHICH instance of a twice-present target is the visible
+    // one (the desktop project bar swaps its full Delete button for the More
+    // trigger by container query, U1 2026-08-23) with zero DOM mutations, so
+    // the MutationObserver below never fires and the spotlight would stay
+    // attached to a display:none element (0x0 rect) until something else
+    // mutated. Same re-attach rule as the observer.
+    const handleScroll = () => measure();
+    const handleViewportChange = () => {
+      const el = findVisible();
+      if (el && el !== currentTarget) {
+        resizeObs?.disconnect();
+        attachToTarget(el);
+      } else {
+        measure();
+      }
+    };
     window.addEventListener('resize', handleViewportChange);
-    window.addEventListener('scroll', handleViewportChange, true);
+    window.addEventListener('scroll', handleScroll, true);
 
     // Watch DOM for the target reappearing/moving (dialogs mounting, etc.)
     mutationObs = new MutationObserver(() => {
@@ -114,7 +129,7 @@ export function useTourSpotlight(
       resizeObs?.disconnect();
       mutationObs?.disconnect();
       window.removeEventListener('resize', handleViewportChange);
-      window.removeEventListener('scroll', handleViewportChange, true);
+      window.removeEventListener('scroll', handleScroll, true);
     };
   }, [selector, active, pollTimeout]);
 
