@@ -1197,11 +1197,17 @@ export const ProjectSidebar = ({
   // mover has no sub-projects of its own (one-level rule) and the mover does not
   // already live there. The rule's other half — the target must itself be top
   // level — holds by construction: every projectTree parent IS top level.
+  // The last clause closes the orphan hole the skeptic found: a sub whose
+  // parent is archived renders in the top-level list (P3 rule) but is still a
+  // sub in the data, so it must never light up as a target (the guard would
+  // refuse it anyway, with the wrong wording). Same scope the Move to... sheet
+  // already applies by never offering such a row.
   const canDropUnder = (parentId: string) =>
     !!activeMover &&
     parentId !== activeMover.id &&
     !activeMoverHasSubs &&
-    (activeMover.parentProjectId ?? null) !== parentId;
+    (activeMover.parentProjectId ?? null) !== parentId &&
+    !projects.find((p) => p.id === parentId)?.parentProjectId;
 
   // The write. Same shape as handleRestoreProject above (drawer-owned supabase
   // update -> toast -> fresh refetch -> onProjectCreated, which bumps Index's
@@ -1932,6 +1938,16 @@ export const ProjectSidebar = ({
                 sensors={dragSensors}
                 collisionDetection={projectDropCollision}
                 measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+                /* dnd-kit's default screen-reader instructions promise a
+                   keyboard pick-up with Space; this context has no
+                   KeyboardSensor on purpose (Space selects the row), so the
+                   instructions say what is actually true. */
+                accessibility={{
+                  screenReaderInstructions: {
+                    draggable:
+                      'Press and hold, then drag this project onto another project to make it a sub-project, or onto the My Projects heading to move it to the top level. Keyboard users can use Move to... in the project actions instead.',
+                  },
+                }}
                 onDragStart={handleProjectDragStart}
                 onDragEnd={handleProjectDragEnd}
                 onDragCancel={endProjectDrag}
