@@ -371,6 +371,64 @@ mcp.tool("unarchive_project", {
   },
 });
 
+mcp.tool("delete_project", {
+  description:
+    "PERMANENTLY delete a project you own together with ALL of its tasks (and their tracked time). Two safety rails: the project must already be archived (archive_project), and confirm must be true. If the project has sub-projects they are NOT deleted: they are promoted to top level (their parent link is cleared) and the result says so. Irreversible.",
+  inputSchema: z.object({
+    id: z.string(),
+    confirm: z.boolean().optional().describe("Must be true to actually delete"),
+  }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data: project, error: fetchError } = await admin
+      .from("focusos_projects")
+      .select("id, name, archived_at, parent_project_id")
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .maybeSingle();
+    if (fetchError) return err(fetchError.message);
+    if (!project) return err("Project not found");
+    if (!project.archived_at) return err("Project must be archived before it can be deleted (call archive_project first)");
+    if (args.confirm !== true) return err("Refusing to delete: pass confirm: true to permanently delete this project and all of its tasks");
+
+    // Sub-projects survive: the FK is ON DELETE SET NULL, so they become top-level.
+    const { data: subs, error: subsError } = await admin
+      .from("focusos_projects")
+      .select("id, name")
+      .eq("user_id", userId)
+      .eq("parent_project_id", project.id);
+    if (subsError) return err(subsError.message);
+
+    // Same order as the app's own Delete Project: tasks first, then the project.
+    const { data: deletedTasks, error: tasksError } = await admin
+      .from("focusos_tasks")
+      .delete()
+      .eq("user_id", userId)
+      .eq("project_id", project.id)
+      .select("id");
+    if (tasksError) return err(tasksError.message);
+
+    const { error: projectError } = await admin
+      .from("focusos_projects")
+      .delete()
+      .eq("user_id", userId)
+      .eq("id", project.id);
+    if (projectError) return err(projectError.message);
+
+    const promoted = (subs ?? []).map((s) => ({ id: s.id, name: s.name }));
+    return ok({
+      deleted: true,
+      id: project.id,
+      name: project.name,
+      tasks_deleted: (deletedTasks ?? []).length,
+      sub_projects_promoted: promoted,
+      note: promoted.length > 0
+        ? `${promoted.length} sub-project(s) were promoted to top level (their parent link was cleared), not deleted`
+        : undefined,
+    });
+  },
+});
+
 mcp.tool("create_task", {
   description: "Create a task. due_date format YYYY-MM-DD.",
   inputSchema: z.object({
