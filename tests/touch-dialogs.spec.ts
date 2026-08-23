@@ -4,8 +4,8 @@
 // installs react-remove-scroll, whose non-passive document 'touchmove' listener
 // preventDefault()s an iOS selection-handle drag, and shipped the cure for the
 // Edit Task sheet alone. O6 turned that cure into a house primitive
-// (src/components/ui/touch-dialog.tsx) and put every dialog that holds a text
-// field behind it, on phones AND on any coarse pointer (an iPad is >= 768px, so
+// (src/components/ui/touch-dialog.tsx) and put every dialog AND the one bottom
+// sheet that holds a text field behind it, on phones AND on any coarse pointer (an iPad is >= 768px, so
 // useIsMobile is false there and the modal path used to win).
 //
 // This spec walks the converted dialogs on the real demo account and the real
@@ -139,6 +139,11 @@ const bodyState = (page: Page) =>
     sheetOpenClass: document.body.classList.contains('lg-sheet-open'),
     manualOverlays: document.querySelectorAll('[data-sheet-overlay]').length,
     radixOverlays: document.querySelectorAll('.lg-overlay:not([data-sheet-overlay])').length,
+    // react-remove-scroll's own marker: react-remove-scroll-bar stamps
+    // data-scroll-locked on <body> for as long as the lock is installed. This
+    // is THE mechanism O4 bisected, read directly rather than inferred, and it
+    // is the assertion with teeth on every surface (see the touchmove note).
+    scrollLocked: document.body.getAttribute('data-scroll-locked'),
   }));
 
 const expectBodyClean = async (page: Page, when: string) => {
@@ -148,17 +153,32 @@ const expectBodyClean = async (page: Page, when: string) => {
   expect(after.sheetOpenClass, `lg-sheet-open must be gone ${when}`).toBe(false);
   expect(after.manualOverlays, `no manual overlay may survive ${when}`).toBe(0);
   expect(after.radixOverlays, `no Radix overlay may survive ${when}`).toBe(0);
+  expect(after.scrollLocked, `react-remove-scroll must not still be installed ${when}`).toBeNull();
 };
 
-/** Dispatch a real, cancelable touchmove inside the dialog's first text field
+/** WHAT THIS PROBE IS WORTH, measured (O6 fix round, 2026-08-23). Forcing the
+ *  modal path back on and re-running: the Edit Task dialog's #description
+ *  reports touchmove defaultPrevented TRUE on both axes, so this probe really
+ *  does catch the lock there. The one-bar context sheet's rename Input reports
+ *  FALSE in BOTH arms — react-remove-scroll's shouldCancelEvent lets that one
+ *  through in Chromium (its touchStart ref is only fed by the lock element's own
+ *  capture handler, and a synthetic touch on a shard never reaches it). So for
+ *  the sheet the discriminating assertions are data-sheet-mode, the body
+ *  pointer-events lock, the own dim, and above all body[data-scroll-locked] —
+ *  NOT this one. Kept everywhere regardless: it is free, and it is a real
+ *  regression guard the day the listener comes back on a surface where it bites.
+ *
+ *  Dispatch a real, cancelable touchmove inside the dialog's first text field
  *  (or, when it holds none, on the dialog itself) and report whether anything
  *  preventDefault()ed it. This is the exact shape react-remove-scroll's
  *  non-passive document listener acts on, and therefore the closest a Chromium
  *  run can get to Igor's iOS selection-handle drag. */
-const touchMoveBlockedIn = (dialog: Locator, dx: number, dy: number) =>
-  dialog.evaluate((root, [ddx, ddy]) => {
-    const el = (root.querySelector('textarea, input[type="text"], input[type="email"], input:not([type])') ??
-      root) as HTMLElement;
+const touchMoveBlockedIn = (dialog: Locator, dx: number, dy: number, field?: Locator) =>
+  (field ?? dialog).evaluate((node, [ddx, ddy]) => {
+    const root = node as HTMLElement;
+    const el = (root.matches('textarea, input')
+      ? root
+      : root.querySelector('textarea, input[type="text"], input[type="email"], input:not([type])') ?? root) as HTMLElement;
     const r = el.getBoundingClientRect();
     const x = r.left + r.width / 2;
     const y = r.top + r.height / 2;
@@ -176,7 +196,7 @@ const touchMoveBlockedIn = (dialog: Locator, dx: number, dy: number) =>
 
 /** The whole O6 contract for ONE open dialog. `depth` is how many touch-safe
  *  dialogs are open right now (1 unless sheets are stacked). */
-const assertTouchSafe = async (page: Page, dialog: Locator, label: string, depth = 1) => {
+const assertTouchSafe = async (page: Page, dialog: Locator, label: string, depth = 1, field?: Locator) => {
   await expect(dialog, `${label}: must be visible before it can be checked`).toBeVisible();
   await expect(dialog, `${label}: must publish the non-modal mode`).toHaveAttribute('data-sheet-mode', 'nonmodal');
 
@@ -186,6 +206,7 @@ const assertTouchSafe = async (page: Page, dialog: Locator, label: string, depth
   expect(st.sheetOpenClass, `${label}: the CSS scroll lock must ride <body> while it is open`).toBe(true);
   expect(st.radixOverlays, `${label}: Radix must render no overlay of its own when modal is false`).toBe(0);
   expect(st.manualOverlays, `${label}: one hand-rendered dim per open touch dialog`).toBe(depth);
+  expect(st.scrollLocked, `${label}: react-remove-scroll must NOT be installed — it is the listener that kills the iOS selection drag`).toBeNull();
 
   const touchActions = await page
     .locator('[data-sheet-overlay]')
@@ -193,8 +214,8 @@ const assertTouchSafe = async (page: Page, dialog: Locator, label: string, depth
   expect(touchActions, `${label}: every dim must swallow pans with CSS, not a listener`)
     .toEqual(Array(depth).fill('none'));
 
-  expect(await touchMoveBlockedIn(dialog, 40, 0), `${label}: a horizontal touchmove in its field must NOT be preventDefaulted`).toBe(false);
-  expect(await touchMoveBlockedIn(dialog, 0, 40), `${label}: a vertical touchmove in its field must NOT be preventDefaulted`).toBe(false);
+  expect(await touchMoveBlockedIn(dialog, 40, 0, field), `${label}: a horizontal touchmove in its field must NOT be preventDefaulted`).toBe(false);
+  expect(await touchMoveBlockedIn(dialog, 0, 40, field), `${label}: a vertical touchmove in its field must NOT be preventDefaulted`).toBe(false);
 };
 
 /** A nested Radix layer opened from inside a non-modal dialog must not dismiss
@@ -391,14 +412,64 @@ test.describe('phone 390x844: converted dialogs run the touch-safe path', () => 
       await expect(page.getByLabel('Projects')).toHaveAttribute('data-state', 'closed', { timeout: 5000 });
 
       // ---- Invite Project Member, from the onebar context sheet ------------
+      // ---- the one-bar CONTEXT SHEET, in rename mode -----------------------
+      // sheet.tsx IS @radix-ui/react-dialog, so the modal Sheet carried exactly
+      // the same react-remove-scroll touchmove listener: on the iOS 26.3 sim the
+      // O4 gesture died in this Input ([3,10] -> [3,10]) while the converted
+      // Create Project input grew [6,10] -> [6,22]. TouchSheet is the cure.
       await page.getByTestId('onebar-title').click();
-      await expect(page.getByTestId('onebar-context-sheet')).toBeVisible({ timeout: 8000 });
+      const contextSheet = page.getByTestId('onebar-context-sheet');
+      await expect(contextSheet).toBeVisible({ timeout: 8000 });
+      await page.getByTestId('onebar-rename').click();
+      const renameInput = page.getByTestId('onebar-rename-input');
+      await expect(renameInput).toBeVisible({ timeout: 8000 });
+      await assertTouchSafe(page, contextSheet, 'one-bar context sheet (rename mode)', 1, renameInput);
+
+      // …and it still renames: Enter saves, the bar title follows, the backend
+      // agrees. The stamp survives the new name so the leak sweep still finds it.
+      const renamed = `${projectName} renamed`;
+      await renameInput.fill(renamed);
+      await renameInput.press('Enter');
+      await expect(renameInput, 'saving must leave rename mode').toBeHidden({ timeout: 8000 });
+      await expect(contextSheet, 'saving a rename must not dismiss the sheet').toBeVisible();
+      await expect(page.getByTestId('onebar-title')).toContainText(renamed, { timeout: 10000 });
+      await expect
+        .poll(async () => {
+          const rows = await restSelect(request, s, `focusos_projects?select=name&id=eq.${projectId}`);
+          return rows[0]?.name ?? null;
+        }, { timeout: 20000, message: 'the rename must reach the backend' })
+        .toBe(renamed);
+      // put the name back through REST, so the rest of the run sees what it expects
+      const restore = await request.patch(`${SUPABASE_URL}/rest/v1/focusos_projects?id=eq.${projectId}`, {
+        headers: restHeaders(s, { Prefer: 'return=representation' }),
+        data: { name: projectName },
+      });
+      expect(restore.ok(), 'restoring the original project name must succeed').toBeTruthy();
+
+      // Escape cancels rename mode rather than closing the sheet…
+      await page.getByTestId('onebar-rename').click();
+      await expect(renameInput).toBeVisible({ timeout: 8000 });
+      await renameInput.press('Escape');
+      await expect(renameInput, 'Escape must leave rename mode').toBeHidden({ timeout: 8000 });
+      await expect(contextSheet, 'Escape in rename mode must not close the sheet').toBeVisible();
+
+      // …and a tap on the sheet's OWN dim still closes it, as it did when modal.
+      const [contextDim] = await overlayIds(page);
+      await tapDim(page, contextSheet, contextDim as string, 'one-bar context sheet');
+      await expect(contextSheet, 'a tap on the dim must dismiss the context sheet').toBeHidden({ timeout: 8000 });
+      await page.waitForTimeout(600);
+      await expectBodyClean(page, 'after a dim tap on the one-bar context sheet');
+
+      // ---- Invite Project Member, from the same context sheet --------------
+      await page.getByTestId('onebar-title').click();
+      await expect(contextSheet).toBeVisible({ timeout: 8000 });
       await page.getByTestId('onebar-invite').click();
-      // The onebar context Sheet is a MODAL Radix layer and it is still exiting
-      // (Presence keeps its DismissableLayer mounted through the close
-      // animation), so <body> carries ITS pointer-events lock for a few frames
-      // after the Invite dialog opens. Wait that transient out before reading
-      // the body, or the assertion blames this dialog for the Sheet's lock.
+      // Defensive wait, kept from before the context sheet was converted: when
+      // it was still a MODAL Radix layer, <body> carried ITS pointer-events lock
+      // for a few frames after the Invite dialog opened (Presence keeps the
+      // DismissableLayer mounted through the close animation), and the assertion
+      // below blamed this dialog for the Sheet's lock. A touch-safe sheet never
+      // locks the body at all, so this now resolves immediately.
       await expect(page.getByTestId('onebar-context-sheet')).toHaveCount(0, { timeout: 8000 });
       await page.waitForFunction(() => document.body.style.pointerEvents !== 'none', undefined, { timeout: 8000 });
       const invite = dialogWithText(page, 'Invite to');
@@ -584,12 +655,21 @@ test.describe('desktop 1280x900: converted dialogs are still stock modal', () =>
       expect(open.manualOverlays, 'the hand-rendered dim belongs to the touch path only').toBe(0);
       expect(open.inlinePointerEvents, 'DismissableLayer must still lock body pointer-events while modal').toBe('none');
       expect(open.sheetOpenClass, 'the CSS scroll lock must not appear on desktop').toBe(false);
+      expect(open.scrollLocked, 'the modal path must still install react-remove-scroll (this is what proves the marker discriminates)').toBe('1');
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden({ timeout: 8000 });
       await page.waitForTimeout(600);
       await expectBodyClean(page, 'after Escape on the desktop Edit Task dialog');
 
       await page.goto(`${BASE}/app?view=${projectId}`);
+      // The one-bar context sheet has nothing to assert on desktop: the whole
+      // one bar is inside a `lg:hidden` block and the ONLY caller of
+      // setOnebarSheet('context') is its title button (src/pages/Index.tsx
+      // ~2694), so the sheet can never open at this width. Asserted, not
+      // assumed.
+      await expect(page.getByTestId('onebar-title')).toBeHidden();
+      await expect(page.getByTestId('onebar-context-sheet')).toHaveCount(0);
+
       await openProjectsDrawer(page);
       await page.getByRole('button', { name: 'New Project' }).click();
       const createProject = dialogWithText(page, 'Create New Project');
@@ -599,6 +679,7 @@ test.describe('desktop 1280x900: converted dialogs are still stock modal', () =>
       expect(open2.radixOverlays, 'desktop Create Project must render Radix\'s own overlay').toBe(1);
       expect(open2.manualOverlays, 'no hand-rendered dim on desktop').toBe(0);
       expect(open2.inlinePointerEvents, 'desktop Create Project must still lock body pointer-events').toBe('none');
+      expect(open2.scrollLocked, 'desktop Create Project must still install react-remove-scroll').toBe('1');
       await page.keyboard.press('Escape');
       await expect(createProject).toBeHidden({ timeout: 8000 });
       await page.waitForTimeout(600);

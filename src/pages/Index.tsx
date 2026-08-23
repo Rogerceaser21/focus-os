@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { TouchDialog, TouchDialogContent } from '@/components/ui/touch-dialog';
+import { TouchDialog, TouchDialogContent, TouchSheet, TouchSheetContent } from '@/components/ui/touch-dialog';
 import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X, Archive, ArchiveRestore, Folder, FolderPlus, MoreHorizontal } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
@@ -2785,9 +2785,15 @@ https://www.skyscanner.com`,
           {/* Context sheet — view, density and every action the desktop banner
               offers for the current context. Plain open-on-tap Radix Sheet: NOT
               forceMount, so it is unmounted while closed (drawer law) and the
-              only animation is the Sheet's own house slide. */}
-          <Sheet open={onebarSheet === 'context'} onOpenChange={(o) => { if (!o) setOnebarSheet(null); }}>
-            <SheetContent side="bottom" className="lg-onebar-sheet" data-testid="onebar-context-sheet" aria-describedby={undefined}>
+              only animation is the Sheet's own house slide. TOUCH-SAFE (O6 fix round,
+              2026-08-23): this is the ONE one-bar sheet that holds a text field
+              ("Rename project" below), and on the iOS 26.3 sim the modal Sheet's
+              react-remove-scroll killed the selection-handle drag in it exactly
+              as it did in the Edit Task dialog ([3,10] -> [3,10]). TouchSheet is
+              the same cure as TouchDialog; the move and status sheets hold no
+              field and stay stock. */}
+          <TouchSheet open={onebarSheet === 'context'} onOpenChange={(o) => { if (!o) setOnebarSheet(null); }}>
+            <TouchSheetContent side="bottom" className="lg-onebar-sheet" data-testid="onebar-context-sheet" aria-describedby={undefined}>
               <SheetHeader>
                 <SheetTitle className="truncate pr-8" style={onebarProject ? { color: onebarProject.color } : undefined}>
                   {onebarTitle}
@@ -2955,8 +2961,8 @@ https://www.skyscanner.com`,
                   )}
                 </div>
               )}
-            </SheetContent>
-          </Sheet>
+            </TouchSheetContent>
+          </TouchSheet>
 
           {/* Move-to sheet (P3) — the SAME plain open-on-tap Radix Sheet +
               lg-onebar-row list the context sheet uses, so nothing new was
