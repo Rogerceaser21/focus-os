@@ -3,7 +3,8 @@ import { CalendarPlus, CalendarCheck, Loader2, Clock } from 'lucide-react';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { useEffect, useState } from 'react';
 import { Task } from '@/types/task';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { TouchDialog, TouchDialogContent } from '@/components/ui/touch-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -199,8 +200,8 @@ export function GoogleCalendarButton({
         {showLabel && <span className="text-xs">{localSynced ? 'Synced' : 'Google Calendar'}</span>}
       </Button>
       {(task || meeting) && (
-        <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-          <DialogContent onClick={(e) => e.stopPropagation()} className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <TouchDialog open={pickerOpen} onOpenChange={setPickerOpen}>
+          <TouchDialogContent onClick={(e) => e.stopPropagation()} className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add to Google Calendar</DialogTitle>
             </DialogHeader>
@@ -307,8 +308,8 @@ export function GoogleCalendarButton({
                 </Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+          </TouchDialogContent>
+        </TouchDialog>
       )}
     </>
   );

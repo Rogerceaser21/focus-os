@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { TouchDialog, TouchDialogContent } from '@/components/ui/touch-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -426,15 +427,15 @@ export const AddTaskDialog = ({
   if (isMobile) {
     return (
       <>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <TouchDialog open={open} onOpenChange={setOpen}>
           {showTrigger && <DialogTrigger asChild>{triggerButton}</DialogTrigger>}
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:rounded-lg w-full sm:max-w-2xl mx-0 sm:mx-auto p-4 sm:p-6">
+          <TouchDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:rounded-lg w-full sm:max-w-2xl mx-0 sm:mx-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
             </DialogHeader>
             {formContent}
-          </DialogContent>
-        </Dialog>
+          </TouchDialogContent>
+        </TouchDialog>
         {imageViewer}
       </>
     );

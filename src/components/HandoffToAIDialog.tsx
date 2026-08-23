@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { TouchDialog, TouchDialogContent } from '@/components/ui/touch-dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -250,8 +251,8 @@ export const HandoffToAIDialog = ({
   const recordingBusy = isRecording || isTranscribing || isCleaningUp;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+    <TouchDialog open={open} onOpenChange={onOpenChange}>
+      <TouchDialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Hand off to AI</DialogTitle>
           <DialogDescription>
@@ -489,7 +490,7 @@ export const HandoffToAIDialog = ({
             )}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </TouchDialogContent>
+    </TouchDialog>
   );
 };

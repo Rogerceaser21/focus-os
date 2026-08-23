@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { TouchDialog, TouchDialogContent } from '@/components/ui/touch-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -274,8 +275,8 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId, on
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6">
+    <TouchDialog open={open} onOpenChange={handleClose}>
+      <TouchDialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto px-4 sm:px-6">
         <DialogHeader>
           <DialogTitle>Speak to Create a New Project</DialogTitle>
           <DialogDescription>
@@ -409,7 +410,7 @@ export const BrainDumpDialog = ({ open, onOpenChange, onTasksCreated, userId, on
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </TouchDialogContent>
+    </TouchDialog>
   );
 };

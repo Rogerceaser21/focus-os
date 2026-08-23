@@ -2268,15 +2268,17 @@ html.shell.liquid-glass .lg-hero-col.rec {
 /* tight X+play pair on Today's Focus rows (Igor 2026-08-01) */
 .liquid-glass .lg-uacts { display: flex; align-items: center; gap: 4px; flex: none; }
 
-/* ── Mobile Edit Task sheet, non-modal (2026-08-23) ──────────────────────────
-   The phone sheet runs the Radix Dialog with modal={false}, because the modal
-   path installs react-remove-scroll and its non-passive document touchmove
-   listener preventDefault()s an iOS selection-handle drag (sim-bisected
-   2026-08-23). These two rules replace, with pure CSS and no listener, the
-   only thing that lock was doing for us: keeping the page behind still.
-   `lg-sheet-open` rides <body> while the sheet is open (MobileSheet adds and
-   removes it), and `lg-sheet-overlay` stops a touch on the dim itself from
-   panning what is underneath. */
+/* ── Touch-safe dialogs, non-modal (2026-08-23) ─────────────────────────────
+   On a phone or any coarse pointer, a dialog holding a text field runs the
+   Radix Dialog with modal={false}, because the modal path installs
+   react-remove-scroll and its non-passive document touchmove listener
+   preventDefault()s an iOS selection-handle drag (sim-bisected 2026-08-23,
+   O4). These two rules replace, with pure CSS and no listener, the only thing
+   that lock was doing for us: keeping the page behind still. `lg-sheet-open`
+   rides <body> while at least one such dialog is open (TouchDialog in
+   src/components/ui/touch-dialog.tsx counts them on and off), and
+   `lg-sheet-overlay` stops a touch on the dim itself from panning what is
+   underneath. */
 body.lg-sheet-open {
   overflow: hidden;
 }

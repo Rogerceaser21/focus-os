@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { TouchDialog, TouchDialogContent } from '@/components/ui/touch-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,8 +63,8 @@ export const CreateProjectDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <TouchDialog open={open} onOpenChange={onOpenChange}>
+      <TouchDialogContent>
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
         </DialogHeader>
@@ -127,7 +128,7 @@ export const CreateProjectDialog = ({
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </TouchDialogContent>
+    </TouchDialog>
   );
 };

@@ -1,13 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { TouchDialog, TouchDialogContent } from '@/components/ui/touch-dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -198,8 +192,8 @@ export default function SettingsDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
+    <TouchDialog open={open} onOpenChange={onOpenChange}>
+      <TouchDialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
@@ -584,7 +578,7 @@ export default function SettingsDialog({
             {saving ? 'Saving...' : 'Save Preferences'}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </TouchDialogContent>
+    </TouchDialog>
   );
 }

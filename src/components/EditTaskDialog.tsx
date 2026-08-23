@@ -1,6 +1,7 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Task, TaskPriority, TaskStatus, Project } from '@/types/task';
-import { Dialog, DialogContent, DialogHeader, DialogPortal, DialogTitle } from '@/components/ui/dialog';
+import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { TouchDialog, TouchDialogContent } from '@/components/ui/touch-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -36,83 +37,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { HandoffToAIDialog } from '@/components/HandoffToAIDialog';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import type { AIProvider, ImageMode } from '@/lib/aiHandoff';
-
-/** The Edit Task sheet as it renders on phones. Everything about it matches
- *  the desktop dialog except that the Radix modal is deliberately off; the
- *  reason is at the <Dialog> below. Publishes `data-sheet-mode="nonmodal"` on
- *  the sheet root so the regression spec can assert the mode. */
-const MobileSheet = ({
-  open,
-  onOpenChange,
-  contentClassName,
-  children,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  contentClassName: string;
-  children: ReactNode;
-}) => {
-  /* modal={false} takes Radix's scroll lock with it, so the page behind would
-     scroll under the sheet. This class is the replacement: plain
-     overflow: hidden on <body>, no listener of any kind. Removed on close AND
-     on unmount, so nothing can ever be left stranded on the body. */
-  useEffect(() => {
-    if (!open) return;
-    document.body.classList.add('lg-sheet-open');
-    return () => {
-      document.body.classList.remove('lg-sheet-open');
-    };
-  }, [open]);
-
-  return (
-    /* NON-MODAL ON PURPOSE. Radix's modal path installs react-remove-scroll,
-       whose non-passive document touchmove listener preventDefault()s an iOS
-       selection-handle drag, so a selection here could not be grown or shrunk.
-       Sim-bisected 2026-08-23: modal [47,51] to [47,51], non-modal to [47,64]. */
-    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      {/* Radix's own <DialogOverlay> renders NULL when modal is false, so the
-          house dim is hand-rendered here with DialogOverlay's exact classes and
-          its data-state, which the .lg-overlay fade keyframes key off. It gets
-          its own portal, created BEFORE the content's, so the sheet still
-          paints above it at the same z-index. touch-action: none (see
-          .lg-sheet-overlay in index.css) stops a touch on the dim panning the
-          page behind, which is the one thing the dropped scroll lock used to
-          do, and it costs no JS listener. A pointer down on the dim is still
-          "outside" to DismissableLayer, so tapping it closes the sheet exactly
-          as it did before. */}
-      <DialogPortal>
-        <div
-          aria-hidden="true"
-          data-sheet-overlay=""
-          data-state={open ? 'open' : 'closed'}
-          className="lg-overlay lg-sheet-overlay fixed inset-0 z-[110] bg-background/60 backdrop-blur-sm"
-        />
-      </DialogPortal>
-      {/* WHAT DISMISSES THE SHEET, and why this handler exists at all.
-          DismissableLayer guards its POINTER path with isPointerEventsEnabled,
-          so a tap inside a nested modal layer cannot dismiss us. Its FOCUS path
-          has NO such guard: the modal branch of Radix's Dialog silences it with
-          onFocusOutside preventDefault, the non-modal branch does not. Without
-          this, focusing the Share dialog's recipient field (or any nested
-          portal) dismissed the sheet underneath and detached the dialog
-          mid-interaction, which tests/share-status-live.spec.ts caught. The
-          same hole would let a tap in a date Popover, which is NOT a
-          pointer-events-disabling layer, close the whole sheet.
-          One rule covers both: only the dim dismisses; every other outside
-          interaction is ignored. Escape is untouched and still closes. */}
-      <DialogContent
-        className={contentClassName}
-        data-sheet-mode="nonmodal"
-        onInteractOutside={(event) => {
-          const target = event.target as Element | null;
-          if (!target?.closest?.('[data-sheet-overlay]')) event.preventDefault();
-        }}
-      >
-        {children}
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 interface EditTaskDialogProps {
   task: Task;
@@ -669,17 +593,15 @@ export const EditTaskDialog = ({
   if (isMobile) {
     return (
       <>
-        <MobileSheet
-          open={open}
-          onOpenChange={onOpenChange}
-          contentClassName="lg-editsheet sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6"
-        >
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle>{panelTitle}</DialogTitle>
-          </DialogHeader>
-          <ScrollHintArea>{formContent}</ScrollHintArea>
-          {formFooter}
-        </MobileSheet>
+        <TouchDialog open={open} onOpenChange={onOpenChange}>
+          <TouchDialogContent className="lg-editsheet sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle>{panelTitle}</DialogTitle>
+            </DialogHeader>
+            <ScrollHintArea>{formContent}</ScrollHintArea>
+            {formFooter}
+          </TouchDialogContent>
+        </TouchDialog>
         {extras}
       </>
     );
@@ -688,15 +610,15 @@ export const EditTaskDialog = ({
   if (!desktopDocked) {
     return (
       <>
-        <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6">
+        <TouchDialog open={open} onOpenChange={onOpenChange}>
+          <TouchDialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col w-full mx-0 sm:mx-auto p-4 sm:p-6">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>{panelTitle}</DialogTitle>
             </DialogHeader>
             <ScrollHintArea>{formContent}</ScrollHintArea>
             {formFooter}
-          </DialogContent>
-        </Dialog>
+          </TouchDialogContent>
+        </TouchDialog>
         {extras}
       </>
     );

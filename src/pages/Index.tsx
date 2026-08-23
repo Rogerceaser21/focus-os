@@ -18,7 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { TouchDialog, TouchDialogContent } from '@/components/ui/touch-dialog';
 import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X, Archive, ArchiveRestore, Folder, FolderPlus, MoreHorizontal } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
@@ -3382,14 +3383,14 @@ https://www.skyscanner.com`,
       />
 
       {/* Changes Needed Dialog */}
-      <Dialog open={changesNeededDialogOpen} onOpenChange={(open) => {
+      <TouchDialog open={changesNeededDialogOpen} onOpenChange={(open) => {
         if (!open) {
           setChangesNeededDialogOpen(false);
           setChangesNeededTask(null);
           setChangesNeededMessage('');
         }
       }}>
-        <DialogContent className="sm:max-w-md">
+        <TouchDialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Request Changes</DialogTitle>
             <DialogDescription>
@@ -3414,8 +3415,8 @@ https://www.skyscanner.com`,
               {changesNeededLoading ? 'Sending...' : 'Send Changes Request'}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </TouchDialogContent>
+      </TouchDialog>
 
       {/* Invite Project Member Dialog */}
       {selectedProjectId && (
