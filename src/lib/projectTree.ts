@@ -93,3 +93,37 @@ export function subProjectIdsOf(projects: Project[], parentId: string | null | u
   if (self?.parentProjectId) return new Set<string>();
   return new Set(projects.filter((p) => p.id !== parentId && p.parentProjectId === parentId).map((p) => p.id));
 }
+
+/**
+ * The one message BOTH halves of the one-level rule refuse with. Kept as a
+ * constant so the drawer's drag-and-drop path and the "Move to..." sheet can
+ * never drift apart on wording.
+ */
+export const MOVE_SUBS_FIRST = 'Move its sub-projects first';
+
+/**
+ * Pure guard for "may `movingId` become a sub of `targetParentId`?".
+ *
+ * Returns the refusal MESSAGE when the move breaks the one-level rule, or
+ * `null` when it is allowed. Both halves of the rule live here:
+ *   - the mover must not already have sub-projects of its own (active OR
+ *     archived — pass both lists in `allProjects`), because a sub with subs
+ *     would nest two deep;
+ *   - the target must exist and must itself be top level.
+ *
+ * `targetParentId === null` ("top level") is ALWAYS allowed, sub-projects and
+ * all. Self-parent and "already sits there" are deliberately NOT handled here:
+ * they are silent no-ops for the caller, not refusals the user should see a
+ * toast for.
+ */
+export function projectMoveRefusal(
+  movingId: string,
+  targetParentId: string | null,
+  allProjects: Pick<Project, 'id' | 'parentProjectId'>[],
+): string | null {
+  if (!targetParentId) return null;
+  if (allProjects.some((p) => p.parentProjectId === movingId)) return MOVE_SUBS_FIRST;
+  const target = allProjects.find((p) => p.id === targetParentId);
+  if (!target || target.parentProjectId) return MOVE_SUBS_FIRST;
+  return null;
+}

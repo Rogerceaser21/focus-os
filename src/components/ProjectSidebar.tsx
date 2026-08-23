@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +14,23 @@ import {
   isSubProject,
   type RawProjectRow,
 } from '@/lib/appDataFetchers';
-import { groupProjectTree, countSubProjects } from '@/lib/projectTree';
+import { groupProjectTree, countSubProjects, projectMoveRefusal } from '@/lib/projectTree';
+import {
+  DndContext,
+  DragOverlay,
+  MeasuringStrategy,
+  PointerSensor,
+  TouchSensor,
+  pointerWithin,
+  rectIntersection,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +56,138 @@ import {
 // Module scope on purpose: the RSVP edge sync must dedup across MOUNTS (host-page
 // drawer -> /app drawer is two mounts in one journey), which a ref cannot do.
 let lastRsvpSyncAt = 0;
+
+// ---- Drag-and-drop project moves (U2): ids, sensor, collision ---------------
+// Namespaced ids keep draggables and droppables apart in one flat dnd-kit id
+// space, and make every id parseable back to a project id in onDragEnd.
+const DRAG_ID_PREFIX = 'proj-';
+const DROP_PARENT_PREFIX = 'drop-parent-';
+const DROP_TOP_ID = 'drop-top';
+
+/**
+ * PointerSensor that ignores TOUCH pointers.
+ *
+ * dnd-kit binds ONE activator per event name and the first to fire wins
+ * (core.esm.js: bindActivatorToSensorInstantiator bails once activeRef is set).
+ * For a touch, `pointerdown` fires BEFORE `touchstart`, so a stock PointerSensor
+ * swallows every touch and the TouchSensor's delay constraint never applies.
+ * On the task list that is harmless — its listeners live on a `touch-none` grip,
+ * where an 8px activation is exactly the wanted feel. Here the handle IS the
+ * row, and the drawer must still SCROLL under a finger that starts on one, so an
+ * 8px distance activation would turn the start of every scroll into a drag.
+ * Returning false hands the gesture to the touchstart activator instead
+ * (TouchSensor, delay 250 / tolerance 8) — which is what makes "tap selects,
+ * long-press drags, moving finger scrolls" work.
+ */
+class MousePointerSensor extends PointerSensor {
+  static activators: typeof PointerSensor.activators = [
+    {
+      eventName: 'onPointerDown',
+      handler: ({ nativeEvent: event }, { onActivation }) => {
+        if (event.pointerType === 'touch') return false;
+        if (!event.isPrimary || event.button !== 0) return false;
+        onActivation?.({ event });
+        return true;
+      },
+    },
+  ];
+}
+
+/**
+ * Nesting is a 2D aim (a row, or the header above the list), not a 1D reorder,
+ * so the task list's closestCenter is wrong here: it always names SOME target,
+ * which would nest a project the user meant to drop in empty space. pointerWithin
+ * only fires when the pointer is genuinely inside a target's box; rectIntersection
+ * is the fallback for the keyboard/programmatic path, where there is no pointer.
+ * Neither ever invents a target out of an empty drop.
+ */
+const projectDropCollision: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) return pointerCollisions;
+  return rectIntersection(args);
+};
+
+interface DraggableProjectRowProps {
+  project: Project;
+  selected: boolean;
+  /** The block this row heads is the CURRENT, LEGAL drop target. */
+  dropTarget: boolean;
+  className: string;
+  onSelect: () => void;
+}
+
+/**
+ * One own, ACTIVE project row — top level or sub. The whole row is the drag
+ * handle (no grip, no mode). Shared and archived rows deliberately do NOT use
+ * this component: neither is a legal mover or a legal target.
+ */
+const DraggableProjectRow = ({ project, selected, dropTarget, className, onSelect }: DraggableProjectRowProps) => {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `${DRAG_ID_PREFIX}${project.id}`,
+  });
+  return (
+    <Button
+      ref={setNodeRef}
+      // The drop-target highlight IS the selected-row look — the same
+      // variant="secondary" the drawer already uses, not a new visual system.
+      variant={selected || dropTarget ? 'secondary' : 'ghost'}
+      className={className}
+      data-testid={`select-project-${project.id}`}
+      // touchAction MANIPULATION, never `none`: the drawer must keep scrolling
+      // under a finger that starts on a row. Opacity while dragging is a static
+      // value with no transition and no keyframe, so no compositing layer is
+      // animated into or out of existence (iOS Safari white-flash law).
+      style={{ touchAction: 'manipulation', opacity: isDragging ? 0.4 : undefined }}
+      {...attributes}
+      {...listeners}
+      onClick={onSelect}
+    >
+      <Folder className="h-4 w-4 shrink-0" style={{ color: project.color }} />
+      <span className="truncate">{project.name}</span>
+    </Button>
+  );
+};
+
+interface ProjectDropBlockProps {
+  parentId: string;
+  canAccept: boolean;
+  dataAttrs: Record<string, string>;
+  children: (dropTarget: boolean) => ReactNode;
+}
+
+/**
+ * A top-level project's WHOLE block (its row plus any expanded subs) is the drop
+ * target for "nest under this project", so a drop anywhere on the group lands
+ * where the user is looking. Render-prop so the row inside can wear the
+ * highlight without the block having to know how a row is drawn.
+ */
+const ProjectDropBlock = ({ parentId, canAccept, dataAttrs, children }: ProjectDropBlockProps) => {
+  const { setNodeRef, isOver } = useDroppable({ id: `${DROP_PARENT_PREFIX}${parentId}` });
+  return (
+    <div ref={setNodeRef} className="w-full" {...dataAttrs}>
+      {children(isOver && canAccept)}
+    </div>
+  );
+};
+
+/**
+ * The "My Projects" heading doubles as the "move to top level" drop target — the
+ * un-nest half of the gesture. Geometry is untouched (same px-4 mb-2 box); only
+ * a background is added while it is the live target, with a PIXEL radius.
+ */
+const ProjectsHeaderDrop = ({ count, canAccept }: { count: number; canAccept: boolean }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: DROP_TOP_ID });
+  const dropTarget = isOver && canAccept;
+  return (
+    <div
+      ref={setNodeRef}
+      data-testid="projects-drop-top"
+      className={`px-4 mb-2 rounded-lg${dropTarget ? ' bg-secondary' : ''}`}
+    >
+      <h3 className="text-sm font-medium text-muted-foreground">My Projects ({count})</h3>
+    </div>
+  );
+};
 
 interface ProjectSidebarProps {
   selectedProjectId: string | null;
@@ -994,6 +1142,185 @@ export const ProjectSidebar = ({
   // just-opened drawer. (Igor video 2026-07-18.)
   const overlayPointerDownRef = useRef(false);
 
+  // ---- Drag-and-drop project moves (U2) --------------------------------------
+  // Igor's ask: "move projects just like I can move the tasks... the Move to...
+  // sheet is cumbersome". The task list (src/components/DraggableTaskList.tsx) is
+  // the precedent and is copied where it applies: dnd-kit, the same TouchSensor
+  // delay, a DragOverlay PORTALLED TO <body>, and no new motion of any kind. Two
+  // deliberate differences, both because a project row is not a task card:
+  //   - no reorder mode and no grip — the row itself is the handle, because the
+  //     extra steps are exactly what Igor called cumbersome;
+  //   - the pointer sensor ignores TOUCH (see MousePointerSensor above), so a
+  //     finger that starts on a row still scrolls the drawer.
+  // The "Move to..." sheet in Index.tsx stays, unchanged, as the fallback — which
+  // is also why no KeyboardSensor is wired here: the row is a real <button> whose
+  // Enter/Space must keep SELECTING the project.
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  // Event-handler guards only. Refs are correct here (the render-phase laws ban
+  // refs for latches READ DURING RENDER — activeDragId above is state for exactly
+  // that reason; these two are read from pointer/click handlers only).
+  const dragActiveRef = useRef(false);
+  const justDraggedRef = useRef(false);
+
+  const dragSensors = useSensors(
+    useSensor(MousePointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
+
+  // Active + archived owned rows in one list: the one-level rule counts an
+  // ARCHIVED sub as a sub (same scope Index's handleMoveProject passes).
+  const allOwnProjects = useMemo(
+    () => [...projects, ...archivedProjects],
+    [projects, archivedProjects],
+  );
+
+  // Everything the drop-target highlight needs is DERIVED during render from
+  // activeDragId. Nothing here is corrected by an effect after paint.
+  const activeMover = useMemo(() => {
+    if (!activeDragId) return null;
+    const id = activeDragId.startsWith(DRAG_ID_PREFIX)
+      ? activeDragId.slice(DRAG_ID_PREFIX.length)
+      : activeDragId;
+    return projects.find((p) => p.id === id) ?? null;
+  }, [activeDragId, projects]);
+
+  const activeMoverHasSubs = useMemo(
+    () => (activeMover ? allOwnProjects.some((p) => p.parentProjectId === activeMover.id) : false),
+    [activeMover, allOwnProjects],
+  );
+
+  // "Top level" accepts the mover only when it is not already there.
+  const canDropAtTopLevel = !!activeMover && !!activeMover.parentProjectId;
+
+  // A parent block accepts the mover when it is not the mover's own block, the
+  // mover has no sub-projects of its own (one-level rule) and the mover does not
+  // already live there. The rule's other half — the target must itself be top
+  // level — holds by construction: every projectTree parent IS top level.
+  const canDropUnder = (parentId: string) =>
+    !!activeMover &&
+    parentId !== activeMover.id &&
+    !activeMoverHasSubs &&
+    (activeMover.parentProjectId ?? null) !== parentId;
+
+  // The write. Same shape as handleRestoreProject above (drawer-owned supabase
+  // update -> toast -> fresh refetch -> onProjectCreated, which bumps Index's
+  // projectRefreshTrigger so its own project list and the report copy follow),
+  // and the same two toasts handleMoveProject uses, so a drag and the sheet are
+  // indistinguishable once the write lands.
+  const handleDragMoveProject = async (movingId: string, targetParentId: string | null) => {
+    const target = targetParentId ? projects.find((p) => p.id === targetParentId) ?? null : null;
+    try {
+      const { error } = await (supabase as any)
+        .from('focusos_projects')
+        .update({ parent_project_id: targetParentId })
+        .eq('id', movingId);
+      if (error) throw error;
+      // A sub dropped into a COLLAPSED parent would vanish into a closed row and
+      // read as a failed move — same reason handleCreateProject opens it.
+      if (targetParentId) setTreeOpenFor(targetParentId, true);
+      toast.success(target ? `Moved under ${target.name}` : 'Moved to top level');
+      await fetchProjects({ fresh: true });
+      onProjectCreated?.();
+    } catch (error) {
+      console.error('[ProjectSidebar] Failed to move project:', error);
+      toast.error('Failed to move project');
+    }
+  };
+
+  const handleProjectDragStart = (event: DragStartEvent) => {
+    dragActiveRef.current = true;
+    setActiveDragId(String(event.active.id));
+  };
+
+  const endProjectDrag = () => {
+    dragActiveRef.current = false;
+    setActiveDragId(null);
+    // dnd-kit already stops the trailing click at document capture (it adds a
+    // capture-phase click blocker on activation and drops it ~50ms after the
+    // drop). This latch is the belt for that seam, cleared on the next tick so
+    // the very next REAL click still selects.
+    justDraggedRef.current = true;
+    window.setTimeout(() => { justDraggedRef.current = false; }, 0);
+  };
+
+  const handleProjectDragEnd = (event: DragEndEvent) => {
+    const { active, over, delta } = event;
+    endProjectDrag();
+
+    const activeIdStr = String(active.id);
+    const movingId = activeIdStr.startsWith(DRAG_ID_PREFIX)
+      ? activeIdStr.slice(DRAG_ID_PREFIX.length)
+      : activeIdStr;
+
+    // A press that never MOVED is a tap the 250ms long-press timer happened to
+    // arm — a leisurely finger on a row, which must still open the project.
+    // The row's own onClick cannot do it (dnd-kit swallows the trailing click at
+    // document capture once a drag activates), so the select is issued here.
+    // Touch only in practice: the mouse sensor needs 8px before it activates at
+    // all, so a still mouse press never reaches this handler.
+    if (Math.abs(delta.x) < 5 && Math.abs(delta.y) < 5) {
+      if (projects.some((p) => p.id === movingId)) {
+        handleSelectProject(movingId);
+        if (isMobile) setOpenMobile(false);
+      }
+      return;
+    }
+
+    if (!over) return; // released outside every drop target: nothing is written
+
+    const overId = String(over.id);
+    let targetParentId: string | null;
+    if (overId === DROP_TOP_ID) targetParentId = null;
+    else if (overId.startsWith(DROP_PARENT_PREFIX)) targetParentId = overId.slice(DROP_PARENT_PREFIX.length);
+    else return;
+
+    const moving = projects.find((p) => p.id === movingId);
+    if (!moving) return;
+
+    // SILENT no-ops: nothing changed, so nothing is written and nothing is said.
+    // Covers a row dropped on its own block, a sub dropped back on its current
+    // parent, and a top-level project dropped on the "My Projects" header.
+    if (targetParentId === movingId) return;
+    if ((moving.parentProjectId ?? null) === targetParentId) return;
+
+    const refusal = projectMoveRefusal(movingId, targetParentId, allOwnProjects);
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
+    void handleDragMoveProject(movingId, targetParentId);
+  };
+
+  // The row click, shared by every own active row (top level and sub). A drag
+  // must never also select: while one is running activeDragId is set, and the
+  // drop's trailing click is caught by the latch.
+  const handleProjectRowClick = (projectId: string) => {
+    if (activeDragId || justDraggedRef.current) {
+      justDraggedRef.current = false;
+      return;
+    }
+    handleSelectProject(projectId);
+    if (isMobile) setOpenMobile(false);
+  };
+
+  // The ghost that follows the finger. A plain copy of the row (folder mark in
+  // the project's colour + its name) — no springs, no transitions, no keyframes;
+  // dnd-kit's own transform is the only thing that moves.
+  const projectDragOverlay = (
+    <DragOverlay>
+      {activeMover ? (
+        <div
+          data-testid="project-drag-overlay"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium opacity-90 shadow-xl"
+        >
+          <Folder className="h-4 w-4 shrink-0" style={{ color: activeMover.color }} />
+          <span className="truncate">{activeMover.name}</span>
+        </div>
+      ) : null}
+    </DragOverlay>
+  );
+
   // Grab-and-throw: drag the open drawer left to close it, Apple-style
   // (1:1 tracking, rubber-band past the resting point, velocity release).
   // Gesture tracking is imperative by design — direct transform writes on
@@ -1035,6 +1362,10 @@ export const ProjectSidebar = ({
 
   const onPanelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!openMobile || e.pointerType === 'mouse') return;
+    // A project drag owns the gesture (U2). Without this the same finger would
+    // also grab-and-throw the panel: dnd-kit's TouchSensor consumes touchmove,
+    // but pointermove keeps firing here.
+    if (dragActiveRef.current) return;
     const d = dragRef.current;
     d.tracking = true;
     d.claimed = false;
@@ -1048,6 +1379,9 @@ export const ProjectSidebar = ({
     const d = dragRef.current;
     const panel = dragPanelRef.current;
     if (!d.tracking || !panel) return;
+    // A project drag started under this same finger (the 250ms hold fires after
+    // pointerdown already latched tracking) — drop the panel gesture entirely.
+    if (dragActiveRef.current) { d.tracking = false; return; }
     const dx = e.clientX - d.startX;
     const dy = e.clientY - d.startY;
     if (!d.claimed) {
@@ -1590,10 +1924,20 @@ export const ProjectSidebar = ({
 
             {/* Projects with AnimatedList */}
             {projects.length > 0 && (
+              /* U2 — drag a project row onto another project's block to nest it,
+                 or onto the "My Projects" heading to bring it back to top level.
+                 The DndContext wraps ONLY this block: shared projects and the
+                 archived section are neither movers nor targets. */
+              <DndContext
+                sensors={dragSensors}
+                collisionDetection={projectDropCollision}
+                measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+                onDragStart={handleProjectDragStart}
+                onDragEnd={handleProjectDragEnd}
+                onDragCancel={endProjectDrag}
+              >
               <div className="mt-4">
-                <div className="px-4 mb-2">
-                  <h3 className="text-sm font-medium text-muted-foreground">My Projects ({projects.length})</h3>
-                </div>
+                <ProjectsHeaderDrop count={projects.length} canAccept={canDropAtTopLevel} />
                 <div className="px-2 space-y-1">
                   {projectTree.map(({ parent: project, subs }) => {
                     const dataAttrs =
@@ -1606,7 +1950,14 @@ export const ProjectSidebar = ({
                     // just-moved sub vanish into a closed row and read as a bug.
                     const isOpen = treeOpen[project.id] ?? true;
                     return (
-                      <div key={project.id} className="w-full" {...dataAttrs}>
+                      <ProjectDropBlock
+                        key={project.id}
+                        parentId={project.id}
+                        canAccept={canDropUnder(project.id)}
+                        dataAttrs={dataAttrs}
+                      >
+                        {(dropTarget) => (
+                      <>
                         <div className="w-full flex items-center gap-1">
                           {/* Chevron expand — SAME control the Archived section
                               uses (plain button, ChevronDown/ChevronRight,
@@ -1640,21 +1991,13 @@ export const ProjectSidebar = ({
                               )}
                             </button>
                           )}
-                          <Button
-                            variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                          <DraggableProjectRow
+                            project={project}
+                            selected={selectedProjectId === project.id}
+                            dropTarget={dropTarget}
                             className="flex-1 justify-start gap-2 min-w-0"
-                            data-testid={`select-project-${project.id}`}
-                            onClick={() => {
-                              handleSelectProject(project.id);
-                              if (isMobile) setOpenMobile(false);
-                            }}
-                          >
-                            <Folder
-                              className="h-4 w-4 shrink-0"
-                              style={{ color: project.color }}
-                            />
-                            <span className="truncate">{project.name}</span>
-                          </Button>
+                            onSelect={() => handleProjectRowClick(project.id)}
+                          />
                         </div>
                         {senderProjectSharedMap[project.id] && (
                           <div className="ml-8 mt-0.5 mb-1">
@@ -1665,18 +2008,13 @@ export const ProjectSidebar = ({
                           <div className="mt-1 space-y-1" data-testid={`tree-subs-${project.id}`}>
                             {subs.map((sub) => (
                               <div key={sub.id} className="w-full pl-10" data-testid={`tree-sub-${sub.id}`}>
-                                <Button
-                                  variant={selectedProjectId === sub.id ? 'secondary' : 'ghost'}
+                                <DraggableProjectRow
+                                  project={sub}
+                                  selected={selectedProjectId === sub.id}
+                                  dropTarget={false}
                                   className="w-full justify-start gap-2 min-w-0"
-                                  data-testid={`select-project-${sub.id}`}
-                                  onClick={() => {
-                                    handleSelectProject(sub.id);
-                                    if (isMobile) setOpenMobile(false);
-                                  }}
-                                >
-                                  <Folder className="h-4 w-4 shrink-0" style={{ color: sub.color }} />
-                                  <span className="truncate">{sub.name}</span>
-                                </Button>
+                                  onSelect={() => handleProjectRowClick(sub.id)}
+                                />
                                 {senderProjectSharedMap[sub.id] && (
                                   <div className="ml-8 mt-0.5 mb-1">
                                     <ShareStatusPopover recipients={senderProjectSharedMap[sub.id]} itemType="Project" />
@@ -1686,11 +2024,25 @@ export const ProjectSidebar = ({
                             ))}
                           </div>
                         )}
-                      </div>
+                      </>
+                        )}
+                      </ProjectDropBlock>
                     );
                   })}
                 </div>
               </div>
+              {/* The ghost MUST be portalled to <body>: DragOverlay is
+                  position:fixed, and `.lg-side` (this drawer) carries
+                  backdrop-filter, which makes it the containing block for fixed
+                  descendants. Left in place the ghost would lay out from the
+                  panel's origin instead of the viewport AND feed dnd-kit a
+                  collision rect offset by the same amount, so the drop would
+                  land on the wrong row — the exact bug the task list's overlay
+                  comment records (DraggableTaskList.tsx). */}
+              {typeof document !== 'undefined'
+                ? createPortal(projectDragOverlay, document.body)
+                : projectDragOverlay}
+              </DndContext>
             )}
 
             {/* Archived section — BOTTOM of the drawer, collapsed/quiet by

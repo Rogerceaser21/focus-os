@@ -70,7 +70,7 @@ import {
   isSubProject,
   type RawProjectRow,
 } from '@/lib/appDataFetchers';
-import { subProjectIdsOf } from '@/lib/projectTree';
+import { subProjectIdsOf, projectMoveRefusal } from '@/lib/projectTree';
 import { TaskListSkeleton, AppBootSkeleton, LoadErrorPanel } from '@/components/AppSkeletons';
 
 // Special-list identity (icon + label + colour + whether Share applies). ONE
@@ -2141,18 +2141,17 @@ https://www.skyscanner.com`,
 
     // ONE LEVEL DEEP, enforced here: a project that still has sub-projects of its
     // own (active OR archived — allProjectsForReports holds both) can never
-    // become someone else's sub, because that would nest two deep. Refused
-    // BEFORE any database write, so nothing is half-applied.
-    if (targetParentId && allProjectsForReports.some(p => p.parentProjectId === movingId)) {
-      toast.error('Move its sub-projects first');
+    // become someone else's sub, because that would nest two deep, and the
+    // target must be top level itself. Both halves live in the pure
+    // projectMoveRefusal guard so the drawer's drag-and-drop path (U2) refuses
+    // on exactly the same rule with exactly the same wording. Refused BEFORE
+    // any database write, so nothing is half-applied.
+    const refusal = projectMoveRefusal(movingId, targetParentId, allProjectsForReports);
+    if (refusal) {
+      toast.error(refusal);
       return;
     }
-    // Second half of the same rule: the target must be top level itself.
     const target = targetParentId ? allProjectsForReports.find(p => p.id === targetParentId) : null;
-    if (targetParentId && (!target || target.parentProjectId)) {
-      toast.error('Move its sub-projects first');
-      return;
-    }
 
     try {
       const { error } = await supabase
