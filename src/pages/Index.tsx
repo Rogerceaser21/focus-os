@@ -71,6 +71,7 @@ import {
   type RawProjectRow,
 } from '@/lib/appDataFetchers';
 import { subProjectIdsOf, projectMoveRefusal } from '@/lib/projectTree';
+import { buildSenderSharedMaps, type RawSharedItemRow } from '@/lib/sharedItems';
 import { TaskListSkeleton, AppBootSkeleton, LoadErrorPanel } from '@/components/AppSkeletons';
 
 // Special-list identity (icon + label + colour + whether Share applies). ONE
@@ -507,21 +508,9 @@ const Index = () => {
       }
     }
 
-    const taskMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
-    const projectMap: Record<string, Array<{ email: string; name: string; status: string; sharedItemId?: string }>> = {};
-    for (const si of sharedItems) {
-      const name = si.recipient_user_id && profilesMap[si.recipient_user_id]
-        ? profilesMap[si.recipient_user_id]
-        : si.recipient_email;
-      const entry = { email: si.recipient_email, name, status: si.status, sharedItemId: si.id };
-      if (si.item_type === 'task') {
-        if (!taskMap[si.item_id]) taskMap[si.item_id] = [];
-        taskMap[si.item_id].push(entry);
-      } else if (si.item_type === 'project') {
-        if (!projectMap[si.item_id]) projectMap[si.item_id] = [];
-        projectMap[si.item_id].push(entry);
-      }
-    }
+    // Pure grouping loop lives in src/lib/sharedItems.ts (O3, 2026-08-23) so
+    // Home's own useQuery can build the same maps without a second copy.
+    const { taskMap, projectMap } = buildSenderSharedMaps(sharedItems as RawSharedItemRow[], profilesMap);
     setSenderSharedMap(taskMap);
     setSenderProjectSharedMap(projectMap);
   }, []);

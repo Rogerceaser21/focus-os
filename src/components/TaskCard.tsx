@@ -445,7 +445,10 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               Shared by {task.assignedToEmail}
             </span>
           )}
-          {task.sharedRecipients && task.sharedRecipients.length > 0 && !isMobile ? (
+          {/* Own-line-in-footer share chip, now on phones too (O3, 2026-08-23:
+              mobile grid cards had nowhere to see at a glance that someone
+              was notified; footer sits well clear of the title). */}
+          {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
             <div className="ml-auto">
               <ShareStatusPopover
                 recipients={task.sharedRecipients}

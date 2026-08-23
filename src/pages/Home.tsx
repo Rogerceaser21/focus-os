@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { APP_DATA_STALE_TIME, appDataKeys } from '@/lib/appDataFetchers';
+import { buildSenderSharedMaps, type RawSharedItemRow, type SenderSharedMap } from '@/lib/sharedItems';
 import type { Task, Project } from '@/types/task';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import {
@@ -375,6 +376,47 @@ const Home = () => {
         openTasks: (data ?? []) as UpNextTask[],
         openCount: typeof count === 'number' ? count : 0,
       };
+    },
+  });
+
+  // O3, 2026-08-23: the share-status pill (purple "Shared with X") was desktop
+  // only because it renders off `sharedRecipients`, and Home never loaded the
+  // sender's shared_items rows — so the Edit Task sheet opened from a Today's
+  // Focus row had no chip to show, even though the task really had a
+  // recipient (Igor's screenshot). Same select Index.tsx's fetchSenderSharedItems
+  // runs (src/pages/Index.tsx ~530-545), grouped with the same pure helper
+  // Index's buildSharedMaps now calls, so there is only one copy of the loop.
+  const { data: senderSharedMap = {} } = useQuery<SenderSharedMap>({
+    queryKey: ['focusos-sender-shared', user?.id],
+    enabled: !!user,
+    staleTime: APP_DATA_STALE_TIME,
+    queryFn: async () => {
+      const { data: sharedItems } = await (supabase as any)
+        .from('focusos_shared_items')
+        .select('id, item_id, item_type, recipient_email, recipient_user_id, recipient_task_id, status')
+        .eq('sender_user_id', user!.id)
+        .in('item_type', ['task', 'project'])
+        .neq('status', 'cancelled');
+      if (!sharedItems || sharedItems.length === 0) return {};
+
+      const recipientUserIds = (sharedItems as RawSharedItemRow[])
+        .map((si) => si.recipient_user_id)
+        .filter((id): id is string => id != null);
+      let profilesMap: Record<string, string> = {};
+      if (recipientUserIds.length > 0) {
+        const { data: profiles } = await (supabase as any)
+          .from('focusos_profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', recipientUserIds);
+        if (profiles) {
+          for (const p of profiles) {
+            const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+            if (name) profilesMap[p.user_id] = name;
+          }
+        }
+      }
+      const { taskMap } = buildSenderSharedMaps(sharedItems as RawSharedItemRow[], profilesMap);
+      return taskMap;
     },
   });
   // en-CA locale = YYYY-MM-DD in the user's own timezone
@@ -1271,6 +1313,10 @@ const Home = () => {
         onUpdateTask={handleUpdateTaskFromPane}
         projects={editProjects}
         currentUserId={user?.id}
+        sharedRecipients={senderSharedMap[editingTask.id]}
+        // A share sent from this sheet refetches the sender map so the chip
+        // lands without closing the sheet (same rule as Index, O2/O3).
+        onAssigned={() => { void queryClient.invalidateQueries({ queryKey: ['focusos-sender-shared', user?.id] }); }}
         onDeleteTask={(task) => handleDeleteTask(task.id)} />}
 
       {/* Review + save: the existing dialog machinery, fed by the inline session.

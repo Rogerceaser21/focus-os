@@ -582,6 +582,21 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
             )}
           </Button>
         </div>
+        {/* On phones the chip drops out of the title row (never shares width
+            with the title — title stays unclipped) and shows on its own line
+            below instead, so there's somewhere on mobile to see at a glance
+            that someone was notified (O3, 2026-08-23). */}
+        {sharedText && isMobile && (
+          <div className="flex items-center gap-2 flex-wrap ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
+            <ShareStatusPopover
+              recipients={task.sharedRecipients!}
+              itemType="Task"
+              onRequestChanges={(email) => onRequestChanges?.({ ...task, completedByEmail: email })}
+              allCompleted={!!allCompleted}
+              onMoveAllToDone={() => { onUpdate({ ...task, status: 'completed' }); }}
+            />
+          </div>
+        )}
       </div>
       <HandoffToAIDialog
         open={handoffOpen}
@@ -920,9 +935,10 @@ export const TaskListItem = ({ task, onUpdate, onEditTask, onEditTaskImages, onE
             </div>
           )}
 
-          {/* Always-visible shared badge (tablet) - for both shared recipients AND single completedByEmail.
-              On phones the badge moved into the edit pane header. */}
-          {!isExpanded && !isMobile && task.sharedRecipients && task.sharedRecipients.length > 0 && (
+          {/* Always-visible shared badge, own line under the description — now on
+              phones too (O3, 2026-08-23: mobile had nowhere to see at a glance
+              that someone was notified; this is the same chip desktop shows). */}
+          {!isExpanded && task.sharedRecipients && task.sharedRecipients.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap ml-6 mt-1" onClick={(e) => e.stopPropagation()}>
               <ShareStatusPopover
                 recipients={task.sharedRecipients}

@@ -471,7 +471,9 @@ test.describe('mobile: share pill refreshes live, no reload', () => {
       // passes the live sender map as `sharedRecipients` (the `editingTask`
       // snapshot itself is never swapped, so unsaved edits survive the
       // refetch). No close/reopen, no reload.
-      const chipInSheet = sharedBadge(page, taskFakeEmail);
+      // Scoped to the sheet: since O3 the collapsed row behind the sheet shows
+      // the same chip on phones, so an unscoped match would be ambiguous.
+      const chipInSheet = sheet.locator('span.break-words:visible').filter({ hasText: taskFakeEmail });
       await expect(sheet, 'the sheet must still be open when the chip lands').toBeVisible();
       await expect(chipInSheet, 'the sheet header chip must appear without closing the sheet').toBeVisible({ timeout: 5000 });
       test.info().annotations.push({ type: 'chip-appeared-live-without-reopen', description: String(liveInSheet) });
