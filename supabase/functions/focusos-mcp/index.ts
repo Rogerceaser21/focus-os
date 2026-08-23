@@ -403,6 +403,77 @@ mcp.tool("unarchive_project", {
   },
 });
 
+mcp.tool("update_project", {
+  description:
+    "Rename, recolour, or MOVE a project you own. parent_project_id: a top-level project id nests this project under it (one level deep only), null moves it back to top level; omit to leave it. A project that has sub-projects of its own cannot be moved under a parent (move its sub-projects first).",
+  inputSchema: z.object({
+    id: z.string(),
+    name: z.string().optional(),
+    color: z.string().optional().describe("Hex color like #3b82f6"),
+    parent_project_id: z.string().nullable().optional().describe("New parent id, or null for top level"),
+  }),
+  handler: async (args, ctx) => {
+    const userId = getUserId(ctx);
+    const { data: project, error: fetchError } = await admin
+      .from("focusos_projects")
+      .select("id, name, parent_project_id, archived_at")
+      .eq("user_id", userId)
+      .eq("id", args.id)
+      .maybeSingle();
+    if (fetchError) return err(fetchError.message);
+    if (!project) return err("Project not found");
+
+    const patch: Record<string, unknown> = {};
+    if (args.name !== undefined) {
+      const name = args.name.trim();
+      if (!name) return err("Name cannot be empty");
+      patch.name = name;
+    }
+    if (args.color !== undefined) patch.color = args.color;
+    if (args.parent_project_id !== undefined) {
+      if (args.parent_project_id === null) {
+        patch.parent_project_id = null;
+      } else {
+        if (args.parent_project_id === project.id) return err("A project cannot be its own parent");
+        // ONE LEVEL DEEP (same rules as the app's Move to...): a project that has
+        // sub-projects cannot become a sub, and the target must be an own, active,
+        // top-level project.
+        const { data: subs, error: subsError } = await admin
+          .from("focusos_projects")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("parent_project_id", project.id)
+          .limit(1);
+        if (subsError) return err(subsError.message);
+        if ((subs ?? []).length > 0) return err("Move its sub-projects first (a project with sub-projects cannot become a sub-project)");
+        const { data: parent, error: parentError } = await admin
+          .from("focusos_projects")
+          .select("id, parent_project_id, archived_at")
+          .eq("user_id", userId)
+          .eq("id", args.parent_project_id)
+          .maybeSingle();
+        if (parentError) return err(parentError.message);
+        if (!parent) return err("Parent project not found");
+        if (parent.parent_project_id) return err("Parent must be a top-level project (sub-projects cannot have sub-projects)");
+        if (parent.archived_at) return err("Parent project is archived; restore it first (unarchive_project)");
+        patch.parent_project_id = parent.id;
+      }
+    }
+    if (Object.keys(patch).length === 0) return err("Nothing to update: pass name, color and/or parent_project_id");
+
+    const { data, error } = await admin
+      .from("focusos_projects")
+      .update(patch)
+      .eq("user_id", userId)
+      .eq("id", project.id)
+      .select("id, name, color, archived_at, parent_project_id, created_at, updated_at")
+      .maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Project not found");
+    return ok(data);
+  },
+});
+
 mcp.tool("delete_project", {
   description:
     "PERMANENTLY delete a project you own together with ALL of its tasks (and their tracked time). Two safety rails: the project must already be archived (archive_project), and confirm must be true. If the project has sub-projects they are NOT deleted: they are promoted to top level (their parent link is cleared) and the result says so. Irreversible.",
