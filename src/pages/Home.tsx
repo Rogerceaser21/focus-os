@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
-import { APP_DATA_STALE_TIME, appDataKeys } from '@/lib/appDataFetchers';
+import { APP_DATA_STALE_TIME, appDataKeys, fetchSenderSharedItemsRaw } from '@/lib/appDataFetchers';
 import { buildSenderSharedMaps, type RawSharedItemRow, type SenderSharedMap } from '@/lib/sharedItems';
 import type { Task, Project } from '@/types/task';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -383,42 +383,60 @@ const Home = () => {
   // only because it renders off `sharedRecipients`, and Home never loaded the
   // sender's shared_items rows — so the Edit Task sheet opened from a Today's
   // Focus row had no chip to show, even though the task really had a
-  // recipient (Igor's screenshot). Same select Index.tsx's fetchSenderSharedItems
-  // runs (src/pages/Index.tsx ~530-545), grouped with the same pure helper
-  // Index's buildSharedMaps now calls, so there is only one copy of the loop.
-  const { data: senderSharedMap = {} } = useQuery<SenderSharedMap>({
-    queryKey: ['focusos-sender-shared', user?.id],
+  // recipient (Igor's screenshot).
+  //
+  // O3 fix-round, 2026-08-23 (refutation A): this used to be Home's OWN
+  // useQuery, under its OWN key (`['focusos-sender-shared', userId]`), that
+  // ran the select AND the name-lookup AND the grouping in one queryFn: a
+  // second, byte-identical focusos_shared_items select next to the one
+  // usePrefetchAppData's prefetch and Index's warm-path peek already keep
+  // under appDataKeys.senderSharedItems, and its own key meant a share on one
+  // surface never invalidated the other's cache. Now every reader of this
+  // dataset shares ONE cache entry: the raw rows below are the exact same
+  // fetchQuery/prefetchQuery target Index and usePrefetchAppData use, so this
+  // useQuery's request dedupes with theirs instead of doubling the network
+  // read, and Index's `{fresh: true}` refetch after a share (fetchSenderSharedItems)
+  // updates the entry THIS query observes too. Only the name lookup and the
+  // grouping stay local to Home (its own query + a memo), same pure helper
+  // Index's buildSharedMaps calls, so there is still only one copy of the loop.
+  const { data: senderSharedRows = [] } = useQuery<RawSharedItemRow[]>({
+    queryKey: appDataKeys.senderSharedItems(user?.id ?? ''),
     enabled: !!user,
     staleTime: APP_DATA_STALE_TIME,
-    queryFn: async () => {
-      const { data: sharedItems } = await (supabase as any)
-        .from('focusos_shared_items')
-        .select('id, item_id, item_type, recipient_email, recipient_user_id, recipient_task_id, status')
-        .eq('sender_user_id', user!.id)
-        .in('item_type', ['task', 'project'])
-        .neq('status', 'cancelled');
-      if (!sharedItems || sharedItems.length === 0) return {};
+    queryFn: () => fetchSenderSharedItemsRaw(user!.id) as Promise<RawSharedItemRow[]>,
+  });
 
-      const recipientUserIds = (sharedItems as RawSharedItemRow[])
-        .map((si) => si.recipient_user_id)
-        .filter((id): id is string => id != null);
-      let profilesMap: Record<string, string> = {};
-      if (recipientUserIds.length > 0) {
-        const { data: profiles } = await (supabase as any)
-          .from('focusos_profiles')
-          .select('user_id, first_name, last_name')
-          .in('user_id', recipientUserIds);
-        if (profiles) {
-          for (const p of profiles) {
-            const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
-            if (name) profilesMap[p.user_id] = name;
-          }
+  const sortedRecipientUserIds = useMemo(() => {
+    const ids = senderSharedRows
+      .map((si) => si.recipient_user_id)
+      .filter((id): id is string => id != null);
+    return Array.from(new Set(ids)).sort();
+  }, [senderSharedRows]);
+
+  const { data: recipientNamesMap = {} } = useQuery<Record<string, string>>({
+    queryKey: ['focusos-profile-names', sortedRecipientUserIds],
+    enabled: sortedRecipientUserIds.length > 0,
+    staleTime: APP_DATA_STALE_TIME,
+    queryFn: async () => {
+      const { data: profiles } = await (supabase as any)
+        .from('focusos_profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', sortedRecipientUserIds);
+      const profilesMap: Record<string, string> = {};
+      if (profiles) {
+        for (const p of profiles) {
+          const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+          if (name) profilesMap[p.user_id] = name;
         }
       }
-      const { taskMap } = buildSenderSharedMaps(sharedItems as RawSharedItemRow[], profilesMap);
-      return taskMap;
+      return profilesMap;
     },
   });
+
+  const senderSharedMap: SenderSharedMap = useMemo(
+    () => buildSenderSharedMaps(senderSharedRows, recipientNamesMap).taskMap,
+    [senderSharedRows, recipientNamesMap],
+  );
   // en-CA locale = YYYY-MM-DD in the user's own timezone
   const todayYmd = new Date().toLocaleDateString('en-CA');
   // A2: bumped by a swipe-left dismissal, from the release handler and never
@@ -1315,8 +1333,9 @@ const Home = () => {
         currentUserId={user?.id}
         sharedRecipients={senderSharedMap[editingTask.id]}
         // A share sent from this sheet refetches the sender map so the chip
-        // lands without closing the sheet (same rule as Index, O2/O3).
-        onAssigned={() => { void queryClient.invalidateQueries({ queryKey: ['focusos-sender-shared', user?.id] }); }}
+        // lands without closing the sheet (same rule as Index, O2/O3). Same
+        // shared key as the raw rows query above (O3 fix-round, 2026-08-23).
+        onAssigned={() => { if (user) void queryClient.invalidateQueries({ queryKey: appDataKeys.senderSharedItems(user.id) }); }}
         onDeleteTask={(task) => handleDeleteTask(task.id)} />}
 
       {/* Review + save: the existing dialog machinery, fed by the inline session.

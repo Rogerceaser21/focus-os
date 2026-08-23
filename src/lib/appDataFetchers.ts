@@ -28,6 +28,15 @@ export const appDataKeys = {
   meetingsList: (userId: string) => ['focusos-meetings-list', userId] as const,
   sharedItems: (userId: string) => ['focusos-shared-items', userId] as const,
   projectInvitations: (userId: string) => ['focusos-project-invitations', userId] as const,
+  // Sender's own focusos_shared_items rows (items THIS user shared out, task or
+  // project), the source the share-status pill's per-item maps are built from.
+  // O3 fix-round (2026-08-23): usePrefetchAppData's prefetch, Index's warm-path
+  // peek, Index's fetchSenderSharedItems, and Home's own useQuery all shared this
+  // dataset under TWO different keys (this one for the raw prefetch, plus Home's
+  // own `['focusos-sender-shared', userId]` for a pre-built map), so Home mounted
+  // two byte-identical selects, and a share on one surface never invalidated the
+  // other's cache. Every caller now keys off this single entry.
+  senderSharedItems: (userId: string) => ['focusos-sender-shared-items', userId] as const,
 };
 
 // Slim projection for the task-list load path: every column transformDbTask (Index.tsx)
@@ -317,6 +326,27 @@ async function loadSharedItems(_userId: string): Promise<any[]> {
   return res.data || [];
 }
 
+// Sender's own shared_items rows (rows where THIS user is the sender), task and
+// project alike: the raw dataset behind the share-status pill's per-item maps
+// (see src/lib/sharedItems.ts buildSenderSharedMaps for the pure grouping half).
+// Exported (not the private loadX convention above) because Home.tsx's own
+// useQuery calls this straight as its queryFn, under appDataKeys.senderSharedItems,
+// so its request dedupes with the prefetch/Index reads instead of running a
+// second, byte-identical select.
+export async function fetchSenderSharedItemsRaw(userId: string): Promise<any[]> {
+  await ensureSession();
+  const res = await runWithErrorRetry<any[]>(() =>
+    (supabase as any)
+      .from('focusos_shared_items')
+      .select('id, item_id, item_type, recipient_email, recipient_user_id, recipient_task_id, status')
+      .eq('sender_user_id', userId)
+      .in('item_type', ['task', 'project'])
+      .neq('status', 'cancelled'),
+  );
+  if (res.error) throw res.error;
+  return res.data || [];
+}
+
 // Pending project invitations for this user — the base rows only. The sidebar keeps its
 // own name-enrichment (project + inviter profiles) on top, so this loader stays cheap.
 async function loadProjectInvitations(userId: string): Promise<any[]> {
@@ -517,6 +547,25 @@ export function fetchProjectInvitations(
   });
 }
 
+// Single-flight through the shared cache: the fix for refutation A (O3 fix-round,
+// 2026-08-23). Every caller (Index's event-driven refetch, the warm-path peek, and
+// (via prefetchSenderSharedItems below) usePrefetchAppData) routes through THIS one
+// entry, so a `{fresh: true}` refetch on one surface (e.g. Index after a share) is
+// visible to every other observer of the same key (e.g. Home's useQuery), and two
+// concurrent cold callers collapse to one request instead of two.
+export function fetchSenderSharedItemsShared(
+  client: QueryClient,
+  userId: string,
+  opts?: FetchOpts,
+): Promise<any[]> {
+  return client.fetchQuery({
+    queryKey: appDataKeys.senderSharedItems(userId),
+    queryFn: () => fetchSenderSharedItemsRaw(userId),
+    staleTime: opts?.fresh ? 0 : APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
+  });
+}
+
 // ---- prefetch (silent warming for /home → /app). Never throws into the caller. ----
 
 export function prefetchTasks(client: QueryClient, userId: string): Promise<void> {
@@ -550,6 +599,17 @@ export function prefetchPreferences(client: QueryClient, userId: string): Promis
   return client.prefetchQuery({
     queryKey: appDataKeys.preferences(userId),
     queryFn: () => loadPreferences(userId),
+    staleTime: APP_DATA_STALE_TIME,
+    gcTime: APP_DATA_GC_TIME,
+  });
+}
+
+// Warms appDataKeys.senderSharedItems ahead of /app; Index's warm-path peek and
+// Home's own useQuery both read this same entry (usePrefetchAppData.ts).
+export function prefetchSenderSharedItems(client: QueryClient, userId: string): Promise<void> {
+  return client.prefetchQuery({
+    queryKey: appDataKeys.senderSharedItems(userId),
+    queryFn: () => fetchSenderSharedItemsRaw(userId),
     staleTime: APP_DATA_STALE_TIME,
     gcTime: APP_DATA_GC_TIME,
   });

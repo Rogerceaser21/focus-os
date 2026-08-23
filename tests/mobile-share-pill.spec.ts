@@ -514,3 +514,371 @@ test.describe('desktop: share-status pill still shows on the row (unchanged)', (
     expect(taskCountAfter, 'task count must match the pre-test count').toBe(taskCountBefore);
   });
 });
+
+// ---- Test C: refutation B fix-round (2026-08-23) --------------------------
+//
+// TaskCard's footer (src/components/TaskCard.tsx ~365) had no flex-wrap, so a
+// long recipient email pushed the chip past the card's own right edge at
+// narrow widths instead of wrapping. Proven at both 393 and 375 wide, with an
+// email longer than the 31-char one from Igor's screenshot
+// (boyd.telford@theteachersouq.com), so the fix is checked against a second,
+// wider length bucket too.
+
+test.describe('mobile: the share chip wraps inside the grid card, never overflows it', () => {
+  test.use({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true, actionTimeout: 15000 });
+
+  test('the chip right edge never exceeds the card right edge, at 393 and at 375', async ({ page, request, context }) => {
+    test.setTimeout(120_000);
+
+    const s = await restSignIn(request);
+    const projCountBefore = await restCount(request, s, 'focusos_projects');
+    const taskCountBefore = await restCount(request, s, 'focusos_tasks');
+
+    const stamp = Date.now();
+    const projectName = `O3 Wrap Test ${stamp}`;
+    // Bare stamp, no prefix: TaskCard's header row splits width between the
+    // title and the priority/status badges (same as Test A above), so at 375
+    // wide there is LESS room than at 393 wide, and even a two-letter prefix
+    // ("O3W ") pushed this title's own truncate right up against its
+    // available width, clipping for a reason that has nothing to do with the
+    // chip wrap this test proves. A bare stamp leaves headroom at both widths.
+    const taskTitle = `${stamp}`;
+    const fakeEmail = `o3-wide-recipient-${stamp}@example-long-domain.io`;
+
+    const projectId = await restInsert(request, s, 'focusos_projects', {
+      name: projectName, color: '#8b5cf6', user_id: s.userId,
+    });
+    const taskId = await restInsert(request, s, 'focusos_tasks', {
+      user_id: s.userId, project_id: projectId, title: taskTitle, status: 'todo', priority: 'medium',
+    });
+    const ids: Ids = { projectId, taskId, stamp };
+
+    let bodyError: Error | null = null;
+    try {
+      await installSharedItemsIntercept(context, s, taskId, fakeEmail);
+
+      await signIn(page);
+      await page.goto(`${BASE}/app`);
+      await selectProject(page, projectId, projectName);
+      await switchView(page, 'grid');
+
+      for (const width of [393, 375] as const) {
+        await page.setViewportSize({ width, height: 852 });
+        const card = gridCard(page, taskTitle);
+        await expect(card, `grid card must be visible at ${width}px`).toBeVisible({ timeout: 15000 });
+        await assertTitleClearOfChip(card, taskTitle, fakeEmail);
+
+        const chip = chipIn(card, fakeEmail);
+        const cardBox = await card.boundingBox();
+        const chipBox = await chip.first().boundingBox();
+        expect(cardBox, `card bounding box must be measurable at ${width}px`).toBeTruthy();
+        expect(chipBox, `chip bounding box must be measurable at ${width}px`).toBeTruthy();
+        const cardRight = (cardBox as Box).x + (cardBox as Box).width;
+        const chipRight = (chipBox as Box).x + (chipBox as Box).width;
+        expect(
+          chipRight,
+          `chip right edge (${chipRight.toFixed(1)}) must not exceed the card right edge (${cardRight.toFixed(1)}) at ${width}px`,
+        ).toBeLessThanOrEqual(cardRight + 1);
+      }
+    } catch (e) {
+      bodyError = e as Error;
+    }
+
+    const leaks = await cleanup(request, s, ids);
+    const projCountAfter = await restCount(request, s, 'focusos_projects');
+    const taskCountAfter = await restCount(request, s, 'focusos_tasks');
+
+    if (bodyError) {
+      if (leaks.length) bodyError.message = `${bodyError.message}\n[cleanup leaks] ${leaks.join('; ')}`;
+      throw bodyError;
+    }
+    expect(leaks, 'cleanup must leave the demo account exactly as it was').toEqual([]);
+    expect(projCountAfter, 'project count must match the pre-test count').toBe(projCountBefore);
+    expect(taskCountAfter, 'task count must match the pre-test count').toBe(taskCountBefore);
+  });
+});
+
+// ---- Test D: refutation A fix-round (2026-08-23) ---------------------------
+//
+// Before this fix-round, Home held its OWN copy of the sender-shared query
+// under its OWN key (`['focusos-sender-shared', userId]`), separate from the
+// key usePrefetchAppData and Index share (`appDataKeys.senderSharedItems`).
+// A share on one surface never invalidated the other surface's cache, so its
+// chip stayed stale until a full reload. Now both surfaces read and write the
+// SAME cache entry, so a share on either surface must show its chip on the
+// OTHER surface without a reload. Proven bidirectionally, and only via
+// CLIENT-SIDE navigation (the FAB's double-tap-to-home, the dock's Today
+// button) since a page.goto would throw away the QueryClient instance the fix
+// depends on and pass the test for the wrong reason.
+//
+// Only two network paths are faked, on this test's own browser context only
+// (same shape as tests/share-status-live.spec.ts's installShareIntercepts):
+// the focusos-share-item edge function (no email ever sends, no real
+// focusos_shared_items row is written) and the GET reads of
+// focusos_shared_items (serves the accumulated fake rows straight back). The
+// Share button is pressed for real, twice, so the app's real code path runs
+// end to end (realtime handler on /app, invalidateQueries on /home).
+
+interface FakeSharedRow {
+  id: string;
+  item_id: string;
+  item_type: string;
+  recipient_email: string;
+  recipient_user_id: null;
+  recipient_task_id: null;
+  status: string;
+  sender_user_id: string;
+  sender_email: null;
+  created_at: string;
+  sender_acknowledged: boolean;
+  completion_acknowledged: boolean;
+}
+
+interface ShareIntercept {
+  rows: FakeSharedRow[];
+  getHits: number;
+}
+
+const installLiveShareIntercept = async (
+  context: BrowserContext,
+  s: Session,
+): Promise<ShareIntercept> => {
+  const state: ShareIntercept = { rows: [], getHits: 0 };
+  let fakeIdCounter = 0;
+
+  await context.route('**/functions/v1/focusos-share-item', async (route) => {
+    const body = route.request().postDataJSON() as
+      | { itemType?: string; itemId?: string; recipientEmail?: string }
+      | null;
+    if (body && body.itemType && body.itemId && body.recipientEmail) {
+      fakeIdCounter += 1;
+      state.rows.push({
+        id: `o3-cache-fake-shared-row-${fakeIdCounter}`,
+        item_id: body.itemId,
+        item_type: body.itemType,
+        recipient_email: body.recipientEmail,
+        recipient_user_id: null,
+        recipient_task_id: null,
+        status: 'accepted',
+        sender_user_id: s.userId,
+        sender_email: null,
+        created_at: new Date().toISOString(),
+        // acknowledged: true, same ProjectSidebar-toast trap noted on
+        // installSharedItemsIntercept above.
+        sender_acknowledged: true,
+        completion_acknowledged: false,
+      });
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true }),
+    });
+  });
+
+  await context.route('**/rest/v1/focusos_shared_items*', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    state.getHits += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(state.rows),
+    });
+  });
+
+  return state;
+};
+
+test.describe('mobile: a share on one surface shows its chip on the other, no reload', () => {
+  test.use({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true, actionTimeout: 15000 });
+
+  test('share from /app crosses to /home, share from /home crosses back to /app', async ({ page, request, context }) => {
+    test.setTimeout(150_000);
+
+    const s = await restSignIn(request);
+    const projCountBefore = await restCount(request, s, 'focusos_projects');
+    const taskCountBefore = await restCount(request, s, 'focusos_tasks');
+
+    const stamp = Date.now();
+    const projectName = `O3 Cache Test ${stamp}`;
+    // Two separate tasks, one per direction. ShareStatusPopover's own badge
+    // (src/components/ShareStatusPopover.tsx buildStatusSummary) only prints
+    // the recipient's email when a task has EXACTLY one recipient; a second
+    // recipient on the SAME task collapses the badge to a status count
+    // ("2 Accepted") with no email text at all, which broke chipIn's
+    // email-substring match on the first version of this test. Two tasks
+    // keep every chip at exactly one recipient, matching Test A/B's own
+    // pattern.
+    const taskTitleA = `${stamp}A`;
+    const taskTitleB = `${stamp}B`;
+    const fakeEmailFromApp = `o3-fromapp-${stamp}@example.invalid`;
+    const fakeEmailFromHome = `o3-fromhome-${stamp}@example.invalid`;
+
+    const projectId = await restInsert(request, s, 'focusos_projects', {
+      name: projectName, color: '#8b5cf6', user_id: s.userId,
+    });
+    // due_date = today so both tasks land in Home's Today's Focus (rankTodaysFocus
+    // tier 0 needs due_date within -7..0 days of today, same reasoning as Test A).
+    const taskAId = await restInsert(request, s, 'focusos_tasks', {
+      user_id: s.userId, project_id: projectId, title: taskTitleA, status: 'todo', priority: 'medium',
+      due_date: new Date().toISOString(),
+    });
+    const taskBId = await restInsert(request, s, 'focusos_tasks', {
+      user_id: s.userId, project_id: projectId, title: taskTitleB, status: 'todo', priority: 'medium',
+      due_date: new Date().toISOString(),
+    });
+    const ids: Ids = { projectId, taskId: taskAId, stamp };
+
+    let bodyError: Error | null = null;
+    let originalView: (typeof ONEBAR_VIEWS)[number] = 'list';
+    try {
+      await installLiveShareIntercept(context, s);
+
+      await signIn(page);
+      await page.goto(`${BASE}/app`);
+      await selectProject(page, projectId, projectName);
+
+      const ensureListView = async () => {
+        await openContextSheet(page);
+        const current = await readCurrentView(page);
+        await page.keyboard.press('Escape');
+        await expect(page.locator('[data-testid="onebar-context-sheet"]')).toHaveCount(0);
+        if (current !== 'list') await switchView(page, 'list');
+        return current;
+      };
+
+      const shareFrom = async (sheet: ReturnType<Page['locator']>, email: string) => {
+        await sheet.getByRole('button', { name: 'Share', exact: true }).click();
+        const dialog = page.getByRole('dialog', { name: 'Share Task' });
+        await expect(dialog).toBeVisible({ timeout: 5000 });
+        await dialog.getByLabel('Add Recipients').fill(email);
+        await dialog.getByLabel('Add Recipients').press('Enter');
+        await dialog.getByRole('button', { name: /Share with/ }).click();
+        await expect(dialog).toBeHidden({ timeout: 5000 });
+      };
+
+      originalView = await ensureListView();
+
+      // ---- Direction 1: share task A from /app's Edit Task sheet ------------
+      const row = taskRow(page, taskTitleA);
+      await expect(row).toBeVisible({ timeout: 15000 });
+      await row.getByText(taskTitleA, { exact: true }).first().tap();
+      const appSheet = page.locator('.lg-editsheet');
+      await expect(appSheet).toBeVisible({ timeout: 10000 });
+      await shareFrom(appSheet, fakeEmailFromApp);
+      await expect(chipIn(appSheet, fakeEmailFromApp), 'the app sheet chip must land live').toBeVisible({ timeout: 5000 });
+      await page.keyboard.press('Escape');
+      await expect(appSheet).toBeHidden({ timeout: 5000 });
+
+      // ---- Cross to /home via the FAB's double-tap (client-side nav: the
+      //      whole point is that the SAME QueryClient instance carries the
+      //      share across, which page.goto would defeat) ----------------------
+      await expect(page.locator('.lg-fab-main'), 'the record FAB must be visible once the sheet is closed').toBeVisible({ timeout: 5000 });
+      await page.locator('.lg-fab-main').dblclick();
+      await page.waitForURL('**/home', { timeout: 10000 });
+
+      const homeRowA = page.locator('.lg-utap').filter({ hasText: taskTitleA });
+      await expect(homeRowA).toBeVisible({ timeout: 20000 });
+      await homeRowA.scrollIntoViewIfNeeded();
+      await homeRowA.click();
+      const homeSheetA = page.locator('.lg-editsheet');
+      await expect(homeSheetA).toBeVisible({ timeout: 10000 });
+      await expect(
+        chipIn(homeSheetA, fakeEmailFromApp),
+        'a share made on /app must show its chip on /home without a reload (refutation A)',
+      ).toBeVisible({ timeout: 5000 });
+      await page.keyboard.press('Escape');
+      await expect(homeSheetA).toBeHidden({ timeout: 5000 });
+
+      // ---- Direction 2: share task B from the /home sheet --------------------
+      const homeRowB = page.locator('.lg-utap').filter({ hasText: taskTitleB });
+      await expect(homeRowB).toBeVisible({ timeout: 15000 });
+      await homeRowB.scrollIntoViewIfNeeded();
+      await homeRowB.click();
+      const homeSheetB = page.locator('.lg-editsheet');
+      await expect(homeSheetB).toBeVisible({ timeout: 10000 });
+      await shareFrom(homeSheetB, fakeEmailFromHome);
+      await expect(chipIn(homeSheetB, fakeEmailFromHome), 'the home sheet chip must land live').toBeVisible({ timeout: 5000 });
+      await page.keyboard.press('Escape');
+      await expect(homeSheetB).toBeHidden({ timeout: 5000 });
+
+      // ---- Cross back to /app via the dock's Today button (client-side nav) --
+      await page.locator('[data-home-tour-step="today"]').click();
+      await page.waitForURL('**/app**', { timeout: 10000 });
+      await selectProject(page, projectId, projectName);
+      await ensureListView();
+
+      const rowBAfter = taskRow(page, taskTitleB);
+      await expect(rowBAfter, 'task B row visible after crossing back to /app').toBeVisible({ timeout: 15000 });
+      await expect(
+        chipIn(rowBAfter, fakeEmailFromHome),
+        'a share made on /home must show its chip on the /app row without a reload (refutation A)',
+      ).toBeVisible({ timeout: 5000 });
+
+      await rowBAfter.getByText(taskTitleB, { exact: true }).first().tap();
+      const appSheetBAfter = page.locator('.lg-editsheet');
+      await expect(appSheetBAfter).toBeVisible({ timeout: 10000 });
+      await expect(
+        chipIn(appSheetBAfter, fakeEmailFromHome),
+        'a share made on /home must show its chip in the /app sheet without a reload (refutation A)',
+      ).toBeVisible({ timeout: 5000 });
+      await page.keyboard.press('Escape');
+      await expect(appSheetBAfter).toBeHidden({ timeout: 5000 });
+
+      if (originalView !== 'list') await switchView(page, originalView);
+    } catch (e) {
+      bodyError = e as Error;
+    }
+
+    // Task B is not covered by the shared `cleanup` helper (it only deletes
+    // ids.taskId, task A), so delete it explicitly first — by the time
+    // cleanup's own stamp-based leak sweep runs below, task B is already gone.
+    const taskBDeleteProblem = await restDelete(request, s, 'focusos_tasks', taskBId);
+    const leaks = await cleanup(request, s, ids);
+    if (taskBDeleteProblem) leaks.push(taskBDeleteProblem);
+    const projCountAfter = await restCount(request, s, 'focusos_projects');
+    const taskCountAfter = await restCount(request, s, 'focusos_tasks');
+
+    if (bodyError) {
+      if (leaks.length) bodyError.message = `${bodyError.message}\n[cleanup leaks] ${leaks.join('; ')}`;
+      throw bodyError;
+    }
+    expect(leaks, 'cleanup must leave the demo account exactly as it was').toEqual([]);
+    expect(projCountAfter, 'project count must match the pre-test count').toBe(projCountBefore);
+    expect(taskCountAfter, 'task count must match the pre-test count').toBe(taskCountBefore);
+  });
+});
+
+// ---- Test E: refutation A fix-round (2026-08-23) ---------------------------
+//
+// Before this fix-round, usePrefetchAppData's own inline prefetchQuery (under
+// 'focusos-sender-shared-items') and Home's own useQuery (under
+// 'focusos-sender-shared') were two DIFFERENT keys reading the same table, so
+// a fresh /home mount fired two byte-identical focusos_shared_items selects.
+// Now both read appDataKeys.senderSharedItems, so they dedupe to one request.
+// This test reads the real backend (no mock) and only COUNTS GET hits to the
+// table; it writes nothing, so there is no project/task cleanup needed.
+
+test.describe('mobile: exactly one focusos_shared_items GET fires on a fresh /home load', () => {
+  test.use({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true, actionTimeout: 15000 });
+
+  test('usePrefetchAppData\'s prefetch and Home\'s own useQuery dedupe to one request', async ({ page, context }) => {
+    test.setTimeout(60_000);
+
+    let getHits = 0;
+    await context.route('**/rest/v1/focusos_shared_items*', async (route) => {
+      if (route.request().method() === 'GET') getHits += 1;
+      await route.continue();
+    });
+
+    // signIn() itself lands on /home (waitForURL '**/home') right after
+    // sign-in: that IS the fresh Home mount under test, no extra goto needed.
+    await signIn(page);
+    await page.waitForTimeout(3000);
+
+    expect(
+      getHits,
+      'exactly one focusos_shared_items GET must fire within 3s of a fresh /home load (appDataKeys.senderSharedItems is now one shared cache entry, not two)',
+    ).toBe(1);
+  });
+});

@@ -8,6 +8,7 @@ import {
   prefetchCompletedTasks,
   prefetchProjects,
   prefetchPreferences,
+  prefetchSenderSharedItems,
 } from '@/lib/appDataFetchers';
 
 /**
@@ -34,22 +35,9 @@ export const usePrefetchAppData = (userId?: string | null) => {
     prefetchProjects(queryClient, userId);
     prefetchPreferences(queryClient, userId);
 
-    // Prefetch sender shared items (Index peeks this key for its share decorations).
-    queryClient.prefetchQuery({
-      queryKey: ['focusos-sender-shared-items', userId],
-      queryFn: async () => {
-        const { data, error } = await (supabase as any)
-          .from('focusos_shared_items')
-          .select('id, item_id, item_type, recipient_email, recipient_user_id, recipient_task_id, status')
-          .eq('sender_user_id', userId)
-          .in('item_type', ['task', 'project'])
-          .neq('status', 'cancelled');
-        if (error) throw error; // don't cache a bad-empty on a cold-start error
-        return data || [];
-      },
-      staleTime: APP_DATA_STALE_TIME,
-      gcTime: APP_DATA_GC_TIME,
-    });
+    // Prefetch sender shared items (Index's warm-path peek AND Home's own useQuery
+    // both read appDataKeys.senderSharedItems, O3 fix-round, 2026-08-23).
+    prefetchSenderSharedItems(queryClient, userId);
 
     // Prefetch meetings
     queryClient.prefetchQuery({

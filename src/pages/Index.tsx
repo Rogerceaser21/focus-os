@@ -64,6 +64,7 @@ import {
   fetchProjects as fetchProjectsShared,
   fetchMemberProjectIds as fetchMemberIdsShared,
   fetchTaskImages as fetchTaskImagesShared,
+  fetchSenderSharedItemsShared,
   appDataKeys,
   slimTaskRow,
   isProjectArchived,
@@ -515,23 +516,21 @@ const Index = () => {
     setSenderProjectSharedMap(projectMap);
   }, []);
 
-  // Fetch shared items where current user is sender
+  // Fetch shared items where current user is sender. Routed through the shared
+  // single-flight cache under appDataKeys.senderSharedItems (O3 fix-round,
+  // 2026-08-23). `{fresh: true}` forces a live refetch (this is the
+  // event-driven path: realtime + post-share callbacks), and writing into the
+  // SHARED cache entry is what makes a share here visible to Home's own
+  // useQuery on the same key without Home needing its own invalidate.
   const fetchSenderSharedItems = useCallback(async () => {
     if (!user) return;
     try {
-      const { data: sharedItems, error } = await (supabase as any)
-        .from('focusos_shared_items')
-        .select('id, item_id, item_type, recipient_email, recipient_user_id, recipient_task_id, status')
-        .eq('sender_user_id', user.id)
-        .in('item_type', ['task', 'project'])
-        .neq('status', 'cancelled');
-      
-      if (error || !sharedItems) return;
+      const sharedItems = await fetchSenderSharedItemsShared(queryClient, user.id, { fresh: true });
       await buildSharedMaps(sharedItems);
     } catch (err) {
       console.error('Error fetching sender shared items:', err);
     }
-  }, [user, buildSharedMaps]);
+  }, [user, queryClient, buildSharedMaps]);
 
 
   // Legacy fetchTasks for specific use cases (task creation, etc.)
@@ -567,7 +566,7 @@ const Index = () => {
           applyProjectRows(cachedProjects);
 
           // Also seed shared items from cache
-          const cachedShared = queryClient.getQueryData(['focusos-sender-shared-items', user.id]) as any[] | undefined;
+          const cachedShared = queryClient.getQueryData(appDataKeys.senderSharedItems(user.id)) as any[] | undefined;
           if (cachedShared) {
             buildSharedMaps(cachedShared);
           }

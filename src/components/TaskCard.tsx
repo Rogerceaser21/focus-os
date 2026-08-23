@@ -362,7 +362,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-1 border-t">
+        <div className="flex items-center flex-wrap gap-2 pt-1 border-t">
           {!timer.isRunning ? (
             <Button 
               size="sm" 
@@ -449,7 +449,7 @@ export const TaskCard = ({ task, onUpdate, onEditTask, onAssignTask, onRequestCh
               mobile grid cards had nowhere to see at a glance that someone
               was notified; footer sits well clear of the title). */}
           {task.sharedRecipients && task.sharedRecipients.length > 0 ? (
-            <div className="ml-auto">
+            <div className="ml-auto min-w-0 max-w-full">
               <ShareStatusPopover
                 recipients={task.sharedRecipients}
                 itemType="Task"

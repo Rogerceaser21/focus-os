@@ -62,7 +62,7 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
   const trigger = children || (
     <Badge
       variant="outline"
-      className={`${everyoneCompleted ? 'bg-success/15 text-success border-success/30' : 'bg-purple-600/15 text-purple-400 border-purple-600/30'} text-xs inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-colors`}
+      className={`${everyoneCompleted ? 'bg-success/15 text-success border-success/30' : 'bg-purple-600/15 text-purple-400 border-purple-600/30'} text-xs inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-colors max-w-full`}
     >
       <Share2 className="h-3 w-3 shrink-0" />
       <span className="break-words">{badgeText}</span>
@@ -73,7 +73,7 @@ export const ShareStatusPopover = ({ recipients, itemType, children, onMoveToDon
     <>
       <Popover>
         <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-          <button className="inline-flex" type="button">
+          <button className="inline-flex max-w-full" type="button">
             {trigger}
           </button>
         </PopoverTrigger>
