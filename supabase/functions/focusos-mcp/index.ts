@@ -298,16 +298,35 @@ mcp.tool("search", {
 
 // ── WRITE TOOLS ───────────────────────────────────────────────────────────────
 mcp.tool("create_project", {
-  description: "Create a new project for the authenticated user.",
+  description:
+    "Create a new project for the authenticated user. Pass parent_project_id to create it as a sub-project (one level deep only: the parent must be your own, active, top-level project).",
   inputSchema: z.object({
     name: z.string(),
     color: z.string().optional().describe("Hex color like #3b82f6"),
+    parent_project_id: z
+      .string()
+      .optional()
+      .describe("Create under this parent project (must be yours, active and top-level)"),
   }),
   handler: async (args, ctx) => {
     const userId = getUserId(ctx);
+    let parentId: string | null = null;
+    if (args.parent_project_id) {
+      const { data: parent, error: parentError } = await admin
+        .from("focusos_projects")
+        .select("id, parent_project_id, archived_at")
+        .eq("user_id", userId)
+        .eq("id", args.parent_project_id)
+        .maybeSingle();
+      if (parentError) return err(parentError.message);
+      if (!parent) return err("Parent project not found");
+      if (parent.parent_project_id) return err("Parent must be a top-level project (sub-projects cannot have sub-projects)");
+      if (parent.archived_at) return err("Parent project is archived; restore it first (unarchive_project)");
+      parentId = parent.id;
+    }
     const { data, error } = await admin
       .from("focusos_projects")
-      .insert({ user_id: userId, name: args.name, color: args.color ?? "#3b82f6" })
+      .insert({ user_id: userId, name: args.name, color: args.color ?? "#3b82f6", parent_project_id: parentId })
       .select()
       .single();
     if (error) return err(error.message);
