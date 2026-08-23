@@ -793,6 +793,7 @@ export type Database = {
           timer_alert_interval_minutes: number
           updated_at: string | null
           user_id: string
+          wallpaper_prefs: Json | null
         }
         Insert: {
           ai_handoff_default_provider?: string | null
@@ -815,6 +816,7 @@ export type Database = {
           timer_alert_interval_minutes?: number
           updated_at?: string | null
           user_id: string
+          wallpaper_prefs?: Json | null
         }
         Update: {
           ai_handoff_default_provider?: string | null
@@ -837,6 +839,7 @@ export type Database = {
           timer_alert_interval_minutes?: number
           updated_at?: string | null
           user_id?: string
+          wallpaper_prefs?: Json | null
         }
         Relationships: []
       }
