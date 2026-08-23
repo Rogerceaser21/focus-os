@@ -204,6 +204,30 @@ const assertNoOverlapNoClip = async (page: Page) => {
   }
 };
 
+// The projects tour's "Delete Project" step anchors on the first VISIBLE
+// `[data-projects-tour-step="delete-button"]` match (useTourSpotlight
+// findVisible: first element with client rects, else matches[0]). In the
+// compact tier the full-row Delete button is display:none, so the More trigger
+// must carry the anchor, or the tour spotlights a 0x0 rect on the hidden
+// mobile one-bar wrapper (skeptic finding, 2026-08-23). Reproduces findVisible
+// verbatim and demands a real rectangle.
+const assertTourDeleteAnchorVisible = async (page: Page) => {
+  const rect = await page.evaluate(() => {
+    const matches = document.querySelectorAll('[data-projects-tour-step="delete-button"]');
+    let el: Element | null = null;
+    for (const m of matches) {
+      if (m.getClientRects().length > 0) { el = m; break; }
+    }
+    el = el ?? matches[0] ?? null;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { width: r.width, height: r.height };
+  });
+  expect(rect, 'the tour delete anchor must exist').not.toBeNull();
+  expect(rect!.width, 'the tour delete anchor must have width').toBeGreaterThan(0);
+  expect(rect!.height, 'the tour delete anchor must have height').toBeGreaterThan(0);
+};
+
 // ---- Interaction checks (b) ------------------------------------------------
 
 const testInviteButton = async (page: Page) => {
@@ -333,6 +357,9 @@ test.describe('project bar: container-query action tiers (U1)', () => {
         // (a) no overlap, nothing clipped past the bar's edge
         await assertNoOverlapNoClip(page);
 
+        // The projects tour can still find Delete in this tier.
+        await assertTourDeleteAnchorVisible(page);
+
         // (c) the name has real width, never a 0px collapse
         const nameBox = await page
           .locator('.lg-projbar [data-projects-tour-step="project-name"]')
@@ -357,6 +384,7 @@ test.describe('project bar: container-query action tiers (U1)', () => {
       await expect(page.getByTestId('desktop-new-sub')).toBeVisible();
       await expect(page.locator('.lg-projbar').getByRole('button', { name: 'Delete' })).toBeVisible();
       await assertNoOverlapNoClip(page);
+      await assertTourDeleteAnchorVisible(page);
     } catch (e) {
       bodyError = e as Error;
     }

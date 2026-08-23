@@ -2504,10 +2504,15 @@ https://www.skyscanner.com`,
                   </Button>
                 </div>
 
+                {/* The More trigger carries the projects-tour delete anchor for
+                    the same reason the one-bar title wrapper does: in this tier
+                    the Delete button is display:none and the tour spotlight
+                    picks the first VISIBLE match, so the menu that holds Delete
+                    is the anchor (skeptic finding, U1, 2026-08-23). */}
                 <div className="projbar-more items-center gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" aria-label="More actions" data-testid="desktop-more">
+                      <Button variant="ghost" size="sm" aria-label="More actions" data-testid="desktop-more" data-projects-tour-step="delete-button">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
