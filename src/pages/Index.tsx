@@ -3261,6 +3261,11 @@ https://www.skyscanner.com`,
                     await handleUpdateTask(updatedTask);
                     setEditingTask(null);
                   }}
+                  // O2 2026-08-23: the Edit Task sheet's share icon only ever called
+                  // this prop, which nothing wired up, so the purple pill needed a
+                  // reload to appear. Same refresh the task-row share dialog uses.
+                  onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); }}
+                  sharedRecipients={senderSharedMap[editingTask.id]}
                   projects={projects}
                   currentUserId={user?.id}
                   onDeleteTask={handleDeleteTask}
@@ -3354,6 +3359,11 @@ https://www.skyscanner.com`,
             await handleUpdateTask(updatedTask);
             closeEditPane();
           }}
+          // O2 2026-08-23: the Edit Task sheet's share icon only ever called
+          // this prop, which nothing wired up, so the purple pill needed a
+          // reload to appear. Same refresh the task-row share dialog uses.
+          onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); }}
+          sharedRecipients={senderSharedMap[editingTask.id]}
           projects={projects}
           currentUserId={user?.id}
                   onDeleteTask={handleDeleteTask}
@@ -3376,8 +3386,11 @@ https://www.skyscanner.com`,
         itemType="project"
         itemId={selectedProjectId}
         itemTitle={projects.find(p => p.id === selectedProjectId)?.name}
+        // O2 2026-08-23: this dialog had no onShared at all, so the project
+        // pill (drawer row + bar) needed a reload to appear after a share.
         open={shareProjectDialogOpen}
         onOpenChange={setShareProjectDialogOpen}
+        onShared={() => fetchSenderSharedItems()}
       />
 
       {/* Changes Needed Dialog */}

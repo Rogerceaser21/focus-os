@@ -48,6 +48,12 @@ interface EditTaskDialogProps {
   currentUserId?: string;
   onDeleteTask?: (task: Task) => void | Promise<void>;
   highlight?: { target: 'images' | 'dates'; nonce: number } | null;
+  /** Live share status for THIS task, read by the caller from its sender map
+      during render (O2, 2026-08-23). The `task` prop is a snapshot taken when
+      the sheet opened and cannot be swapped for a fresh object without the
+      seed effect below wiping unsaved edits, so the chip reads this instead
+      and falls back to the snapshot when the caller passes nothing. */
+  sharedRecipients?: Task['sharedRecipients'];
 }
 
 export const EditTaskDialog = ({
@@ -61,7 +67,10 @@ export const EditTaskDialog = ({
   currentUserId,
   onDeleteTask,
   highlight = null,
+  sharedRecipients: sharedRecipientsLive,
 }: EditTaskDialogProps) => {
+  // Derived during render, never stored: live map first, snapshot second.
+  const chipRecipients = sharedRecipientsLive ?? task.sharedRecipients;
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
@@ -311,13 +320,15 @@ export const EditTaskDialog = ({
         task={{ ...task, title, description, priority, status, startDate, endDate, dueDate, projectId: selectedProjectId || undefined }}
         synced={!!task.googleCalendarEventId}
       />
-      {/* On phones the share-status chip lives here instead of on the task row */}
-      {isMobile && task.sharedRecipients && task.sharedRecipients.length > 0 && (
+      {/* On phones the share-status chip lives here instead of on the task row.
+          Reads the LIVE recipients the caller derives during render, so a share
+          sent from this very sheet shows its chip without closing it (O2). */}
+      {isMobile && chipRecipients && chipRecipients.length > 0 && (
         <div onClick={(e) => e.stopPropagation()}>
           <ShareStatusPopover
-            recipients={task.sharedRecipients}
+            recipients={chipRecipients}
             itemType="Task"
-            allCompleted={task.sharedRecipients.every(r => r.status === 'completed')}
+            allCompleted={chipRecipients.every(r => r.status === 'completed')}
           />
         </div>
       )}
