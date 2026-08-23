@@ -19,8 +19,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X, Archive, ArchiveRestore, Folder, FolderPlus } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X, Archive, ArchiveRestore, Folder, FolderPlus, MoreHorizontal } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -2351,7 +2357,7 @@ https://www.skyscanner.com`,
               />
             ) : (
               <span
-                className={`font-semibold text-base truncate min-w-0 ${!isCollaborator ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
+                className={`font-semibold text-base truncate min-w-[4rem] ${!isCollaborator ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
                 style={{ color: currentProject.color }}
                 onClick={!isCollaborator ? handleStartEditingProject : undefined}
                 data-projects-tour-step="project-name"
@@ -2394,17 +2400,25 @@ https://www.skyscanner.com`,
 
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {!isCollaborator && (
-                <div className="hidden lg:flex items-center gap-2">
-                  <Button
-                    variant={isReorderMode ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setIsReorderMode(!isReorderMode)}
-                    className="gap-1"
-                  >
-                    <ArrowUpDown className="h-4 w-4" />
-                    <span>{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                  </Button>
+              <>
+                <Button
+                  variant={isReorderMode ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setIsReorderMode(!isReorderMode)}
+                  className="gap-1"
+                >
+                  <ArrowUpDown className="h-4 w-4" />
+                  <span>{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
+                </Button>
 
+                {/* Two tiers of the SAME actions, container-queried (U1,
+                    2026-08-23): the 808px full row only fits once .lg-projbar
+                    itself has >= 1180px to work with (src/index.css owns the
+                    threshold via @container). Below that the row would either
+                    overflow the bar or crush the project name to 0px, so it
+                    collapses into a single "More" menu with identical items,
+                    handlers and conditional rendering instead. */}
+                <div className="projbar-full items-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -2489,6 +2503,63 @@ https://www.skyscanner.com`,
                     <span className="ml-1">Delete</span>
                   </Button>
                 </div>
+
+                <div className="projbar-more items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" aria-label="More actions" data-testid="desktop-more">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 bg-popover">
+                      <DropdownMenuItem data-testid="desktop-more-meetings" onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}>
+                        <Mic className="h-4 w-4 mr-2" />
+                        Meetings
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem data-testid="desktop-more-share" onClick={() => setShareProjectDialogOpen(true)}>
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Share
+                      </DropdownMenuItem>
+
+                      {!currentProject.parentProjectId && !currentProject.archivedAt && (
+                        <DropdownMenuItem data-testid="desktop-more-new-sub" onClick={() => openNewSubProjectDialog(currentProject.id)}>
+                          <FolderPlus className="h-4 w-4 mr-2" />
+                          New sub-project
+                        </DropdownMenuItem>
+                      )}
+
+                      {!currentProject.archivedAt && (
+                        <DropdownMenuItem data-testid="desktop-more-move" onClick={() => setOnebarSheet('move')}>
+                          <FolderKanban className="h-4 w-4 mr-2" />
+                          Move to...
+                        </DropdownMenuItem>
+                      )}
+
+                      {currentProject.archivedAt ? (
+                        <DropdownMenuItem data-testid="desktop-more-restore" onClick={handleRestoreProject}>
+                          <ArchiveRestore className="h-4 w-4 mr-2" />
+                          Restore
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem data-testid="desktop-more-archive" onClick={() => setArchiveConfirmOpen(true)}>
+                          <Archive className="h-4 w-4 mr-2" />
+                          Archive
+                        </DropdownMenuItem>
+                      )}
+
+                      <DropdownMenuItem
+                        data-testid="desktop-more-delete"
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteConfirmOpen(true)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </>
             )}
           </div>
         </div>

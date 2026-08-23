@@ -1420,6 +1420,26 @@ html.shell.liquid-glass .lg-hero-col {
   padding: 2px 10px;
 }
 
+/* Bar as a container (U1, 2026-08-23): the full 7-button action row is 808px
+   and shrink-0, so below ~1400px windows it either overflows the bar or forces
+   the project name to 0px. Query the BAR's own inline size (not the window),
+   so the row switches to a "More" menu whenever it genuinely lacks room, on
+   any surface that carries .lg-projbar. */
+.lg-projbar {
+  container-type: inline-size;
+  container-name: projbar;
+}
+.lg-projbar .projbar-full { display: flex; }
+.lg-projbar .projbar-more { display: none; }
+/* Full row (808px) + 8px gap + ~116px rigid left content (emoji, gaps, Invite)
+   needs a >= 1180px container to leave the project name >= 200px; below that
+   the full row collapses the name toward 0px and clips off the bar's edge, so
+   swap to the "More" menu one tier down at the 1179/1180 boundary. */
+@container projbar (max-width: 1179px) {
+  .lg-projbar .projbar-full { display: none; }
+  .lg-projbar .projbar-more { display: flex; }
+}
+
 /* inactive tab panels stay mounted; display utilities (grid) beat the UA [hidden]
    rule, so force them off */
 .liquid-glass .lg-content[hidden],
