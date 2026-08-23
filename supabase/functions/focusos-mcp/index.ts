@@ -311,7 +311,9 @@ mcp.tool("create_project", {
   handler: async (args, ctx) => {
     const userId = getUserId(ctx);
     let parentId: string | null = null;
-    if (args.parent_project_id) {
+    // `!== undefined` (not truthiness): an explicit empty string must be validated
+    // and refused, never silently treated as "no parent".
+    if (args.parent_project_id !== undefined) {
       const { data: parent, error: parentError } = await admin
         .from("focusos_projects")
         .select("id, parent_project_id, archived_at")
@@ -336,38 +338,68 @@ mcp.tool("create_project", {
 
 mcp.tool("archive_project", {
   description:
-    "Archive a project owned by the authenticated user (sets archived_at). Archived projects disappear from the app's active lists but keep their tasks and tracked time; reversible via unarchive_project.",
+    "Archive a project owned by the authenticated user (sets archived_at). Archiving a TOP-LEVEL project archives its sub-projects with it (same as the app); archiving a sub-project archives only that sub. Archived projects disappear from the app's active lists but keep their tasks and tracked time; reversible via unarchive_project.",
   inputSchema: z.object({ id: z.string() }),
   handler: async (args, ctx) => {
     const userId = getUserId(ctx);
-    const { data, error } = await admin
+    const { data: project, error: fetchError } = await admin
       .from("focusos_projects")
-      .update({ archived_at: new Date().toISOString() })
+      .select("id, parent_project_id")
       .eq("user_id", userId)
       .eq("id", args.id)
-      .select("id, name, archived_at")
       .maybeSingle();
+    if (fetchError) return err(fetchError.message);
+    if (!project) return err("Project not found");
+    // CASCADE (mirrors the app's handleArchiveProject): a top-level project and
+    // its subs go together in ONE statement; a sub goes alone.
+    let q = admin
+      .from("focusos_projects")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("user_id", userId);
+    q = project.parent_project_id ? q.eq("id", project.id) : q.or(`id.eq.${project.id},parent_project_id.eq.${project.id}`);
+    const { data: rows, error } = await q.select("id, name, archived_at, parent_project_id");
     if (error) return err(error.message);
-    if (!data) return err("Project not found");
-    return ok(data);
+    const self = (rows ?? []).find((r) => r.id === project.id);
+    if (!self) return err("Project not found");
+    return ok({
+      id: self.id,
+      name: self.name,
+      archived_at: self.archived_at,
+      subs_archived: (rows ?? []).filter((r) => r.id !== project.id).map((r) => ({ id: r.id, name: r.name })),
+    });
   },
 });
 
 mcp.tool("unarchive_project", {
-  description: "Restore an archived project owned by the authenticated user (clears archived_at).",
+  description:
+    "Restore an archived project owned by the authenticated user (clears archived_at). Restoring a TOP-LEVEL project restores its sub-projects with it (same as the app); restoring a sub-project restores only that sub.",
   inputSchema: z.object({ id: z.string() }),
   handler: async (args, ctx) => {
     const userId = getUserId(ctx);
-    const { data, error } = await admin
+    const { data: project, error: fetchError } = await admin
       .from("focusos_projects")
-      .update({ archived_at: null })
+      .select("id, parent_project_id")
       .eq("user_id", userId)
       .eq("id", args.id)
-      .select("id, name, archived_at")
       .maybeSingle();
+    if (fetchError) return err(fetchError.message);
+    if (!project) return err("Project not found");
+    // Mirror image of the archive cascade above.
+    let q = admin
+      .from("focusos_projects")
+      .update({ archived_at: null })
+      .eq("user_id", userId);
+    q = project.parent_project_id ? q.eq("id", project.id) : q.or(`id.eq.${project.id},parent_project_id.eq.${project.id}`);
+    const { data: rows, error } = await q.select("id, name, archived_at, parent_project_id");
     if (error) return err(error.message);
-    if (!data) return err("Project not found");
-    return ok(data);
+    const self = (rows ?? []).find((r) => r.id === project.id);
+    if (!self) return err("Project not found");
+    return ok({
+      id: self.id,
+      name: self.name,
+      archived_at: self.archived_at,
+      subs_restored: (rows ?? []).filter((r) => r.id !== project.id).map((r) => ({ id: r.id, name: r.name })),
+    });
   },
 });
 
