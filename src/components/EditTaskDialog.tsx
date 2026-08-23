@@ -535,7 +535,7 @@ export const EditTaskDialog = ({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this task?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete the task{task.sharedRecipients && task.sharedRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
+                This will permanently delete the task{chipRecipients && chipRecipients.length > 0 ? ' and remove it from all recipients you shared it with' : ''}. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
