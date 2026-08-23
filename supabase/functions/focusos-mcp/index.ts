@@ -454,6 +454,9 @@ mcp.tool("update_project", {
           .maybeSingle();
         if (parentError) return err(parentError.message);
         if (!parent) return err("Parent project not found");
+        // Compare CANONICAL ids (the DB lookup accepts uppercase/braced uuid
+        // spellings that the raw string compare above does not).
+        if (parent.id === project.id) return err("A project cannot be its own parent");
         if (parent.parent_project_id) return err("Parent must be a top-level project (sub-projects cannot have sub-projects)");
         if (parent.archived_at) return err("Parent project is archived; restore it first (unarchive_project)");
         patch.parent_project_id = parent.id;
