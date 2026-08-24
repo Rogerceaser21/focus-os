@@ -15,8 +15,10 @@
  * SAME synchronous read that picks data-wallpaper also picks data-custom-tone
  * (light photo -> light glass + dark text, dark photo -> the smoke treatment)
  * and the accent sampled from the photo (--custom-accent).
- * Choices persist in localStorage (per device) for now; syncing them through
- * focusos_user_preferences is a later, deliberate migration.
+ * Choices persist in localStorage so they paint before any network, and the
+ * SAME choice rides the account through focusos_user_preferences.wallpaper_prefs
+ * (see "Account sync" at the bottom of this file): the device cache is the
+ * paint source, the account column is the source of truth between devices.
  */
 import { useEffect, useState } from 'react';
 import type { PhotoStats } from '@/lib/taskImageStorage';
@@ -173,6 +175,7 @@ export function cacheCustomWallpaper(dataUri: string, meta?: CustomPhotoMeta | n
     /* the photo is cached; an unmeasured photo just takes the dark treatment */
   }
   window.dispatchEvent(new CustomEvent(CUSTOM_EVENT));
+  stampWallpaperChange();
   return true;
 }
 
@@ -184,10 +187,12 @@ export function setCustomWallpaperUrl(url: string) {
     /* storage unavailable */
   }
   window.dispatchEvent(new CustomEvent(CUSTOM_EVENT));
+  stampWallpaperChange();
 }
 
-/** Drop this device's photo. The uploaded copy is left in storage on purpose:
- *  this is the per-device cache, not an account-wide delete. */
+/** Drop this device's photo. The uploaded FILE is left in the bucket on purpose
+ *  (nothing else can put it back), but the account's pointer to it travels with
+ *  the choice, so the next sync carries "no photo" like any other change. */
 export function clearCustomWallpaper() {
   try {
     localStorage.removeItem(LS_CUSTOM_DATA_KEY);
@@ -197,6 +202,7 @@ export function clearCustomWallpaper() {
     /* storage unavailable */
   }
   window.dispatchEvent(new CustomEvent(CUSTOM_EVENT));
+  stampWallpaperChange();
 }
 
 export function getWallpaper(): WallpaperId {
@@ -215,6 +221,20 @@ export function getWallpaper(): WallpaperId {
   return 'wave';
 }
 
+/** The stored choice, verbatim. getWallpaper() coerces an unpaintable 'custom'
+ *  to the default so nothing paints a void; the ACCOUNT copy must carry what the
+ *  user actually picked, or a device whose photo cache was evicted would push
+ *  'wave' over the account's custom choice. */
+function rawWallpaperChoice(): WallpaperId | null {
+  try {
+    const v = localStorage.getItem(LS_KEY);
+    if (v && v in WALLPAPERS) return v as WallpaperId;
+  } catch {
+    /* storage unavailable */
+  }
+  return null;
+}
+
 export function setWallpaper(id: WallpaperId) {
   try {
     localStorage.setItem(LS_KEY, id);
@@ -222,6 +242,7 @@ export function setWallpaper(id: WallpaperId) {
     /* storage unavailable */
   }
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: id }));
+  stampWallpaperChange();
 }
 
 export function getPlainColor(): string {
@@ -241,6 +262,7 @@ export function setPlainColor(hex: string) {
     /* storage unavailable */
   }
   window.dispatchEvent(new CustomEvent(PLAIN_COLOR_EVENT, { detail: hex }));
+  stampWallpaperChange();
 }
 
 /** WCAG relative luminance; < 0.45 counts as a dark background. */
@@ -412,4 +434,281 @@ export function WallpaperController() {
   }, [wp, plainColor, src, photoTone, photoAccent]);
 
   return null;
+}
+
+/* --- Account sync -----------------------------------------------------------
+   The wallpaper is a per-ACCOUNT choice that is CACHED per device, not a device
+   setting. Nothing below runs before paint: localStorage stays the only
+   first-paint source (the no-flash law at the top of this file is untouched),
+   and focusos_user_preferences.wallpaper_prefs carries the choice between
+   devices.
+
+   Write path: every setter above stamps the choice with the moment it was made
+   (LS_SYNC_KEY, keyed by account) AFTER its own synchronous localStorage write,
+   then schedules a fire-and-forget push of the whole choice to the account. The
+   push is debounced because one picker interaction is several setter calls
+   (cache the photo, select it, record the uploaded URL) and the account only
+   wants the settled result.
+
+   Read path: ONE reconciliation per account per session, run post-paint from
+   useUserPreferences once the preferences row has resolved (the same shape as
+   ensureDefaultPreferences). The later updatedAt wins; a swap it decides on is
+   applied through the SAME setters, so the wallpaper layer changes exactly once
+   by the existing path and no new animation runs across it.
+
+   The trade-off, stated plainly: on a brand-new device the first load paints the
+   default until the preferences row arrives, then swaps once. Every later load
+   on that device is already cached and paints the right wallpaper immediately.
+   -------------------------------------------------------------------------- */
+
+/** Shape version of the jsonb payload. Anything else reads as "no value". */
+export const WALLPAPER_PREFS_VERSION = 1;
+
+const LS_SYNC_KEY = 'focusos-wallpaper-sync';
+
+/** The account copy of the choice: everything a fresh device needs to paint it
+ *  without re-measuring the photo, plus when it was chosen. */
+export type WallpaperPrefs = {
+  v: number;
+  id: WallpaperId;
+  plainColor: string;
+  customUrl: string | null;
+  customBrightness: number | null;
+  customDominant: string | null;
+  updatedAt: string;
+};
+
+/** What this device last wrote, and for WHICH account. The account id is what
+ *  stops a second user on the same device from inheriting the first user's
+ *  choice: a stamp belonging to someone else is not a comparable timestamp. */
+type SyncStamp = { updatedAt: string; userId: string | null };
+
+export type WallpaperSyncPush = (prefs: WallpaperPrefs) => void;
+
+/** What the reconciliation decided (returned for tests and diagnostics). */
+export type WallpaperSyncOutcome =
+  | 'applied-remote'
+  | 'pushed-local'
+  | 'in-sync'
+  | 'reset-foreign';
+
+const PUSH_DEBOUNCE_MS = 250;
+
+let syncUserId: string | null = null;
+let syncPush: WallpaperSyncPush | null = null;
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
+/* True only while the reconciliation is writing the account's choice into the
+   setters, so the echo never travels back up as a fresh local change. */
+let applyingRemote = false;
+
+const nowIso = () => new Date().toISOString();
+
+/** ISO string -> comparable number; anything unparseable sorts oldest. */
+const at = (iso: string | null | undefined): number => {
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isNaN(t) ? -Infinity : t;
+};
+
+function readSyncStamp(): SyncStamp | null {
+  try {
+    const raw = localStorage.getItem(LS_SYNC_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as { updatedAt?: unknown; userId?: unknown };
+    if (typeof s?.updatedAt !== 'string' || at(s.updatedAt) === -Infinity) return null;
+    return {
+      updatedAt: s.updatedAt,
+      userId: typeof s.userId === 'string' && s.userId ? s.userId : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeSyncStamp(updatedAt: string, userId: string | null) {
+  try {
+    localStorage.setItem(LS_SYNC_KEY, JSON.stringify({ updatedAt, userId }));
+  } catch {
+    /* storage unavailable: the choice still paints, it just never syncs */
+  }
+}
+
+/** This device's choice as the account would store it, at a given moment. */
+export function localWallpaperPrefs(updatedAt: string): WallpaperPrefs {
+  const custom = getCustomWallpaper();
+  return {
+    v: WALLPAPER_PREFS_VERSION,
+    id: rawWallpaperChoice() ?? getWallpaper(),
+    plainColor: getPlainColor(),
+    customUrl: custom.url,
+    customBrightness: custom.meta ? custom.meta.brightness : null,
+    customDominant: custom.meta ? custom.meta.dominant : null,
+    updatedAt,
+  };
+}
+
+/** Guarded read of the jsonb column. An arbitrary row is allowed to be
+ *  anything, and a value this build does not understand must never paint. */
+export function parseWallpaperPrefs(raw: unknown): WallpaperPrefs | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const p = raw as Record<string, unknown>;
+  if (p.v !== WALLPAPER_PREFS_VERSION) return null;
+  if (typeof p.id !== 'string' || !(p.id in WALLPAPERS)) return null;
+  if (typeof p.updatedAt !== 'string' || at(p.updatedAt) === -Infinity) return null;
+  const plainColor =
+    typeof p.plainColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(p.plainColor)
+      ? p.plainColor
+      : DEFAULT_PLAIN_COLOR;
+  const customUrl =
+    typeof p.customUrl === 'string' && /^https?:\/\//.test(p.customUrl) ? p.customUrl : null;
+  const customBrightness =
+    typeof p.customBrightness === 'number' && p.customBrightness >= 0 && p.customBrightness <= 1
+      ? p.customBrightness
+      : null;
+  const customDominant =
+    typeof p.customDominant === 'string' && /^#[0-9a-f]{6}$/i.test(p.customDominant)
+      ? p.customDominant
+      : null;
+  return {
+    v: WALLPAPER_PREFS_VERSION,
+    id: p.id as WallpaperId,
+    plainColor,
+    customUrl,
+    customBrightness,
+    customDominant,
+    updatedAt: p.updatedAt,
+  };
+}
+
+/** Called by every setter above, AFTER its own localStorage write and its
+ *  change event: the visible path is never waiting on the account. */
+function stampWallpaperChange() {
+  if (applyingRemote) return;
+  writeSyncStamp(nowIso(), syncUserId);
+  if (!syncPush) return;
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    pushTimer = null;
+    const push = syncPush;
+    if (!push) return;
+    push(localWallpaperPrefs(readSyncStamp()?.updatedAt ?? nowIso()));
+  }, PUSH_DEBOUNCE_MS);
+}
+
+/** Point the write path at an account. Idempotent: every useUserPreferences
+ *  instance calls it with the same pair, and the last one wins. */
+export function connectWallpaperSync(userId: string, push: WallpaperSyncPush) {
+  syncUserId = userId;
+  syncPush = push;
+}
+
+/* The account's photo, as a data URI this device can paint with no network on
+   every later cold start. Best effort: the uploaded URL alone already paints,
+   the cache copy only removes the fetch. The taskImageStorage import is dynamic
+   on purpose, because this file is loaded by main.tsx before first paint and
+   must not pull the storage/supabase graph into that path. */
+async function fetchRemotePhoto(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (!blob.type.startsWith('image/')) return null;
+    const { blobToDataUri } = await import('@/lib/taskImageStorage');
+    return await blobToDataUri(blob);
+  } catch {
+    return null;
+  }
+}
+
+/** Put the account's choice on this device. Every write goes through the
+ *  existing setters, so the wallpaper layer changes by the one path the app
+ *  already has (no second mechanism, no animation across the swap). */
+async function applyWallpaperPrefs(prefs: WallpaperPrefs, userId: string) {
+  let id = prefs.id;
+  let photo: string | null = null;
+  if (id === 'custom') {
+    const local = getCustomWallpaper();
+    const cached = !!local.dataUri && local.url === prefs.customUrl;
+    if (!cached && prefs.customUrl) photo = await fetchRemotePhoto(prefs.customUrl);
+    // Nothing to paint on this device and nothing to fetch: the built-in
+    // default, never the bare void (same rule as getWallpaper()).
+    if (!prefs.customUrl && !customWallpaperSrc(local)) id = 'wave';
+  }
+
+  // One synchronous block: the photo lands in the cache BEFORE the choice
+  // selects it, exactly like the picker, so there is a single visible swap.
+  applyingRemote = true;
+  try {
+    if (id === 'custom' && prefs.customUrl) {
+      if (photo) {
+        cacheCustomWallpaper(
+          photo,
+          prefs.customBrightness === null
+            ? null
+            : { brightness: prefs.customBrightness, dominant: prefs.customDominant },
+        );
+      }
+      setCustomWallpaperUrl(prefs.customUrl);
+    }
+    if (prefs.plainColor !== getPlainColor()) setPlainColor(prefs.plainColor);
+    // Unconditional: the stored choice and the PAINTED one can differ (a stored
+    // 'custom' with no photo paints the default), so only the setter can be
+    // trusted to bring the controller to this id. An identical value is a React
+    // bail-out, not a repaint.
+    setWallpaper(id);
+  } finally {
+    applyingRemote = false;
+  }
+  writeSyncStamp(prefs.updatedAt, userId);
+}
+
+/**
+ * Reconcile this device's cached choice with the account's, exactly once per
+ * account per session. Latest updatedAt wins; equal stamps are already in sync;
+ * a device carrying ANOTHER account's choice never lets that choice win.
+ */
+export async function reconcileWallpaperPrefs(
+  userId: string,
+  remoteRaw: unknown,
+  push: WallpaperSyncPush,
+): Promise<WallpaperSyncOutcome> {
+  const remote = parseWallpaperPrefs(remoteRaw);
+  const stamp = readSyncStamp();
+  // A stamp written for a different account is not this account's history, so
+  // it carries no comparable timestamp (rule 3: no inheriting).
+  const foreign = !!stamp && !!stamp.userId && stamp.userId !== userId;
+  const localAt = foreign ? null : (stamp?.updatedAt ?? null);
+
+  if (remote) {
+    if (localAt === null || at(remote.updatedAt) > at(localAt)) {
+      await applyWallpaperPrefs(remote, userId);
+      return 'applied-remote';
+    }
+    if (localAt !== null && at(remote.updatedAt) === at(localAt)) {
+      // Same moment on both sides: nothing to send, but claim the device for
+      // this account so a later sign-in by someone else reads it as foreign.
+      writeSyncStamp(localAt, userId);
+      return 'in-sync';
+    }
+  } else if (foreign) {
+    // Someone else's choice is cached here and this account has never chosen:
+    // start it on the app default rather than hand over the other user's photo.
+    const fresh: WallpaperPrefs = {
+      v: WALLPAPER_PREFS_VERSION,
+      id: 'wave',
+      plainColor: DEFAULT_PLAIN_COLOR,
+      customUrl: null,
+      customBrightness: null,
+      customDominant: null,
+      updatedAt: nowIso(),
+    };
+    await applyWallpaperPrefs(fresh, userId);
+    push(fresh);
+    return 'reset-foreign';
+  }
+
+  const mineAt = localAt ?? nowIso();
+  const mine = localWallpaperPrefs(mineAt);
+  writeSyncStamp(mineAt, userId);
+  push(mine);
+  return 'pushed-local';
 }

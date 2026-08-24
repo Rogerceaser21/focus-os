@@ -9,6 +9,11 @@ import {
   loadPreferences,
   ensureDefaultPreferences,
 } from '@/lib/appDataFetchers';
+import {
+  connectWallpaperSync,
+  reconcileWallpaperPrefs,
+  type WallpaperPrefs,
+} from '@/lib/wallpaper';
 
 export interface UserPreferences {
   id: string;
@@ -30,9 +35,18 @@ export interface UserPreferences {
   timer_alert_interval_minutes: number;
   ai_handoff_default_provider: 'chatgpt' | 'claude' | 'gemini' | 'perplexity' | null;
   ai_handoff_image_mode: 'public_link' | 'clipboard' | 'skip';
+  /** The account's wallpaper choice (jsonb, null = never synced). The device
+   *  cache in src/lib/wallpaper.tsx still owns first paint; this column is what
+   *  makes the choice follow the account onto another device. */
+  wallpaper_prefs?: WallpaperPrefs | null;
   created_at: string;
   updated_at: string;
 }
+
+// Wallpaper reconciliation is once per account per session, the same
+// single-flight shape as ensureDefaultPreferences, because every mounted
+// useUserPreferences instance (Index, BottomNav, one per card) runs this effect.
+const wallpaperReconciled = new Set<string>();
 
 // Preferences read through a single shared query key. Every hook instance (Index,
 // BottomNav, and one per TaskCard / TaskListItem / dialog) subscribes to the SAME
@@ -154,7 +168,13 @@ export const useUserPreferences = (userId?: string | null) => {
     }
   };
 
-  const updatePreferences = async (updates: Partial<UserPreferences>) => {
+  // `silent` is for writes the user did not press Save for (the wallpaper choice
+  // syncs itself on every pick). The row still updates, it just does not
+  // announce itself with the Settings toast.
+  const updatePreferences = async (
+    updates: Partial<UserPreferences>,
+    opts?: { silent?: boolean },
+  ) => {
     if (!userId || !preferences) return;
     try {
       const { data: updated, error } = await (supabase as any)
@@ -165,12 +185,33 @@ export const useUserPreferences = (userId?: string | null) => {
         .single();
       if (error) throw error;
       queryClient.setQueryData(prefKey, updated);
-      toast.success('Preferences saved successfully');
+      if (!opts?.silent) toast.success('Preferences saved successfully');
     } catch (error) {
       console.error('Error updating preferences:', error);
-      toast.error('Failed to save preferences');
+      if (!opts?.silent) toast.error('Failed to save preferences');
     }
   };
+
+  // Wallpaper account sync (see the "Account sync" block in src/lib/wallpaper.tsx).
+  // Post-paint by design: the device cache already painted from localStorage
+  // during render, and the account's copy cannot be known before the network
+  // answers, so this is a genuine late arrival, not a post-paint correction of
+  // something that was derivable (house render-phase laws). It adds no state to
+  // any load path; the swap, if there is one, goes through the wallpaper setters.
+  useEffect(() => {
+    if (!userId || !preferences) return;
+    const push = (prefs: WallpaperPrefs) => {
+      void updatePreferences({ wallpaper_prefs: prefs }, { silent: true });
+    };
+    connectWallpaperSync(userId, push);
+    if (wallpaperReconciled.has(userId)) return;
+    wallpaperReconciled.add(userId);
+    reconcileWallpaperPrefs(userId, preferences.wallpaper_prefs, push).catch((error) => {
+      wallpaperReconciled.delete(userId);
+      console.error('Error syncing wallpaper preferences:', error);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, preferences]);
 
   return {
     preferences,

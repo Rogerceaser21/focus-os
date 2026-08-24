@@ -208,6 +208,11 @@ async function installIntercepts(context: BrowserContext, h: Harness): Promise<v
         const row = { ...taskRow(9), id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', title: 'Plan Holidays' };
         return reply(wantsObject ? row : [row]);
       }
+      // The wallpaper sync pushes a silent PATCH here; PostgREST echoes the full
+      // updated row, so the harness must too (an `{}` echo wipes the tour flags
+      // from the cache and relaunches the tours over the drawer). Same line as
+      // tests/helpers/braindumpEnv.ts.
+      if (url.includes('focusos_user_preferences')) return reply(wantsObject ? prefRow() : [prefRow()]);
       return reply(wantsObject ? {} : []);
     }
     if (url.includes('focusos_user_preferences')) return reply(wantsObject ? prefRow() : [prefRow()]);
