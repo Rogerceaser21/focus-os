@@ -537,8 +537,12 @@ test.describe('step-1 dynamic bar layout', () => {
 
   test("today's focus ranking: fossils demoted, priority rules the tiers, text tap opens the pane", async ({ browser }) => {
     const day = 86400000;
+    // Seed "today" in the PAGE's pinned zone (timezoneId: 'UTC' below), the way
+    // Home itself derives today (en-CA locale YYYY-MM-DD), not Node's ambient
+    // local clock, which can sit on a different calendar date and silently
+    // shift a task across a rankTodaysFocus tier boundary (bisect-proven).
     const ymd = (offsetDays: number) =>
-      new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA');
+      new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA', { timeZone: 'UTC' });
     const mk = (id: string, priority: string, due: string | null): SeedTask => ({
       id,
       title: id,
@@ -604,8 +608,12 @@ test.describe('A1 interactive rows', () => {
   };
 
   const day = 86400000;
+  // Seed "today" in the PAGE's pinned zone (timezoneId: 'UTC'), the way Home
+  // itself derives today (en-CA locale YYYY-MM-DD), not Node's ambient local
+  // clock, which can sit on a different calendar date and silently shift a
+  // task across a rankTodaysFocus tier boundary (bisect-proven).
   const ymd = (offsetDays: number) =>
-    new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA');
+    new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA', { timeZone: 'UTC' });
 
   const row = (n: number, priority: string, due: string | null): A1Row => ({
     id: `a1-${n}`,
@@ -999,8 +1007,12 @@ test.describe('A2 swipe gestures', () => {
   };
 
   const day = 86400000;
+  // Seed "today" in the PAGE's pinned zone (timezoneId: 'UTC'), the way Home
+  // itself derives today (en-CA locale YYYY-MM-DD), not Node's ambient local
+  // clock, which can sit on a different calendar date and silently shift a
+  // task across a rankTodaysFocus tier boundary (bisect-proven).
   const ymd = (offsetDays: number) =>
-    new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA');
+    new Date(Date.now() + offsetDays * day).toLocaleDateString('en-CA', { timeZone: 'UTC' });
 
   const row = (n: number, priority: string, due: string | null): A2Row => ({
     id: `a2-${n}`,
