@@ -43,8 +43,12 @@ const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 
 // The demo account as this branch found it. Nothing here creates a project or a
 // task; the counts are asserted at both ends so a stray row cannot hide.
-const DEMO_PROJECT_COUNT = 9;
-const DEMO_TASK_COUNT = 9;
+// Baseline dropped from 9/9 to 3/7 on 2026-08-24 (T2): a one-time purge removed
+// six "Archive Test*" / "Archive Reach Test*" projects and two "Archive test
+// task*" tasks that had leaked in from killed/failed project-archive.spec.ts
+// runs (see that spec's own cleanup rewrite, same task).
+const DEMO_PROJECT_COUNT = 3;
+const DEMO_TASK_COUNT = 7;
 
 const LS_CHOICE = 'focusos-wallpaper';
 const LS_SYNC = 'focusos-wallpaper-sync';

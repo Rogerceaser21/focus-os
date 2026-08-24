@@ -8,14 +8,30 @@
 // Archived section with a Restore action; restore it and assert it is back;
 // delete the project at the end so the demo account is left as it was.
 //
+// Cleanup is REST-based, not UI-driven — same shape as tests/project-rollups.spec.ts
+// / tests/projectbar-widths.spec.ts: restSignIn, restDelete asserting the
+// returned row (Prefer: return=representation), before/after global counts via
+// restCount (Prefer: count=exact / Content-Range), and a timestamped-name sweep
+// that runs whether the body passed or threw, so a killed or failed run can
+// never leak a row silently the way the old UI-restore-then-delete cleanup did
+// (six "Archive Test*" / "Archive Reach Test*" projects and two "Archive test
+// task*" tasks leaked into the demo account before this rewrite, T2 2026-08-24).
+// The sweep works whether the project ended up active or archived — REST DELETE
+// does not care about archived_at, unlike the old UI flow which had to restore
+// first before the Delete action was reachable.
+//
 // Run: WAVE_BASE_URL=http://localhost:8080 npx playwright test tests/project-archive.spec.ts
-import { test, expect, type Page, type Locator } from '@playwright/test';
+import { test, expect, type Page, type Locator, type APIRequestContext } from '@playwright/test';
 
 const BASE = process.env.WAVE_BASE_URL ?? '';
 
 // Same Apple-review demo account tests/testflight-wave.spec.ts signs in with.
 const DEMO_EMAIL = 'apple.review@focusos.tech';
 const DEMO_PASSWORD = 'FocusOS-Review-2026';
+
+// Same project + publishable key the app ships (src/integrations/supabase/client.ts).
+const SUPABASE_URL = 'https://mshlbsgsyzzfxyxramjj.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zaGxic2dzeXp6Znh5eHJhbWpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNDQ3NDEsImV4cCI6MjA1ODgyMDc0MX0.iyucDGqQuYmJbvejLpCEoSpHP--HsHMw1ZablfMQKmY';
 
 const signIn = async (page: Page) => {
   await page.goto(`${BASE}/auth`);
@@ -52,16 +68,6 @@ const goToToday = async (page: Page) => {
   await drawer(page).getByRole('button', { name: 'Today', exact: true }).click();
 };
 
-// A real POLL (waitFor), not a single isVisible() snapshot — isVisible() reads
-// the DOM at that exact instant with no retry, so it races anything still
-// catching up (e.g. the drawer's own project fetch lagging a couple of
-// seconds behind an optimistic state update elsewhere) and reports a false
-// negative for something that would have appeared a moment later. Used by
-// best-effort cleanup below, where a false negative means the row-to-delete
-// gets silently skipped instead of found and cleaned up.
-const waitVisible = (locator: Locator, timeout: number) =>
-  locator.first().waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false);
-
 // Set an AddTaskDialog date field (Start/End Date) to TODAY via its Calendar
 // popover. Giving the task BOTH start and end makes it a real Gantt BAR (Gantt
 // only bars tasks with startDate && endDate — src/components/GanttChart.tsx),
@@ -82,35 +88,151 @@ const setDateToToday = async (page: Page, dialog: Locator, labelText: string) =>
   await expect(grid).toHaveCount(0, { timeout: 5000 });
 };
 
+// ---- PostgREST helpers, signed in as the demo account ------------------------
+// Same shape as tests/project-rollups.spec.ts / tests/projectbar-widths.spec.ts
+// / tests/wallpaper-sync.spec.ts.
+
+interface Session { token: string; userId: string; }
+
+const restSignIn = async (request: APIRequestContext): Promise<Session> => {
+  const res = await request.post(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+    data: { email: DEMO_EMAIL, password: DEMO_PASSWORD },
+  });
+  expect(res.ok(), 'REST sign-in as the demo account must succeed').toBeTruthy();
+  const body = await res.json();
+  expect(body.access_token, 'REST sign-in must return an access token').toBeTruthy();
+  return { token: body.access_token, userId: body.user.id };
+};
+
+const restHeaders = (s: Session, extra: Record<string, string> = {}) => ({
+  apikey: ANON_KEY,
+  Authorization: `Bearer ${s.token}`,
+  'Content-Type': 'application/json',
+  ...extra,
+});
+
+const restSelect = async (
+  request: APIRequestContext,
+  s: Session,
+  path: string,
+): Promise<any[]> => {
+  const res = await request.get(`${SUPABASE_URL}/rest/v1/${path}`, { headers: restHeaders(s) });
+  expect(res.ok(), `select ${path} must succeed (${res.status()})`).toBeTruthy();
+  return res.json();
+};
+
+// Delete one row and PROVE it went: `return=representation` echoes the deleted
+// row, so an id that was already gone (or that RLS refused) comes back empty
+// and is reported as a leak instead of passing silently.
+const restDelete = async (
+  request: APIRequestContext,
+  s: Session,
+  table: 'focusos_projects' | 'focusos_tasks',
+  id: string,
+): Promise<string | null> => {
+  const res = await request.delete(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    headers: restHeaders(s, { Prefer: 'return=representation' }),
+  });
+  if (!res.ok()) return `${table} ${id}: HTTP ${res.status()}`;
+  const rows = await res.json();
+  if (rows.length !== 1) return `${table} ${id}: delete removed ${rows.length} rows`;
+  return null;
+};
+
+/** Exact row count for a table on the demo account (Content-Range, no payload). */
+const restCount = async (
+  request: APIRequestContext,
+  s: Session,
+  table: 'focusos_projects' | 'focusos_tasks',
+): Promise<number> => {
+  const res = await request.get(`${SUPABASE_URL}/rest/v1/${table}?select=id`, {
+    headers: restHeaders(s, { Prefer: 'count=exact' }),
+  });
+  expect(res.ok(), `counting ${table} must succeed (${res.status()})`).toBeTruthy();
+  const range = res.headers()['content-range'] ?? '';
+  const total = Number(range.split('/')[1]);
+  expect(Number.isFinite(total), `${table} count must parse from ${range}`).toBeTruthy();
+  return total;
+};
+
+/**
+ * Sweep everything the test's own timestamp `stamp` could have created —
+ * TASKS first (a project delete does not cascade its tasks, same as
+ * tests/project-rollups.spec.ts), then the project — and PROVE none of it
+ * survives. Never throws: it returns a list of problems, so a real test
+ * failure is never swallowed by a cleanup failure. Unlike the id-based
+ * cleanup in project-rollups.spec.ts, the ids here are not known up front
+ * (the project and task are created through the UI, not a REST insert), so
+ * this queries by the shared timestamp instead — which is also what makes it
+ * safe to run in `finally` even when the body threw before ever resolving an
+ * id, and is the "timestamped-name sweep" that catches a run any UI-based
+ * cleanup would have missed.
+ */
+const cleanupByStamp = async (
+  request: APIRequestContext,
+  s: Session,
+  stamp: number,
+): Promise<string[]> => {
+  const problems: string[] = [];
+  try {
+    const like = String(stamp);
+    const tasks = await restSelect(request, s, `focusos_tasks?select=id,title&title=like.*${encodeURIComponent(like)}*`);
+    for (const t of tasks) {
+      const p = await restDelete(request, s, 'focusos_tasks', t.id);
+      if (p) problems.push(p);
+    }
+    const projects = await restSelect(request, s, `focusos_projects?select=id,name&name=like.*${encodeURIComponent(like)}*`);
+    for (const pr of projects) {
+      const p = await restDelete(request, s, 'focusos_projects', pr.id);
+      if (p) problems.push(p);
+    }
+    // Read-back: nothing this run created may survive.
+    const projLeft = await restSelect(request, s, `focusos_projects?select=id,name&name=like.*${encodeURIComponent(like)}*`);
+    const taskLeft = await restSelect(request, s, `focusos_tasks?select=id,title&title=like.*${encodeURIComponent(like)}*`);
+    if (projLeft.length) problems.push(`projects left behind: ${projLeft.map((p: any) => p.name).join(', ')}`);
+    if (taskLeft.length) problems.push(`tasks left behind: ${taskLeft.map((t: any) => t.title).join(', ')}`);
+  } catch (e) {
+    problems.push(`cleanup threw: ${(e as Error).message}`);
+  }
+  return problems;
+};
+
 test.describe('archive / restore a project', () => {
-  test('archive hides the project everywhere, restore brings it back, demo account ends up unchanged', async ({ page }) => {
+  test('archive hides the project everywhere, restore brings it back, demo account ends up unchanged', async ({ page, request }) => {
     test.setTimeout(90_000);
 
-    const projectName = `Archive Test ${Date.now()}`;
-    const taskTitle = `Archive test task ${Date.now()}`;
+    const s = await restSignIn(request);
+    const beforeProjects = await restCount(request, s, 'focusos_projects');
+    const beforeTasks = await restCount(request, s, 'focusos_tasks');
 
-    await signIn(page);
-    await page.goto(`${BASE}/app`);
+    const stamp = Date.now();
+    const projectName = `Archive Test ${stamp}`;
+    const taskTitle = `Archive test task ${stamp}`;
 
-    // Wait for the app shell to be interactive before driving it.
-    await expect(page.getByTestId('onebar-title')).toBeVisible({ timeout: 20000 });
-
-    // ---- Create the test project ------------------------------------------------
-    await openDrawer(page);
-    await page.getByRole('button', { name: 'New Project' }).click();
-    // Named, not bare getByRole('dialog') — the mobile drawer itself is also
-    // exposed as an ARIA dialog ("Projects"), so an unnamed locator matches both.
-    const createDialog = page.getByRole('dialog', { name: 'Create New Project' });
-    await createDialog.getByPlaceholder('e.g., Website Redesign').fill(projectName);
-    await createDialog.getByRole('button', { name: 'Create Project' }).click();
-    await expect(createDialog).toHaveCount(0);
-
-    // The drawer stays open after creating (only the dialog closes) — the new
-    // row lands in "My Projects" once fetchProjects({fresh:true}) resolves.
-    const activeRow = page.getByRole('button', { name: projectName, exact: true });
-    await expect(activeRow).toBeVisible({ timeout: 15000 });
-
+    let bodyError: Error | null = null;
     try {
+      await signIn(page);
+      await page.goto(`${BASE}/app`);
+
+      // Wait for the app shell to be interactive before driving it.
+      await expect(page.getByTestId('onebar-title')).toBeVisible({ timeout: 20000 });
+
+      // ---- Create the test project ------------------------------------------------
+      await openDrawer(page);
+      await page.getByRole('button', { name: 'New Project' }).click();
+      // Named, not bare getByRole('dialog') — the mobile drawer itself is also
+      // exposed as an ARIA dialog ("Projects"), so an unnamed locator matches both.
+      const createDialog = page.getByRole('dialog', { name: 'Create New Project' });
+      await createDialog.getByPlaceholder('e.g., Website Redesign').fill(projectName);
+      await createDialog.getByRole('button', { name: 'Create Project' }).click();
+      await expect(createDialog).toHaveCount(0);
+
+      // The drawer stays open after creating (only the dialog closes) — the new
+      // row lands in "My Projects" once fetchProjects({fresh:true}) resolves.
+      const activeRow = page.getByRole('button', { name: projectName, exact: true });
+      await expect(activeRow).toBeVisible({ timeout: 15000 });
+
       // ---- Give it one task due TODAY, so "excluded from Today" is a real,
       // observable behaviour change and not a vacuous check. Switching to the
       // Today special list first makes AddTaskDialog auto-fill dueDate=today
@@ -244,42 +366,24 @@ test.describe('archive / restore a project', () => {
       await expect(page.getByRole('button', { name: projectName, exact: true })).toBeVisible({ timeout: 15000 });
       await goToToday(page);
       await expect(page.getByText(taskTitle)).toBeVisible({ timeout: 15000 });
-    } finally {
-      // ---- Cleanup: delete the test project (cascades its task) so the demo
-      // account ends up exactly as it started. Best-effort — tries the
-      // Archived-section Restore first (in case an assertion above failed
-      // while the project was still archived), then selects + deletes. Uses
-      // toBeVisible/toHaveCount polling (not a single .count() snapshot) at
-      // every step: a bare .count() read immediately after openDrawer() races
-      // the drawer's own render and can undercount, silently skipping cleanup.
-      await openDrawer(page).catch(() => {});
-
-      const cleanupRestoreBtn = page
-        .getByTestId('archived-projects-list')
-        .locator('div')
-        .filter({ hasText: projectName })
-        .getByRole('button', { name: /restore/i });
-      if (await page.getByTestId('archived-projects-toggle').isVisible().catch(() => false)) {
-        if (!(await page.getByTestId('archived-projects-list').isVisible().catch(() => false))) {
-          await page.getByTestId('archived-projects-toggle').click().catch(() => {});
-        }
-        if (await cleanupRestoreBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await cleanupRestoreBtn.click().catch(() => {});
-          await expect(page.getByText('Project restored')).toBeVisible({ timeout: 10000 }).catch(() => {});
-        }
-      }
-
-      await openDrawer(page).catch(() => {});
-      const cleanupRow = page.getByRole('button', { name: projectName, exact: true });
-      if (await cleanupRow.isVisible({ timeout: 10000 }).catch(() => false)) {
-        await cleanupRow.click();
-        await expect(page.getByTestId('onebar-title')).toContainText(projectName, { timeout: 10000 }).catch(() => {});
-        await page.getByTestId('onebar-title').click().catch(() => {});
-        await page.getByTestId('onebar-delete').click({ timeout: 5000 }).catch(() => {});
-        await page.getByRole('button', { name: 'Yes, Delete' }).click({ timeout: 5000 }).catch(() => {});
-        await expect(page.getByText('Project and all its tasks deleted')).toBeVisible({ timeout: 10000 }).catch(() => {});
-      }
+    } catch (e) {
+      bodyError = e as Error;
     }
+
+    // ---- Cleanup: REST, asserted, regardless of whether the body passed,
+    // failed, or the project ended up active or archived (Delete requires no
+    // Restore-first dance the way the old UI cleanup did).
+    const cleanupProblems = await cleanupByStamp(request, s, stamp);
+    const afterProjects = await restCount(request, s, 'focusos_projects');
+    const afterTasks = await restCount(request, s, 'focusos_tasks');
+    if (afterProjects !== beforeProjects) cleanupProblems.push(`project count changed: before ${beforeProjects}, after ${afterProjects}`);
+    if (afterTasks !== beforeTasks) cleanupProblems.push(`task count changed: before ${beforeTasks}, after ${afterTasks}`);
+
+    if (bodyError) {
+      if (cleanupProblems.length) bodyError.message = `${bodyError.message}\n[cleanup problems] ${cleanupProblems.join('; ')}`;
+      throw bodyError;
+    }
+    expect(cleanupProblems, 'cleanup must leave the demo account exactly as it was').toEqual([]);
   });
 
   // An archived project IS now reachable again: tapping its row in the drawer's
@@ -293,26 +397,32 @@ test.describe('archive / restore a project', () => {
   // action clears the marker and returns the project to "My Projects", staying
   // selected throughout (no forced trip back to Today the way Archive itself
   // does).
-  test('archived project stays reachable from the drawer: header shows it, its time report still resolves it, Restore brings it back', async ({ page }) => {
+  test('archived project stays reachable from the drawer: header shows it, its time report still resolves it, Restore brings it back', async ({ page, request }) => {
     test.setTimeout(90_000);
 
-    const projectName = `Archive Reach Test ${Date.now()}`;
-    const taskTitle = `Archive reach task ${Date.now()}`;
+    const s = await restSignIn(request);
+    const beforeProjects = await restCount(request, s, 'focusos_projects');
+    const beforeTasks = await restCount(request, s, 'focusos_tasks');
 
-    await signIn(page);
-    await page.goto(`${BASE}/app`);
-    await expect(page.getByTestId('onebar-title')).toBeVisible({ timeout: 20000 });
+    const stamp = Date.now();
+    const projectName = `Archive Reach Test ${stamp}`;
+    const taskTitle = `Archive reach task ${stamp}`;
 
-    // ---- Create the test project ------------------------------------------------
-    await openDrawer(page);
-    await page.getByRole('button', { name: 'New Project' }).click();
-    const createDialog = page.getByRole('dialog', { name: 'Create New Project' });
-    await createDialog.getByPlaceholder('e.g., Website Redesign').fill(projectName);
-    await createDialog.getByRole('button', { name: 'Create Project' }).click();
-    await expect(createDialog).toHaveCount(0);
-    await expect(page.getByRole('button', { name: projectName, exact: true })).toBeVisible({ timeout: 15000 });
-
+    let bodyError: Error | null = null;
     try {
+      await signIn(page);
+      await page.goto(`${BASE}/app`);
+      await expect(page.getByTestId('onebar-title')).toBeVisible({ timeout: 20000 });
+
+      // ---- Create the test project ------------------------------------------------
+      await openDrawer(page);
+      await page.getByRole('button', { name: 'New Project' }).click();
+      const createDialog = page.getByRole('dialog', { name: 'Create New Project' });
+      await createDialog.getByPlaceholder('e.g., Website Redesign').fill(projectName);
+      await createDialog.getByRole('button', { name: 'Create Project' }).click();
+      await expect(createDialog).toHaveCount(0);
+      await expect(page.getByRole('button', { name: projectName, exact: true })).toBeVisible({ timeout: 15000 });
+
       // ---- One task with a known title, so the time report has a row to find ----
       await goToToday(page);
       await page.getByTestId('onebar-add').click();
@@ -387,49 +497,22 @@ test.describe('archive / restore a project', () => {
       // ---- Back in "My Projects" -----------------------------------------------------
       await openDrawer(page);
       await expect(page.getByRole('button', { name: projectName, exact: true })).toBeVisible({ timeout: 15000 });
-    } finally {
-      // ---- Cleanup: delete the test project so the demo account ends up as it
-      // started. Best-effort — tries the Archived-section Restore first (in
-      // case an assertion above failed while the project was still archived),
-      // then selects + deletes. Every presence check uses waitVisible (a real
-      // poll) rather than a bare isVisible() snapshot: right after the Restore
-      // a few lines up, Index.tsx's own state already shows the project as
-      // active, but the DRAWER's separate project fetch (same
-      // projectRefreshTrigger bump, its own network round trip) can lag a few
-      // seconds behind — a snapshot check in that window false-negatives and
-      // silently skips cleanup, orphaning the project (observed for real
-      // while developing this test). Every click also carries an explicit
-      // bounded timeout on top of its .catch(): a bare .click() with neither
-      // inherits the TEST's own remaining timeout budget as its ceiling, so
-      // one transient actionability retry silently burns the whole test
-      // instead of failing fast.
-      await openDrawer(page).catch(() => {});
-
-      const cleanupRestoreBtn = page
-        .getByTestId('archived-projects-list')
-        .locator('div')
-        .filter({ hasText: projectName })
-        .getByRole('button', { name: /restore/i });
-      if (await waitVisible(page.getByTestId('archived-projects-toggle'), 5000)) {
-        if (!(await waitVisible(page.getByTestId('archived-projects-list'), 1000))) {
-          await page.getByTestId('archived-projects-toggle').click({ timeout: 8000 }).catch(() => {});
-        }
-        if (await waitVisible(cleanupRestoreBtn, 8000)) {
-          await cleanupRestoreBtn.click({ timeout: 8000 }).catch(() => {});
-          await expect(page.getByText('Project restored')).toBeVisible({ timeout: 10000 }).catch(() => {});
-        }
-      }
-
-      await openDrawer(page).catch(() => {});
-      const cleanupRow = page.getByRole('button', { name: projectName, exact: true });
-      if (await waitVisible(cleanupRow, 15000)) {
-        await cleanupRow.click({ timeout: 8000 }).catch(() => {});
-        await expect(page.getByTestId('onebar-title')).toContainText(projectName, { timeout: 10000 }).catch(() => {});
-        await page.getByTestId('onebar-title').click({ timeout: 8000 }).catch(() => {});
-        await page.getByTestId('onebar-delete').click({ timeout: 5000 }).catch(() => {});
-        await page.getByRole('button', { name: 'Yes, Delete' }).click({ timeout: 5000 }).catch(() => {});
-        await expect(page.getByText('Project and all its tasks deleted')).toBeVisible({ timeout: 10000 }).catch(() => {});
-      }
+    } catch (e) {
+      bodyError = e as Error;
     }
+
+    // ---- Cleanup: REST, asserted, regardless of whether the body passed,
+    // failed, or the project ended up active or archived.
+    const cleanupProblems = await cleanupByStamp(request, s, stamp);
+    const afterProjects = await restCount(request, s, 'focusos_projects');
+    const afterTasks = await restCount(request, s, 'focusos_tasks');
+    if (afterProjects !== beforeProjects) cleanupProblems.push(`project count changed: before ${beforeProjects}, after ${afterProjects}`);
+    if (afterTasks !== beforeTasks) cleanupProblems.push(`task count changed: before ${beforeTasks}, after ${afterTasks}`);
+
+    if (bodyError) {
+      if (cleanupProblems.length) bodyError.message = `${bodyError.message}\n[cleanup problems] ${cleanupProblems.join('; ')}`;
+      throw bodyError;
+    }
+    expect(cleanupProblems, 'cleanup must leave the demo account exactly as it was').toEqual([]);
   });
 });
