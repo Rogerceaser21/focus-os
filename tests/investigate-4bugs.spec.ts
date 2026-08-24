@@ -380,13 +380,22 @@ test.describe.serial('4-bugs investigation', () => {
       requestAnimationFrame(tick);
     });
 
-    // Igor's exact sequence via the dock (SPA taps, no reloads)
+    // Igor's exact sequence via the dock (SPA taps, no reloads).
+    // Since 2026-08-03 (commit 83fdc5f) dock Projects no longer navigates on its
+    // own from /home: it opens ProjectsDrawerHost's overlay drawer OVER the page
+    // (plain-div portal, [role="dialog"][aria-label="Projects"], data-state
+    // open/closed — see tests/drawer-overlay.spec.ts). Drive that flow for real:
+    // wait for the panel to open, then pick "Today" INSIDE it (not the project —
+    // "Probe task other" shares the fixture project, so a project-view re-entry
+    // would legitimately show it and defeat the not-due-today check below). The
+    // pick is what actually fires the /app re-entry this probe watches for
+    // wrong-view frames.
     await page.locator('[data-home-tour-step="projects"]').click();
-    await page.waitForURL(/\/app/);
+    await expect(page.locator('[role="dialog"][aria-label="Projects"]'))
+      .toHaveAttribute('data-state', 'open', { timeout: 10_000 });
+    await page.locator('[role="dialog"][aria-label="Projects"] button:has-text("Today")').click();
+    await page.waitForURL(/view=today/);
     await page.waitForTimeout(2_500);
-    // the drawer opens over the dock (real behaviour) — dismiss via the overlay first
-    await page.touchscreen.tap(350, 400);
-    await page.waitForTimeout(600);
     await page.locator('[data-home-tour-step="meetings"]').click();
     await page.waitForURL(/\/meetings/);
     await page.waitForTimeout(1_500);
