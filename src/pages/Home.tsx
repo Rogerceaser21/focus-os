@@ -263,6 +263,10 @@ const Home = () => {
   const [subtitleIndex, setSubtitleIndex] = useState(0);
   // Projects drawer, opened OVER this page by the dock (never navigates on open).
   const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
+  // O7 (2026-08-26): bumped after a share/assign event on this page so the
+  // permanently-mounted drawer's own Shared Items section refetches live,
+  // same shape as Index.tsx's sharedItemsRefreshTrigger.
+  const [sharedItemsRefreshTrigger, setSharedItemsRefreshTrigger] = useState(0);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [reviewTasks, setReviewTasks] = useState<BrainDumpTask[] | undefined>(undefined);
@@ -1314,6 +1318,12 @@ const Home = () => {
         open={projectsDrawerOpen}
         onOpenChange={setProjectsDrawerOpen}
         userId={user?.id}
+        sharedItemsRefreshTrigger={sharedItemsRefreshTrigger}
+        // O7: Home already observes appDataKeys.senderSharedItems live via
+        // useQuery (see the comment above that query), so a bare invalidate
+        // is enough here, no imperative refetch function needed, unlike
+        // Index's fetchSenderSharedItems.
+        onSenderSharedItemsChanged={() => { if (user) void queryClient.invalidateQueries({ queryKey: appDataKeys.senderSharedItems(user.id) }); }}
       />
 
       <HomeTour isOpen={tourOpen} onComplete={handleTourComplete} />
@@ -1335,7 +1345,10 @@ const Home = () => {
         // A share sent from this sheet refetches the sender map so the chip
         // lands without closing the sheet (same rule as Index, O2/O3). Same
         // shared key as the raw rows query above (O3 fix-round, 2026-08-23).
-        onAssigned={() => { if (user) void queryClient.invalidateQueries({ queryKey: appDataKeys.senderSharedItems(user.id) }); }}
+        onAssigned={() => {
+          if (user) void queryClient.invalidateQueries({ queryKey: appDataKeys.senderSharedItems(user.id) });
+          setSharedItemsRefreshTrigger(prev => prev + 1);
+        }}
         onDeleteTask={(task) => handleDeleteTask(task.id)} />}
 
       {/* Review + save: the existing dialog machinery, fed by the inline session.

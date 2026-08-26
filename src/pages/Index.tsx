@@ -205,6 +205,11 @@ const Index = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedSpecialList, setSelectedSpecialList] = useState<'unassigned' | 'today' | 'past-due' | null>(null);
   const [projectRefreshTrigger, setProjectRefreshTrigger] = useState(0);
+  // O7 (2026-08-26): bumped after a share/assign event so the drawer's own
+  // Shared Items section (ProjectSidebar's sharedItems state) refetches live,
+  // same shape as projectRefreshTrigger, a plain counter the drawer's own
+  // effect keys off, not a second fetch mechanism.
+  const [sharedItemsRefreshTrigger, setSharedItemsRefreshTrigger] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isBrainDumpRecording, setIsBrainDumpRecording] = useState(false);
@@ -2632,7 +2637,7 @@ https://www.skyscanner.com`,
         <div className="flex flex-1 relative w-full flex-col min-h-0">
           <div className="flex flex-1 relative min-h-0">
             {/* Sidebar */}
-            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => { setProjectRefreshTrigger(prev => prev + 1); fetchTasks(); }} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : (newSubParentId ? true : undefined)} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : (newSubParentId ? ((open: boolean) => { if (!open) setNewSubParentId(null); }) : undefined)} createParentProjectId={newSubParentId} isTourActive={showProjectsTour} userId={user?.id} senderProjectSharedMap={senderProjectSharedMap} />
+            <ProjectSidebar selectedProjectId={selectedProjectId} onSelectProject={setSelectedProjectId} onSelectSpecialList={setSelectedSpecialList} selectedSpecialList={selectedSpecialList} projectRefreshTrigger={projectRefreshTrigger} onProjectCreated={() => { setProjectRefreshTrigger(prev => prev + 1); fetchTasks(); }} onStartTour={handleHelpClick} onStartTaskTour={handleStartTaskTour} onStartProjectsTour={handleStartProjectsTour} createDialogOpen={showProjectsTour ? tourCreateDialogOpen : (newSubParentId ? true : undefined)} onCreateDialogOpenChange={showProjectsTour ? setTourCreateDialogOpen : (newSubParentId ? ((open: boolean) => { if (!open) setNewSubParentId(null); }) : undefined)} createParentProjectId={newSubParentId} isTourActive={showProjectsTour} userId={user?.id} senderProjectSharedMap={senderProjectSharedMap} sharedItemsRefreshTrigger={sharedItemsRefreshTrigger} onSenderSharedItemsChanged={fetchSenderSharedItems} />
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 min-w-0 flex flex-col min-h-0 overflow-x-hidden">
@@ -3298,7 +3303,7 @@ https://www.skyscanner.com`,
                   // O2 2026-08-23: the Edit Task sheet's share icon only ever called
                   // this prop, which nothing wired up, so the purple pill needed a
                   // reload to appear. Same refresh the task-row share dialog uses.
-                  onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); }}
+                  onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); setSharedItemsRefreshTrigger(prev => prev + 1); }}
                   sharedRecipients={senderSharedMap[editingTask.id]}
                   projects={projects}
                   currentUserId={user?.id}
@@ -3396,7 +3401,7 @@ https://www.skyscanner.com`,
           // O2 2026-08-23: the Edit Task sheet's share icon only ever called
           // this prop, which nothing wired up, so the purple pill needed a
           // reload to appear. Same refresh the task-row share dialog uses.
-          onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); }}
+          onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); setSharedItemsRefreshTrigger(prev => prev + 1); }}
           sharedRecipients={senderSharedMap[editingTask.id]}
           projects={projects}
           currentUserId={user?.id}
@@ -3414,7 +3419,7 @@ https://www.skyscanner.com`,
         itemTitle={taskToShare?.title}
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
-        onShared={() => { fetchTasks(); fetchSenderSharedItems(); }}
+        onShared={() => { fetchTasks(); fetchSenderSharedItems(); setSharedItemsRefreshTrigger(prev => prev + 1); }}
       />
       <ShareItemDialog
         itemType="project"
@@ -3424,7 +3429,7 @@ https://www.skyscanner.com`,
         // pill (drawer row + bar) needed a reload to appear after a share.
         open={shareProjectDialogOpen}
         onOpenChange={setShareProjectDialogOpen}
-        onShared={() => fetchSenderSharedItems()}
+        onShared={() => { fetchSenderSharedItems(); setSharedItemsRefreshTrigger(prev => prev + 1); }}
       />
 
       {/* Changes Needed Dialog */}

@@ -6,6 +6,10 @@ interface ProjectsDrawerHostProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId?: string;
+  /** O7: forwarded straight to ProjectSidebar, see its own prop doc. */
+  sharedItemsRefreshTrigger?: number;
+  /** O7: forwarded straight to ProjectSidebar, see its own prop doc. */
+  onSenderSharedItemsChanged?: () => void;
 }
 
 /**
@@ -31,7 +35,13 @@ interface ProjectsDrawerHostProps {
  * WHITE-FLASH LAW: render this unconditionally and let `open` drive it. Never
  * mount it only while open — the overlay/panel layers must be born once.
  */
-export const ProjectsDrawerHost = ({ open, onOpenChange, userId }: ProjectsDrawerHostProps) => {
+export const ProjectsDrawerHost = ({
+  open,
+  onOpenChange,
+  userId,
+  sharedItemsRefreshTrigger,
+  onSenderSharedItemsChanged,
+}: ProjectsDrawerHostProps) => {
   const navigate = useNavigate();
 
   return (
@@ -39,6 +49,8 @@ export const ProjectsDrawerHost = ({ open, onOpenChange, userId }: ProjectsDrawe
       overlayMode
       open={open}
       onOpenChange={onOpenChange}
+      sharedItemsRefreshTrigger={sharedItemsRefreshTrigger}
+      onSenderSharedItemsChanged={onSenderSharedItemsChanged}
       selectedProjectId={null}
       selectedSpecialList={null}
       onSelectProject={(projectId) => {

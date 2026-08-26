@@ -228,6 +228,21 @@ interface ProjectSidebarProps {
   open?: boolean;
   /** Overlay mode only: the host's setter. */
   onOpenChange?: (open: boolean) => void;
+  /**
+   * O7 (2026-08-26): bump this after a share/cancel/accept/decline event on
+   * the host page so the drawer's OWN Shared Items section (sharedItems
+   * state, fed by fetchSharedItems) refetches without a full reload. Mirrors
+   * `projectRefreshTrigger`: a plain counter, not the fetch mechanism itself.
+   */
+  sharedItemsRefreshTrigger?: number;
+  /**
+   * O7: called after THIS drawer's own accept/decline/cancel actions mutate
+   * `focusos_shared_items` server-side, so the host page's sender-side pill
+   * data (senderSharedItems / senderSharedMap, a query key this component
+   * never observes) can refresh too. The drawer's own fetchSharedItems refetch
+   * already keeps this section correct; this callback is purely outbound.
+   */
+  onSenderSharedItemsChanged?: () => void;
 }
 
 export const ProjectSidebar = ({
@@ -249,6 +264,8 @@ export const ProjectSidebar = ({
   overlayMode,
   open: overlayOpen,
   onOpenChange: overlayOnOpenChange,
+  sharedItemsRefreshTrigger,
+  onSenderSharedItemsChanged,
 }: ProjectSidebarProps) => {
   const isOverlay = !!overlayMode;
   const [projects, setProjects] = useState<Project[]>([]);
@@ -324,6 +341,24 @@ export const ProjectSidebar = ({
     fetchSharedItems();
     fetchProjectInvitations();
   }, [projectRefreshTrigger, dataUserId]);
+
+  // O7 (2026-08-26): the host page bumps sharedItemsRefreshTrigger after a
+  // share/assign event elsewhere (Edit Task sheet, project bar), so THIS
+  // drawer's own Shared Items section (a local sharedItems useState mirror
+  // of the shared React Query cache, not a live observer of it) refetches
+  // without a full reload. Skip-first-run guard: the effect above already
+  // covers the mount fetch, so without the guard every mount would double-fetch
+  // (trigger starts at 0/undefined on the host page too, same shape as the
+  // once-per-load rsvpSyncedRef latch below).
+  const sharedItemsTriggerSkippedRef = useRef(false);
+  useEffect(() => {
+    if (!dataUserId) return;
+    if (!sharedItemsTriggerSkippedRef.current) {
+      sharedItemsTriggerSkippedRef.current = true;
+      return;
+    }
+    fetchSharedItems({ fresh: true });
+  }, [sharedItemsRefreshTrigger, dataUserId]);
 
   // Deferred RSVP sync: 3s pushes the 2.5-11s edge call past the login critical path
   // (first task card paints ~2.8s). Once per load via rsvpSyncedRef.
@@ -405,6 +440,24 @@ export const ProjectSidebar = ({
           if (updated.completed_at && !old?.completed_at) {
             // Don't show toast here — queued from state
           }
+          fetchSharedItems({ fresh: true });
+        }
+      )
+      // O7 (2026-08-26): a share THIS user sends (as sender) is now also
+      // caught live too, belt-and-braces coverage for a share made from another
+      // device or the MCP, which the sharedItemsRefreshTrigger prop plumbing
+      // (this same page's own share dialogs) cannot see. The deterministic
+      // fix is the trigger prop above; this spec must not depend on this
+      // realtime block firing.
+      .on(
+        'postgres_changes' as any,
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'focusos_shared_items',
+          filter: `sender_user_id=eq.${userId}`,
+        },
+        () => {
           fetchSharedItems({ fresh: true });
         }
       )
@@ -817,7 +870,10 @@ export const ProjectSidebar = ({
       await fetchProjects({ fresh: true });
       await fetchSharedItems({ fresh: true });
       await fetchMeetings({ fresh: true });
-      
+      // O7: accepting also flips this row's status server-side, which the
+      // sender's own senderSharedItems dataset (the pill) reads too.
+      onSenderSharedItemsChanged?.();
+
       // Navigate to the accepted item
       if (acceptedItem?.item_type === 'meeting' && data?.recipientTaskId) {
         // Navigate to the cloned meeting
@@ -858,6 +914,9 @@ export const ProjectSidebar = ({
       if (error) throw error;
       toast.success('Item declined');
       fetchSharedItems({ fresh: true });
+      // O7: declining flips this row's status server-side too, refresh the
+      // sender's pill dataset the same way accept does.
+      onSenderSharedItemsChanged?.();
     } catch (err) {
       console.error('Decline error:', err);
       toast.error('Failed to decline shared item');
@@ -902,6 +961,10 @@ export const ProjectSidebar = ({
         .eq('id', sharedItemId);
       toast.success('Shared item cancelled');
       fetchSharedItems({ fresh: true });
+      // O7 (2026-08-26) fix: cancelling only ever refreshed this drawer's own
+      // sharedItems state; the purple pill (Index/Home senderSharedItems)
+      // never heard about it, so it stayed on the task until reload.
+      onSenderSharedItemsChanged?.();
     } catch (err) {
       console.error('Cancel error:', err);
       toast.error('Failed to cancel shared item');
