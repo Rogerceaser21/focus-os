@@ -332,6 +332,17 @@ const Index = () => {
   const { preferences, loading: prefsLoading, updatePreferences, markOnboardingComplete, markTaskTourComplete, markProjectsTourComplete } = useUserPreferences(user?.id);
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  // O7 cross-page fix (skeptic residual, 2026-08-26): the trigger bump only
+  // reaches THIS page's drawer instance; another page's drawer mounts later
+  // with its own trigger at 0 and a non-fresh mount fetch that would serve
+  // the 5-minute-stale sharedItems cache (share here, then visit /home
+  // within 5 minutes: stale drawer there). Invalidating the shared key at
+  // share time makes every later non-fresh fetch, on any page, go to
+  // network, while this page's own drawer still updates through the trigger.
+  const noteShareEvent = useCallback(() => {
+    if (user?.id) void queryClient.invalidateQueries({ queryKey: appDataKeys.sharedItems(user.id) });
+    setSharedItemsRefreshTrigger(prev => prev + 1);
+  }, [user?.id, queryClient]);
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   // Sync sidebar state with screen size changes
@@ -3314,7 +3325,7 @@ https://www.skyscanner.com`,
                   // O2 2026-08-23: the Edit Task sheet's share icon only ever called
                   // this prop, which nothing wired up, so the purple pill needed a
                   // reload to appear. Same refresh the task-row share dialog uses.
-                  onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); setSharedItemsRefreshTrigger(prev => prev + 1); }}
+                  onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); noteShareEvent(); }}
                   sharedRecipients={senderSharedMap[editingTask.id]}
                   projects={projects}
                   currentUserId={user?.id}
@@ -3412,7 +3423,7 @@ https://www.skyscanner.com`,
           // O2 2026-08-23: the Edit Task sheet's share icon only ever called
           // this prop, which nothing wired up, so the purple pill needed a
           // reload to appear. Same refresh the task-row share dialog uses.
-          onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); setSharedItemsRefreshTrigger(prev => prev + 1); }}
+          onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); noteShareEvent(); }}
           sharedRecipients={senderSharedMap[editingTask.id]}
           projects={projects}
           currentUserId={user?.id}
@@ -3430,7 +3441,7 @@ https://www.skyscanner.com`,
         itemTitle={taskToShare?.title}
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
-        onShared={() => { fetchTasks(); fetchSenderSharedItems(); setSharedItemsRefreshTrigger(prev => prev + 1); }}
+        onShared={() => { fetchTasks(); fetchSenderSharedItems(); noteShareEvent(); }}
       />
       <ShareItemDialog
         itemType="project"
@@ -3440,7 +3451,7 @@ https://www.skyscanner.com`,
         // pill (drawer row + bar) needed a reload to appear after a share.
         open={shareProjectDialogOpen}
         onOpenChange={setShareProjectDialogOpen}
-        onShared={() => { fetchSenderSharedItems(); setSharedItemsRefreshTrigger(prev => prev + 1); }}
+        onShared={() => { fetchSenderSharedItems(); noteShareEvent(); }}
       />
 
       {/* Changes Needed Dialog */}

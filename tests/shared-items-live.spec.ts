@@ -703,3 +703,66 @@ test.describe('home mobile (393x852): warm cache from /app, first share still re
     expect(spaMarker, 'the journey must be reload-free end to end').toBe(true);
   });
 });
+
+// ---- Test G: the CROSS-PAGE variant (skeptic residual, 2026-08-26) ---------
+//
+// Same defect class as Test F but across pages: share on /home with that
+// page's drawer never opened, then SPA-navigate to /app. Index mounts with
+// its OWN trigger at 0 (per-page state cannot see another page's bumps), so
+// the last-handled-trigger guard correctly defers to the mount fetch, which
+// is non-fresh and, within 5 minutes of a warm cache, used to serve the
+// stale list. Fixed by invalidating appDataKeys.sharedItems at share time
+// (Index's noteShareEvent, Home's onAssigned): any later non-fresh fetch on
+// any page goes to network.
+
+test.describe('cross-page (393x852): share on /home, /app drawer shows it after SPA navigation', () => {
+  test.use({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true, actionTimeout: 15000 });
+
+  test('warm cache, share on /home, Today-nav to /app: the drawer row is there, fresh-fetched, no reload', async ({ page, request, context }) => {
+    test.setTimeout(120_000);
+    const s = await restSignIn(request);
+    const existing = await pickExistingOpenTask(request, s);
+    const fakeEmail = `o7-fake-${Date.now()}@example.invalid`;
+
+    const share = await installSharedItemsIntercepts(context, s);
+
+    await signIn(page);
+
+    // Warm the cache on /app first (same setup as Test F).
+    await page.goto(`${BASE}/app?view=${existing.projectId}`);
+    await expect.poll(() => share.getHits, {
+      message: 'the /app visit must warm the sharedItems cache',
+      timeout: 15000,
+    }).toBeGreaterThan(0);
+    await page.waitForTimeout(5000);
+
+    // SPA to /home, share with the /home drawer closed.
+    await page.evaluate(() => { (window as unknown as Record<string, unknown>).__o7SpaMarker = true; });
+    const fab = page.locator('.lg-fab-main');
+    await fab.click();
+    await fab.click();
+    await page.waitForURL('**/home', { timeout: 10000 });
+
+    const sheet = await openHomeTask(page, existing.taskTitle);
+    await shareFromDialog(page, sheet, fakeEmail);
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden({ timeout: 5000 });
+
+    // SPA back to /app via the bottom nav; Index remounts, its trigger is 0,
+    // and only the share-time invalidation forces the mount fetch to network.
+    const hitsBeforeReturn = share.getHits;
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await page.waitForURL('**/app**', { timeout: 10000 });
+    await expect.poll(() => share.getHits, {
+      message: 'the /app remount must refetch focusos_shared_items (share-time invalidation)',
+      timeout: 10000,
+    }).toBeGreaterThan(hitsBeforeReturn);
+
+    await openDrawer(page);
+    await expect(sharedItemsHeading(page)).toBeVisible({ timeout: 5000 });
+    await expect(sharedItemsCard(page, fakeEmail)).toBeVisible({ timeout: 5000 });
+
+    const spaMarker = await page.evaluate(() => (window as unknown as Record<string, unknown>).__o7SpaMarker);
+    expect(spaMarker, 'the journey must be reload-free end to end').toBe(true);
+  });
+});

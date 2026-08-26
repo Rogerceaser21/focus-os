@@ -1347,6 +1347,11 @@ const Home = () => {
         // shared key as the raw rows query above (O3 fix-round, 2026-08-23).
         onAssigned={() => {
           if (user) void queryClient.invalidateQueries({ queryKey: appDataKeys.senderSharedItems(user.id) });
+          // O7 cross-page fix (skeptic residual, 2026-08-26): also invalidate
+          // the drawer inbox key, so /app's sidebar mounting later (its own
+          // trigger starts at 0) refetches instead of serving the 5-minute
+          // cache. Same line, mirrored, in Index's noteShareEvent.
+          if (user) void queryClient.invalidateQueries({ queryKey: appDataKeys.sharedItems(user.id) });
           setSharedItemsRefreshTrigger(prev => prev + 1);
         }}
         onDeleteTask={(task) => handleDeleteTask(task.id)} />}
