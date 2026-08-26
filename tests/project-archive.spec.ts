@@ -73,15 +73,22 @@ const goToToday = async (page: Page) => {
 // only bars tasks with startDate && endDate — src/components/GanttChart.tsx),
 // which is what lets the Gantt check assert on the actual rendered bar. The
 // field is <Label/><Popover><trigger button/></Popover>; the day cell is a
-// button[role=gridcell] whose name is the day number, unique in the shown
-// month. One calendar is open at a time — the helper waits for the grid to open
-// and to close so a later field never sees two grids.
+// button[role=gridcell] whose name is the day number. NOT unique in the shown
+// grid on days 23 and up: the adjacent month's same day number can appear as a
+// greyed OUTSIDE day (Calendar's day_outside variant stamps it `day-outside`),
+// which strict mode trips over — this failed for real on the 26th (July 26 in
+// row 1 next to August 26). Exclude the outside cell explicitly. One calendar
+// is open at a time — the helper waits for the grid to open and to close so a
+// later field never sees two grids.
 const setDateToToday = async (page: Page, dialog: Locator, labelText: string) => {
   const day = String(new Date().getDate());
   await dialog.getByText(labelText, { exact: true }).locator('..').getByRole('button').first().click();
   const grid = page.getByRole('grid');
   await expect(grid).toBeVisible({ timeout: 5000 });
-  await grid.getByRole('gridcell', { name: day, exact: true }).click();
+  await grid
+    .getByRole('gridcell', { name: day, exact: true })
+    .and(page.locator(':not(.day-outside)'))
+    .click();
   // shadcn Calendar leaves the Popover open after select; close it and wait for
   // the grid to unmount before the next field opens its own.
   await page.keyboard.press('Escape');
