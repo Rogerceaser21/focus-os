@@ -163,7 +163,21 @@ const readBarGeometry = async (page: Page): Promise<BarGeometry> =>
 
     const nameGroup = bar.querySelector('.flex-1.min-w-0') as HTMLElement;
     const nameEl = bar.querySelector('[data-projects-tour-step="project-name"]') as HTMLElement;
-    const nameGroupFixed = Math.max(0, nameGroup.scrollWidth - nameEl.scrollWidth);
+    // O9 skeptic fix (2026-08-26): the original `nameGroup.scrollWidth -
+    // nameEl.scrollWidth` was self-referential — the group is flex-1, so when
+    // it is not overflowing, scrollWidth reports its INFLATED box (>= its
+    // clientWidth), which tracks the viewport, not the content. That made the
+    // oracle's reservedName echo whatever the DOM already showed, so the
+    // fold-count assertion could not catch a premature fold at any width
+    // (skeptic check 4: divergence from the true fixed cost up to 334px).
+    // Derive it the way the hook itself does: sum the shrink-0 non-name
+    // siblings' own rendered widths plus the group's column gaps.
+    const nameGroupChildren = Array.from(nameGroup.children);
+    const nameGroupGap = parseFloat(getComputedStyle(nameGroup).columnGap || '0') || 0;
+    const fixedChildrenWidth = nameGroupChildren
+      .filter((child) => child !== nameEl)
+      .reduce((sum, child) => sum + child.getBoundingClientRect().width, 0);
+    const nameGroupFixed = fixedChildrenWidth + Math.max(0, nameGroupChildren.length - 1) * nameGroupGap;
 
     const measure = bar.querySelector('[aria-hidden="true"]') as HTMLElement;
     const keyWidths: Record<string, number> = {};
@@ -342,6 +356,65 @@ test.describe('project bar: progressive overflow fold (O9)', () => {
     await page.setViewportSize({ width: LADDER[LADDER.length - 1], height: 900 });
     await expect.poll(async () => (await readBarGeometry(page)).moreVisible, { timeout: 8000 }).toBe(true);
     await assertTourDeleteAnchorVisible(page);
+  });
+
+  // O9 skeptic regression (2026-08-26): with the fold hook's name ref only on
+  // the display span, entering inline rename unmounted the observed node, the
+  // layout effect bailed and the ResizeObserver stayed disconnected — the
+  // fold froze for the whole edit, and a resize mid-rename clipped the action
+  // cluster ~137px past the bar edge (skeptic repro: rename at 1500, resize
+  // to 1024). The ref now rides the rename input too, so the fold keeps
+  // recomputing during the edit. READ-ONLY on the account: the rename is
+  // exited with Escape, which discards without saving.
+  test('keeps folding while the project name is being renamed', async ({ page }) => {
+    test.setTimeout(120_000);
+
+    await signIn(page);
+    await page.goto(`${BASE}/app`);
+    await selectProjectByName(page, PROJECT_NAME);
+
+    await page.setViewportSize({ width: 1500, height: 900 });
+    const nameSpan = page.locator('.lg-projbar [data-projects-tour-step="project-name"]');
+    await expect(nameSpan).toHaveText(PROJECT_NAME, { timeout: 10000 });
+
+    // Enter inline rename (the span becomes an Input; do NOT type — Escape
+    // later discards).
+    await nameSpan.click();
+    const renameInput = page.locator('.lg-projbar input');
+    await expect(renameInput).toBeVisible({ timeout: 5000 });
+    await expect(renameInput).toHaveValue(PROJECT_NAME);
+
+    // Shrink while the rename input is open: the fold must keep tracking.
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect
+      .poll(async () => (await readBarGeometry(page)).moreVisible, { timeout: 8000 })
+      .toBe(true);
+    const geo = await readBarGeometry(page);
+    for (const v of geo.visible) {
+      expect(
+        v.right,
+        `"${v.key}" must not clip past the bar edge while renaming`,
+      ).toBeLessThanOrEqual(geo.barBox.right + 0.5);
+    }
+    if (geo.moreBox) {
+      expect(geo.moreBox.right, 'the More trigger must not clip while renaming').toBeLessThanOrEqual(geo.barBox.right + 0.5);
+    }
+    // The rename input must remain usable, not crushed to a sliver.
+    const inputWidth = await renameInput.evaluate((el) => el.getBoundingClientRect().width);
+    expect(inputWidth, 'the rename input must keep a usable width').toBeGreaterThanOrEqual(60);
+
+    // Discard the rename; the bar must settle back to the same fold state a
+    // fresh load at this width produces.
+    await renameInput.press('Escape');
+    await expect(nameSpan).toHaveText(PROJECT_NAME, { timeout: 5000 });
+    await expect
+      .poll(async () => {
+        const g = await readBarGeometry(page);
+        const expected = computeExpectedFoldCount(g);
+        const domFolded = FOLD_ORDER.filter((k) => g.keyWidths[k] !== undefined).length - g.visible.length;
+        return domFolded === expected;
+      }, { timeout: 8000 })
+      .toBe(true);
   });
 });
 

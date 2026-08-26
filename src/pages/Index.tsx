@@ -2457,6 +2457,17 @@ https://www.skyscanner.com`,
 
             {isEditingProjectName && !isCollaborator ? (
               <Input
+                // O9 skeptic fix (2026-08-26): the fold hook's name ref must
+                // follow the name into its rename form. With the ref only on
+                // the display span, entering rename unmounted the observed
+                // node, the layout effect bailed on its null check and the
+                // ResizeObserver stayed disconnected, freezing the fold for
+                // the whole edit — a resize mid-rename clipped the action
+                // cluster ~137px past the bar edge (skeptic repro, 1500 to
+                // 1024). The hook only uses this node to exclude the flexible
+                // name from the fixed-sibling sum, so the input serves the
+                // same role.
+                ref={nameRef}
                 autoFocus
                 value={editedProjectName}
                 onChange={(e) => setEditedProjectName(e.target.value)}
