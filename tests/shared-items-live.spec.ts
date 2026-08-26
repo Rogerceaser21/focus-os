@@ -23,9 +23,9 @@
 // Neither this spec nor the fix depends on the belt-and-braces realtime block
 // firing; every assertion below is driven by the deterministic prop wiring.
 //
-// Run (own dev server, own config so the repo's playwright.config.ts webServer
-// on 8093 is never touched):
-//   WAVE_BASE_URL=http://localhost:8091 npx playwright test tests/shared-items-live.spec.ts --config=playwright.o7.config.ts
+// Run (against a running dev server; the repo config skips its own webServer
+// when WAVE_BASE_URL points elsewhere is NOT a given - drop the webServer block
+//   WAVE_BASE_URL=http://localhost:8080 npx playwright test tests/shared-items-live.spec.ts
 import { test, expect, type Page, type APIRequestContext, type BrowserContext } from '@playwright/test';
 
 const BASE = process.env.WAVE_BASE_URL ?? '';
@@ -629,5 +629,77 @@ test.describe('home mobile (393x852): cancelling a shared item removes the pill 
     await closeDrawer(page);
     const sheet2 = await openHomeTask(page, existing.taskTitle);
     await expect(sheet2.locator('span.break-words:visible').filter({ hasText: fakeEmail })).toHaveCount(0, { timeout: 5000 });
+  });
+});
+
+// ---- Test F: the warm-cache SPA journey (skeptic refutation, 2026-08-26) ----
+//
+// The first cut of the O7 fix used a skip-first-run guard, and the Fable
+// skeptic refuted it live on exactly this journey: visit /app first (the
+// non-overlay sidebar is armed from mount and warms appDataKeys.sharedItems),
+// SPA-navigate to /home (no reload, so the warm cache and all module state
+// survive), share while the /home drawer is still closed (unarmed), then open
+// the drawer. The unarmed trigger bump was swallowed by the guard and the
+// arming mount fetch served the 5-minute stale cache, so the session's FIRST
+// share never appeared without a reload - Igor's literal repro. The fix
+// replaces the boolean with a last-handled-trigger ref: arming onto a trigger
+// value this instance has never handled (and that is not the pristine 0)
+// fetches fresh. The four journeys above keep passing either way (their /home
+// tests land with a COLD cache, which is why they missed this); this test
+// pins the warm-cache path.
+
+test.describe('home mobile (393x852): warm cache from /app, first share still reaches the drawer', () => {
+  test.use({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true, actionTimeout: 15000 });
+
+  test('share with the drawer closed after an /app visit, then open it: the row is there, fresh-fetched, no reload', async ({ page, request, context }) => {
+    test.setTimeout(120_000);
+    const s = await restSignIn(request);
+    const existing = await pickExistingOpenTask(request, s);
+    const fakeEmail = `o7-fake-${Date.now()}@example.invalid`;
+
+    const share = await installSharedItemsIntercepts(context, s);
+
+    await signIn(page);
+
+    // Full load on /app: the always-armed non-overlay sidebar warms the
+    // sharedItems cache (wait for its GET), and a 5s dwell lets /app's own
+    // RSVP sync fire, closing syncRsvpThenRefresh's 60-second window so that
+    // side path cannot mask a stale drawer later (the skeptic proved the
+    // defect only reproduces once that rescue path is spent).
+    await page.goto(`${BASE}/app?view=${existing.projectId}`);
+    await expect.poll(() => share.getHits, {
+      message: 'the /app visit must warm the sharedItems cache',
+      timeout: 15000,
+    }).toBeGreaterThan(0);
+    await page.waitForTimeout(5000);
+
+    // SPA-navigate to /home: double-tap the record FAB (its documented
+    // double-tap gesture navigates /home through the router). The marker
+    // proves no full reload happened anywhere in the rest of the test.
+    await page.evaluate(() => { (window as unknown as Record<string, unknown>).__o7SpaMarker = true; });
+    const fab = page.locator('.lg-fab-main');
+    await fab.click();
+    await fab.click();
+    await page.waitForURL('**/home', { timeout: 10000 });
+
+    // Share while the /home drawer is closed and unarmed.
+    const sheet = await openHomeTask(page, existing.taskTitle);
+    await shareFromDialog(page, sheet, fakeEmail);
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden({ timeout: 5000 });
+
+    // Open the drawer: arming must fetch FRESH (a never-handled trigger),
+    // not serve the warm cache from the /app visit.
+    const hitsAtOpen = share.getHits;
+    await openDrawer(page);
+    await expect.poll(() => share.getHits, {
+      message: 'arming the drawer onto a missed share bump must fetch focusos_shared_items fresh',
+      timeout: 5000,
+    }).toBeGreaterThan(hitsAtOpen);
+    await expect(sharedItemsHeading(page)).toBeVisible({ timeout: 5000 });
+    await expect(sharedItemsCard(page, fakeEmail)).toBeVisible({ timeout: 5000 });
+
+    const spaMarker = await page.evaluate(() => (window as unknown as Record<string, unknown>).__o7SpaMarker);
+    expect(spaMarker, 'the journey must be reload-free end to end').toBe(true);
   });
 });

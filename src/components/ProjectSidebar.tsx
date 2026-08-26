@@ -346,17 +346,32 @@ export const ProjectSidebar = ({
   // share/assign event elsewhere (Edit Task sheet, project bar), so THIS
   // drawer's own Shared Items section (a local sharedItems useState mirror
   // of the shared React Query cache, not a live observer of it) refetches
-  // without a full reload. Skip-first-run guard: the effect above already
-  // covers the mount fetch, so without the guard every mount would double-fetch
-  // (trigger starts at 0/undefined on the host page too, same shape as the
-  // once-per-load rsvpSyncedRef latch below).
-  const sharedItemsTriggerSkippedRef = useRef(false);
+  // without a full reload.
+  //
+  // LAST-HANDLED-TRIGGER guard (skeptic fix, 2026-08-26). The first cut was a
+  // skip-first-run boolean, and the skeptic refuted it live: an overlay
+  // drawer starts UNARMED (dataArmed above), a share that happens while it
+  // is closed bumps the trigger, the unarmed run returns early WITHOUT
+  // consuming the guard, and at arming the guard swallows exactly that
+  // missed bump while the arming mount fetch (non-fresh) serves the
+  // 5-minute stale cache warmed by an earlier /app visit. Net effect: the
+  // session's first share never reached the /home drawer without a reload,
+  // Igor's literal repro. Tracking the last trigger VALUE this instance
+  // fetched for fixes the class: a mount (or arming) that sees a trigger it
+  // has never handled and that is not the pristine 0 means a bump happened
+  // while we could not fetch, so fetch fresh; a mount at 0 stays covered by
+  // the mount effect above (no double-fetch).
+  const sharedItemsLastTriggerRef = useRef<number | null>(null);
   useEffect(() => {
     if (!dataUserId) return;
-    if (!sharedItemsTriggerSkippedRef.current) {
-      sharedItemsTriggerSkippedRef.current = true;
+    const trigger = sharedItemsRefreshTrigger ?? 0;
+    if (sharedItemsLastTriggerRef.current === null && trigger === 0) {
+      // Pristine mount, nothing missed: the mount effect owns this fetch.
+      sharedItemsLastTriggerRef.current = 0;
       return;
     }
+    if (sharedItemsLastTriggerRef.current === trigger) return;
+    sharedItemsLastTriggerRef.current = trigger;
     fetchSharedItems({ fresh: true });
   }, [sharedItemsRefreshTrigger, dataUserId]);
 
