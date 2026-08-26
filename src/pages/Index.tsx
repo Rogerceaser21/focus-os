@@ -43,6 +43,7 @@ import HeroSection from '@/components/HeroSection';
 import { startOfDay, endOfDay } from 'date-fns';
 import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useProjectBarFold } from '@/hooks/useProjectBarFold';
 
 import BottomNav from '@/components/BottomNav';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
@@ -2295,6 +2296,28 @@ https://www.skyscanner.com`,
   const onebarTitle = onebarProject ? onebarProject.name : onebarSpecial ? onebarSpecial.label : 'All Tasks';
   const OnebarIcon = onebarSpecial?.Icon;
 
+  // O9 (2026-08-26): the desktop bar's secondary actions fold into the More
+  // menu ONE AT A TIME, least-used first, as real measured width runs out —
+  // see useProjectBarFold for why this is JS-measured rather than U1's single
+  // fixed CSS breakpoint. Called unconditionally at the top level (Rules of
+  // Hooks): `renderProjectBar` below is a plain closure, not a component, so
+  // the hook cannot live inside it. Derived the same way `onebarProject`
+  // above is (during render, no effect).
+  const barIsArchived = !!onebarProject?.archivedAt;
+  const barIsTopLevel = !onebarProject?.parentProjectId;
+  const BAR_FOLD_ORDER = ['delete', 'archive', 'moveTo', 'newSub', 'share', 'meetings', 'moveTasks'];
+  const barPresentKeys = new Set(['delete', 'archive', 'share', 'meetings', 'moveTasks']);
+  if (!barIsArchived) barPresentKeys.add('moveTo');
+  if (barIsTopLevel && !barIsArchived) barPresentKeys.add('newSub');
+  const barFoldOrderKeys = BAR_FOLD_ORDER.filter((k) => barPresentKeys.has(k));
+  const barFold = useProjectBarFold(barFoldOrderKeys, {
+    active: !!onebarProject && !onebarIsCollaborator,
+    // Forces a re-measure on project switch even when the candidate key set
+    // is unchanged (e.g. two top-level, non-archived projects) — see
+    // useProjectBarFold's contentKey note: ProjectMembersBar/badges can
+    // differ per project without any observed element's own box resizing.
+    contentKey: onebarProject?.id,
+  });
 
   // Project action bar — ONE implementation shared by the list and grid
   // branches (padding sweep 2026-07-26). The name never wraps: it truncates
@@ -2315,10 +2338,107 @@ https://www.skyscanner.com`,
     // Timer glow reads the same roll-up scope as the list (P4): a timer running
     // on a SUB's task lights the parent's bar, because that task is visible in
     // this view.
+    // O9 (2026-08-26): one definition per action, reused for the real bar
+    // button, its hidden measurer twin (useProjectBarFold needs a real pixel
+    // width for a folded action, and a folded action isn't in the live DOM to
+    // measure) and its More-menu row — so the three can never drift out of
+    // sync the way three hand-written copies would. Order here is DISPLAY
+    // order (left to right in the bar / top to bottom in the menu); fold
+    // PRIORITY order is separate (barFoldOrderKeys, computed above the return
+    // for the Rules-of-Hooks reason noted there) — least-used first: Delete,
+    // Archive, Move to..., New sub-project, Share, Meetings, Move Tasks last.
+    const barItems: Array<{
+      key: string;
+      icon: JSX.Element;
+      label: string;
+      onClick: () => void;
+      variant?: 'ghost' | 'secondary';
+      className: string;
+      spanClassName?: string;
+      testId?: string;
+      moreTestId: string;
+      destructive?: boolean;
+    }> = [
+      {
+        key: 'moveTasks',
+        icon: <ArrowUpDown className="h-4 w-4" />,
+        label: isReorderMode ? 'Done Moving' : 'Move Tasks',
+        onClick: () => setIsReorderMode(!isReorderMode),
+        variant: isReorderMode ? 'secondary' : 'ghost',
+        className: 'gap-1',
+        moreTestId: 'desktop-more-move-tasks',
+      },
+      {
+        key: 'meetings',
+        icon: <Mic className="h-4 w-4" />,
+        label: 'Meetings',
+        onClick: () => navigate(`/meetings?project=${selectedProjectId}`),
+        className: 'gap-1',
+        moreTestId: 'desktop-more-meetings',
+      },
+      {
+        key: 'share',
+        icon: <Share2 className="h-4 w-4" />,
+        label: 'Share',
+        onClick: () => setShareProjectDialogOpen(true),
+        className: 'gap-1 text-primary hover:text-primary/80 hover:bg-primary/10',
+        moreTestId: 'desktop-more-share',
+      },
+      // "New sub-project" only on a TOP-LEVEL project; hidden while archived.
+      ...(!currentProject.parentProjectId && !currentProject.archivedAt ? [{
+        key: 'newSub',
+        icon: <FolderPlus className="h-4 w-4" />,
+        label: 'New sub-project',
+        onClick: () => openNewSubProjectDialog(currentProject.id),
+        className: 'gap-1',
+        testId: 'desktop-new-sub',
+        moreTestId: 'desktop-more-new-sub',
+      }] : []),
+      ...(!currentProject.archivedAt ? [{
+        key: 'moveTo',
+        icon: <FolderKanban className="h-4 w-4" />,
+        label: 'Move to...',
+        onClick: () => setOnebarSheet('move'),
+        className: 'gap-1',
+        testId: 'desktop-move',
+        moreTestId: 'desktop-more-move',
+      }] : []),
+      currentProject.archivedAt ? {
+        key: 'archive',
+        icon: <ArchiveRestore className="h-4 w-4" />,
+        label: 'Restore',
+        onClick: handleRestoreProject,
+        className: 'gap-1',
+        testId: 'desktop-restore',
+        moreTestId: 'desktop-more-restore',
+      } : {
+        key: 'archive',
+        icon: <Archive className="h-4 w-4" />,
+        label: 'Archive',
+        onClick: () => setArchiveConfirmOpen(true),
+        className: 'gap-1',
+        testId: 'desktop-archive',
+        moreTestId: 'desktop-more-archive',
+      },
+      {
+        key: 'delete',
+        icon: <Trash2 className="h-4 w-4" />,
+        label: 'Delete',
+        onClick: () => setDeleteConfirmOpen(true),
+        className: 'text-destructive hover:text-destructive hover:bg-destructive/10',
+        spanClassName: 'ml-1',
+        destructive: true,
+        moreTestId: 'desktop-more-delete',
+      },
+    ];
+    const { rowRef, nameGroupRef, nameRef, measureRef, foldedKeys, hasFolded } = barFold;
+    const visibleItems = barItems.filter((item) => !foldedKeys.has(item.key));
+    const foldedItems = barItems.filter((item) => foldedKeys.has(item.key));
+
     return (
       <div className={`hidden lg:block w-full shrink-0 lg-projbar ${allTasks.some(t => isTaskInSelectedScope(t) && t.timer.isRunning) ? 'border-glow-pulse' : ''}`}>
-        <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+        <div ref={rowRef} className="relative flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2">
+          <div ref={nameGroupRef} className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <span className="hidden sm:inline shrink-0" style={{ color: currentProject.color }}>📁</span>
 
             {/* Sub-project breadcrumb, same derivation as the one-bar's
@@ -2345,6 +2465,7 @@ https://www.skyscanner.com`,
               />
             ) : (
               <span
+                ref={nameRef}
                 className={`font-semibold text-base truncate min-w-[4rem] ${!isCollaborator ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
                 style={{ color: currentProject.color }}
                 onClick={!isCollaborator ? handleStartEditingProject : undefined}
@@ -2389,115 +2510,66 @@ https://www.skyscanner.com`,
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {!isCollaborator && (
               <>
-                <Button
-                  variant={isReorderMode ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setIsReorderMode(!isReorderMode)}
-                  className="gap-1"
+                {/* Progressive fold (O9, 2026-08-26): each visible item here is
+                    exactly `barItems` minus whatever useProjectBarFold measured
+                    as not fitting — no CSS breakpoint, no post-paint fixup. */}
+                {visibleItems.map((item) => (
+                  <Button
+                    key={item.key}
+                    variant={item.variant ?? 'ghost'}
+                    size="sm"
+                    className={item.className}
+                    data-testid={item.testId}
+                    data-projects-tour-step={item.key === 'delete' ? 'delete-button' : undefined}
+                    onClick={item.onClick}
+                  >
+                    {item.icon}
+                    <span className={item.spanClassName}>{item.label}</span>
+                  </Button>
+                ))}
+
+                {/* Hidden measurer (position:absolute, visibility:hidden — takes
+                    real layout width but paints nothing and never receives
+                    input): the ONLY way to know a folded item's pixel width,
+                    since a folded item isn't rendered in the row above to
+                    measure directly. Same classes as the real buttons so the
+                    width matches to the pixel. Always renders every candidate,
+                    regardless of current fold state. */}
+                <div
+                  ref={measureRef}
+                  aria-hidden="true"
+                  style={{ position: 'absolute', top: 0, left: 0, visibility: 'hidden', pointerEvents: 'none', height: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                  <ArrowUpDown className="h-4 w-4" />
-                  <span>{isReorderMode ? 'Done Moving' : 'Move Tasks'}</span>
-                </Button>
-
-                {/* Two tiers of the SAME actions, container-queried (U1,
-                    2026-08-23): the 808px full row only fits once .lg-projbar
-                    itself has >= 1180px to work with (src/index.css owns the
-                    threshold via @container). Below that the row would either
-                    overflow the bar or crush the project name to 0px, so it
-                    collapses into a single "More" menu with identical items,
-                    handlers and conditional rendering instead. */}
-                <div className="projbar-full items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}
-                  >
-                    <Mic className="h-4 w-4" />
-                    <span>Meetings</span>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
-                    onClick={() => setShareProjectDialogOpen(true)}
-                  >
-                    <Share2 className="h-4 w-4" />
-                    <span>Share</span>
-                  </Button>
-
-                  {/* Sub-projects (P3), same pair the one-bar sheet offers and
-                      the same handlers. "New sub-project" only on a TOP-LEVEL
-                      project; both hidden while the project is archived. */}
-                  {!currentProject.parentProjectId && !currentProject.archivedAt && (
+                  {barItems.map((item) => (
                     <Button
-                      variant="ghost"
+                      key={item.key}
+                      data-fold-key={item.key}
+                      tabIndex={-1}
+                      variant={item.variant ?? 'ghost'}
                       size="sm"
-                      className="gap-1"
-                      data-testid="desktop-new-sub"
-                      onClick={() => openNewSubProjectDialog(currentProject.id)}
+                      className={item.className}
                     >
-                      <FolderPlus className="h-4 w-4" />
-                      <span>New sub-project</span>
+                      {item.icon}
+                      <span className={item.spanClassName}>{item.label}</span>
                     </Button>
-                  )}
-
-                  {!currentProject.archivedAt && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1"
-                      data-testid="desktop-move"
-                      onClick={() => setOnebarSheet('move')}
-                    >
-                      <FolderKanban className="h-4 w-4" />
-                      <span>Move to...</span>
-                    </Button>
-                  )}
-
-                  {currentProject.archivedAt ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1"
-                      data-testid="desktop-restore"
-                      onClick={handleRestoreProject}
-                    >
-                      <ArchiveRestore className="h-4 w-4" />
-                      <span>Restore</span>
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1"
-                      data-testid="desktop-archive"
-                      onClick={() => setArchiveConfirmOpen(true)}
-                    >
-                      <Archive className="h-4 w-4" />
-                      <span>Archive</span>
-                    </Button>
-                  )}
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    data-projects-tour-step="delete-button"
-                    onClick={() => setDeleteConfirmOpen(true)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="ml-1">Delete</span>
+                  ))}
+                  <Button data-fold-more tabIndex={-1} variant="ghost" size="sm" aria-label="More actions">
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </div>
 
-                {/* The More trigger carries the projects-tour delete anchor for
-                    the same reason the one-bar title wrapper does: in this tier
-                    the Delete button is display:none and the tour spotlight
-                    picks the first VISIBLE match, so the menu that holds Delete
-                    is the anchor (skeptic finding, U1, 2026-08-23). */}
-                <div className="projbar-more items-center gap-2">
+                {/* The More trigger only exists once something is folded, and
+                    whenever it exists Delete is guaranteed to be among the
+                    folded items (Delete folds first in barFoldOrderKeys), so
+                    the trigger is always the right element to carry the
+                    projects-tour delete anchor while it's up — same reason the
+                    mobile one-bar title wrapper does (U1, 2026-08-23; skeptic
+                    finding c558658). Because folding here is real React
+                    mount/unmount (not a CSS display swap), the existing
+                    MutationObserver in useTourSpotlight already re-resolves the
+                    target on this change; 92d40c5's resize-triggered
+                    re-resolve still runs too, belt and braces. */}
+                {hasFolded && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm" aria-label="More actions" data-testid="desktop-more" data-projects-tour-step="delete-button">
@@ -2505,53 +2577,20 @@ https://www.skyscanner.com`,
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48 bg-popover">
-                      <DropdownMenuItem data-testid="desktop-more-meetings" onClick={() => navigate(`/meetings?project=${selectedProjectId}`)}>
-                        <Mic className="h-4 w-4 mr-2" />
-                        Meetings
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem data-testid="desktop-more-share" onClick={() => setShareProjectDialogOpen(true)}>
-                        <Share2 className="h-4 w-4 mr-2" />
-                        Share
-                      </DropdownMenuItem>
-
-                      {!currentProject.parentProjectId && !currentProject.archivedAt && (
-                        <DropdownMenuItem data-testid="desktop-more-new-sub" onClick={() => openNewSubProjectDialog(currentProject.id)}>
-                          <FolderPlus className="h-4 w-4 mr-2" />
-                          New sub-project
+                      {foldedItems.map((item) => (
+                        <DropdownMenuItem
+                          key={item.key}
+                          data-testid={item.moreTestId}
+                          className={item.destructive ? 'text-destructive focus:text-destructive' : undefined}
+                          onClick={item.onClick}
+                        >
+                          {item.icon}
+                          <span className="ml-2">{item.label}</span>
                         </DropdownMenuItem>
-                      )}
-
-                      {!currentProject.archivedAt && (
-                        <DropdownMenuItem data-testid="desktop-more-move" onClick={() => setOnebarSheet('move')}>
-                          <FolderKanban className="h-4 w-4 mr-2" />
-                          Move to...
-                        </DropdownMenuItem>
-                      )}
-
-                      {currentProject.archivedAt ? (
-                        <DropdownMenuItem data-testid="desktop-more-restore" onClick={handleRestoreProject}>
-                          <ArchiveRestore className="h-4 w-4 mr-2" />
-                          Restore
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem data-testid="desktop-more-archive" onClick={() => setArchiveConfirmOpen(true)}>
-                          <Archive className="h-4 w-4 mr-2" />
-                          Archive
-                        </DropdownMenuItem>
-                      )}
-
-                      <DropdownMenuItem
-                        data-testid="desktop-more-delete"
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setDeleteConfirmOpen(true)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
+                      ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </div>
+                )}
               </>
             )}
           </div>

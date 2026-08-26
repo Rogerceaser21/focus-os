@@ -358,10 +358,20 @@ test.describe('desktop: share pills refresh live, no reload', () => {
       await page.locator('[data-side-panel] > div:first-child > button').click();
       await expect(pane).toBeHidden({ timeout: 5000 });
 
-      // ---- (b) Share the project from the bar (compact tier at 1280) --------
-      await page.getByTestId('desktop-more').click();
+      // ---- (b) Share the project from the bar ------------------------------
+      // O9 (2026-08-26): the bar folds progressively now, so at 1280 Share may
+      // sit in the bar itself or inside the More menu depending on measured
+      // width. Click it wherever it currently lives (U1's single breakpoint,
+      // which this test's original "compact tier at 1280" comment assumed, is
+      // gone).
       const hitsBeforeProjectShare = share.getHits;
-      await page.getByTestId('desktop-more-share').click();
+      const barShare = page.locator('.lg-projbar').getByRole('button', { name: 'Share', exact: true });
+      if (await barShare.isVisible()) {
+        await barShare.click();
+      } else {
+        await page.getByTestId('desktop-more').click();
+        await page.getByTestId('desktop-more-share').click();
+      }
 
       const projectShareDialog = page.getByRole('dialog', { name: 'Share Project' });
       await expect(projectShareDialog).toBeVisible({ timeout: 5000 });

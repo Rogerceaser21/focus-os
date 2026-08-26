@@ -1420,25 +1420,18 @@ html.shell.liquid-glass .lg-hero-col {
   padding: 2px 10px;
 }
 
-/* Bar as a container (U1, 2026-08-23): the full 7-button action row is 808px
-   and shrink-0, so below ~1400px windows it either overflows the bar or forces
-   the project name to 0px. Query the BAR's own inline size (not the window),
-   so the row switches to a "More" menu whenever it genuinely lacks room, on
-   any surface that carries .lg-projbar. */
-.lg-projbar {
-  container-type: inline-size;
-  container-name: projbar;
-}
-.lg-projbar .projbar-full { display: flex; }
-.lg-projbar .projbar-more { display: none; }
-/* Full row (808px) + 8px gap + ~116px rigid left content (emoji, gaps, Invite)
-   needs a >= 1180px container to leave the project name >= 200px; below that
-   the full row collapses the name toward 0px and clips off the bar's edge, so
-   swap to the "More" menu one tier down at the 1179/1180 boundary. */
-@container projbar (max-width: 1179px) {
-  .lg-projbar .projbar-full { display: none; }
-  .lg-projbar .projbar-more { display: flex; }
-}
+/* U1 (2026-08-23) folded the whole 7-button action row into a "More" menu at
+   ONE fixed @container breakpoint (1179px) here. O9 (2026-08-26) replaced it
+   with a PROGRESSIVE per-action fold — Igor's verdict was that one small
+   shrink made every secondary action vanish at once, and he wanted each one
+   to fold individually, only once it genuinely stops fitting. A fixed
+   breakpoint can't do that correctly (the row's required width depends on
+   the project name's length, member count, and archived/sub-project state,
+   none of which a single hand-picked number can track), so the fold is now
+   computed from real measured widths in JS (src/hooks/useProjectBarFold.ts,
+   wired into src/pages/Index.tsx's renderProjectBar) instead of CSS. This
+   rule block, and the .projbar-full/.projbar-more classes it targeted, are
+   gone with it — nothing in the JSX carries those classes any more. */
 
 /* inactive tab panels stay mounted; display utilities (grid) beat the UA [hidden]
    rule, so force them off */
