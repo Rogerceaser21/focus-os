@@ -485,6 +485,50 @@ test.describe('projects: manual order and pinning (hermetic)', () => {
       .toEqual(['Order P3', 'Order P1', 'Order P2', 'Order P4']);
   });
 
+  test('a pinned block is not a seam target: no drop line, no reorder writes (skeptic fix)', async ({
+    page,
+    context,
+  }) => {
+    // O8 skeptic refutation 2 (2026-08-28): with P2 pinned, dragging P4 to the
+    // edge band of the pinned block used to SHOW the drop line at the top of
+    // the drawer while the drop landed mid-list and rewrote the pinned row's
+    // own sort_order (reorderSiblings received sort-order space, not rendered
+    // order). Now: pinned blocks are seam-ineligible - no line, and the edge
+    // falls back to U2's whole-block NEST, exactly the pre-O8 gesture meaning.
+    test.setTimeout(120_000);
+    const rows = [
+      projectRow(1, { sort_order: 0 }),
+      projectRow(2, { sort_order: 1, pinned_at: new Date().toISOString() }),
+      projectRow(3, { sort_order: 2 }),
+      projectRow(4, { sort_order: 3 }),
+    ];
+    const writes: Write[] = [];
+    await installIntercepts(context, rows, writes);
+    await seedSession(page);
+    await openApp(page);
+
+    expect(await pinnedOrder(page)).toEqual(['Order P2']);
+    expect(await myProjectsOrder(page)).toEqual(['Order P1', 'Order P3', 'Order P4']);
+
+    const target = await blockOf(page, pid(2)).boundingBox();
+    expect(target, "the pinned P2 block must have a box").toBeTruthy();
+    await mouseDragTo(page, row(page, pid(4)), target!.x + target!.width / 2, target!.y + 5, {
+      beforeRelease: async () => {
+        // The honest affordance: no drop line anywhere on a pinned block's edge.
+        expect(await page.locator('[data-testid^="drop-line-"]').count()).toBe(0);
+      },
+    });
+
+    // The edge of a pinned block means NEST (U2 semantics), never a reorder:
+    // zero sort_order writes, the pinned row untouched, P4 now a sub of P2.
+    await expect
+      .poll(() => myProjectsOrder(page), { timeout: 10000 })
+      .toEqual(['Order P1', 'Order P3']);
+    expect(sortOrderWrites(writes)).toEqual({});
+    expect(rows.find((r) => r.id === pid(2))!.sort_order).toBe(1);
+    expect(rows.find((r) => r.id === pid(4))!.parent_project_id).toBe(pid(2));
+  });
+
   test('the same gesture inside a parent reorders its sub-projects only', async ({ page, context }) => {
     test.setTimeout(120_000);
     const rows = [
@@ -901,8 +945,34 @@ test.describe('live persistence (post-migration)', () => {
       if (Array.isArray(leftRows) && leftRows.length) {
         problems.push(`projects left behind: ${leftRows.map((p: any) => p.name).join(', ')}`);
       }
+
+      // O8 skeptic fix (2026-08-28): the drag above renormalised the WHOLE
+      // top-level sibling group, stamping sort_order onto the demo account's
+      // REAL projects - deleting the zz rows alone leaves the shared fixture
+      // permanently "hand-ordered" (and, with two real rows sharing a
+      // created_at, freezes their tie-break nondeterministically). Restore
+      // every remaining row to the pristine null/null baseline and ASSERT it.
+      const restore = await request.patch(
+        `${SUPABASE_URL}/rest/v1/focusos_projects?or=(sort_order.not.is.null,pinned_at.not.is.null)`,
+        {
+          headers: restHeaders(token, { Prefer: 'return=representation' }),
+          data: { sort_order: null, pinned_at: null },
+        },
+      );
+      if (!restore.ok()) problems.push(`restore PATCH failed: HTTP ${restore.status()}`);
+      const finalState = await request.get(
+        `${SUPABASE_URL}/rest/v1/focusos_projects?select=id,name,sort_order,pinned_at`,
+        { headers: restHeaders(token) },
+      );
+      const finalRows = await finalState.json();
+      const dirty = (Array.isArray(finalRows) ? finalRows : []).filter(
+        (p: any) => p.sort_order !== null || p.pinned_at !== null,
+      );
+      if (dirty.length) {
+        problems.push(`rows still ordered/pinned after restore: ${dirty.map((p: any) => p.name).join(', ')}`);
+      }
     }
 
-    expect(problems, 'the demo account must end exactly as it started').toEqual([]);
+    expect(problems, 'the demo account must end exactly as it started, all sort_order/pinned_at null').toEqual([]);
   });
 });

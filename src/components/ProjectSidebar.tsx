@@ -1462,7 +1462,17 @@ export const ProjectSidebar = ({
       // Only a TOP-LEVEL mover reorders against a top-level block, and never
       // against its own block. Everything else falls through to nesting, so U2's
       // drop-anywhere-on-the-group is untouched for those gestures.
-      if (movingParentId === null && parentId !== movingId && centreY !== null) {
+      //
+      // PINNED blocks are not seam targets, and a pinned block is not a seam
+      // mover (O8 skeptic fix, 2026-08-28): the Pinned group renders by
+      // pinned_at, not sort_order, so an edge band there would show a drop
+      // line promising a slot the drop cannot honour - the skeptic proved the
+      // line appearing above a pinned block while the row landed mid-list and
+      // the pinned row's own sort_order got rewritten. Nesting INTO a pinned
+      // project (row middle) stays.
+      const overParent = projects.find((p) => p.id === parentId);
+      const seamEligible = !moving.pinnedAt && overParent && !overParent.pinnedAt;
+      if (movingParentId === null && parentId !== movingId && centreY !== null && seamEligible) {
         const place = dropPlaceFor(centreY, over.rect, { allowNest: true });
         if (place !== 'nest') return { kind: 'reorder', targetId: parentId, place, groupParentId: null };
       }
@@ -1606,9 +1616,16 @@ export const ProjectSidebar = ({
     // The group is taken from the rendered tree, so "before"/"after" mean exactly
     // what the insert line showed.
     if (resolved.kind === 'reorder') {
+      // Top level hands reorderSiblings the RENDERED My Projects order
+      // (unpinnedTree), honouring its documented precondition - the full
+      // projectTree is sort-order space and includes pinned blocks that
+      // render elsewhere (O8 skeptic fix, 2026-08-28). Seam resolution above
+      // guarantees mover and target are both unpinned, so both are present
+      // in this group; pinned rows keep their own sort_order untouched,
+      // which is exactly the slot unpin returns them to.
       const group =
         resolved.groupParentId === null
-          ? projectTree.map((n) => n.parent)
+          ? unpinnedTree.map((n) => n.parent)
           : projectTree.find((n) => n.parent.id === resolved.groupParentId)?.subs ?? [];
       handleReorderProjects(reorderSiblings(group, movingId, resolved.targetId, resolved.place));
       return;
