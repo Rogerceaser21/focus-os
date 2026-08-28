@@ -14,7 +14,17 @@ import {
   isSubProject,
   type RawProjectRow,
 } from '@/lib/appDataFetchers';
-import { groupProjectTree, countSubProjects, projectMoveRefusal } from '@/lib/projectTree';
+import {
+  groupProjectTree,
+  countSubProjects,
+  projectMoveRefusal,
+  sortProjectTree,
+  splitPinnedTree,
+  reorderSiblings,
+  nextSiblingSortOrder,
+  dropPlaceFor,
+  type SiblingOrderUpdate,
+} from '@/lib/projectTree';
 import {
   DndContext,
   DragOverlay,
@@ -27,14 +37,18 @@ import {
   useDroppable,
   useSensor,
   useSensors,
+  type ClientRect,
+  type Collision,
   type CollisionDetection,
   type DragEndEvent,
+  type DragMoveEvent,
   type DragStartEvent,
+  type UniqueIdentifier,
 } from '@dnd-kit/core';
 import { Project } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList, Users, Clock, EyeOff, X, ArchiveRestore, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Folder, ListTodo, Calendar, HelpCircle, Mic, Search, Share2, CheckCircle2, XCircle, FileText, ClipboardList, Users, Clock, EyeOff, X, ArchiveRestore, ChevronDown, ChevronRight, Pin } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ShareStatusPopover, SharedRecipient } from './ShareStatusPopover';
 import { useNavigate } from 'react-router-dom';
@@ -62,6 +76,11 @@ let lastRsvpSyncAt = 0;
 // space, and make every id parseable back to a project id in onDragEnd.
 const DRAG_ID_PREFIX = 'proj-';
 const DROP_PARENT_PREFIX = 'drop-parent-';
+// O8: one droppable per SUB row, so a sub can be aimed at individually for a
+// reorder inside its parent. A drop that is NOT a sibling reorder still resolves
+// back to the sub's parent block, which is exactly what U2 did when the block
+// was the only target.
+const DROP_SUB_PREFIX = 'drop-sub-';
 const DROP_TOP_ID = 'drop-top';
 
 /**
@@ -101,11 +120,32 @@ class MousePointerSensor extends PointerSensor {
  * is the fallback for the keyboard/programmatic path, where there is no pointer.
  * Neither ever invents a target out of an empty drop.
  */
+const rectArea = (rects: Map<UniqueIdentifier, ClientRect>, id: UniqueIdentifier): number => {
+  const rect = rects.get(id);
+  return rect ? rect.width * rect.height : Number.MAX_SAFE_INTEGER;
+};
+
 const projectDropCollision: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
-  if (pointerCollisions.length > 0) return pointerCollisions;
+  // O8: a sub row sits INSIDE its parent's block, so a pointer over it is inside
+  // two targets at once. Smallest box wins, deterministically, instead of relying
+  // on pointerWithin's centre-distance tie-break: over a sub row that is the sub,
+  // over the parent row (which no sub covers) it is still the block.
+  if (pointerCollisions.length > 0) {
+    return [...pointerCollisions].sort(
+      (a: Collision, b: Collision) => rectArea(args.droppableRects, a.id) - rectArea(args.droppableRects, b.id),
+    );
+  }
   return rectIntersection(args);
 };
+
+/**
+ * What a drop would do: U2's "nest under this project" (targetParentId null =
+ * back to top level), or O8's "land in this seam between two siblings".
+ */
+type ResolvedDrop =
+  | { kind: 'nest'; targetParentId: string | null }
+  | { kind: 'reorder'; targetId: string; place: 'before' | 'after'; groupParentId: string | null };
 
 interface DraggableProjectRowProps {
   project: Project;
@@ -148,10 +188,28 @@ const DraggableProjectRow = ({ project, selected, dropTarget, className, onSelec
   );
 };
 
+/**
+ * The 2px bar that shows where a reordered row will land (O8). Absolutely
+ * positioned inside its already-laid-out wrapper, so it costs ZERO layout while
+ * dragging, and it is a plain static div: no transition, no keyframe, so no
+ * compositing layer is animated into existence (iOS Safari white-flash law).
+ * Pixel radius, never a percentage.
+ */
+const DropInsertLine = ({ where, testId }: { where: 'before' | 'after'; testId: string }) => (
+  <div
+    data-testid={testId}
+    aria-hidden="true"
+    className="pointer-events-none absolute left-2 right-2 h-[2px] rounded-[1px] bg-primary"
+    style={where === 'before' ? { top: -3 } : { bottom: -3 }}
+  />
+);
+
 interface ProjectDropBlockProps {
   parentId: string;
   canAccept: boolean;
   dataAttrs: Record<string, string>;
+  /** Reorder seam currently aimed at, or null when this block is not the target. */
+  insertLine: 'before' | 'after' | null;
   children: (dropTarget: boolean) => ReactNode;
 }
 
@@ -161,11 +219,36 @@ interface ProjectDropBlockProps {
  * where the user is looking. Render-prop so the row inside can wear the
  * highlight without the block having to know how a row is drawn.
  */
-const ProjectDropBlock = ({ parentId, canAccept, dataAttrs, children }: ProjectDropBlockProps) => {
+const ProjectDropBlock = ({ parentId, canAccept, dataAttrs, insertLine, children }: ProjectDropBlockProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: `${DROP_PARENT_PREFIX}${parentId}` });
   return (
-    <div ref={setNodeRef} className="w-full" {...dataAttrs}>
+    /* `relative` only anchors the insert line: with no offsets it changes no
+       geometry and creates no stacking context, so the block lays out exactly
+       as it did before O8. */
+    <div ref={setNodeRef} className="w-full relative" data-testid={`project-block-${parentId}`} {...dataAttrs}>
+      {insertLine && <DropInsertLine where={insertLine} testId={`drop-line-${insertLine}-${parentId}`} />}
       {children(isOver && canAccept)}
+    </div>
+  );
+};
+
+interface SubDropRowProps {
+  subId: string;
+  insertLine: 'before' | 'after' | null;
+  children: ReactNode;
+}
+
+/**
+ * One sub row's own droppable (O8). It wraps the SAME `pl-10` box P3 already
+ * rendered, so the tree's geometry is untouched; the only additions are the
+ * droppable ref and the insert line's anchor.
+ */
+const SubDropRow = ({ subId, insertLine, children }: SubDropRowProps) => {
+  const { setNodeRef } = useDroppable({ id: `${DROP_SUB_PREFIX}${subId}` });
+  return (
+    <div ref={setNodeRef} className="w-full pl-10 relative" data-testid={`tree-sub-${subId}`}>
+      {insertLine && <DropInsertLine where={insertLine} testId={`drop-line-${insertLine}-${subId}`} />}
+      {children}
     </div>
   );
 };
@@ -654,6 +737,10 @@ export const ProjectSidebar = ({
       name: p.name,
       color: p.color,
       parentProjectId: isSubProject(p) ? p.parent_project_id : null,
+      // O8: manual order + pin state ride along on every mapped row. loadProjects
+      // selects '*', so both arrive without touching the fetcher's projection.
+      sortOrder: p.sort_order ?? null,
+      pinnedAt: p.pinned_at ?? null,
       timer: { totalSeconds: 0, isRunning: false }
     })));
     setArchivedProjects(archivedOwn.map((p: RawProjectRow) => ({
@@ -662,6 +749,10 @@ export const ProjectSidebar = ({
       color: p.color,
       archivedAt: p.archived_at,
       parentProjectId: isSubProject(p) ? p.parent_project_id : null,
+      // Carried through the archive too: nothing clears sort_order, so a restored
+      // project comes back into the slot it was dragged to.
+      sortOrder: p.sort_order ?? null,
+      pinnedAt: p.pinned_at ?? null,
       timer: { totalSeconds: 0, isRunning: false }
     })));
 
@@ -1009,7 +1100,21 @@ export const ProjectSidebar = ({
 
   // The one-level tree "My Projects" renders: top-level rows, each carrying its
   // active subs. Pure function, so the grouping rules live in one testable place.
-  const projectTree = useMemo(() => groupProjectTree(projects), [projects]);
+  // O8 puts the manual order on top of that grouping, still during render and
+  // still pure: sortProjectTree orders the top-level rows against each other and
+  // each parent's subs against each other, both by sort_order with the unordered
+  // rows keeping their incoming position at the end.
+  const projectTree = useMemo(() => sortProjectTree(groupProjectTree(projects)), [projects]);
+
+  // The Pinned group (O8), derived from the same tree: a pinned top-level project
+  // floats up as its WHOLE block (subs travel with it, nothing is torn out of the
+  // tree), a pinned sub gets a flat shortcut row up top and still renders under
+  // its parent below. Unpinning drops the row straight back into its sort_order
+  // slot, because nothing about the order was changed by pinning.
+  const { pinned: pinnedEntries, rest: unpinnedTree } = useMemo(
+    () => splitPinnedTree(projectTree),
+    [projectTree],
+  );
 
   // Only reserve the chevron column once this account actually HAS a parent with
   // sub-projects. An account that never uses the feature renders its rows at
@@ -1079,9 +1184,24 @@ export const ProjectSidebar = ({
     // `.select()` so overlay mode can open the project it just created AND seed the
     // row into the shared cache (the same insert+select pattern as brainDumpSave.ts /
     // Index's demo projects). /app ignores the returned row and behaves as before.
+    // O8: a group that has ALREADY been ordered by hand gets the new row stamped
+    // at the end, so "new projects append" is literal there. A group nobody has
+    // reordered keeps sort_order null, which is what makes an account that never
+    // uses the feature render exactly as it did before O8.
+    const siblings = effectiveParentId
+      ? projects.filter((p) => p.parentProjectId === effectiveParentId)
+      : projects.filter((p) => !p.parentProjectId);
+    const sortOrder = nextSiblingSortOrder(siblings);
+
     const { data: created, error } = await (supabase as any)
       .from('focusos_projects')
-      .insert({ name, color, user_id: userId, parent_project_id: effectiveParentId })
+      .insert({
+        name,
+        color,
+        user_id: userId,
+        parent_project_id: effectiveParentId,
+        ...(sortOrder === null ? {} : { sort_order: sortOrder }),
+      })
       .select()
       .maybeSingle();
 
@@ -1235,6 +1355,15 @@ export const ProjectSidebar = ({
   // Enter/Space must keep SELECTING the project.
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
+  // O8: which seam the current drag is aiming at, or null while it is aiming at
+  // a row (U2's nest). STATE, not a ref, because the insert line is read DURING
+  // RENDER (render-phase law: a ref latch survives a discarded router transition
+  // while the queued setState dies with it).
+  const [dropIntent, setDropIntent] = useState<{ targetId: string; place: 'before' | 'after' } | null>(null);
+
+  // Serialises reorder writes so two quick drops can never land out of order.
+  const reorderChainRef = useRef<Promise<void>>(Promise.resolve());
+
   // Event-handler guards only. Refs are correct here (the render-phase laws ban
   // refs for latches READ DURING RENDER — activeDragId above is state for exactly
   // that reason; these two are read from pointer/click handlers only).
@@ -1287,6 +1416,106 @@ export const ProjectSidebar = ({
     (activeMover.parentProjectId ?? null) !== parentId &&
     !projects.find((p) => p.id === parentId)?.parentProjectId;
 
+  const stripDragPrefix = (id: string) =>
+    id.startsWith(DRAG_ID_PREFIX) ? id.slice(DRAG_ID_PREFIX.length) : id;
+
+  /**
+   * What the CURRENT drag would do if it were released now: nest the mover under
+   * a project (U2, unchanged) or drop it into a seam between two siblings (O8).
+   *
+   * Pure with respect to React: it reads the event's own measured rectangles and
+   * the projects list, nothing else, and is called from dnd-kit's move/end
+   * handlers only. The vertical reference is the dragged GHOST's centre, which is
+   * what the user actually sees following their finger, and it lives in the same
+   * coordinate system dnd-kit measures the drop targets in.
+   */
+  const resolveProjectDrop = (event: DragMoveEvent | DragEndEvent): ResolvedDrop | null => {
+    const { active, over } = event;
+    if (!over) return null;
+    const movingId = stripDragPrefix(String(active.id));
+    const moving = projects.find((p) => p.id === movingId);
+    if (!moving) return null;
+    const movingParentId = moving.parentProjectId ?? null;
+    const translated = active.rect.current.translated;
+    const centreY = translated ? translated.top + translated.height / 2 : null;
+    const overId = String(over.id);
+
+    if (overId === DROP_TOP_ID) return { kind: 'nest', targetParentId: null };
+
+    if (overId.startsWith(DROP_SUB_PREFIX)) {
+      const subId = overId.slice(DROP_SUB_PREFIX.length);
+      const sub = projects.find((p) => p.id === subId);
+      const subParentId = sub?.parentProjectId ?? null;
+      // Siblings under the same parent: the row splits in half, because nesting
+      // under a sub is illegal anyway (one level only).
+      if (sub && subParentId && subParentId === movingParentId && subId !== movingId && centreY !== null) {
+        const place = dropPlaceFor(centreY, over.rect, { allowNest: false });
+        if (place !== 'nest') return { kind: 'reorder', targetId: subId, place, groupParentId: subParentId };
+      }
+      // Anything else keeps U2's behaviour exactly: before O8 the whole block was
+      // the only target, so a drop on one of its subs meant "nest under the parent".
+      return { kind: 'nest', targetParentId: subParentId };
+    }
+
+    if (overId.startsWith(DROP_PARENT_PREFIX)) {
+      const parentId = overId.slice(DROP_PARENT_PREFIX.length);
+      // Only a TOP-LEVEL mover reorders against a top-level block, and never
+      // against its own block. Everything else falls through to nesting, so U2's
+      // drop-anywhere-on-the-group is untouched for those gestures.
+      if (movingParentId === null && parentId !== movingId && centreY !== null) {
+        const place = dropPlaceFor(centreY, over.rect, { allowNest: true });
+        if (place !== 'nest') return { kind: 'reorder', targetId: parentId, place, groupParentId: null };
+      }
+      return { kind: 'nest', targetParentId: parentId };
+    }
+
+    return null;
+  };
+
+  /**
+   * Persist a renormalised sibling group (O8). Optimistic first so the row lands
+   * under the finger with no round trip, then ONE PATCH per row whose position
+   * actually changed, serialised through reorderChainRef. A failure restores the
+   * truth with a fresh refetch rather than leaving the optimistic order standing.
+   */
+  const handleReorderProjects = (updates: SiblingOrderUpdate[]) => {
+    if (updates.length === 0) return; // no-op drop: nothing written, nothing said
+    const currentById = new Map(projects.map((p) => [p.id, p]));
+    const changed = updates.filter((u) => (currentById.get(u.id)?.sortOrder ?? null) !== u.sortOrder);
+    if (changed.length === 0) return;
+    const orderById = new Map(updates.map((u) => [u.id, u.sortOrder]));
+
+    setProjects((prev) =>
+      prev.map((p) => (orderById.has(p.id) ? { ...p, sortOrder: orderById.get(p.id)! } : p)),
+    );
+    // Patch the SHARED cache too (never fabricate one that was never fetched), so
+    // the host-page drawer and Index read the same order before any refetch.
+    if (userId) {
+      queryClient.setQueryData(appDataKeys.projects(userId), (prev: any[] | undefined) =>
+        prev
+          ? prev.map((row: any) => (orderById.has(row.id) ? { ...row, sort_order: orderById.get(row.id) } : row))
+          : prev,
+      );
+    }
+
+    reorderChainRef.current = reorderChainRef.current.then(async () => {
+      try {
+        const results = await Promise.all(
+          changed.map((u) =>
+            (supabase as any).from('focusos_projects').update({ sort_order: u.sortOrder }).eq('id', u.id),
+          ),
+        );
+        const failed = results.find((r: any) => r?.error);
+        if (failed) throw failed.error;
+        onProjectCreated?.();
+      } catch (error) {
+        console.error('[ProjectSidebar] Failed to reorder projects:', error);
+        toast.error('Failed to save the new order');
+        await fetchProjects({ fresh: true });
+      }
+    });
+  };
+
   // The write. Same shape as handleRestoreProject above (drawer-owned supabase
   // update -> toast -> fresh refetch -> onProjectCreated, which bumps Index's
   // projectRefreshTrigger so its own project list and the report copy follow),
@@ -1317,9 +1546,22 @@ export const ProjectSidebar = ({
     setActiveDragId(String(event.active.id));
   };
 
+  const handleProjectDragMove = (event: DragMoveEvent) => {
+    const resolved = resolveProjectDrop(event);
+    const next = resolved && resolved.kind === 'reorder'
+      ? { targetId: resolved.targetId, place: resolved.place }
+      : null;
+    setDropIntent((prev) => {
+      if (!prev && !next) return prev;
+      if (prev && next && prev.targetId === next.targetId && prev.place === next.place) return prev;
+      return next;
+    });
+  };
+
   const endProjectDrag = () => {
     dragActiveRef.current = false;
     setActiveDragId(null);
+    setDropIntent(null);
     // dnd-kit already stops the trailing click at document capture (it adds a
     // capture-phase click blocker on activation and drops it ~50ms after the
     // drop). This latch is the belt for that seam, cleared on the next tick so
@@ -1330,6 +1572,10 @@ export const ProjectSidebar = ({
 
   const handleProjectDragEnd = (event: DragEndEvent) => {
     const { active, over, delta } = event;
+    // Resolved BEFORE the state teardown: it reads the event's own rectangles, so
+    // clearing activeDragId first would not change the answer, but keeping the
+    // order explicit keeps the two independent.
+    const resolved = resolveProjectDrop(event);
     endProjectDrag();
 
     const activeIdStr = String(active.id);
@@ -1351,16 +1597,24 @@ export const ProjectSidebar = ({
       return;
     }
 
-    if (!over) return; // released outside every drop target: nothing is written
-
-    const overId = String(over.id);
-    let targetParentId: string | null;
-    if (overId === DROP_TOP_ID) targetParentId = null;
-    else if (overId.startsWith(DROP_PARENT_PREFIX)) targetParentId = overId.slice(DROP_PARENT_PREFIX.length);
-    else return;
+    if (!over || !resolved) return; // released outside every drop target: nothing is written
 
     const moving = projects.find((p) => p.id === movingId);
     if (!moving) return;
+
+    // O8, a seam between two siblings: renormalise that ONE group and write it.
+    // The group is taken from the rendered tree, so "before"/"after" mean exactly
+    // what the insert line showed.
+    if (resolved.kind === 'reorder') {
+      const group =
+        resolved.groupParentId === null
+          ? projectTree.map((n) => n.parent)
+          : projectTree.find((n) => n.parent.id === resolved.groupParentId)?.subs ?? [];
+      handleReorderProjects(reorderSiblings(group, movingId, resolved.targetId, resolved.place));
+      return;
+    }
+
+    const targetParentId = resolved.targetParentId;
 
     // SILENT no-ops: nothing changed, so nothing is written and nothing is said.
     // Covers a row dropped on its own block, a sub dropped back on its current
@@ -1386,6 +1640,113 @@ export const ProjectSidebar = ({
     }
     handleSelectProject(projectId);
     if (isMobile) setOpenMobile(false);
+  };
+
+  // Rows rendered under the "My Projects" heading: every top-level node plus its
+  // subs. Identical to projects.length while nothing is pinned, because each
+  // project appears in the tree exactly once.
+  const myProjectsRowCount = unpinnedTree.reduce((n, node) => n + 1 + node.subs.length, 0);
+
+  // The reorder seam this row is currently wearing, DERIVED during render from
+  // dropIntent. Nothing is corrected after paint.
+  const insertLineFor = (id: string): 'before' | 'after' | null =>
+    dropIntent && dropIntent.targetId === id ? dropIntent.place : null;
+
+  /**
+   * One top-level block: the row itself, its chevron, its share pill and its
+   * expanded subs. A plain render helper rather than a component, so the Pinned
+   * group and "My Projects" render the SAME markup from the same place (a pinned
+   * parent keeps its tree when it floats up).
+   */
+  const renderProjectBlock = (node: { parent: Project; subs: Project[] }) => {
+    const project = node.parent;
+    const subs = node.subs;
+    const dataAttrs =
+      selectedProjectId === project.id && project.name.startsWith('Demo Project')
+        ? { 'data-projects-tour-step': 'demo-project' as const }
+        : {};
+    // Default OPEN: a parent's subs are visible unless the user has explicitly
+    // collapsed that parent (the collapse is what gets persisted). Anything else
+    // makes a just-created or just-moved sub vanish into a closed row and read as
+    // a bug.
+    const isOpen = treeOpen[project.id] ?? true;
+    return (
+      <ProjectDropBlock
+        key={project.id}
+        parentId={project.id}
+        canAccept={canDropUnder(project.id)}
+        dataAttrs={dataAttrs}
+        insertLine={insertLineFor(project.id)}
+      >
+        {(dropTarget) => (
+          <>
+            <div className="w-full flex items-center gap-1">
+              {/* Chevron expand — SAME control the Archived section uses (plain
+                  button, ChevronDown/ChevronRight, aria-expanded), only rendered
+                  for a parent that actually has sub-projects. Sibling of the row
+                  button, never nested inside it. No animation: the subs are a
+                  plain conditional render, so no compositing layer is created
+                  while anything moves (iOS Safari law). */}
+              {subs.length === 0 && treeGutter && (
+                <span className="shrink-0 w-[22px]" aria-hidden="true" />
+              )}
+              {subs.length > 0 && (
+                <button
+                  type="button"
+                  data-testid={`tree-toggle-${project.id}`}
+                  aria-expanded={isOpen}
+                  /* NOTE: the accessible name must NOT contain the word
+                     "projects" — the drawer itself is aria-label="Projects" and
+                     the BottomNav has a "Projects" button, so any substring match
+                     would become ambiguous. */
+                  aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${project.name}`}
+                  className="shrink-0 p-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => toggleTreeOpen(project.id)}
+                >
+                  {isOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                </button>
+              )}
+              <DraggableProjectRow
+                project={project}
+                selected={selectedProjectId === project.id}
+                dropTarget={dropTarget}
+                className="flex-1 justify-start gap-2 min-w-0"
+                onSelect={() => handleProjectRowClick(project.id)}
+              />
+            </div>
+            {senderProjectSharedMap[project.id] && (
+              <div className="ml-8 mt-0.5 mb-1">
+                <ShareStatusPopover recipients={senderProjectSharedMap[project.id]} itemType="Project" />
+              </div>
+            )}
+            {subs.length > 0 && isOpen && (
+              <div className="mt-1 space-y-1" data-testid={`tree-subs-${project.id}`}>
+                {subs.map((sub) => (
+                  <SubDropRow key={sub.id} subId={sub.id} insertLine={insertLineFor(sub.id)}>
+                    <DraggableProjectRow
+                      project={sub}
+                      selected={selectedProjectId === sub.id}
+                      dropTarget={false}
+                      className="w-full justify-start gap-2 min-w-0"
+                      onSelect={() => handleProjectRowClick(sub.id)}
+                    />
+                    {senderProjectSharedMap[sub.id] && (
+                      <div className="ml-8 mt-0.5 mb-1">
+                        <ShareStatusPopover recipients={senderProjectSharedMap[sub.id]} itemType="Project" />
+                      </div>
+                    )}
+                  </SubDropRow>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </ProjectDropBlock>
+    );
   };
 
   // The ghost that follows the finger. A plain copy of the row (folder mark in
@@ -2010,8 +2371,11 @@ export const ProjectSidebar = ({
             {projects.length > 0 && (
               /* U2 — drag a project row onto another project's block to nest it,
                  or onto the "My Projects" heading to bring it back to top level.
-                 The DndContext wraps ONLY this block: shared projects and the
-                 archived section are neither movers nor targets. */
+                 O8 adds the seam: aim at the thin band at a block's top or bottom
+                 edge (or either half of a sub row) and the row lands BETWEEN its
+                 siblings instead, which is what persists sort_order.
+                 The DndContext wraps the Pinned group AND "My Projects": shared
+                 projects and the archived section are neither movers nor targets. */
               <DndContext
                 sensors={dragSensors}
                 collisionDetection={projectDropCollision}
@@ -2023,106 +2387,53 @@ export const ProjectSidebar = ({
                 accessibility={{
                   screenReaderInstructions: {
                     draggable:
-                      'Press and hold, then drag this project onto another project to make it a sub-project, or onto the My Projects heading to move it to the top level. Keyboard users can use Move to... in the project actions instead.',
+                      'Press and hold, then drag this project onto another project to make it a sub-project, onto the gap between two projects to reorder them, or onto the My Projects heading to move it to the top level. Keyboard users can use Move to... in the project actions instead.',
                   },
                 }}
                 onDragStart={handleProjectDragStart}
+                onDragMove={handleProjectDragMove}
                 onDragEnd={handleProjectDragEnd}
                 onDragCancel={endProjectDrag}
               >
+              {/* Pinned (O8): the same heading shape the Shared Projects section
+                  uses, nothing new invented. A pinned top-level project brings its
+                  whole block up here; a pinned sub gets a flat shortcut row and
+                  still renders under its parent below. */}
+              {pinnedEntries.length > 0 && (
+                <div className="mt-3 px-2" data-testid="pinned-projects">
+                  <div className="px-2 mb-2">
+                    <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                      <Pin className="h-3.5 w-3.5" />
+                      Pinned ({pinnedEntries.length})
+                    </h3>
+                  </div>
+                  <div className="space-y-1" data-testid="pinned-projects-list">
+                    {pinnedEntries.map((entry) =>
+                      entry.kind === 'block' ? (
+                        renderProjectBlock(entry.node)
+                      ) : (
+                        <Button
+                          key={`pinned-${entry.project.id}`}
+                          variant={selectedProjectId === entry.project.id ? 'secondary' : 'ghost'}
+                          className="w-full justify-start gap-2"
+                          data-testid={`pinned-row-${entry.project.id}`}
+                          onClick={() => {
+                            handleSelectProject(entry.project.id);
+                            if (isMobile) setOpenMobile(false);
+                          }}
+                        >
+                          <Folder className="h-4 w-4" style={{ color: entry.project.color }} />
+                          <span className="truncate">{entry.project.name}</span>
+                        </Button>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="mt-4">
-                <ProjectsHeaderDrop count={projects.length} canAccept={canDropAtTopLevel} />
-                <div className="px-2 space-y-1">
-                  {projectTree.map(({ parent: project, subs }) => {
-                    const dataAttrs =
-                      selectedProjectId === project.id && project.name.startsWith('Demo Project')
-                        ? { 'data-projects-tour-step': 'demo-project' as const }
-                        : {};
-                    // Default OPEN: a parent's subs are visible unless the
-                    // user has explicitly collapsed that parent (the collapse is
-                    // what gets persisted). Anything else makes a just-created or
-                    // just-moved sub vanish into a closed row and read as a bug.
-                    const isOpen = treeOpen[project.id] ?? true;
-                    return (
-                      <ProjectDropBlock
-                        key={project.id}
-                        parentId={project.id}
-                        canAccept={canDropUnder(project.id)}
-                        dataAttrs={dataAttrs}
-                      >
-                        {(dropTarget) => (
-                      <>
-                        <div className="w-full flex items-center gap-1">
-                          {/* Chevron expand — SAME control the Archived section
-                              uses (plain button, ChevronDown/ChevronRight,
-                              aria-expanded), only rendered for a parent that
-                              actually has sub-projects. Sibling of the row
-                              button, never nested inside it. No animation: the
-                              subs are a plain conditional render, so no
-                              compositing layer is created while anything moves
-                              (iOS Safari law). */}
-                          {subs.length === 0 && treeGutter && (
-                            <span className="shrink-0 w-[22px]" aria-hidden="true" />
-                          )}
-                          {subs.length > 0 && (
-                            <button
-                              type="button"
-                              data-testid={`tree-toggle-${project.id}`}
-                              aria-expanded={isOpen}
-                              /* NOTE: the accessible name must NOT contain the
-                                 word "projects" — the drawer itself is
-                                 aria-label="Projects" and the BottomNav has a
-                                 "Projects" button, so any substring match would
-                                 become ambiguous. */
-                              aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${project.name}`}
-                              className="shrink-0 p-1 text-muted-foreground hover:text-foreground"
-                              onClick={() => toggleTreeOpen(project.id)}
-                            >
-                              {isOpen ? (
-                                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                              ) : (
-                                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                              )}
-                            </button>
-                          )}
-                          <DraggableProjectRow
-                            project={project}
-                            selected={selectedProjectId === project.id}
-                            dropTarget={dropTarget}
-                            className="flex-1 justify-start gap-2 min-w-0"
-                            onSelect={() => handleProjectRowClick(project.id)}
-                          />
-                        </div>
-                        {senderProjectSharedMap[project.id] && (
-                          <div className="ml-8 mt-0.5 mb-1">
-                            <ShareStatusPopover recipients={senderProjectSharedMap[project.id]} itemType="Project" />
-                          </div>
-                        )}
-                        {subs.length > 0 && isOpen && (
-                          <div className="mt-1 space-y-1" data-testid={`tree-subs-${project.id}`}>
-                            {subs.map((sub) => (
-                              <div key={sub.id} className="w-full pl-10" data-testid={`tree-sub-${sub.id}`}>
-                                <DraggableProjectRow
-                                  project={sub}
-                                  selected={selectedProjectId === sub.id}
-                                  dropTarget={false}
-                                  className="w-full justify-start gap-2 min-w-0"
-                                  onSelect={() => handleProjectRowClick(sub.id)}
-                                />
-                                {senderProjectSharedMap[sub.id] && (
-                                  <div className="ml-8 mt-0.5 mb-1">
-                                    <ShareStatusPopover recipients={senderProjectSharedMap[sub.id]} itemType="Project" />
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                        )}
-                      </ProjectDropBlock>
-                    );
-                  })}
+                <ProjectsHeaderDrop count={myProjectsRowCount} canAccept={canDropAtTopLevel} />
+                <div className="px-2 space-y-1" data-testid="my-projects-list">
+                  {unpinnedTree.map((node) => renderProjectBlock(node))}
                 </div>
               </div>
               {/* The ghost MUST be portalled to <body>: DragOverlay is

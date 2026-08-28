@@ -375,6 +375,8 @@ export interface RawProjectRow {
   user_id?: string;
   archived_at?: string | null;
   parent_project_id?: string | null;
+  sort_order?: number | null;
+  pinned_at?: string | null;
 }
 
 // Single choke point for "is this raw focusos_projects row archived". loadProjects

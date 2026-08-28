@@ -48,4 +48,13 @@ export interface Project {
    * sharing are all unchanged by this field. Shared projects are always
    * rendered flat in a member's drawer, whatever it holds. */
   parentProjectId?: string | null;
+  /** Manual position inside this project's SIBLING group (the top level, or the
+   * subs of one parent), or null/undefined when it has never been dragged into
+   * place. Null sorts after every ordered sibling - see compareSiblingOrder in
+   * src/lib/projectTree.ts, which every list derives its order from. */
+  sortOrder?: number | null;
+  /** ISO timestamp of when the project was pinned to the top of the drawer, or
+   * null/undefined when it is not pinned. At most PIN_LIMIT rows per account
+   * (projects and sub-projects together). */
+  pinnedAt?: string | null;
 }

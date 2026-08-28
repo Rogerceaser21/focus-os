@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { TouchDialog, TouchDialogContent, TouchSheet, TouchSheetContent } from '@/components/ui/touch-dialog';
-import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X, Archive, ArchiveRestore, Folder, FolderPlus, MoreHorizontal } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, GanttChartSquare, Clock, LogOut, FolderKanban, ListChecks, Calendar, Settings, Eye, ChevronDown, Check, Trash2, Mic, ArrowUpDown, Share2, Plus, AlertTriangle, UserPlus, Pencil, X, Archive, ArchiveRestore, Folder, FolderPlus, MoreHorizontal, Pin, PinOff } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   DropdownMenu,
@@ -73,7 +73,14 @@ import {
   isSubProject,
   type RawProjectRow,
 } from '@/lib/appDataFetchers';
-import { subProjectIdsOf, projectMoveRefusal } from '@/lib/projectTree';
+import {
+  subProjectIdsOf,
+  projectMoveRefusal,
+  sortProjectsForDisplay,
+  countPinned,
+  PIN_LIMIT,
+  PIN_LIMIT_MESSAGE,
+} from '@/lib/projectTree';
 import { buildSenderSharedMaps, type RawSharedItemRow } from '@/lib/sharedItems';
 import { TaskListSkeleton, AppBootSkeleton, LoadErrorPanel } from '@/components/AppSkeletons';
 
@@ -433,6 +440,11 @@ const Index = () => {
       userId: p.user_id,
       archivedAt: p.archived_at ?? null,
       parentProjectId: isSubProject(p) ? p.parent_project_id : null,
+      // O8: the manual position inside this row's sibling group, and its pin
+      // state. Every list derives its order from these during render (see
+      // sortProjectsForDisplay), so no surface reorders anything after paint.
+      sortOrder: p.sort_order ?? null,
+      pinnedAt: p.pinned_at ?? null,
       timer: {
         totalSeconds: 0,
         isRunning: false
@@ -2052,7 +2064,10 @@ https://www.skyscanner.com`,
     try {
       const { error } = await (supabase as any)
         .from('focusos_projects')
-        .update({ archived_at: archivedAt })
+        // The pin goes with it (O8): an archived project leaves the drawer's
+        // active list entirely, so leaving it pinned would hold a slot of the
+        // 5-pin cap that nothing on screen can show or release.
+        .update({ archived_at: archivedAt, pinned_at: null })
         .or(`id.eq.${targetId},parent_project_id.eq.${targetId}`);
 
       if (error) throw error;
@@ -2061,7 +2076,7 @@ https://www.skyscanner.com`,
       // full report-facing list so TimeTrackingChart still resolves its name.
       setProjects(projects.filter(p => !cascadeIds.has(p.id)));
       setAllProjectsForReports(prev => prev.map(p =>
-        cascadeIds.has(p.id) ? { ...p, archivedAt } : p
+        cascadeIds.has(p.id) ? { ...p, archivedAt, pinnedAt: null } : p
       ));
 
       // Reset selection to "Today" view — mirrors handleDeleteProject; an
@@ -2182,6 +2197,47 @@ https://www.skyscanner.com`,
     }
   };
 
+  // Pin / unpin (O8): the drawer floats pinned projects into their own group at
+  // the top. Same local-state + fresh-refetch + trigger-bump sequencing as
+  // handleMoveProject above, and the same two-toast shape, so pinning is
+  // indistinguishable from every other project action once the write lands.
+  const handleTogglePin = async () => {
+    if (!selectedProjectId) return;
+    const project = projects.find(p => p.id === selectedProjectId);
+    if (!project) return;
+    const nextPinnedAt = project.pinnedAt ? null : new Date().toISOString();
+
+    // The cap counts projects and sub-projects TOGETHER, over the active list,
+    // which is exactly what the drawer renders in its Pinned group. Refused
+    // BEFORE any database write, so nothing is half-applied.
+    if (nextPinnedAt && countPinned(projects) >= PIN_LIMIT) {
+      toast.error(PIN_LIMIT_MESSAGE);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('focusos_projects')
+        .update({ pinned_at: nextPinnedAt })
+        .eq('id', selectedProjectId);
+
+      if (error) throw error;
+
+      setProjects(projects.map(p => (p.id === selectedProjectId ? { ...p, pinnedAt: nextPinnedAt } : p)));
+      setAllProjectsForReports(allProjectsForReports.map(p =>
+        p.id === selectedProjectId ? { ...p, pinnedAt: nextPinnedAt } : p
+      ));
+
+      await fetchProjects();
+      setProjectRefreshTrigger(prev => prev + 1);
+
+      toast.success(nextPinnedAt ? `Pinned ${project.name}` : `Unpinned ${project.name}`);
+    } catch (error) {
+      console.error('Error pinning project:', error);
+      toast.error('Failed to pin project');
+    }
+  };
+
   const getSelectedProjectName = (): string => {
     if (selectedSpecialList === 'today') return "Today's To-Do";
     if (selectedSpecialList === 'past-due') return "Past Due";
@@ -2281,6 +2337,12 @@ https://www.skyscanner.com`,
     'in-progress': sortedTasks.filter(t => t.status === 'in-progress').length,
     'completed': sortedTasks.filter(t => t.status === 'completed').length,
   };
+  // O8, the one ordered list every project picker on this page renders: pinned
+  // first (in pin order), then each sibling group in its manual sort_order, each
+  // parent immediately followed by its own subs. Derived DURING RENDER from the
+  // fetched rows, so the drawer, this bar's Move to... sheet and the task
+  // dialog's picker can never disagree.
+  const orderedProjects = useMemo(() => sortProjectsForDisplay(projects), [projects]);
   // Archived-inclusive lookup (allProjectsForReports, not the active-only
   // `projects`): once a project is archived it's no longer selectable from the
   // drawer, but it stays the SELECTED one until the user navigates away, so
@@ -2298,7 +2360,7 @@ https://www.skyscanner.com`,
   // Eligible move targets: the user's OWN active TOP-LEVEL projects, never the
   // project itself and never a sub-project (one level deep).
   const onebarMoveTargets = onebarProject
-    ? projects.filter(p => !p.isShared && !p.parentProjectId && p.id !== onebarProject.id)
+    ? orderedProjects.filter(p => !p.isShared && !p.parentProjectId && p.id !== onebarProject.id)
     : [];
   const onebarSpecial = selectedSpecialList ? SPECIAL_LIST_CFG[selectedSpecialList] : undefined;
   // Same owner guard the project banner uses for its inline actions.
@@ -2321,8 +2383,11 @@ https://www.skyscanner.com`,
   // above is (during render, no effect).
   const barIsArchived = !!onebarProject?.archivedAt;
   const barIsTopLevel = !onebarProject?.parentProjectId;
-  const BAR_FOLD_ORDER = ['delete', 'archive', 'moveTo', 'newSub', 'share', 'meetings', 'moveTasks'];
+  // 'pin' joined the row with O8; it folds early (right after Archive), since
+  // pinning is a set-once action, not a daily one.
+  const BAR_FOLD_ORDER = ['delete', 'archive', 'pin', 'moveTo', 'newSub', 'share', 'meetings', 'moveTasks'];
   const barPresentKeys = new Set(['delete', 'archive', 'share', 'meetings', 'moveTasks']);
+  if (!barIsArchived) barPresentKeys.add('pin');
   if (!barIsArchived) barPresentKeys.add('moveTo');
   if (barIsTopLevel && !barIsArchived) barPresentKeys.add('newSub');
   const barFoldOrderKeys = BAR_FOLD_ORDER.filter((k) => barPresentKeys.has(k));
@@ -2409,6 +2474,18 @@ https://www.skyscanner.com`,
         className: 'gap-1',
         testId: 'desktop-new-sub',
         moreTestId: 'desktop-more-new-sub',
+      }] : []),
+      // Pin (O8): same ghost/sm/gap-1 action as its siblings, no new visual.
+      // Hidden while archived, exactly like Move to..., because archiving
+      // clears the pin.
+      ...(!currentProject.archivedAt ? [{
+        key: 'pin',
+        icon: currentProject.pinnedAt ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />,
+        label: currentProject.pinnedAt ? 'Unpin' : 'Pin',
+        onClick: handleTogglePin,
+        className: 'gap-1',
+        testId: 'desktop-pin',
+        moreTestId: 'desktop-more-pin',
       }] : []),
       ...(!currentProject.archivedAt ? [{
         key: 'moveTo',
@@ -2981,6 +3058,21 @@ https://www.skyscanner.com`,
                       <span className="flex-1 text-left">New sub-project</span>
                     </button>
                   )}
+                  {/* Pin (O8): the same lg-onebar-row every other action in
+                      this sheet uses. The 5-pin cap refuses the sixth with a
+                      toast; nothing about this row changes while it is at the cap
+                      (the refusal has to be readable, not silent). */}
+                  {!onebarProject?.archivedAt && (
+                    <button
+                      type="button"
+                      className="lg-onebar-row"
+                      data-testid="onebar-pin"
+                      onClick={() => { setOnebarSheet(null); handleTogglePin(); }}
+                    >
+                      {onebarProject?.pinnedAt ? <PinOff className="h-4 w-4 shrink-0" /> : <Pin className="h-4 w-4 shrink-0" />}
+                      <span className="flex-1 text-left">{onebarProject?.pinnedAt ? 'Unpin Project' : 'Pin Project'}</span>
+                    </button>
+                  )}
                   {!onebarProject?.archivedAt && (
                     <button
                       type="button"
@@ -3359,7 +3451,7 @@ https://www.skyscanner.com`,
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         userId={user?.id || ''}
-        projects={projects.map(p => ({ id: p.id, name: p.name }))}
+        projects={orderedProjects.map(p => ({ id: p.id, name: p.name }))}
         onProjectCreated={(newProjectId) => {
           setProjectRefreshTrigger(prev => prev + 1);
           setSelectedProjectId(newProjectId);

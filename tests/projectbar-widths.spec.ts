@@ -14,7 +14,7 @@
 // count, and archived/sub-project state, none of which a single hand-picked
 // number can track). Fold order — least-used first, Invite never folds
 // (lives in the name group, not the action cluster):
-//   Delete, Archive, Move to..., New sub-project, Share, Meetings, Move Tasks
+//   Delete, Archive, Pin, Move to..., New sub-project, Share, Meetings, Move Tasks
 //
 // This spec proves the fold is genuinely tight — no action folds before it
 // has to, none clips after it should have folded — by re-deriving the
@@ -48,7 +48,7 @@ const DEMO_PASSWORD = 'FocusOS-Review-2026';
 
 // A stable, pre-existing seed project in the demo account: top-level,
 // non-archived, not shared (verified read-only via REST before writing this
-// spec) — so ALL SEVEN fold candidates exist and the "New sub-project" /
+// spec) — so ALL EIGHT fold candidates exist and the "New sub-project" /
 // "Move to..." items are never conditionally absent.
 const PROJECT_NAME = 'Science Fair';
 
@@ -56,11 +56,15 @@ const PROJECT_NAME = 'Science Fair';
 // DISPLAY order is left-to-right in the bar / top-to-bottom in the menu.
 // FOLD order is least-used-first — the order useProjectBarFold folds items
 // into the menu as the container narrows.
-const DISPLAY_ORDER = ['moveTasks', 'meetings', 'share', 'newSub', 'moveTo', 'archive', 'delete'];
-const FOLD_ORDER = ['delete', 'archive', 'moveTo', 'newSub', 'share', 'meetings', 'moveTasks'];
+// 'pin' joined the bar with O8 (2026-08-26): display slot between New
+// sub-project and Move to..., fold slot right after Archive (set-once
+// action, folds early).
+const DISPLAY_ORDER = ['moveTasks', 'meetings', 'share', 'newSub', 'pin', 'moveTo', 'archive', 'delete'];
+const FOLD_ORDER = ['delete', 'archive', 'pin', 'moveTo', 'newSub', 'share', 'meetings', 'moveTasks'];
 
 const MORE_TESTID: Record<string, string> = {
   moveTasks: 'desktop-more-move-tasks',
+  pin: 'desktop-more-pin',
   meetings: 'desktop-more-meetings',
   share: 'desktop-more-share',
   newSub: 'desktop-more-new-sub',
@@ -150,6 +154,7 @@ const readBarGeometry = async (page: Page): Promise<BarGeometry> =>
       meetings: /^Meetings$/,
       share: /^Share$/,
       newSub: /^New sub-project$/,
+      pin: /^(Pin|Unpin)$/,
       moveTo: /^Move to\.\.\.$/,
       archive: /^(Archive|Restore)$/,
       delete: /^Delete$/,

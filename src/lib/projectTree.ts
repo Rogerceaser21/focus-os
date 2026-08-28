@@ -127,3 +127,187 @@ export function projectMoveRefusal(
   if (!target || target.parentProjectId) return MOVE_SUBS_FIRST;
   return null;
 }
+
+// ---- Manual order + pinning (O8) --------------------------------------------
+// Two additive columns carry both: `sort_order` (position inside ONE sibling
+// group) and `pinned_at` (the drawer's Pinned group). Everything below is a pure
+// function over already-fetched rows, so every surface that lists projects
+// derives the SAME order during render instead of correcting it after paint.
+
+/** Hard cap on pinned rows, top-level projects and sub-projects combined. */
+export const PIN_LIMIT = 5;
+
+/** The one refusal the cap speaks with, so every surface says the same thing. */
+export const PIN_LIMIT_MESSAGE = `You can pin up to ${PIN_LIMIT} projects`;
+
+/**
+ * A row that has never been dragged sorts AFTER every hand-ordered sibling, and
+ * keeps its incoming position among the other unordered rows (the loader hands
+ * them over newest first). That is deliberate: an account that never reorders
+ * renders in exactly the order it always did, and a project created after a
+ * reorder lands at the end of the group rather than jumping into the middle.
+ */
+const orderKey = (p: Pick<Project, 'sortOrder'>): number =>
+  typeof p.sortOrder === 'number' ? p.sortOrder : Number.MAX_SAFE_INTEGER;
+
+/** Comparator for ONE sibling group. Ties keep input order (Array#sort is stable). */
+export function compareSiblingOrder(a: Pick<Project, 'sortOrder'>, b: Pick<Project, 'sortOrder'>): number {
+  return orderKey(a) - orderKey(b);
+}
+
+export function isPinnedProject(p: Pick<Project, 'pinnedAt'>): boolean {
+  return !!p.pinnedAt;
+}
+
+/** How many of these rows are pinned. The cap counts projects and subs together. */
+export function countPinned(projects: Pick<Project, 'pinnedAt'>[]): number {
+  return projects.filter(isPinnedProject).length;
+}
+
+/** Pinned rows sit in the order they were pinned, oldest pin first. */
+function comparePinnedAt(a: Pick<Project, 'pinnedAt'>, b: Pick<Project, 'pinnedAt'>): number {
+  const ka = a.pinnedAt ?? '';
+  const kb = b.pinnedAt ?? '';
+  return ka < kb ? -1 : ka > kb ? 1 : 0;
+}
+
+/**
+ * Apply the manual order to an already-grouped tree: top-level rows against each
+ * other, and each parent's subs against each other. Grouping itself is left to
+ * groupProjectTree, so the orphan / one-level / self-parent rules stay in one place.
+ */
+export function sortProjectTree(nodes: ProjectTreeNode[]): ProjectTreeNode[] {
+  return [...nodes]
+    .sort((a, b) => compareSiblingOrder(a.parent, b.parent))
+    .map((n) => ({ parent: n.parent, subs: [...n.subs].sort(compareSiblingOrder) }));
+}
+
+/**
+ * One entry of the drawer's Pinned group. A pinned TOP-LEVEL project floats up as
+ * its whole block (its subs travel with it, so the tree is never torn apart); a
+ * pinned SUB whose parent is not itself pinned gets a flat shortcut row and ALSO
+ * keeps its place in its parent's tree below.
+ */
+export type PinnedEntry =
+  | { kind: 'block'; node: ProjectTreeNode }
+  | { kind: 'sub'; project: Project };
+
+const entryProject = (e: PinnedEntry): Project => (e.kind === 'block' ? e.node.parent : e.project);
+
+/**
+ * Split a sorted tree into the Pinned group and what is left for "My Projects".
+ * A pinned parent leaves the My Projects list entirely (it is rendered above);
+ * a pinned sub is only ever ADDED to the pinned group, never removed from its
+ * parent's tree.
+ */
+export function splitPinnedTree(nodes: ProjectTreeNode[]): { pinned: PinnedEntry[]; rest: ProjectTreeNode[] } {
+  const pinned: PinnedEntry[] = [];
+  const rest: ProjectTreeNode[] = [];
+  for (const node of nodes) {
+    if (isPinnedProject(node.parent)) {
+      pinned.push({ kind: 'block', node });
+      continue;
+    }
+    rest.push(node);
+    for (const sub of node.subs) {
+      if (isPinnedProject(sub)) pinned.push({ kind: 'sub', project: sub });
+    }
+  }
+  pinned.sort((a, b) => comparePinnedAt(entryProject(a), entryProject(b)));
+  return { pinned, rest };
+}
+
+/**
+ * The flat list every NON-drawer surface renders (the Move to... targets, the
+ * task dialog's project picker): pinned first in pin order, then the manual
+ * order, parents immediately followed by their own subs. Deduped by id, so a
+ * pinned sub appears once, at its pinned position.
+ */
+export function sortProjectsForDisplay(projects: Project[]): Project[] {
+  const nodes = sortProjectTree(groupProjectTree(projects));
+  const { pinned, rest } = splitPinnedTree(nodes);
+  const out: Project[] = [];
+  const pushNode = (n: ProjectTreeNode) => { out.push(n.parent, ...n.subs); };
+  for (const entry of pinned) {
+    if (entry.kind === 'block') pushNode(entry.node);
+    else out.push(entry.project);
+  }
+  for (const node of rest) pushNode(node);
+  const seen = new Set<string>();
+  return out.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+}
+
+/** One row's new position, as written to focusos_projects.sort_order. */
+export interface SiblingOrderUpdate {
+  id: string;
+  sortOrder: number;
+}
+
+/**
+ * Move `movingId` before or after `targetId` inside ONE sibling group and
+ * RENORMALISE the whole group to 0..n-1, so a group can never run out of room
+ * between two neighbours and a half-ordered group (some rows still null) becomes
+ * fully ordered the first time it is touched.
+ *
+ * `group` must arrive in the order it is RENDERED. Returns an empty list for
+ * every no-op (unknown ids, dropping a row on itself, an order that did not
+ * actually change), so the caller writes nothing and says nothing.
+ */
+export function reorderSiblings(
+  group: Project[],
+  movingId: string,
+  targetId: string,
+  place: 'before' | 'after',
+): SiblingOrderUpdate[] {
+  if (movingId === targetId) return [];
+  const moving = group.find((p) => p.id === movingId);
+  const targetIndex = group.findIndex((p) => p.id === targetId);
+  if (!moving || targetIndex < 0) return [];
+
+  const without = group.filter((p) => p.id !== movingId);
+  const anchor = without.findIndex((p) => p.id === targetId);
+  if (anchor < 0) return [];
+  const at = place === 'before' ? anchor : anchor + 1;
+  const next = [...without.slice(0, at), moving, ...without.slice(at)];
+
+  if (next.every((p, i) => p.id === group[i].id)) return [];
+  return next.map((p, i) => ({ id: p.id, sortOrder: i }));
+}
+
+/**
+ * The sort_order a NEW project should be created with inside `siblings`.
+ * `null` when that group has never been ordered by hand: leaving the column null
+ * keeps such an account's drawer byte-identical to what it rendered before O8.
+ */
+export function nextSiblingSortOrder(siblings: Pick<Project, 'sortOrder'>[]): number | null {
+  const used = siblings
+    .map((p) => p.sortOrder)
+    .filter((n): n is number => typeof n === 'number');
+  if (used.length === 0) return null;
+  return Math.max(...used) + 1;
+}
+
+/** Where a drop lands relative to the row under it. */
+export type DropPlace = 'before' | 'after' | 'nest';
+
+/**
+ * Pure geometry for "did the user aim at the seam between two rows, or at the
+ * row itself?". `centreY` is the dragged ghost's vertical centre and `rect` the
+ * target's measured box, both in viewport coordinates.
+ *
+ * With nesting allowed (a top-level block) only a thin band at each edge
+ * reorders, so U2's drop-anywhere-to-nest still owns the body of the block. On a
+ * sub row nesting is illegal (one level only), so the row splits in half.
+ */
+export function dropPlaceFor(
+  centreY: number,
+  rect: { top: number; height: number },
+  opts: { allowNest: boolean },
+): DropPlace {
+  const { top, height } = rect;
+  if (!opts.allowNest) return centreY < top + height / 2 ? 'before' : 'after';
+  const band = Math.min(14, height * 0.3);
+  if (centreY < top + band) return 'before';
+  if (centreY > top + height - band) return 'after';
+  return 'nest';
+}
