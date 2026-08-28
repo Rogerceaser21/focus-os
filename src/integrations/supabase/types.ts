@@ -541,6 +541,8 @@ export type Database = {
           is_shared: boolean
           name: string
           parent_project_id: string | null
+          pinned_at: string | null
+          sort_order: number | null
           updated_at: string
           user_id: string
         }
@@ -552,6 +554,8 @@ export type Database = {
           is_shared?: boolean
           name: string
           parent_project_id?: string | null
+          pinned_at?: string | null
+          sort_order?: number | null
           updated_at?: string
           user_id: string
         }
@@ -563,6 +567,8 @@ export type Database = {
           is_shared?: boolean
           name?: string
           parent_project_id?: string | null
+          pinned_at?: string | null
+          sort_order?: number | null
           updated_at?: string
           user_id?: string
         }
