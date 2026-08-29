@@ -206,7 +206,7 @@ mcp.tool("list_tasks", {
     const userId = getUserId(ctx);
     let q = admin
       .from("focusos_tasks")
-      .select("id, title, description, status, priority, due_date, project_id, created_at, completed_at")
+      .select("id, title, description, status, priority, due_date, start_date, end_date, project_id, created_at, completed_at")
       .eq("user_id", userId);
     if (args?.project_id) q = q.eq("project_id", args.project_id);
     if (args?.status) q = q.eq("status", args.status);
