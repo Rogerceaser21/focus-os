@@ -568,13 +568,16 @@ mcp.tool("create_task", {
 });
 
 mcp.tool("update_task", {
-  description: "Update fields on a task you own. Only provided fields are changed.",
+  description:
+    "Update fields on a task you own. Only provided fields are changed. Dates are YYYY-MM-DD. start_date and end_date drive the Gantt view.",
   inputSchema: z.object({
     id: z.string(),
     title: z.string().optional(),
     description: z.string().optional(),
     priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
     due_date: z.string().optional(),
+    start_date: z.string().optional(),
+    end_date: z.string().optional(),
     status: z.enum(["todo", "in-progress", "completed"]).optional(),
     project_id: z.string().optional(),
   }),
@@ -582,7 +585,7 @@ mcp.tool("update_task", {
     const userId = getUserId(ctx);
     const { id, ...rest } = args as any;
     const patch: Record<string, unknown> = {};
-    for (const k of ["title", "description", "priority", "due_date", "status", "project_id"]) {
+    for (const k of ["title", "description", "priority", "due_date", "start_date", "end_date", "status", "project_id"]) {
       if (rest[k] !== undefined) patch[k] = rest[k];
     }
     if (Object.keys(patch).length === 0) return err("No fields to update");
