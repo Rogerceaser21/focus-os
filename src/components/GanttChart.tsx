@@ -79,8 +79,7 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
       cursor = addMonths(cursor, 1);
     }
     return result;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasksWithDates.length, tasksWithDates[0]?.startDate?.getTime(), tasksWithDates[tasksWithDates.length - 1]?.endDate?.getTime()]);
+  }, [tasksWithDates]);
 
   const today = new Date();
 
