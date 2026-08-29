@@ -536,13 +536,16 @@ mcp.tool("delete_project", {
 });
 
 mcp.tool("create_task", {
-  description: "Create a task. due_date format YYYY-MM-DD.",
+  description:
+    "Create a task. Dates are YYYY-MM-DD. start_date and end_date drive the Gantt view.",
   inputSchema: z.object({
     title: z.string(),
     project_id: z.string().optional(),
     description: z.string().optional(),
     priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
     due_date: z.string().optional(),
+    start_date: z.string().optional(),
+    end_date: z.string().optional(),
     status: z.enum(["todo", "in-progress", "completed"]).optional(),
   }),
   handler: async (args, ctx) => {
@@ -556,6 +559,8 @@ mcp.tool("create_task", {
     if (args.project_id) row.project_id = args.project_id;
     if (args.description) row.description = args.description;
     if (args.due_date) row.due_date = args.due_date;
+    if (args.start_date) row.start_date = args.start_date;
+    if (args.end_date) row.end_date = args.end_date;
     const { data, error } = await admin.from("focusos_tasks").insert(row).select().single();
     if (error) return err(error.message);
     return ok(data);
