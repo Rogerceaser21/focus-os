@@ -53,16 +53,34 @@ export const GanttChart = ({ tasks, allTasks = [], projectName = 'Gantt Chart', 
   
   const months = useMemo(() => {
     const today = new Date();
-    return [
-      { start: startOfMonth(today), end: endOfMonth(today) },
-      { start: startOfMonth(addMonths(today, 1)), end: endOfMonth(addMonths(today, 1)) },
-      { start: startOfMonth(addMonths(today, 2)), end: endOfMonth(addMonths(today, 2)) },
-    ].map(({ start, end }) => ({
-      start,
-      end,
-      days: eachDayOfInterval({ start, end })
-    }));
-  }, []);
+    // Span every month that has scheduled work: earliest task start .. latest
+    // task end, with the old today..+2 window as the minimum. Capped at 36
+    // panels as a runaway guard.
+    let first = startOfMonth(today);
+    let last = endOfMonth(addMonths(today, 2));
+    if (tasksWithDates.length > 0) {
+      const minStart = tasksWithDates.reduce(
+        (m, t) => (t.startDate! < m ? t.startDate! : m),
+        tasksWithDates[0].startDate!,
+      );
+      const maxEnd = tasksWithDates.reduce(
+        (m, t) => (t.endDate! > m ? t.endDate! : m),
+        tasksWithDates[0].endDate!,
+      );
+      if (startOfMonth(minStart) < first) first = startOfMonth(minStart);
+      if (endOfMonth(maxEnd) > last) last = endOfMonth(maxEnd);
+    }
+    const result: { start: Date; end: Date; days: Date[] }[] = [];
+    let cursor = first;
+    while (cursor <= last && result.length < 36) {
+      const start = startOfMonth(cursor);
+      const end = endOfMonth(cursor);
+      result.push({ start, end, days: eachDayOfInterval({ start, end }) });
+      cursor = addMonths(cursor, 1);
+    }
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasksWithDates.length, tasksWithDates[0]?.startDate?.getTime(), tasksWithDates[tasksWithDates.length - 1]?.endDate?.getTime()]);
 
   const today = new Date();
 
