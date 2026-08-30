@@ -31,6 +31,18 @@ serve(async (req) => {
     const { data: si } = await admin.from("focusos_shared_items").select("*").eq("action_token", token).single();
     if (!si) return json({ ok: false, title: "Link not valid", message: "This link has expired or does not exist." });
 
+    // O12 finding 1: cancelled rows are kept as history (no DELETE policy) —
+    // without this check, an Accept/Decline link from an email sent BEFORE
+    // the sender cancelled would resurrect the cancelled row by flipping its
+    // status, and post-O10 (cancel-then-reshare inserts a fresh pending row)
+    // that can leave TWO non-cancelled rows for the same sender+recipient+item
+    // triple, rendering the recipient twice on filtered surfaces. Refuse the
+    // action outright — do not update the row, and never reroute to a newer
+    // non-cancelled row; a stale email link must simply die.
+    if (si.status === "cancelled") {
+      return json({ ok: false, title: "Link not valid", message: "This share was cancelled by the sender." });
+    }
+
     const update: Record<string, unknown> = { status: action === "accept" ? "accepted" : "declined" };
     if (action === "accept") update.sender_acknowledged = false;
     await admin.from("focusos_shared_items").update(update).eq("id", si.id);

@@ -612,10 +612,13 @@ const Home = () => {
         if (recipientTaskIds.length > 0) {
           await (supabase as any).from('focusos_tasks').delete().in('id', recipientTaskIds);
         }
+        // O12 finding 2: exclude cancelled rows — they are kept as history
+        // (no DELETE policy) and must never be rewritten to 'declined'.
         await (supabase as any)
           .from('focusos_shared_items')
           .update({ recipient_task_id: null, status: 'declined' })
-          .in('id', sharedRows.map((r: any) => r.id));
+          .in('id', sharedRows.map((r: any) => r.id))
+          .neq('status', 'cancelled');
       }
 
       const { error } = await (supabase as any).from('focusos_tasks').delete().eq('id', taskId);

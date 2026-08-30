@@ -1942,10 +1942,13 @@ https://www.skyscanner.com`,
         }
         const sharedIds = sharedRows.map((r: any) => r.id);
         // Attempt shared_items cleanup (RLS may not allow DELETE — nulling recipient_task_id is a safe fallback)
+        // O12 finding 2: exclude cancelled rows — they are kept as history
+        // (no DELETE policy) and must never be rewritten to 'declined'.
         await (supabase as any)
           .from('focusos_shared_items')
           .update({ recipient_task_id: null, status: 'declined' })
-          .in('id', sharedIds);
+          .in('id', sharedIds)
+          .neq('status', 'cancelled');
       }
 
       const { error } = await (supabase as any)

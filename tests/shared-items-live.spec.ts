@@ -908,3 +908,152 @@ test.describe('app desktop: cancel then reshare the same item to the same recipi
     expect(share.rows.filter((r) => r.status !== 'cancelled' && r.recipient_email === fakeEmail).length, 'exactly one live row for this recipient').toBe(1);
   });
 });
+
+// ---- Test I: delete-task sweep excludes cancelled shares (Finding 2 / O12) --
+//
+// FINDING 2 (O12, 2026-08-30): the delete-task sweeps in Index.tsx, Home.tsx
+// and MeetingDetail.tsx (byte-identical shape, per Home.tsx's own comment
+// "same sequence as Index.handleDeleteTask") updated ALL focusos_shared_items
+// rows for the deleted task to status='declined', cancelled rows included —
+// silently rewriting cancelled history to declined (RLS has no DELETE
+// policy, so cancelled rows are meant to persist forever as history, per the
+// O10 comment block in supabase/functions/focusos-share-item/index.ts). The
+// fix adds `.neq('status', 'cancelled')` to each sweep's update call so a
+// cancelled row survives a task delete untouched. This test proves the
+// Index.tsx path only; Home.tsx and MeetingDetail.tsx carry the identical
+// one-line diff and are covered by `npx tsc --noEmit` plus code inspection —
+// three near-identical Playwright page journeys for the same query-string
+// assertion was judged not worth the added flakiness surface.
+//
+// Request-level proof only (per the task brief — a hermetic UI proof of the
+// server actually enforcing the filter is not possible from Playwright
+// against a real Postgres). This test picks a REAL, already-open, unshared
+// demo task read-only, then intercepts EVERY network call the delete flow
+// makes (the sweep's own SELECT, the recipient-clone DELETE, the sweep's own
+// PATCH, and the final task DELETE) so the real backend is never actually
+// mutated — same hermetic posture as the rest of this file, which "creates
+// and deletes NOTHING" because the demo account is shared with sibling
+// agents. Two fake focusos_shared_items rows are seeded for that task (one
+// pending, one cancelled); the sweep's PATCH is captured and asserted to
+// carry `status=neq.cancelled` in its query string (PostgREST's own filter
+// syntax) alongside the unchanged `{recipient_task_id: null, status:
+// 'declined'}` payload.
+
+test.describe('app desktop: deleting a task keeps a cancelled share as history (Finding 2 / O12)', () => {
+  test.use({ viewport: { width: 1280, height: 900 }, isMobile: false, hasTouch: false, actionTimeout: 15000 });
+
+  test('the delete-task sweep PATCH excludes cancelled rows from the declined flip', async ({ page, request, context }) => {
+    test.setTimeout(90_000);
+    const s = await restSignIn(request);
+
+    // Read-only pick: same shape as pickExistingOpenTask, but also excludes
+    // any task that is itself a received clone (assigned_to_email set) — the
+    // delete button never renders for those (TaskListItem.tsx guards
+    // `onDeleteTask && !task.assignedToEmail`), so picking one would fail
+    // this test on a UI symptom of the wrong cause.
+    const tasks = await restSelect(
+      request, s,
+      `focusos_tasks?select=id,title,project_id,status,assigned_to_email&user_id=eq.${s.userId}&status=neq.completed&project_id=not.is.null&assigned_to_email=is.null&order=created_at.asc&limit=10`,
+    );
+    expect(tasks.length, 'the demo account must have at least one open, owned, unshared-to task with a project for this spec to use').toBeGreaterThan(0);
+    const targetTask = tasks[0];
+    const projects = await restSelect(request, s, `focusos_projects?select=id,name&id=eq.${targetTask.project_id}&limit=1`);
+    expect(projects.length, `the task's own project (${targetTask.project_id}) must still resolve`).toBe(1);
+    const projectId = targetTask.project_id as string;
+
+    const pendingRowId = 'o12-fake-pending-1';
+    const cancelledRowId = 'o12-fake-cancelled-1';
+    const recipientTaskId = 'o12-fake-recipient-task-1';
+
+    let sharedItemsPatchUrl: string | null = null;
+    let sharedItemsPatchBody: unknown = null;
+    let realTaskDeleteFired = false;
+
+    // The delete sweep's own SELECT asks for exactly `select=id,recipient_task_id`
+    // scoped to this task's item_id/item_type — precise enough to never
+    // collide with the OTHER `.eq('item_id', ...)` read in this file
+    // (Index.tsx's bidirectional-completion sync, which also carries
+    // `status=eq.accepted` and never fires here since no task is completed).
+    // Any other GET on this table (pill/drawer reads that happen on page
+    // load) falls through to the real backend untouched.
+    await context.route('**/rest/v1/focusos_shared_items*', async (route) => {
+      const req = route.request();
+      const url = new URL(req.url());
+      if (req.method() === 'GET') {
+        if (
+          url.searchParams.get('select') === 'id,recipient_task_id' &&
+          url.searchParams.get('item_id') === `eq.${targetTask.id}` &&
+          url.searchParams.get('item_type') === 'eq.task'
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+              { id: pendingRowId, recipient_task_id: recipientTaskId },
+              { id: cancelledRowId, recipient_task_id: null },
+            ]),
+          });
+          return;
+        }
+        return route.continue();
+      }
+      if (req.method() === 'PATCH') {
+        sharedItemsPatchUrl = req.url();
+        sharedItemsPatchBody = req.postDataJSON();
+        await route.fulfill({ status: 204, body: '' });
+        return;
+      }
+      return route.continue();
+    });
+
+    // Both the recipient-clone DELETE (the fake id above) and the real
+    // task's own final DELETE land on this table — intercept both so the
+    // real demo task is never actually deleted.
+    await context.route('**/rest/v1/focusos_tasks*', async (route) => {
+      const req = route.request();
+      if (req.method() !== 'DELETE') return route.continue();
+      const url = new URL(req.url());
+      const idParam = url.searchParams.get('id') ?? '';
+      if (idParam.includes(recipientTaskId)) {
+        await route.fulfill({ status: 204, body: '' });
+        return;
+      }
+      if (idParam === `eq.${targetTask.id}`) {
+        realTaskDeleteFired = true;
+        await route.fulfill({ status: 204, body: '' });
+        return;
+      }
+      return route.continue();
+    });
+
+    await signIn(page);
+    await page.goto(`${BASE}/app?view=${projectId}`);
+
+    const card = taskCard(page, targetTask.title);
+    await expect(card).toBeVisible({ timeout: 15000 });
+    await card.hover();
+    const deleteBtn = card.locator('[title="Delete task"]:visible').first();
+    await expect(deleteBtn).toBeVisible({ timeout: 5000 });
+    await deleteBtn.click();
+
+    const confirmBtn = page.getByRole('button', { name: 'Yes, Delete' });
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+    await confirmBtn.click();
+
+    await expect.poll(() => sharedItemsPatchUrl, {
+      message: 'the delete sweep must PATCH focusos_shared_items',
+      timeout: 10000,
+    }).not.toBeNull();
+
+    const patchUrl = new URL(sharedItemsPatchUrl!);
+    expect(patchUrl.searchParams.get('status'), 'the sweep PATCH must filter out cancelled rows server-side (the O12 fix)').toBe('neq.cancelled');
+    const idParam = patchUrl.searchParams.get('id') ?? '';
+    expect(idParam.includes(pendingRowId) && idParam.includes(cancelledRowId), 'the sweep PATCH must still target both rows via id=in.(...)').toBe(true);
+    expect(sharedItemsPatchBody, 'the sweep PATCH payload must be unchanged by the fix').toEqual({ recipient_task_id: null, status: 'declined' });
+
+    await expect.poll(() => realTaskDeleteFired, {
+      message: 'the task delete must reach the (intercepted) DELETE call',
+      timeout: 10000,
+    }).toBe(true);
+  });
+});
