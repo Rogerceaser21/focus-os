@@ -74,6 +74,18 @@ serve(async (req) => {
       });
     }
 
+    // O12 (in-app path, same class as the email-token guard in
+    // focusos-shared-item-action): a cancelled row is history and must never
+    // be resurrected by a stale drawer entry fetched before the sender
+    // cancelled - accepting one would recreate the duplicate-recipient state
+    // the O10/O12 fixes closed. Refuse without updating anything.
+    if (sharedItem.status === "cancelled") {
+      return new Response(JSON.stringify({ error: "This share was cancelled by the sender." }), {
+        status: 410,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const senderId = sharedItem.sender_user_id;
     const itemType = sharedItem.item_type;
     const itemId = sharedItem.item_id;
