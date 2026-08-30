@@ -618,6 +618,55 @@ test.describe('projects: manual order and pinning (hermetic)', () => {
     expect(await pinnedOrder(page)).toHaveLength(5);
   });
 
+  // O11: the cap above is enforced before a WRITE (the click that would add a
+  // 6th pin), but a row can still arrive already breached — the MCP
+  // archive_project cascade used to leave pinned_at set on an archived row, so
+  // pinning a 6th while it sat archived, then restoring it, landed 6 pinned
+  // rows in the database at once. This seeds that breached STATE directly
+  // (six rows, all pinned_at already set — the harness has no cheaper way to
+  // land the app on an already-broken state than starting the GET there) and
+  // proves the render-side clamp (splitPinnedTree in src/lib/projectTree.ts)
+  // never shows more than PIN_LIMIT, whatever the data says.
+  test('six already-pinned rows (a breached cap) still render as exactly 5 pinned, never "Pinned (6)"', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    const pinnedAt = (n: number) => new Date(Date.UTC(2026, 1, n)).toISOString();
+    const rows = [
+      projectRow(1, { pinned_at: pinnedAt(1) }),
+      projectRow(2, { pinned_at: pinnedAt(2) }),
+      projectRow(3, { pinned_at: pinnedAt(3) }),
+      projectRow(4, { pinned_at: pinnedAt(4) }),
+      projectRow(5, { name: 'Order P5', pinned_at: pinnedAt(5) }),
+      // The 6th pin — as if archive_project had left pinned_at set on an
+      // archived row and a later restore brought it back still pinned.
+      projectRow(6, { name: 'Order P6', pinned_at: pinnedAt(6) }),
+    ];
+    const writes: Write[] = [];
+    await installIntercepts(context, rows, writes);
+    await seedSession(page);
+    await openApp(page);
+
+    // Exactly 5, the 5 OLDEST pins (P6 is the newest pinned_at, so it is the
+    // one clamped out) — the heading (Pinned ({pinnedEntries.length})) renders
+    // off this SAME array, so proving the array's length is 5 proves the
+    // heading never reads "Pinned (6)".
+    await expect
+      .poll(() => pinnedOrder(page), { timeout: 10000 })
+      .toEqual(['Order P1', 'Order P2', 'Order P3', 'Order P4', 'Order P5']);
+    expect(await pinnedOrder(page)).toHaveLength(5);
+
+    // The clamped-out 6th falls back to "My Projects" as if it had never been
+    // pinned — not dropped, not stuck in limbo.
+    expect(await myProjectsOrder(page)).toEqual(['Order P6']);
+
+    // Nothing was written: this is a pure render-time clamp, not a "fix" that
+    // silently rewrites pinned_at out from under the account.
+    expect(projectPatches(writes)).toHaveLength(0);
+    expect(rows.find((r) => r.id === pid(6))!.pinned_at).toBe(pinnedAt(6));
+  });
+
   test('a pinned sub-project shows in the Pinned group and stays in its parent tree', async ({
     page,
     context,
@@ -792,6 +841,70 @@ test.describe('projects: manual order and pinning (hermetic)', () => {
     await expect
       .poll(() => rows.find((r) => r.id === pid(4))!.parent_project_id, { timeout: 10000 })
       .toBe(pid(1));
+  });
+
+  // O11: AddTaskDialog, EditTaskDialog and SettingsDialog used to receive the
+  // raw, unordered `projects` state straight off the fetch, while the drawer
+  // (and Move to..., proven above) rendered off `orderedProjects`
+  // (sortProjectsForDisplay). This proves the Add Task project picker now
+  // reads the SAME order the drawer does — pinned first, then manual
+  // sort_order — instead of whatever order the rows arrived in.
+  test('Add Task project picker follows the drawer order (pinned first, then manual sort_order)', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    const rows = [
+      projectRow(1, { sort_order: 2 }),
+      projectRow(2, { sort_order: 0 }),
+      projectRow(3, { sort_order: 1, pinned_at: new Date(Date.UTC(2026, 1, 1)).toISOString() }),
+    ];
+    const writes: Write[] = [];
+    await installIntercepts(context, rows, writes);
+    await seedSession(page);
+    await openApp(page);
+
+    // Sanity: the drawer itself renders pinned-first, then the manual order.
+    await expect.poll(() => pinnedOrder(page), { timeout: 10000 }).toEqual(['Order P3']);
+    expect(await myProjectsOrder(page)).toEqual(['Order P2', 'Order P1']);
+
+    // At this viewport (1280x900, isMobile false) the mobile one-bar's
+    // "onebar-add" button is `lg:hidden` (a separate desktop "Add Task"
+    // button lives in lg-row1, sharing the same "Add task" accessible name) —
+    // getByRole only sees the one the accessibility tree exposes. AddTaskDialog
+    // itself renders desktopDocked as a SidePanel, not a Radix Dialog, so scope
+    // on the panel's own data attribute instead of role="dialog".
+    await page.getByRole('button', { name: 'Add task' }).click();
+    const panel = page.locator('[data-side-panel="true"]');
+    await expect(panel.getByText('Create New Task')).toBeVisible({ timeout: 10000 });
+    await panel.locator('#project').click();
+    const options = await page.getByRole('listbox').getByRole('option').allTextContents();
+    expect(options.map((t) => t.trim())).toEqual(['None', 'Order P3', 'Order P2', 'Order P1']);
+  });
+
+  // Same fixture, the Settings "Default Project/List View" picker (fed by
+  // BottomNav -> SettingsDialog). Cheap to add alongside the Add Task case
+  // above: same rows, same expected order, one more Select opened.
+  test("Settings' default-view project picker follows the drawer order too", async ({ page, context }) => {
+    test.setTimeout(120_000);
+    const rows = [
+      projectRow(1, { sort_order: 2 }),
+      projectRow(2, { sort_order: 0 }),
+      projectRow(3, { sort_order: 1, pinned_at: new Date(Date.UTC(2026, 1, 1)).toISOString() }),
+    ];
+    const writes: Write[] = [];
+    await installIntercepts(context, rows, writes);
+    await seedSession(page);
+    await openApp(page);
+
+    await page.locator('[data-home-tour-step="settings"]').click();
+    const settingsDialog = page.getByRole('dialog', { name: 'Settings' });
+    await expect(settingsDialog).toBeVisible({ timeout: 10000 });
+    await settingsDialog.locator('#default-view').click();
+    const options = await page.getByRole('listbox').getByRole('option').allTextContents();
+    // The first three options are the fixed Home / Today's To-Do / Unassigned
+    // entries, not projects — only the tail is under test here.
+    expect(options.slice(3).map((t) => t.trim())).toEqual(['Order P3', 'Order P2', 'Order P1']);
   });
 });
 

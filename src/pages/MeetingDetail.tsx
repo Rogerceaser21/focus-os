@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,6 +48,7 @@ import {
 import { format } from 'date-fns';
 import { TaskListItem } from '@/components/TaskListItem';
 import { Task, TaskPriority, Project as TaskProject } from '@/types/task';
+import { sortProjectsForDisplay } from '@/lib/projectTree';
 import { BrainDumpLiveDialog } from '@/components/BrainDumpLiveDialog';
 import BottomNav from '@/components/BottomNav';
 import { ProjectsDrawerHost } from '@/components/ProjectsDrawerHost';
@@ -127,6 +128,11 @@ const MeetingDetail = () => {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [allProjects, setAllProjects] = useState<TaskProject[]>([]);
+  // The drawer's own order (pinned first in pin order, then each sibling
+  // group's manual sort_order), derived during render — same pure helper
+  // Index's orderedProjects uses, so the Add/Edit Task pickers here never
+  // disagree with the drawer about where a project sits (O11).
+  const orderedAllProjects = useMemo(() => sortProjectsForDisplay(allProjects), [allProjects]);
   // Action-items tabs. A tap must never vanish the row it hit (Igor,
   // 2026-08-01): when the user's own action flips a task's status while a
   // status-filtered tab is active (play in To Do, uncheck in Done), the row is
@@ -264,13 +270,21 @@ const MeetingDetail = () => {
 
   const fetchProjects = async () => {
     if (!user) return;
+    // parent_project_id/sort_order/pinned_at ride along (O11) so
+    // orderedAllProjects below can sort with the SAME pure helper the drawer
+    // uses, instead of whatever order Postgres happens to hand rows back in.
     const { data } = await (supabase as any)
       .from('focusos_projects')
-      .select('id, name, color')
+      .select('id, name, color, parent_project_id, sort_order, pinned_at')
       .eq('user_id', user.id);
     if (data) {
       setAllProjects(data.map(p => ({
-        ...p,
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        parentProjectId: p.parent_project_id ?? null,
+        sortOrder: p.sort_order ?? null,
+        pinnedAt: p.pinned_at ?? null,
         timer: { totalSeconds: 0, isRunning: false },
       })));
     }
@@ -1463,7 +1477,7 @@ const MeetingDetail = () => {
           onOpenChange={setAddTaskOpen}
           showTrigger={false}
           desktopDocked
-          projects={allProjects}
+          projects={orderedAllProjects}
           onAddTask={handleAddTask}
         />
 
@@ -1477,7 +1491,7 @@ const MeetingDetail = () => {
               setEditingTask(null);
             }}
             onDeleteTask={async (t) => { await handleSavedTaskDelete(t); setEditingTask(null); }}
-            projects={allProjects}
+            projects={orderedAllProjects}
             onAssigned={(taskId, email) => handleTaskAssigned(taskId, email)}
           />
         )}

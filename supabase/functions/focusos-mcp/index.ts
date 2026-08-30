@@ -352,9 +352,13 @@ mcp.tool("archive_project", {
     if (!project) return err("Project not found");
     // CASCADE (mirrors the app's handleArchiveProject): a top-level project and
     // its subs go together in ONE statement; a sub goes alone.
+    // pinned_at goes with it (O11, mirrors handleArchiveProject in Index.tsx):
+    // an archived project leaves the drawer's active list entirely, so leaving
+    // it pinned would hold a slot of the 5-pin cap that nothing on screen can
+    // show or release — the exact leak that let a restore land a 6th pin.
     let q = admin
       .from("focusos_projects")
-      .update({ archived_at: new Date().toISOString() })
+      .update({ archived_at: new Date().toISOString(), pinned_at: null })
       .eq("user_id", userId);
     q = project.parent_project_id ? q.eq("id", project.id) : q.or(`id.eq.${project.id},parent_project_id.eq.${project.id}`);
     const { data: rows, error } = await q.select("id, name, archived_at, parent_project_id");

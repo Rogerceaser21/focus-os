@@ -13,6 +13,7 @@ import { usePrefetchAppData } from '@/hooks/usePrefetchAppData';
 import { APP_DATA_STALE_TIME, appDataKeys, fetchSenderSharedItemsRaw } from '@/lib/appDataFetchers';
 import { buildSenderSharedMaps, type RawSharedItemRow, type SenderSharedMap } from '@/lib/sharedItems';
 import type { Task, Project } from '@/types/task';
+import { sortProjectsForDisplay } from '@/lib/projectTree';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import {
   AlertDialog,
@@ -347,7 +348,13 @@ const Home = () => {
     },
   });
 
-  const { data: projects = [] } = useQuery<(ProjectInfo & { color?: string })[]>({
+  // O11: parent_project_id/sort_order/pinned_at ride along on this row so
+  // orderedProjects below (fed to BottomNav's Settings and the Edit Task
+  // dialog) can be sorted with the SAME pure helper the drawer uses, instead
+  // of the DB's alphabetical order this query still fetches in.
+  const { data: projects = [] } = useQuery<
+    (ProjectInfo & { color?: string; parent_project_id?: string | null; sort_order?: number | null; pinned_at?: string | null })[]
+  >({
     queryKey: ['focusos-home-projects', user?.id],
     enabled: !!user,
     staleTime: APP_DATA_STALE_TIME,
@@ -356,10 +363,39 @@ const Home = () => {
       // consumer): the brain-dump destination list, BottomNav and the
       // EditTaskDialog project picker all read from this one query.
       const { data } = await (supabase as any)
-        .from('focusos_projects').select('id, name, color').eq('user_id', user!.id).is('archived_at', null).order('name');
-      return (data ?? []) as (ProjectInfo & { color?: string })[];
+        .from('focusos_projects')
+        .select('id, name, color, parent_project_id, sort_order, pinned_at')
+        .eq('user_id', user!.id)
+        .is('archived_at', null)
+        .order('name');
+      return (data ?? []) as (ProjectInfo & {
+        color?: string;
+        parent_project_id?: string | null;
+        sort_order?: number | null;
+        pinned_at?: string | null;
+      })[];
     },
   });
+
+  // The drawer's own order (pinned first in pin order, then each sibling
+  // group's manual sort_order), derived during render from the rows above —
+  // same pure helper Index's orderedProjects uses, so /home never disagrees
+  // with the drawer about where a project sits.
+  const orderedProjects = useMemo<Project[]>(
+    () =>
+      sortProjectsForDisplay(
+        projects.map((p) => ({
+          id: p.id,
+          name: p.name,
+          color: p.color || '#8a94a6',
+          parentProjectId: p.parent_project_id ?? null,
+          sortOrder: p.sort_order ?? null,
+          pinnedAt: p.pinned_at ?? null,
+          timer: { totalSeconds: 0, isRunning: false },
+        })),
+      ),
+    [projects],
+  );
 
   // Today's Focus card: bounded slim fetch of open tasks; the pick order is
   // derived during render (rankTodaysFocus) so it rolls over at midnight
@@ -750,18 +786,6 @@ const Home = () => {
     setEditingTask(null);
     invalidateTaskCaches();
   }, [invalidateTaskCaches]);
-
-  // EditTaskDialog wants full Project objects; Home's projects query is slim
-  // (id/name/color), so the timer stub mirrors Index.applyProjectRows.
-  const editProjects = useMemo<Project[]>(
-    () => projects.map((p) => ({
-      id: p.id,
-      name: p.name,
-      color: p.color || '#8a94a6',
-      timer: { totalSeconds: 0, isRunning: false },
-    })),
-    [projects],
-  );
 
   useEffect(() => {
     const interval = setInterval(() => setSubtitleIndex((p) => (p + 1) % SUBTITLES.length), 4000);
@@ -1307,7 +1331,7 @@ const Home = () => {
       <BrainDumpDebugOverlay />
 
       <BottomNav
-        projects={projects}
+        projects={orderedProjects}
         onOpenProjectsDrawer={() => setProjectsDrawerOpen((o) => !o)}
       />
 
@@ -1339,7 +1363,7 @@ const Home = () => {
         open={!!editingTask}
         onOpenChange={(open) => { if (!open) setEditingTask(null); }}
         onUpdateTask={handleUpdateTaskFromPane}
-        projects={editProjects}
+        projects={orderedProjects}
         currentUserId={user?.id}
         sharedRecipients={senderSharedMap[editingTask.id]}
         // A share sent from this sheet refetches the sender map so the chip

@@ -199,21 +199,41 @@ const entryProject = (e: PinnedEntry): Project => (e.kind === 'block' ? e.node.p
  * A pinned parent leaves the My Projects list entirely (it is rendered above);
  * a pinned sub is only ever ADDED to the pinned group, never removed from its
  * parent's tree.
+ *
+ * DEFENCE IN DEPTH (O11): the cap is normally enforced before a write ever
+ * happens (Index's pin handler refuses a 6th pin), but a row can still arrive
+ * here already over the cap — e.g. the MCP archive_project cascade used to
+ * leave pinned_at set on an archived row, and restoring it later then let a
+ * 6th pin back onto the board. Whatever the cause, this function must never
+ * RENDER more than PIN_LIMIT pinned rows: past the cap, keep the PIN_LIMIT
+ * OLDEST pins (ties broken by id, so every surface agrees byte for byte) and
+ * fall the rest back to unpinned, exactly as if they had never been pinned.
+ * Pure derive-during-render — no write-back to the database happens here.
  */
 export function splitPinnedTree(nodes: ProjectTreeNode[]): { pinned: PinnedEntry[]; rest: ProjectTreeNode[] } {
-  const pinned: PinnedEntry[] = [];
-  const rest: ProjectTreeNode[] = [];
+  const candidates: PinnedEntry[] = [];
   for (const node of nodes) {
-    if (isPinnedProject(node.parent)) {
-      pinned.push({ kind: 'block', node });
-      continue;
-    }
-    rest.push(node);
+    if (isPinnedProject(node.parent)) candidates.push({ kind: 'block', node });
     for (const sub of node.subs) {
-      if (isPinnedProject(sub)) pinned.push({ kind: 'sub', project: sub });
+      if (isPinnedProject(sub)) candidates.push({ kind: 'sub', project: sub });
     }
   }
-  pinned.sort((a, b) => comparePinnedAt(entryProject(a), entryProject(b)));
+  const byPinnedAtThenId = (a: PinnedEntry, b: PinnedEntry): number =>
+    comparePinnedAt(entryProject(a), entryProject(b)) || entryProject(a).id.localeCompare(entryProject(b).id);
+
+  const pinned = [...candidates].sort(byPinnedAtThenId).slice(0, PIN_LIMIT);
+  const keptBlockIds = new Set(
+    pinned.filter((e): e is Extract<PinnedEntry, { kind: 'block' }> => e.kind === 'block').map((e) => e.node.parent.id),
+  );
+
+  const rest: ProjectTreeNode[] = [];
+  for (const node of nodes) {
+    // A block stays out of "rest" only while it is actually within the kept
+    // set; an overflow block (pinned in the data, clamped out here) falls
+    // straight back into My Projects at its normal tree position.
+    if (isPinnedProject(node.parent) && keptBlockIds.has(node.parent.id)) continue;
+    rest.push(node);
+  }
   return { pinned, rest };
 }
 

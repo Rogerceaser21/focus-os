@@ -3419,7 +3419,7 @@ https://www.skyscanner.com`,
                   // reload to appear. Same refresh the task-row share dialog uses.
                   onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); noteShareEvent(); }}
                   sharedRecipients={senderSharedMap[editingTask.id]}
-                  projects={projects}
+                  projects={orderedProjects}
                   currentUserId={user?.id}
                   onDeleteTask={handleDeleteTask}
                 />
@@ -3430,7 +3430,7 @@ https://www.skyscanner.com`,
                   onAddTask={handleAddTask}
                   selectedProjectId={selectedProjectId}
                   selectedSpecialList={selectedSpecialList}
-                  projects={projects}
+                  projects={orderedProjects}
                   showTrigger={false}
                   desktopDocked
                 />
@@ -3474,7 +3474,7 @@ https://www.skyscanner.com`,
       />
 
       <BottomNavWithSidebar
-        projects={projects}
+        projects={orderedProjects}
         preferences={preferences}
         prefsLoading={prefsLoading}
         onSavePreferences={updatePreferences}
@@ -3492,7 +3492,7 @@ https://www.skyscanner.com`,
           onAddTask={handleAddTask}
           selectedProjectId={selectedProjectId}
           selectedSpecialList={selectedSpecialList}
-          projects={projects}
+          projects={orderedProjects}
           showTrigger={false}
         />
       )}
@@ -3517,7 +3517,7 @@ https://www.skyscanner.com`,
           // reload to appear. Same refresh the task-row share dialog uses.
           onAssigned={() => { fetchTasks(); fetchSenderSharedItems(); noteShareEvent(); }}
           sharedRecipients={senderSharedMap[editingTask.id]}
-          projects={projects}
+          projects={orderedProjects}
           currentUserId={user?.id}
                   onDeleteTask={handleDeleteTask}
         />
