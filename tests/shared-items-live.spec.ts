@@ -211,10 +211,11 @@ const installSharedItemsIntercepts = async (
 
     if (method === 'GET') {
       state.getHits += 1;
-      // Both real consumers exclude cancelled rows (loadSharedItems'
-      // `.in('status', ['pending','accepted'])` and fetchSenderSharedItemsRaw's
-      // `.neq('status', 'cancelled')`), so filtering here regardless of this
-      // route's specific query params mirrors both correctly. Cancelled rows
+      // Every consumer this spec exercises excludes cancelled rows
+      // (loadSharedItems' `.in('status', ['pending','accepted'])`,
+      // fetchSenderSharedItemsRaw's `.neq('status', 'cancelled')`; MeetingDetail's
+      // fetchSharingInfo filters too), so filtering here regardless of this
+      // route's specific query params mirrors them correctly. Cancelled rows
       // are kept in `state.rows` as history (O10) but must never come back
       // out of a GET, on any surface.
       await route.fulfill({

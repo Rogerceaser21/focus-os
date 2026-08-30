@@ -346,7 +346,8 @@ const MeetingDetail = () => {
         .from('focusos_shared_items')
         .select('*')
         .eq('item_type', 'task')
-        .eq('sender_user_id', user.id);
+        .eq('sender_user_id', user.id)
+        .neq('status', 'cancelled');
 
       if (taskShares && taskShares.length > 0) {
         // Collect unique recipient user IDs

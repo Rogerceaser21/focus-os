@@ -32,10 +32,14 @@
 //     can never deliver a real email to a real person even though the
 //     function's own auto-routing logic (see the finding below) does not
 //     honour `sendEmail:false` for a recipient with no Focus OS account.
-//   - Everything this script creates (one zz-prefixed temp task, two
-//     focusos_shared_items rows) is deleted at the end, with an asserted
-//     read-back proving the deletes actually took (0 rows), regardless of
-//     whether the PASS/FAIL assertions above it passed.
+//   - Cleanup (asserted, runs even when assertions fail): the temp task is
+//     DELETED with a 0-row read-back; the two focusos_shared_items rows are
+//     flipped to status='cancelled' via UPDATE instead of deleted, because
+//     RLS on focusos_shared_items has SELECT/INSERT/UPDATE policies but NO
+//     DELETE policy (skeptic-proven live: DELETE returns 204 and removes
+//     nothing). Cancelled rows are permanent history the app filters from
+//     every share surface, matching what the app's own cancel button leaves
+//     behind; the read-back asserts no non-cancelled probe row remains.
 //   - Never touches port 8080 (Igor's live dev server) — this only speaks to
 //     the deployed Supabase REST + edge function endpoints.
 //
@@ -152,6 +156,17 @@ async function restDelete(supabaseUrl, anonKey, token, table, idColumn, id) {
   }
 }
 
+async function restUpdate(supabaseUrl, anonKey, token, table, idColumn, id, patch) {
+  const res = await fetch(`${supabaseUrl}/rest/v1/${table}?${idColumn}=eq.${id}`, {
+    method: 'PATCH',
+    headers: { ...restHeaders(anonKey, token), Prefer: 'return=representation' },
+    body: JSON.stringify(patch),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(`UPDATE ${table} id=${id} failed (${res.status}): ${JSON.stringify(body)}`);
+  return body;
+}
+
 async function invokeShareFunction(supabaseUrl, anonKey, token, payload) {
   const res = await fetch(`${supabaseUrl}/functions/v1/focusos-share-item`, {
     method: 'POST',
@@ -243,12 +258,16 @@ async function main() {
       JSON.stringify(freshRow),
     );
   } finally {
-    // --- Cleanup: delete both shared_items rows and the temp task, then re-read to prove it. ---
+    // --- Cleanup. focusos_shared_items has NO DELETE RLS policy (a DELETE
+    // returns 204 and silently removes nothing), so the probe's rows are
+    // flipped to status='cancelled' via UPDATE (the sender-side UPDATE the
+    // app's own cancel button uses) and left as filtered-everywhere history.
+    // The temp task IS deletable and is removed with an asserted read-back. ---
     for (const id of [...new Set(sharedItemIds)]) {
       try {
-        await restDelete(SUPABASE_URL, ANON_KEY, session.token, 'focusos_shared_items', 'id', id);
+        await restUpdate(SUPABASE_URL, ANON_KEY, session.token, 'focusos_shared_items', 'id', id, { status: 'cancelled' });
       } catch (e) {
-        fail(`deleted shared_items row ${id}`, e.message);
+        fail(`cancelled shared_items row ${id}`, e.message);
       }
     }
     if (taskId) {
@@ -259,14 +278,16 @@ async function main() {
       }
     }
 
-    // Asserted read-back: 0 rows for everything we tried to remove.
+    // Asserted read-back: every probe shared_items row is cancelled (none
+    // left pending/accepted where a share surface could show it), and the
+    // temp task is gone.
     if (sharedItemIds.length) {
       const idList = [...new Set(sharedItemIds)].join(',');
-      const remaining = await restSelect(
+      const leftover = await restSelect(
         SUPABASE_URL, ANON_KEY, session.token,
-        `focusos_shared_items?select=id&id=in.(${idList})`,
+        `focusos_shared_items?select=id,status&id=in.(${idList})&status=neq.cancelled`,
       );
-      assertTrue(remaining.length === 0, 'cleanup read-back: 0 shared_items rows remain', `found ${remaining.length}: ${JSON.stringify(remaining)}`);
+      assertTrue(leftover.length === 0, 'cleanup read-back: every probe shared_items row is status=cancelled', `found ${leftover.length} non-cancelled: ${JSON.stringify(leftover)}`);
     }
     if (taskId) {
       const remainingTask = await restSelect(

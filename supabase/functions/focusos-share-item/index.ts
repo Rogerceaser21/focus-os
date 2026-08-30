@@ -337,9 +337,11 @@ serve(async (req) => {
     // exists for the same sender + recipient + item. A cancelled row must never
     // be reused — reusing it would keep the row (and the share) permanently
     // cancelled while the function still reports success, silently sharing
-    // nothing (O10). Cancelled rows are left untouched as history; the app
-    // already filters them out everywhere (appDataFetchers.ts loadSharedItems
-    // and fetchSenderSharedItemsRaw). Multiple cancelled rows can accumulate
+    // nothing (O10). Cancelled rows are left untouched as history; every share
+    // surface filters them out (appDataFetchers.ts loadSharedItems and
+    // fetchSenderSharedItemsRaw, MeetingDetail's fetchSharingInfo; the
+    // ShareItemDialog suggestion query is unfiltered but deduped per email,
+    // so history there only feeds autocomplete). Multiple cancelled rows can accumulate
     // for the same sender+recipient+item over time, so `.maybeSingle()` alone
     // would throw on >1 match — order + limit(1) keeps this single-row-safe.
     const { data: existing } = await supabaseUser
