@@ -667,6 +667,43 @@ test.describe('projects: manual order and pinning (hermetic)', () => {
     expect(rows.find((r) => r.id === pid(6))!.pinned_at).toBe(pinnedAt(6));
   });
 
+  // O11 skeptic regression: a pinned SUB under a pinned PARENT must render as
+  // ONE pinned entry (the parent block, sub nested inside it) - never as the
+  // block PLUS a duplicate flat shortcut row, and the heading must count 1.
+  // The first clamp rewrite scanned subs unconditionally and rendered
+  // "Pinned (2)" with the sub twice; splitPinnedTree now skips the sub-scan
+  // for a pinned parent, per its own docstring.
+  test('a pinned sub under a pinned parent renders once, heading counts one', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    const pinnedAt = (n: number) => new Date(Date.UTC(2026, 1, n)).toISOString();
+    const rows = [
+      projectRow(1, { pinned_at: pinnedAt(1) }),
+      projectRow(2),
+      projectRow(5, { name: 'Order S1', parent_project_id: pid(1), sort_order: 0, pinned_at: pinnedAt(2) }),
+    ];
+    const writes: Write[] = [];
+    await installIntercepts(context, rows, writes);
+    await seedSession(page);
+    await openApp(page);
+
+    // Exactly ONE pinned entry: the parent block. The heading
+    // (Pinned ({pinnedEntries.length})) renders off this same array.
+    await expect.poll(() => pinnedOrder(page), { timeout: 10000 }).toEqual(['Order P1']);
+
+    // The pinned sub gets NO flat shortcut row anywhere...
+    expect(await page.locator(`[data-testid="pinned-row-${pid(5)}"]`).count()).toBe(0);
+    // ...it rides nested inside its parent's block, exactly once.
+    expect(await subOrder(page, pid(1))).toEqual(['Order S1']);
+    expect(await page.locator(`[data-testid="select-project-${pid(5)}"]`).count()).toBe(1);
+
+    expect(await myProjectsOrder(page)).toEqual(['Order P2']);
+    // Pure render behaviour - nothing written.
+    expect(projectPatches(writes)).toHaveLength(0);
+  });
+
   test('a pinned sub-project shows in the Pinned group and stays in its parent tree', async ({
     page,
     context,

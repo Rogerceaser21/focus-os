@@ -213,7 +213,17 @@ const entryProject = (e: PinnedEntry): Project => (e.kind === 'block' ? e.node.p
 export function splitPinnedTree(nodes: ProjectTreeNode[]): { pinned: PinnedEntry[]; rest: ProjectTreeNode[] } {
   const candidates: PinnedEntry[] = [];
   for (const node of nodes) {
-    if (isPinnedProject(node.parent)) candidates.push({ kind: 'block', node });
+    if (isPinnedProject(node.parent)) {
+      // The whole block is the pinned entry; its subs ride inside it, so a
+      // pinned sub under a pinned parent must NOT also become a shortcut row
+      // (it would render twice and inflate the heading count). Matches the
+      // PinnedEntry docstring: a sub gets a shortcut only when its parent is
+      // not itself pinned. Corner: if this block is clamped out below
+      // (breached cap), its pinned subs get no shortcut either - fail-safe,
+      // the sub still renders nested in the block back in My Projects.
+      candidates.push({ kind: 'block', node });
+      continue;
+    }
     for (const sub of node.subs) {
       if (isPinnedProject(sub)) candidates.push({ kind: 'sub', project: sub });
     }
