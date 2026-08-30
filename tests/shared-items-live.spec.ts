@@ -124,7 +124,7 @@ interface FakeSharedRow {
   sender_email: string | null;
   sender_user_id: string;
   sender_name: string | null;
-  status: 'pending' | 'accepted';
+  status: 'pending' | 'accepted' | 'cancelled';
   sender_acknowledged: boolean;
   completion_acknowledged: boolean;
   completed_at: string | null;
@@ -138,6 +138,14 @@ interface ShareIntercept {
   getHits: number;
   /** Number of times the focusos_shared_items PATCH route has fired. */
   patchHits: number;
+  /**
+   * ids of rows the focusos-share-item intercept actually INSERTED (as
+   * opposed to reusing an existing non-cancelled row) — O10: proves a
+   * cancel-then-reshare produces a fresh row rather than reviving the
+   * cancelled one. Not used by the pre-O10 tests (A-G), which each share a
+   * never-before-seen fakeEmail exactly once.
+   */
+  insertedIds: string[];
 }
 
 const installSharedItemsIntercepts = async (
@@ -145,7 +153,7 @@ const installSharedItemsIntercepts = async (
   s: Session,
   seed: FakeSharedRow[] = [],
 ): Promise<ShareIntercept> => {
-  const state: ShareIntercept = { rows: [...seed], getHits: 0, patchHits: 0 };
+  const state: ShareIntercept = { rows: [...seed], getHits: 0, patchHits: 0, insertedIds: [] };
   let fakeIdCounter = 0;
 
   await context.route('**/functions/v1/focusos-share-item', async (route) => {
@@ -153,26 +161,42 @@ const installSharedItemsIntercepts = async (
       | { itemType?: 'task' | 'project'; itemId?: string; recipientEmail?: string }
       | null;
     if (body && body.itemType && body.itemId && body.recipientEmail) {
-      fakeIdCounter += 1;
-      state.rows.push({
-        id: `o7-fake-shared-row-${fakeIdCounter}`,
-        item_id: body.itemId,
-        item_type: body.itemType,
-        item_title: body.itemType === 'task' ? 'Shared Task' : 'Shared Project',
-        project_name: null,
-        recipient_email: body.recipientEmail,
-        recipient_user_id: null,
-        recipient_task_id: null,
-        sender_email: null,
-        sender_user_id: s.userId,
-        sender_name: null,
-        status: 'pending',
-        sender_acknowledged: false,
-        completion_acknowledged: false,
-        completed_at: null,
-        change_request_message: null,
-        created_at: new Date().toISOString(),
-      });
+      // O10: mirror the FIXED server idempotency lookup (index.ts) exactly —
+      // reuse an existing row for this sender+recipient+item ONLY when it is
+      // NOT cancelled; a cancel-then-reshare must always fall through to a
+      // fresh insert instead of reviving the cancelled row.
+      const reusable = state.rows.find(
+        (r) =>
+          r.sender_user_id === s.userId &&
+          r.recipient_email === body.recipientEmail &&
+          r.item_type === body.itemType &&
+          r.item_id === body.itemId &&
+          r.status !== 'cancelled',
+      );
+      if (!reusable) {
+        fakeIdCounter += 1;
+        const id = `o7-fake-shared-row-${fakeIdCounter}`;
+        state.rows.push({
+          id,
+          item_id: body.itemId,
+          item_type: body.itemType,
+          item_title: body.itemType === 'task' ? 'Shared Task' : 'Shared Project',
+          project_name: null,
+          recipient_email: body.recipientEmail,
+          recipient_user_id: null,
+          recipient_task_id: null,
+          sender_email: null,
+          sender_user_id: s.userId,
+          sender_name: null,
+          status: 'pending',
+          sender_acknowledged: false,
+          completion_acknowledged: false,
+          completed_at: null,
+          change_request_message: null,
+          created_at: new Date().toISOString(),
+        });
+        state.insertedIds.push(id);
+      }
     }
     await route.fulfill({
       status: 200,
@@ -187,10 +211,16 @@ const installSharedItemsIntercepts = async (
 
     if (method === 'GET') {
       state.getHits += 1;
+      // Both real consumers exclude cancelled rows (loadSharedItems'
+      // `.in('status', ['pending','accepted'])` and fetchSenderSharedItemsRaw's
+      // `.neq('status', 'cancelled')`), so filtering here regardless of this
+      // route's specific query params mirrors both correctly. Cancelled rows
+      // are kept in `state.rows` as history (O10) but must never come back
+      // out of a GET, on any surface.
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(state.rows),
+        body: JSON.stringify(state.rows.filter((r) => r.status !== 'cancelled')),
       });
       return;
     }
@@ -202,8 +232,14 @@ const installSharedItemsIntercepts = async (
       const url = new URL(req.url());
       const idParam = url.searchParams.get('id');
       const targetId = idParam?.startsWith('eq.') ? idParam.slice(3) : null;
+      // O10: mark the row cancelled instead of deleting it — the real
+      // backend keeps the row as history too. It stays out of every GET via
+      // the status filter above, but survives in `state.rows` so a later
+      // reshare of the same item+recipient can be asserted as a FRESH insert
+      // that leaves this row untouched rather than reviving it.
       if (targetId) {
-        state.rows = state.rows.filter((r) => r.id !== targetId);
+        const row = state.rows.find((r) => r.id === targetId);
+        if (row) row.status = 'cancelled';
       }
       // No .select() on the real call, so a bare 204 (no body) matches what
       // PostgREST itself returns without `Prefer: return=representation`.
@@ -764,5 +800,110 @@ test.describe('cross-page (393x852): share on /home, /app drawer shows it after 
 
     const spaMarker = await page.evaluate(() => (window as unknown as Record<string, unknown>).__o7SpaMarker);
     expect(spaMarker, 'the journey must be reload-free end to end').toBe(true);
+  });
+});
+
+// ---- Test H: cancel-then-reshare the SAME item to the SAME recipient (O10) ----
+//
+// The bug (code-read verified, supabase/functions/focusos-share-item/index.ts):
+// the idempotency lookup matched an existing row by sender+recipient+item
+// WITHOUT excluding status='cancelled', so cancelling a share and then
+// re-sharing the same item to the same person reused the cancelled row,
+// which stayed cancelled forever — the function still returned {success:
+// true}, but every client surface correctly filters cancelled rows out
+// (loadSharedItems' `.in('status',['pending','accepted'])` and
+// fetchSenderSharedItemsRaw's `.neq('status','cancelled')` in
+// src/lib/appDataFetchers.ts), so the "share" silently shared nothing. The
+// fix adds `.neq('status','cancelled')` (plus order+limit to stay
+// single-row-safe once cancelled rows accumulate) to that lookup, so a
+// cancel-then-reshare always falls through to a fresh INSERT with a new
+// pending row.
+//
+// This test's fake focusos-share-item route now mirrors that FIXED lookup
+// exactly (see installSharedItemsIntercepts above), so a real regression in
+// the edge function's SQL would not be caught by this browser-only spec —
+// this proves the CLIENT half (drawer/pill live-refresh wiring) behaves
+// correctly against the fixed server contract; `scripts/probe_o10_reshare.mjs`
+// is the live counterpart that exercises the deployed function itself.
+
+test.describe('app desktop: cancel then reshare the same item to the same recipient (O10)', () => {
+  test.use({ viewport: { width: 1280, height: 900 }, isMobile: false, hasTouch: false, actionTimeout: 15000 });
+
+  test('a fresh pending row appears live after reshare; the cancelled row never resurrects', async ({ page, request, context }) => {
+    test.setTimeout(90_000);
+    const s = await restSignIn(request);
+    const existing = await pickExistingOpenTask(request, s);
+    const fakeEmail = `o10-fake-${Date.now()}@example.invalid`;
+
+    const share = await installSharedItemsIntercepts(context, s);
+
+    await signIn(page);
+    await page.goto(`${BASE}/app?view=${existing.projectId}`);
+
+    // --- First share: establishes the baseline pending row and pill. ---
+    let pane = await openAppTaskDesktop(page, existing.taskTitle);
+    await shareFromDialog(page, pane, fakeEmail);
+    expect(share.insertedIds.length, 'the first share must insert exactly one fresh row').toBe(1);
+    const firstRowId = share.insertedIds[0];
+
+    await page.locator('[data-side-panel] > div:first-child > button').click();
+    await expect(pane).toBeHidden({ timeout: 5000 });
+
+    await expect(sharedBadge(page, fakeEmail)).toBeVisible({ timeout: 5000 });
+    await expect(sharedItemsHeading(page)).toBeVisible({ timeout: 5000 });
+    await expect(sharedItemsCard(page, fakeEmail)).toBeVisible();
+
+    // --- Cancel it: the O7-proven live-refresh path. ---
+    const cancelBtn = cancelSharedItemButton(page);
+    const hitsBeforeCancel = share.getHits;
+    await cancelBtn.click();
+    expect(share.patchHits, 'cancel must PATCH focusos_shared_items').toBeGreaterThan(0);
+    await expect.poll(() => share.getHits, {
+      message: 'the drawer must refetch focusos_shared_items after cancelling',
+      timeout: 5000,
+    }).toBeGreaterThan(hitsBeforeCancel);
+
+    // Live, no reload: both surfaces vanish.
+    await expect(sharedBadge(page, fakeEmail)).toHaveCount(0, { timeout: 5000 });
+    await expect(sharedItemsHeading(page)).toHaveCount(0, { timeout: 5000 });
+
+    // The cancelled row survives as history in the harness data — flipped to
+    // 'cancelled', never deleted, exactly one of it.
+    expect(
+      share.rows.filter((r) => r.id === firstRowId && r.status === 'cancelled').length,
+      'the cancelled row must survive, untouched, as history',
+    ).toBe(1);
+
+    // --- Reshare the SAME item to the SAME recipient: the O10 fix under test. ---
+    pane = await openAppTaskDesktop(page, existing.taskTitle);
+    const hitsBeforeReshare = share.getHits;
+    await shareFromDialog(page, pane, fakeEmail);
+    expect(share.getHits, 'the reshare must re-fire the focusos_shared_items GET').toBeGreaterThan(hitsBeforeReshare);
+
+    // A FRESH pending row must have been inserted — never a reuse of the
+    // cancelled one (this is the exact bug: pre-fix, insertedIds would still
+    // have length 1 here because the lookup matched the cancelled row).
+    expect(share.insertedIds.length, 'the reshare must insert a fresh row, not reuse the cancelled one').toBe(2);
+    const secondRowId = share.insertedIds[1];
+    expect(secondRowId, 'the fresh row must be a genuinely new id').not.toBe(firstRowId);
+    const freshRow = share.rows.find((r) => r.id === secondRowId);
+    expect(freshRow?.status, 'the fresh row must be pending').toBe('pending');
+
+    await page.locator('[data-side-panel] > div:first-child > button').click();
+    await expect(pane).toBeHidden({ timeout: 5000 });
+
+    // Live, no reload: the pill AND the drawer Shared Items section both
+    // reappear, driven by the fresh row.
+    await expect(sharedBadge(page, fakeEmail)).toBeVisible({ timeout: 5000 });
+    await expect(sharedItemsHeading(page)).toBeVisible({ timeout: 5000 });
+    await expect(sharedItemsCard(page, fakeEmail)).toBeVisible({ timeout: 5000 });
+
+    // The cancelled row still never resurfaces anywhere: exactly one
+    // cancelled row (the original) and exactly one non-cancelled row (the
+    // fresh reshare) exist in the harness data, and the GET route's own
+    // status filter (see installSharedItemsIntercepts) means it was never
+    // capable of returning the cancelled one to either surface above.
+    expect(share.rows.filter((r) => r.status === 'cancelled').length, 'exactly the one original cancelled row remains').toBe(1);
+    expect(share.rows.filter((r) => r.status !== 'cancelled' && r.recipient_email === fakeEmail).length, 'exactly one live row for this recipient').toBe(1);
   });
 });
