@@ -333,8 +333,17 @@ serve(async (req) => {
 
     const normalizedRecipient = recipientEmail.trim().toLowerCase();
 
-    // Idempotency: reuse existing shared item if one already exists for the
-    // same sender + recipient + item.
+    // Idempotency: reuse an existing shared item if a NON-cancelled one already
+    // exists for the same sender + recipient + item. A cancelled row must never
+    // be reused - reusing it would keep the row (and the share) permanently
+    // cancelled while the function still reports success, silently sharing
+    // nothing (O10). Cancelled rows are left untouched as history; every share
+    // surface filters them out (appDataFetchers.ts loadSharedItems and
+    // fetchSenderSharedItemsRaw, MeetingDetail's fetchSharingInfo; the
+    // ShareItemDialog suggestion query is unfiltered but deduped per email,
+    // so history there only feeds autocomplete). Multiple cancelled rows can accumulate
+    // for the same sender+recipient+item over time, so `.maybeSingle()` alone
+    // would throw on >1 match - order + limit(1) keeps this single-row-safe.
     const { data: existing } = await supabaseUser
       .from("focusos_shared_items")
       .select("id, action_token")
@@ -342,6 +351,9 @@ serve(async (req) => {
       .eq("recipient_email", normalizedRecipient)
       .eq("item_type", itemType)
       .eq("item_id", itemId)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     let actionToken: string | null = null;
