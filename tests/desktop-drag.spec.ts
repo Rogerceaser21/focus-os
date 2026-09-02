@@ -21,17 +21,38 @@
 //
 // Run: PW_PORT=8092 npx playwright test tests/desktop-drag.spec.ts --project=desktop-mouse
 //
-// BISECT RESULT (2026-09-02, G2). The brief's premise - "at v63 mouse drag to
-// nest/un-nest worked, O8 broke it" - is FALSE at the code level:
-//   v63 (7dda2fc): `git show 7dda2fc:src/components/ProjectSidebar.tsx | grep -c
-//     'DndContext|useDraggable|my-projects-list'` = 0. The drawer had NO drag of
-//     any kind. This file cannot even boot there (the my-projects-list testid
-//     does not exist), which is what "3 failed at v63" below means.
+// BISECT RESULT (2026-09-02, G2; corrected after skeptic round 1).
+//
+// READ THIS BEFORE ASKING FOR A "REVERT THE FIX" BISECT: this lane ships NO app
+// code. `git show --stat` on its commits = tests/desktop-drag.spec.ts and
+// pw-webkit.config.ts only, 0 lines under src/. That is deliberate, not an
+// omission: no commit in the suspect range regresses the desktop mouse path, so
+// there is nothing to revert, and inventing a fix would be a guess. The binding
+// proof is therefore run against the commit that INTRODUCED the drag, not
+// against a lane fix that does not exist:
+//   v63 (7dda2fc): `git show 7dda2fc:src/components/ProjectSidebar.tsx |
+//     grep -cE 'DndContext|useDraggable|my-projects-list'` = 0. The drawer had
+//     NO drag of any kind, and no `my-projects-list` testid, so this file cannot
+//     even boot there, which is what "failed at v63" means below, not a
+//     regression.
 //   U2 (d5aaf51 / 168d6ac) ADDED the drag, AFTER the v63 tag.
 //   v64 (742a04f) and lane HEAD: every case here PASSES, chromium AND webkit.
-// So no commit in 7dda2fc..742a04f regresses the desktop mouse path that this
-// harness can drive. Igor's symptom is real but its mechanism is NOT reproducible
-// from a scripted pointer: see the residuals in the G2 report.
+//
+// The executable substitute bisect (skeptic-run, 2026-09-02), which reverts the
+// three files U2 touched and reruns this file:
+//   git checkout 92d40c5 -- src/components/ProjectSidebar.tsx src/lib/projectTree.ts src/pages/Index.tsx
+//   PW_PORT=8092 npx playwright test tests/desktop-drag.spec.ts --project=desktop-mouse
+//     -> 9 failed (first failure: the Projects trigger / my-projects-list testid
+//        does not exist pre-U2)
+//   git checkout HEAD -- src/components/ProjectSidebar.tsx src/lib/projectTree.ts src/pages/Index.tsx
+// RESTORE TRAP: it must be `git checkout HEAD -- <files>`. A bare
+// `git checkout -- <files>` restores from the INDEX, which the first command
+// already staged, so the worktree stays dirty and the next run silently tests
+// pre-U2 code. Confirm with `git status --short -uall` before believing any
+// result.
+//
+// So Igor's symptom is real but its mechanism is NOT reproducible from a
+// scripted pointer: see the residuals in the G2 report.
 import { test, expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
 
 test.use({ actionTimeout: 15000 });
@@ -350,6 +371,21 @@ const mouseDragTo = async (
 
 const row = (page: Page, id: string) => page.locator(`[data-testid="select-project-${id}"]`);
 const blockOf = (page: Page, id: string) => page.locator(`[data-testid="project-block-${id}"]`);
+
+/**
+ * Is this row wearing the SELECTED look? The row is a shadcn Button whose
+ * variant flips to "secondary" when it is the selected project, so the class
+ * `bg-secondary` IS the selection. Read it from the class LIST, never as a
+ * substring match, because the ghost variant's hover class carries the same token.
+ */
+const isSelected = (page: Page, id: string): Promise<boolean> =>
+  page.evaluate(
+    (testId) => {
+      const el = document.querySelector(`[data-testid="${testId}"]`);
+      return !!el && el.classList.contains('bg-secondary');
+    },
+    `select-project-${id}`,
+  );
 
 const openDrawer = async (page: Page) => {
   const drawer = page.getByLabel('Projects');
@@ -800,5 +836,106 @@ test.describe('OVERLAY drawer drag with a real DESKTOP MOUSE', () => {
       timeout: 10000,
       message: `order never changed. probe=${JSON.stringify(probe)} sort=${JSON.stringify(sortOrderWrites(writes))}`,
     }).toEqual(['Drag P3', 'Drag P1', 'Drag P2']);
+  });
+
+});
+
+// The click half of the mouse contract lives in its own describe: cases (j) and
+// (k) boot the INLINE drawer (openApp at 1512px), not the overlay, so they must
+// not sit under the OVERLAY heading above.
+test.describe('plain mouse CLICK in the drawer', () => {
+  // ---- the OTHER half of the mouse contract ---------------------------------
+  // Cases (a)-(i) prove a mouse DRAG still moves a project. A drag fix that ate
+  // the plain click would be just as broken to Igor, and until now nothing in
+  // this file clicked a project row at all: every `.click()` above is on the
+  // "Projects" drawer trigger. (j) and (k) close that hole. Together with the
+  // drag cases they pin BOTH sides of the desktop rule: past 8px the mouse
+  // drags immediately (no hold, no long press), under 8px it is still a click
+  // that selects.
+
+  test('(j) CLICK: a plain mouse click still SELECTS the project, and starts no drag', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    const rows = [projectRow(1), projectRow(2), projectRow(3)];
+    const writes: Write[] = [];
+    await installIntercepts(context, rows, writes);
+    await seedSession(page);
+    await installPointerCounter(page);
+    await openApp(page);
+
+    expect(await isSelected(page, pid(2)), 'P2 must start unselected').toBe(false);
+
+    await row(page, pid(2)).click();
+    await expect
+      .poll(() => isSelected(page, pid(2)), {
+        timeout: 5000,
+        message: 'a plain mouse click did not select P2',
+      })
+      .toBe(true);
+
+    // The highlight MOVES with the click, it does not accumulate.
+    await row(page, pid(1)).click();
+    await expect
+      .poll(() => isSelected(page, pid(1)), { timeout: 5000, message: 'the click did not select P1' })
+      .toBe(true);
+    expect(await isSelected(page, pid(2)), 'P2 must lose the highlight when P1 is clicked').toBe(false);
+
+    // A click is not a drag: no ghost, no dnd stamp, and above all no write.
+    const probe = await dragProbe(page);
+    expect(probe.draggingRows, `a click started a drag. probe=${JSON.stringify(probe)}`).toBe(0);
+    expect(probe.bodyDndAction, `a click left dnd-kit active. probe=${JSON.stringify(probe)}`).toBeNull();
+    expect(
+      projectPatches(writes),
+      `a click wrote to focusos_projects: ${JSON.stringify(projectPatches(writes))}`,
+    ).toHaveLength(0);
+
+    // The tree itself is untouched by two clicks.
+    expect(await myProjectsOrder(page)).toEqual(['Drag P1', 'Drag P2', 'Drag P3']);
+  });
+
+  test('(k) CLICK with a shaky hand: press, move under the 8px threshold, release, still selects', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    const rows = [projectRow(1), projectRow(2), projectRow(3)];
+    const writes: Write[] = [];
+    await installIntercepts(context, rows, writes);
+    await seedSession(page);
+    await installPointerCounter(page);
+    await openApp(page);
+
+    const box = await row(page, pid(3)).boundingBox();
+    expect(box, "P3's row must have a box").toBeTruthy();
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    // Sub-threshold jitter only: the mouse sensor activates at 8px, so none of
+    // these may start a drag.
+    await page.mouse.move(cx + 3, cy + 2);
+    await page.mouse.move(cx + 4, cy - 3);
+    await page.mouse.move(cx + 2, cy + 1);
+    const midProbe = await dragProbe(page);
+    await page.mouse.up();
+
+    expect(
+      midProbe.draggingRows,
+      `a sub-8px jitter started a drag. probe=${JSON.stringify(midProbe)}`,
+    ).toBe(0);
+    await expect
+      .poll(() => isSelected(page, pid(3)), {
+        timeout: 5000,
+        message: `a shaky click did not select P3. pointer events=${JSON.stringify(await pointerCounts(page))}`,
+      })
+      .toBe(true);
+    expect(
+      projectPatches(writes),
+      `a shaky click wrote to focusos_projects: ${JSON.stringify(projectPatches(writes))}`,
+    ).toHaveLength(0);
+    expect(await myProjectsOrder(page)).toEqual(['Drag P1', 'Drag P2', 'Drag P3']);
   });
 });
