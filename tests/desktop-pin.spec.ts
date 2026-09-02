@@ -17,6 +17,18 @@
 // tests/project-order.spec.ts rather than imported, so this one file can be
 // dropped unchanged into an older worktree during a bisect.
 //
+// WHAT THIS FILE DOES NOT BIND (stated up front, skeptic-verified 2026-09-02).
+// It is a COVERAGE guard for a surface that previously had none, not a
+// discriminating guard for the fold-selection defect fixed alongside it. A
+// skeptic reverted that fix and all 16 cases here still passed, and that is
+// structural, not a gap in the cases: the fold set is computed in a layout
+// effect, which commits before the browser paints, so a mis-indexed or stale
+// fold set is corrected inside the same frame and never reaches a pixel any
+// browser test can sample. The binding guard for that defect is the pure
+// contract in tests/desktop-fold-unit.spec.ts, which fails 7 of its 10 cases
+// against the pre-fix implementation. Treat a green run here as "the bar's
+// reachability invariant holds at these widths and shapes", nothing more.
+//
 // Run: PW_PORT=8091 npx playwright test tests/desktop-pin.spec.ts --project=desktop-mouse
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 

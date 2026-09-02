@@ -67,6 +67,91 @@ export interface UseProjectBarFoldResult {
   hasFolded: boolean;
 }
 
+export interface FoldSelectionInput {
+  /** Candidate keys the caller offers, in fold order: index 0 folds first. */
+  keysInFoldOrder: string[];
+  /** Natural pixel width per key, as reported by the hidden measurer clone. */
+  widths: Map<string, number>;
+  /** Content width of the row, padding already subtracted. */
+  available: number;
+  /** Width the name group reserves off the top (fixed siblings plus the CSS floor). */
+  reservedName: number;
+  /** Natural pixel width of the More trigger. */
+  moreWidth: number;
+  /** Flex column gap between row children. */
+  gap: number;
+}
+
+/**
+ * Pure fold selection, extracted out of the layout effect (G1 fix round,
+ * 2026-09-02) so a test can bind on it directly.
+ *
+ * WHY IT IS PURE: the effect version could only be observed through the DOM,
+ * and the defect it carries never survives to a painted frame (a layout effect
+ * commits before paint), so no end-to-end spec at any viewport can discriminate
+ * a correct implementation from a broken one. The behaviour therefore lives in
+ * a function whose contract is assertable without a browser, and
+ * tests/desktop-fold-unit.spec.ts asserts it.
+ *
+ * THE DEFECT THIS OWNS: the count is only meaningful against the exact array it
+ * was counted over. `keys` below is the caller's candidate list narrowed to the
+ * ones the measurer actually reported a width for, and the two arrays drift
+ * whenever the measurer clone lags the caller by a render (a project switch
+ * adds or removes candidates, so for one commit the offered list and the
+ * measured list disagree). Counting over the narrowed array and then slicing
+ * the wider one folds actions by POSITION: it hides items that were never
+ * measured, leaves the over-wide ones in the row, and does it silently from the
+ * middle of the row rather than off its front.
+ *
+ * CONTRACT (asserted by the unit spec):
+ *  1. every returned key was measured, so an unmeasured candidate is never hidden;
+ *  2. the return is a PREFIX of the measured candidates in fold order;
+ *  3. the return is a subset of `keysInFoldOrder`;
+ *  4. folding is minimal: with the returned set hidden the row fits whenever any
+ *     fold set fits.
+ */
+export function selectFoldedKeys({
+  keysInFoldOrder,
+  widths,
+  available,
+  reservedName,
+  moreWidth,
+  gap,
+}: FoldSelectionInput): string[] {
+  // Row layout: [nameGroup] gap [actions...] gap [more?]. One gap between the
+  // name group and the action cluster, one between each visible action, one
+  // more before the trigger.
+  const keys = keysInFoldOrder.filter((k) => widths.has(k));
+
+  let count = 0;
+  for (; count <= keys.length; count++) {
+    const visible = keys.slice(count);
+    const visibleWidth = visible.reduce((sum, k) => sum + (widths.get(k) ?? 0), 0);
+    const innerGaps = Math.max(0, visible.length - 1) * gap;
+    const rowGapToName = visible.length > 0 || count > 0 ? gap : 0;
+    const moreExtra = count > 0 ? moreWidth + gap : 0;
+    const total = reservedName + rowGapToName + visibleWidth + innerGaps + moreExtra;
+    if (total <= available) break;
+  }
+  // Slice the SAME array the count was counted over. Never `keysInFoldOrder`.
+  return keys.slice(0, Math.min(count, keys.length));
+}
+
+/**
+ * The fold set as THIS render must apply it: held keys intersected with the
+ * candidates the current render offers.
+ *
+ * A key carried over from the previously selected project can then never fold
+ * an action the current project does not have, and `hasFolded` can never be
+ * true while the menu it gates would come out empty, which would hide an action
+ * behind a trigger that shows nothing. Derived during render, never corrected
+ * by a post-paint effect.
+ */
+export function visibleFoldSet(foldedKeyList: string[], keysInFoldOrder: string[]): Set<string> {
+  const offered = new Set(keysInFoldOrder);
+  return new Set(foldedKeyList.filter((k) => offered.has(k)));
+}
+
 export function useProjectBarFold(
   /** Candidate keys THIS render actually offers, in fold order — index 0 folds first, the last entry folds last. */
   keysInFoldOrder: string[],
@@ -154,24 +239,10 @@ export function useProjectBarFold(
       const moreTrigger = measure.querySelector<HTMLElement>('[data-fold-more]');
       const moreWidth = moreTrigger ? moreTrigger.getBoundingClientRect().width : 0;
 
-      // Row layout: [nameGroup] gap [moveTasks+actions...] gap [more?] — one
-      // `gap` between the name group and the action cluster, one `gap`
-      // between each visible action, one more `gap` before the trigger.
-      const keys = keysInFoldOrder.filter((k) => widths.has(k));
-
-      let count = 0;
-      for (; count <= keys.length; count++) {
-        const visible = keys.slice(count);
-        const visibleWidth = visible.reduce((sum, k) => sum + (widths.get(k) ?? 0), 0);
-        const innerGaps = Math.max(0, visible.length - 1) * gap;
-        const rowGapToName = visible.length > 0 || count > 0 ? gap : 0;
-        const moreExtra = count > 0 ? moreWidth + gap : 0;
-        const total = reservedName + rowGapToName + visibleWidth + innerGaps + moreExtra;
-        if (total <= available) break;
-      }
-      // Slice the SAME array the count was counted over, and only re-set state
-      // when the resulting key list really changed.
-      const nextFolded = keys.slice(0, count);
+      // All of the selection maths lives in the pure `selectFoldedKeys` above,
+      // which the unit spec binds on. This effect only feeds it measurements.
+      const nextFolded = selectFoldedKeys({ keysInFoldOrder, widths, available, reservedName, moreWidth, gap });
+      // Only re-set state when the resulting key list really changed.
       setFoldedKeyList((prev) =>
         prev.length === nextFolded.length && prev.every((k, i) => k === nextFolded[i]) ? prev : nextFolded,
       );
@@ -197,12 +268,7 @@ export function useProjectBarFold(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, keysSignature, gap, nameFloor, attachTick, contentKey]);
 
-  // Derived DURING RENDER, and intersected with the candidates THIS render
-  // offers: a key held over from the previous project can never fold an action
-  // the current one does not have, and `hasFolded` can never be true while the
-  // menu it gates would come out empty (which would hide an action behind a
-  // trigger that shows nothing).
-  const offered = new Set(keysInFoldOrder);
-  const foldedKeys = new Set(foldedKeyList.filter((k) => offered.has(k)));
+  // Derived DURING RENDER by the pure `visibleFoldSet` above (see its contract).
+  const foldedKeys = visibleFoldSet(foldedKeyList, keysInFoldOrder);
   return { rowRef, nameGroupRef, nameRef, measureRef, foldedKeys, hasFolded: foldedKeys.size > 0 };
 }
