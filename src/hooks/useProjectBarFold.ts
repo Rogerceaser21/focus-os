@@ -78,7 +78,17 @@ export function useProjectBarFold(
   const nameEl = useRef<HTMLElement | null>(null);
   const measureEl = useRef<HTMLDivElement | null>(null);
   const [attachTick, setAttachTick] = useState(0);
-  const [foldCount, setFoldCount] = useState(0);
+  // The fold set is held BY KEY, never by a count (G1, 2026-09-02). A count is
+  // only meaningful against the exact array it was computed over: the loop below
+  // counts across `keys` (the candidates the measurer actually reported a width
+  // for) while the caller's `keysInFoldOrder` may hold more, so slicing one with
+  // the other's count folds the wrong actions — silently, and in the middle of
+  // the row rather than off its front. It also made a STALE count dangerous: a
+  // count carried over from the previously selected project re-indexes into a
+  // different candidate list. Keys re-apply harmlessly (a key that is no longer
+  // offered simply matches nothing), so the invariant "an action is either in
+  // the row or in the More menu, never neither" holds even mid-switch.
+  const [foldedKeyList, setFoldedKeyList] = useState<string[]>([]);
 
   // See the file-level note: callback refs so a late-mounting target (behind
   // an unrelated loading gate) still gets the layout effect to retry.
@@ -94,7 +104,7 @@ export function useProjectBarFold(
 
   useLayoutEffect(() => {
     if (!active) {
-      setFoldCount(0);
+      setFoldedKeyList((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
@@ -159,7 +169,12 @@ export function useProjectBarFold(
         const total = reservedName + rowGapToName + visibleWidth + innerGaps + moreExtra;
         if (total <= available) break;
       }
-      setFoldCount((prev) => (prev === count ? prev : count));
+      // Slice the SAME array the count was counted over, and only re-set state
+      // when the resulting key list really changed.
+      const nextFolded = keys.slice(0, count);
+      setFoldedKeyList((prev) =>
+        prev.length === nextFolded.length && prev.every((k, i) => k === nextFolded[i]) ? prev : nextFolded,
+      );
     };
 
     recompute();
@@ -182,6 +197,12 @@ export function useProjectBarFold(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, keysSignature, gap, nameFloor, attachTick, contentKey]);
 
-  const foldedKeys = new Set(keysInFoldOrder.slice(0, foldCount));
-  return { rowRef, nameGroupRef, nameRef, measureRef, foldedKeys, hasFolded: foldCount > 0 };
+  // Derived DURING RENDER, and intersected with the candidates THIS render
+  // offers: a key held over from the previous project can never fold an action
+  // the current one does not have, and `hasFolded` can never be true while the
+  // menu it gates would come out empty (which would hide an action behind a
+  // trigger that shows nothing).
+  const offered = new Set(keysInFoldOrder);
+  const foldedKeys = new Set(foldedKeyList.filter((k) => offered.has(k)));
+  return { rowRef, nameGroupRef, nameRef, measureRef, foldedKeys, hasFolded: foldedKeys.size > 0 };
 }
