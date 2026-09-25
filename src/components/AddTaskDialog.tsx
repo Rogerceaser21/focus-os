@@ -26,7 +26,10 @@ interface Project {
 }
 
 interface AddTaskDialogProps {
-  onAddTask: (task: Task) => void;
+  // Returns true only when the row was really saved. AddTaskDialog awaits this
+  // before clearing the form/closing/toasting; false keeps the dialog open with
+  // everything the user typed intact and shows an inline error instead.
+  onAddTask: (task: Task) => Promise<boolean>;
   selectedProjectId?: string | null;
   selectedSpecialList?: string | null;
   projects?: Project[];
@@ -67,8 +70,17 @@ export const AddTaskDialog = ({
   const prevSidebarOpen = useRef<boolean | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const MAX_IMAGES = 8;
+
+  // Clear the inline save error the moment the user edits anything, so a retry
+  // never sits behind a stale message once they've changed the form.
+  useEffect(() => {
+    setSaveError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description, priority, status, startDate, endDate, dueDate, images, projectId]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
@@ -191,11 +203,15 @@ export const AddTaskDialog = ({
     setViewerOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
       toast.error('Please enter a task title');
       return;
     }
+    if (saving) return; // guard: button is disabled while saving, but belt and braces
+
+    setSaveError(null);
+    setSaving(true);
 
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -214,7 +230,15 @@ export const AddTaskDialog = ({
       projectId: projectId || selectedProjectId || undefined,
     };
 
-    onAddTask(newTask);
+    const ok = await onAddTask(newTask);
+
+    setSaving(false);
+
+    if (!ok) {
+      // Row never landed: keep every field exactly as typed and let the user retry.
+      setSaveError("Couldn't save. Try again.");
+      return;
+    }
 
     setTitle('');
     setDescription('');
@@ -398,11 +422,20 @@ export const AddTaskDialog = ({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={() => setOpen(false)}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} disabled={uploading}>{uploading ? 'Uploading...' : 'Create Task'}</Button>
+      <div className="flex flex-col items-end gap-2 pt-4">
+        {saveError && (
+          <p data-testid="add-task-save-error" className="text-sm text-destructive">
+            {saveError}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={uploading || saving}>
+            {uploading ? 'Uploading...' : saving ? 'Saving...' : 'Create Task'}
+          </Button>
+        </div>
       </div>
     </div>
   );
