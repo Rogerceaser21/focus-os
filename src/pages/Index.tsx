@@ -71,6 +71,7 @@ import {
   slimTaskRow,
   isProjectArchived,
   isSubProject,
+  ensureSession,
   type RawProjectRow,
 } from '@/lib/appDataFetchers';
 import {
@@ -1655,9 +1656,23 @@ https://www.skyscanner.com`,
     }
   };
 
-  const handleAddTask = async (newTask: Task) => {
-    if (!user) return;
-    const { data, error } = await (supabase as any).from('focusos_tasks').insert({
+  // Auth-expiry shape a failed insert can come back as: an HTTP 401 on the response,
+  // PostgREST's own JWT-expired code, or any error whose message names the JWT.
+  const isAuthError = (err: any, httpStatus?: number): boolean =>
+    httpStatus === 401
+    || !!err && (
+      err.code === 'PGRST301'
+      || (typeof err.message === 'string' && err.message.includes('JWT'))
+    );
+
+  const handleAddTask = async (newTask: Task): Promise<boolean> => {
+    // Silent drop on a missing user is still a drop, but now the dialog sees it as a
+    // failure (stays open, shows the inline error) instead of reporting success.
+    if (!user) return false;
+
+    await ensureSession();
+
+    const insertTask = () => (supabase as any).from('focusos_tasks').insert({
       user_id: user.id,
       project_id: newTask.projectId || null,
       title: newTask.title,
@@ -1671,10 +1686,22 @@ https://www.skyscanner.com`,
       timer_total_seconds: 0,
       timer_is_running: false
     }).select().single();
-    if (error) {
-      toast.error('Failed to create task');
-      return;
+
+    let { data, error, status: httpStatus } = await insertTask();
+
+    // One refresh-and-retry on an expired session (e.g. a stale tab left open
+    // overnight) — the read path's ensureSession only covers the COLD-start race,
+    // never a token that expires mid-session.
+    if (error && isAuthError(error, httpStatus)) {
+      await supabase.auth.refreshSession();
+      ({ data, error, status: httpStatus } = await insertTask());
     }
+
+    if (error) {
+      console.error('Failed to create task:', error);
+      return false; // no toast here; the dialog shows the inline error
+    }
+
     // Optimistic insert as a safety net in case realtime is briefly disconnected.
     // The realtime INSERT handler dedupes by id, so no duplicate row will appear.
     if (data) {
@@ -1686,6 +1713,7 @@ https://www.skyscanner.com`,
       setAllTasks(prev => prev.length === 0 || prev.some(t => t.id === inserted.id) ? prev : [...prev, inserted]);
     }
     // Toast is fired by AddTaskDialog; do not duplicate it here.
+    return true;
   };
   const handleUpdateTask = async (updatedTask: Task) => {
     // Collaborative project completion gating:

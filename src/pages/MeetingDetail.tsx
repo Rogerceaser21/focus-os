@@ -645,8 +645,8 @@ const MeetingDetail = () => {
     }
   };
 
-  const handleAddTask = async (newTask: Task) => {
-    if (!user || !id) return;
+  const handleAddTask = async (newTask: Task): Promise<boolean> => {
+    if (!user || !id) return false;
     const { data, error } = await (supabase as any).from('focusos_tasks').insert({
       user_id: user.id,
       meeting_id: id,
@@ -663,13 +663,14 @@ const MeetingDetail = () => {
       timer_is_running: false,
     }).select().single();
     if (error) {
-      toast.error('Failed to create task');
-      return;
+      console.error('Failed to create task:', error);
+      return false; // no toast here; AddTaskDialog shows the inline error
     }
     if (data) {
       const inserted = mapDbTaskToTask(data);
       setSavedTasks(prev => prev.some(t => t.id === inserted.id) ? prev : [inserted, ...prev]);
     }
+    return true;
   };
 
   const handleSavedTaskUpdate = async (updatedTask: Task) => {
