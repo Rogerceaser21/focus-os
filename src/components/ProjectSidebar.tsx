@@ -425,6 +425,36 @@ export const ProjectSidebar = ({
     fetchProjectInvitations();
   }, [projectRefreshTrigger, dataUserId]);
 
+  // One source of truth for projects (mirrors src/pages/Index.tsx): focusos_projects
+  // carries no realtime channel, so this drawer used to converge only on its OWN
+  // triggers (mount, projectRefreshTrigger, SIGNED_IN/TOKEN_REFRESHED) — never on a
+  // plain window focus event, and never on a fetch made by Index itself. Index's
+  // fetchProjects (its focus-triggered resync included) writes the SAME shared React
+  // Query cache entry (appDataKeys.projects) this drawer's own fetchProjects writes,
+  // so instead of adding a second focus listener here, this just watches that one
+  // cache entry and applies whatever lands in it — from either surface's fetch. This
+  // never writes the cache itself (applyProjectRows only calls the drawer's own
+  // setProjects/setArchivedProjects/setSharedProjects), so it cannot loop with the
+  // write side.
+  useEffect(() => {
+    if (!dataUserId) return;
+    const key = appDataKeys.projects(dataUserId);
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'updated') return;
+      if (event.action.type !== 'success') return;
+      const { queryKey } = event.query;
+      if (queryKey.length !== key.length || queryKey[0] !== key[0] || queryKey[1] !== key[1]) return;
+      const rows = event.action.data as any[] | undefined;
+      if (!rows) return;
+      // Same guard as Index's applyTaskRows/applyProjectRows subscription: ignore an
+      // empty read while the current list is non-empty, rather than let a transient
+      // auth/RLS race blank a populated drawer.
+      if (rows.length === 0 && projectRowsCountRef.current > 0) return;
+      applyProjectRows(rows);
+    });
+    return unsubscribe;
+  }, [dataUserId, queryClient]);
+
   // O7 (2026-08-26): the host page bumps sharedItemsRefreshTrigger after a
   // share/assign event elsewhere (Edit Task sheet, project bar), so THIS
   // drawer's own Shared Items section (a local sharedItems useState mirror
@@ -703,27 +733,18 @@ export const ProjectSidebar = ({
     }
   }, [sharedItems, userId]);
 
-  // Route projects through the shared single-flight fetcher so this sidebar and Index's
-  // list share ONE request (same key), with the own/shared merge + empty-success retry
-  // living in one place. `fresh` forces a network refetch for event-driven callers
-  // (create / accept invite / realtime) that must not read the stale snapshot; the mount
-  // load omits it so an in-flight Index/prefetch load is reused. The is_shared split and
-  // the shared-task visibility filter below are unchanged.
-  const fetchProjects = async (opts?: { fresh?: boolean }) => {
-    if (!userId) return;
-    let data: any[];
-    try {
-      if (opts?.fresh) {
-        // Refresh memberships first so a just-accepted invite's shared project is included.
-        await fetchMemberIdsShared(queryClient, userId, { fresh: true });
-      }
-      data = await fetchProjectsShared(queryClient, userId, { fresh: opts?.fresh });
-    } catch (error) {
-      console.error('[ProjectSidebar] fetchProjects failed after retries:', error);
-      toast.error('Failed to load projects');
-      return;
-    }
-    lastFetchAtRef.current = Date.now();
+  // Raw row count from the last apply (own+shared, active+archived) — read by the
+  // shared-cache subscription below so its empty-read guard doesn't need a stale
+  // closure over projects/archivedProjects/sharedProjects.
+  const projectRowsCountRef = useRef(0);
+
+  // Split + map the fetcher's raw rows into this drawer's three lists (own active,
+  // own archived, shared-active), and refresh the shared-visibility filter. Pulled
+  // out of fetchProjects so BOTH a direct fetch and the shared-cache subscription
+  // (below) apply rows the same way — one source of truth for what "the drawer's
+  // project list" means.
+  const applyProjectRows = async (data: any[]) => {
+    projectRowsCountRef.current = data.length;
 
     // Split into own projects and shared projects
     const ownProjects = data.filter((p: any) => !p.is_shared);
@@ -760,6 +781,30 @@ export const ProjectSidebar = ({
     // active-visibility filter (shared task read + hide-when-all-done) via the shared path.
     sharedProjectsAllRef.current = shared.map((p: any) => ({ id: p.id, name: p.name, color: p.color }));
     await recomputeSharedVisibility();
+  };
+
+  // Route projects through the shared single-flight fetcher so this sidebar and Index's
+  // list share ONE request (same key), with the own/shared merge + empty-success retry
+  // living in one place. `fresh` forces a network refetch for event-driven callers
+  // (create / accept invite / realtime) that must not read the stale snapshot; the mount
+  // load omits it so an in-flight Index/prefetch load is reused. The is_shared split and
+  // the shared-task visibility filter below are unchanged.
+  const fetchProjects = async (opts?: { fresh?: boolean }) => {
+    if (!userId) return;
+    let data: any[];
+    try {
+      if (opts?.fresh) {
+        // Refresh memberships first so a just-accepted invite's shared project is included.
+        await fetchMemberIdsShared(queryClient, userId, { fresh: true });
+      }
+      data = await fetchProjectsShared(queryClient, userId, { fresh: opts?.fresh });
+    } catch (error) {
+      console.error('[ProjectSidebar] fetchProjects failed after retries:', error);
+      toast.error('Failed to load projects');
+      return;
+    }
+    lastFetchAtRef.current = Date.now();
+    await applyProjectRows(data);
   };
 
   // Light shared-project active-visibility filter: for the current shared set, read the

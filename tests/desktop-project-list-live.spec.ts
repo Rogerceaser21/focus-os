@@ -18,7 +18,10 @@
 // the shared React Query cache entry for this user's projects
 // (appDataKeys.projects) and applies whatever lands in it — so ANY caller that
 // refreshes that one cache entry (this tab's own resync, a prefetch, etc.)
-// updates Index's view without Index running a second request.
+// updates Index's view without Index running a second request. The Projects
+// drawer (src/components/ProjectSidebar.tsx) now subscribes to that SAME cache
+// entry too, so Index's focus-triggered fetch also converges the drawer's own
+// list — one source of truth for both surfaces, not just the task-area view.
 //
 // LIVE, not hermetic — same shape as tests/project-rollups.spec.ts: real
 // backend, real demo account, zz/stamp-named rows, PostgREST helpers signed in
@@ -287,21 +290,17 @@ test.describe('project list stays live without a reload (desktop)', () => {
       ids.projectIds.push(secondId);
 
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      // The Projects drawer (ProjectSidebar) now subscribes to the same shared
+      // React Query cache entry (appDataKeys.projects) Index's focus-triggered
+      // resync writes, so the drawer's own row for a project it has never
+      // fetched itself converges from THIS SAME focus event too — no in-app
+      // click, mount, or auth event of its own required. If this ever regresses
+      // to a drawer-only refresh path, fall back to a direct deep link so the
+      // header assertion below (the actual behaviour this case is about) still
+      // runs: await page.goto(`${BASE}/app?view=${secondId}`).
       const drawerRow = page.getByTestId(`select-project-${secondId}`);
-      if (await drawerRow.count().then((n) => n > 0).catch(() => false)) {
-        await drawerRow.click();
-      } else {
-        // In-app selection genuinely not possible here: the Projects drawer
-        // (ProjectSidebar) keeps its own local state, refreshed on its own
-        // triggers (mount, SIGNED_IN, TOKEN_REFRESHED, its own UI actions) —
-        // not on a window focus event — so a project created outside the tab
-        // may never reach the drawer's clickable list without one of those.
-        // The documented fallback is a direct deep link, which still exercises
-        // exactly the header behaviour this test is about: a selected project
-        // Index does not know yet must resolve its real name, never a wrong
-        // or missing one.
-        await page.goto(`${BASE}/app?view=${secondId}`);
-      }
+      await expect(drawerRow).toBeVisible({ timeout: 10_000 });
+      await drawerRow.click();
       await expect(headerName(page)).toHaveText(secondName, { timeout: 20000 });
       await expect(page.getByText('Unknown Project')).toHaveCount(0);
     });
