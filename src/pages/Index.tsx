@@ -323,6 +323,10 @@ const Index = () => {
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const allTasksRef = useRef<Task[]>([]);
   useEffect(() => { allTasksRef.current = allTasks; }, [allTasks]);
+  // Active-project list ref, read by the shared-cache subscription below (its
+  // empty-read guard needs the latest list without re-subscribing on every change).
+  const projectsRef = useRef<Project[]>([]);
+  useEffect(() => { projectsRef.current = projects; }, [projects]);
   // Accepted-membership project ids (shared projects the current user can see).
   // Held in a ref so the zero-arg fetch functions read the latest set without threading.
   const memberProjectIdsRef = useRef<string[]>([]);
@@ -784,8 +788,14 @@ const Index = () => {
 
   // Change request notifications are now handled via sidebar shared items, not toasts
 
-  // Debounced resync safety net — refetches all tasks then re-applies the active filter.
-  // Used to recover from missed realtime events after disconnects (tab backgrounded, network drop, etc.)
+  // Debounced resync safety net — refetches all tasks AND projects, then re-applies.
+  // Used to recover from missed realtime events after disconnects (tab backgrounded,
+  // network drop, etc.), and — since projects carry no realtime channel at all
+  // (focusos_projects is not in the Supabase realtime publication) — this is also the
+  // ONLY path that picks up a sub-project created or moved outside this tab (the Focus
+  // OS MCP, another device) for any hidden duration, not just the >60s resume path
+  // below. Both fetches share ONE debounce timer: a burst of focus/online/visibility
+  // events collapses to one tasks request and one projects request, not a pair each.
   const resyncDebounceRef = useRef<number | null>(null);
   const hasSubscribedOnceRef = useRef<boolean>(false);
   const resyncTasks = useCallback(() => {
@@ -796,9 +806,9 @@ const Index = () => {
     }
     resyncDebounceRef.current = window.setTimeout(async () => {
       resyncDebounceRef.current = null;
-      await fetchAllTasks();
+      await Promise.all([fetchAllTasks(), fetchProjects()]);
     }, 1000);
-  }, [user, fullDataLoaded, fetchAllTasks]);
+  }, [user, fullDataLoaded, fetchAllTasks, fetchProjects]);
   const resyncTasksRef = useRef(resyncTasks);
   useEffect(() => { resyncTasksRef.current = resyncTasks; }, [resyncTasks]);
 
@@ -872,6 +882,33 @@ const Index = () => {
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [user, queryClient, applyTaskRows, applyProjectRows, hydrateCompletedTasks]);
+
+  // One source of truth for projects: focusos_projects carries no realtime channel
+  // (not in the Supabase realtime publication), so ProjectSidebar's own fetch (its
+  // fetchProjectsShared call, refreshed on TOKEN_REFRESHED etc.) is often the first to
+  // see a sub-project created or moved elsewhere. That fetch writes the SAME shared
+  // React Query cache entry (appDataKeys.projects) Index reads from, so instead of
+  // Index running its own second request, it just watches that cache entry and applies
+  // whatever lands in it. This never writes the cache itself (applyProjectRows only
+  // calls setProjects/setAllProjectsForReports), so it cannot loop with the write side.
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.id;
+    const key = appDataKeys.projects(uid);
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'updated') return;
+      if (event.action.type !== 'success') return;
+      const { queryKey } = event.query;
+      if (queryKey.length !== key.length || queryKey[0] !== key[0] || queryKey[1] !== key[1]) return;
+      const rows = event.action.data as any[] | undefined;
+      if (!rows) return;
+      // Same guard as applyTaskRows: ignore an empty read while the current list is
+      // non-empty rather than let a transient auth/RLS race blank a populated list.
+      if (rows.length === 0 && projectsRef.current.length > 0) return;
+      applyProjectRows(rows);
+    });
+    return unsubscribe;
+  }, [user, queryClient, applyProjectRows]);
 
   // Realtime subscription for tasks - keeps all sessions in sync
   useEffect(() => {
