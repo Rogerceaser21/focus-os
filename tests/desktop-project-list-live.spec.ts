@@ -260,8 +260,12 @@ test.describe('project list stays live without a reload (desktop)', () => {
         name: subName, color: '#22c55e', user_id: s.userId, parent_project_id: parentId,
       });
       ids.projectIds.push(subId);
-      const startDate = new Date();
-      const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+      // Fixed mid-month window (10th-13th of NEXT month, local noon): it can
+      // never straddle a month end, so the Gantt renders exactly one row for it
+      // (a task crossing a month boundary legitimately gets one row per month).
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth() + 1, 10, 12, 0, 0);
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 13, 12, 0, 0);
       const subTaskId = await restInsert(request, s, 'focusos_tasks', {
         user_id: s.userId, project_id: subId, title: subTaskTitle, status: 'todo', priority: 'medium',
         start_date: startDate.toISOString(), end_date: endDate.toISOString(),
