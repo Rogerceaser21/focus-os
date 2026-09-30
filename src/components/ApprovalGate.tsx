@@ -12,14 +12,22 @@ import { AppBootSkeleton } from '@/components/AppSkeletons';
    /auth keeps working. Signed in: read the caller's own row in
    focusos_account_approvals; missing or pending asks focusos-request-approval
    once per session and shows the waiting screen; declined shows the declined
-   screen. Read or network trouble shows a retry state, never the app. */
+   screen. Read or network trouble with no cached approval shows a retry
+   state, never the app.
+
+   Approved accounts are remembered per user id in localStorage so a cold start
+   with no network (or a slow one) opens the app at once; the row is still
+   re-read in the background, and a pending/declined answer flips to that
+   screen and clears the memory. This is a convenience only: the server and
+   the database refuse unapproved accounts on their own. */
 
 type Status = 'pending' | 'approved' | 'declined';
 type GateState = 'checking' | Status | 'error';
 
-// Session-scoped memory (module level, survives route changes): an approved
-// account is never re-queried, and the request is sent once per user.
-const approvedUsers = new Set<string>();
+// Session-scoped memory (module level, survives route changes): an account the
+// server confirmed as approved in this page load is not re-queried, and the
+// request is sent once per user.
+const verifiedUsers = new Set<string>();
 const requestedUsers = new Set<string>();
 // In-flight request per user: React StrictMode (dev) and quick remounts can run
 // two checks at once; they share one request instead of emailing twice.
@@ -38,6 +46,48 @@ const requestApproval = (id: string): Promise<Status> => {
   return p;
 };
 
+// Remembered approval, one key per user id (never a shared flag).
+const CACHE_PREFIX = 'focusos-approved:';
+const readCachedApproval = (id: string): boolean => {
+  try {
+    return localStorage.getItem(CACHE_PREFIX + id) === '1';
+  } catch {
+    return false;
+  }
+};
+const writeCachedApproval = (id: string) => {
+  try {
+    localStorage.setItem(CACHE_PREFIX + id, '1');
+  } catch {
+    /* private mode / quota: the cache is optional */
+  }
+};
+const clearCachedApproval = (id: string) => {
+  try {
+    localStorage.removeItem(CACHE_PREFIX + id);
+  } catch {
+    /* ignore */
+  }
+};
+const clearAllCachedApprovals = () => {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(CACHE_PREFIX)) localStorage.removeItem(k);
+    }
+  } catch {
+    /* ignore */
+  }
+};
+
+// Sign-out (from any screen) forgets every remembered approval on this device.
+// Module level so it is live from app start, whichever page does the sign-out.
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') clearAllCachedApprovals();
+});
+
+const isApprovedLocally = (id: string) => verifiedUsers.has(id) || readCachedApproval(id);
+
 const asStatus = (v: unknown): Status | null =>
   v === 'approved' || v === 'pending' || v === 'declined' ? v : null;
 
@@ -48,7 +98,7 @@ const ApprovalGate = () => {
   // sign-in on the same device, no unmount) never inherits the last one's state.
   const [gate, setGate] = useState<{ id: string | null; value: GateState }>({
     id: userId,
-    value: userId && approvedUsers.has(userId) ? 'approved' : 'checking',
+    value: userId && isApprovedLocally(userId) ? 'approved' : 'checking',
   });
   const runRef = useRef(0);
 
@@ -56,14 +106,22 @@ const ApprovalGate = () => {
     const run = ++runRef.current;
     const settle = (next: GateState) => {
       if (run !== runRef.current) return;
-      if (next === 'approved') approvedUsers.add(id);
+      if (next === 'approved') {
+        verifiedUsers.add(id);
+        writeCachedApproval(id);
+      } else if (next === 'pending' || next === 'declined') {
+        verifiedUsers.delete(id);
+        clearCachedApproval(id);
+      }
       setGate({ id, value: next });
     };
-    if (approvedUsers.has(id)) {
+    if (verifiedUsers.has(id)) {
       settle('approved');
       return;
     }
-    setGate({ id, value: 'checking' });
+    // A remembered approval keeps the app on screen while the row is re-read.
+    const remembered = readCachedApproval(id);
+    if (!remembered) setGate({ id, value: 'checking' });
     try {
       // focusos_account_approvals is not in the generated types file yet.
       const { data, error } = await supabase
@@ -86,7 +144,9 @@ const ApprovalGate = () => {
       settle('pending');
     } catch (err) {
       console.error('[ApprovalGate] check failed:', err);
-      settle('error');
+      // Remembered approval + a failed re-read (offline, slow): keep the app.
+      if (remembered && run === runRef.current) setGate({ id, value: 'approved' });
+      else settle('error');
     }
   }, []);
 
@@ -101,13 +161,12 @@ const ApprovalGate = () => {
   // Signed out (or auth still resolving with no known user): the pages' own
   // redirect to /auth runs. A user is present: the app shows only once THIS
   // user is approved; until then the boot skeleton, never the app.
-  if (import.meta.env.VITE_E2E_SKIP_APPROVAL === '1') return <Outlet />;
+  // Test-only bypass. `import.meta.env.DEV` is a compile-time false in every
+  // production build, so Vite drops this whole branch and the env name with it.
+  if (import.meta.env.DEV && import.meta.env.VITE_E2E_SKIP_APPROVAL === '1') return <Outlet />;
   if (!userId) return <Outlet />;
-  const state: GateState = approvedUsers.has(userId)
-    ? 'approved'
-    : gate.id === userId
-      ? gate.value
-      : 'checking';
+  const state: GateState =
+    gate.id === userId ? gate.value : isApprovedLocally(userId) ? 'approved' : 'checking';
   if (state === 'approved') return <Outlet />;
   if (state === 'checking') {
     return (

@@ -217,80 +217,146 @@ test.describe('sign-up without a session', () => {
   });
 });
 
-// A second user on the same device (no unmount between them) must never inherit
-// the first user's approval. Sessions are faked at the auth endpoint; the
-// approvals read answers per user id.
-test.describe('user switch', () => {
-  const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  const USERS = {
-    'a@approval-test.example': '0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a',
-    'b@approval-test.example': '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b',
-  } as Record<string, string>;
-  const tokenFor = (id: string) =>
-    `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: id, role: 'authenticated', aud: 'authenticated', exp: 4102444800 })}.sig`;
+// Fake sessions at the auth endpoint (no real account is touched). Used by the
+// cases that need two users on one device, or a user id known in advance.
+const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+const USERS = {
+  'a@approval-test.example': '0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a',
+  'b@approval-test.example': '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b',
+} as Record<string, string>;
+const A_ID = USERS['a@approval-test.example'];
+const tokenFor = (id: string) =>
+  `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: id, role: 'authenticated', aud: 'authenticated', exp: 4102444800 })}.sig`;
 
+const mockAuth = async (page: Page) => {
+  await page.route('**/auth/v1/token*', async (route) => {
+    const { email } = route.request().postDataJSON() as { email: string };
+    const id = USERS[email];
+    await route.fulfill(
+      json({
+        access_token: tokenFor(id),
+        token_type: 'bearer',
+        expires_in: 3600,
+        expires_at: 4102444800,
+        refresh_token: `r-${id}`,
+        user: {
+          id, aud: 'authenticated', role: 'authenticated', email,
+          app_metadata: {}, user_metadata: {}, created_at: '2026-09-30T00:00:00Z',
+        },
+      }),
+    );
+  });
+  await page.route('**/auth/v1/logout*', (route) => route.fulfill({ status: 204, body: '' }));
+};
+
+const signInAs = (page: Page, email: string) =>
+  page.evaluate(async (e) => {
+    const { supabase } = await import('/src/integrations/supabase/client.ts');
+    const r = await supabase.auth.signInWithPassword({ email: e, password: 'x' });
+    return r.error?.message ?? 'ok';
+  }, email);
+
+const CACHE_KEY_A = `focusos-approved:${A_ID}`;
+
+test.describe('user switch', () => {
   test('(f) approved user A signs out, unapproved user B signs in: waiting screen, never the app', async ({ page }) => {
     const appReadsWithBToken: string[] = [];
-    await page.route('**/auth/v1/token*', async (route) => {
-      const { email } = route.request().postDataJSON() as { email: string };
-      const id = USERS[email];
-      await route.fulfill(
-        json({
-          access_token: tokenFor(id),
-          token_type: 'bearer',
-          expires_in: 3600,
-          expires_at: 4102444800,
-          refresh_token: `r-${id}`,
-          user: {
-            id, aud: 'authenticated', role: 'authenticated', email,
-            app_metadata: {}, user_metadata: {}, created_at: '2026-09-30T00:00:00Z',
-          },
-        }),
-      );
-    });
-    await page.route('**/auth/v1/logout*', (route) => route.fulfill({ status: 204, body: '' }));
+    await mockAuth(page);
     await page.route('**/rest/v1/**', (route) => {
       const req = route.request();
       const url = decodeURIComponent(req.url());
       if (url.includes('/rest/v1/focusos_account_approvals')) {
-        return route.fulfill(json(url.includes(USERS['a@approval-test.example']) ? [{ status: 'approved' }] : []));
+        return route.fulfill(json(url.includes(A_ID) ? [{ status: 'approved' }] : []));
       }
       if ((req.headers()['authorization'] ?? '').includes(tokenFor(USERS['b@approval-test.example']))) {
         appReadsWithBToken.push(url);
       }
       return route.fulfill(json(req.method() === 'GET' ? [] : {}));
     });
-    await page.route('**/functions/v1/focusos-request-approval*', (route) => route.fulfill(json({ status: 'pending' })));
-    // Everything else the app might call answers empty so the fake sessions stay quiet.
-    await page.route('**/functions/v1/focusos-*', (route) => {
-      if (route.request().url().includes('focusos-request-approval')) return route.fallback();
-      return route.fulfill(json({}));
-    });
+    await page.route('**/functions/v1/focusos-*', (route) => route.fulfill(json({ status: 'pending' })));
 
-    // Sign A in through the app's own client, then load the app as A.
     await page.goto(`${BASE}/auth`);
-    const signInAs = (email: string) =>
-      page.evaluate(async (e) => {
-        const { supabase } = await import('/src/integrations/supabase/client.ts');
-        const r = await supabase.auth.signInWithPassword({ email: e, password: 'x' });
-        return r.error?.message ?? 'ok';
-      }, email);
-    expect(await signInAs('a@approval-test.example')).toBe('ok');
+    expect(await signInAs(page, 'a@approval-test.example')).toBe('ok');
     await page.goto(`${BASE}/home`);
     await expect(page.getByTestId('approval-gate')).toHaveCount(0);
     await expect(page).toHaveURL(/\/home$/);
+    // A is remembered as approved on this device.
+    expect(await page.evaluate((k) => localStorage.getItem(k), CACHE_KEY_A)).toBe('1');
 
-    // Same page, no unmount: A out, B in.
+    // Same page, no unmount: A out, B in. Signing out forgets A's approval.
     await page.evaluate(async () => {
       const { supabase } = await import('/src/integrations/supabase/client.ts');
       await supabase.auth.signOut();
     });
-    // Signing out sends the pages to /auth; B then signs in and goes to /home.
-    expect(await signInAs('b@approval-test.example')).toBe('ok');
+    await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), CACHE_KEY_A)).toBeNull();
+    expect(await signInAs(page, 'b@approval-test.example')).toBe('ok');
     await page.goto(`${BASE}/home`);
     await expect(page.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible();
     await expect(page.getByTestId('approval-gate').getByText('b@approval-test.example')).toBeVisible();
     // The app never rendered for B: no app data read carried B's token.
     expect(appReadsWithBToken).toEqual([]);
+  });
+});
+
+test.describe('remembered approval', () => {
+  // Signs A in through the app's own client and remembers the approval, the way a
+  // returning device would have it, then leaves the page ready for /home.
+  const prepare = async (page: Page) => {
+    await mockAuth(page);
+    await page.route('**/functions/v1/focusos-*', (route) => route.fulfill(json({ status: 'pending' })));
+    await page.route('**/rest/v1/**', (route) =>
+      route.fulfill(json(route.request().method() === 'GET' ? [] : {})),
+    );
+    await page.goto(`${BASE}/auth`);
+    expect(await signInAs(page, 'a@approval-test.example')).toBe('ok');
+    await page.evaluate((k) => localStorage.setItem(k, '1'), CACHE_KEY_A);
+  };
+
+  test('(g) remembered approval + network error on the re-read: the app opens, no retry screen', async ({ page }) => {
+    await prepare(page);
+    let reads = 0;
+    await page.route('**/rest/v1/focusos_account_approvals*', (route) => {
+      reads++;
+      return route.abort('failed');
+    });
+    // The gate logs this once the re-read has finally failed (after supabase-js's
+    // own retries), so the assertions below run AFTER the failure, not before it.
+    const failed = page.waitForEvent('console', {
+      predicate: (m) => m.text().includes('[ApprovalGate] check failed'),
+      timeout: 25_000,
+    });
+    await page.goto(`${BASE}/home`);
+    await failed;
+    expect(reads).toBeGreaterThan(0);
+    await expect(page.getByText("Couldn't check your account")).toHaveCount(0);
+    await expect(page.getByTestId('approval-gate')).toHaveCount(0);
+    await expect(page.getByTestId('approval-check')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/home$/);
+    expect(await page.evaluate((k) => localStorage.getItem(k), CACHE_KEY_A)).toBe('1');
+  });
+
+  test('(h) remembered approval + server says pending: waiting screen, memory cleared', async ({ page }) => {
+    await prepare(page);
+    await page.route('**/rest/v1/focusos_account_approvals*', (route) => route.fulfill(json([{ status: 'pending' }])));
+    await page.goto(`${BASE}/home`);
+    await expect(page.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible();
+    expect(await page.evaluate((k) => localStorage.getItem(k), CACHE_KEY_A)).toBeNull();
+  });
+
+  test('(h2) remembered approval + server says declined: declined screen, memory cleared', async ({ page }) => {
+    await prepare(page);
+    await page.route('**/rest/v1/focusos_account_approvals*', (route) => route.fulfill(json([{ status: 'declined' }])));
+    await page.goto(`${BASE}/home`);
+    await expect(page.getByRole('heading', { name: 'Access not approved' })).toBeVisible();
+    expect(await page.evaluate((k) => localStorage.getItem(k), CACHE_KEY_A)).toBeNull();
+  });
+
+  test('(i) no remembered approval + network error: retry state, never the app', async ({ page }) => {
+    await prepare(page);
+    await page.evaluate((k) => localStorage.removeItem(k), CACHE_KEY_A);
+    await page.route('**/rest/v1/focusos_account_approvals*', (route) => route.abort('failed'));
+    await page.goto(`${BASE}/home`);
+    // supabase-js retries a failed GET with backoff before it reports the error.
+    await expect(page.getByRole('heading', { name: "Couldn't check your account" })).toBeVisible({ timeout: 25_000 });
   });
 });

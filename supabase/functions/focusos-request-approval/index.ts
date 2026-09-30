@@ -39,6 +39,9 @@ async function sha256Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 // Header values must not carry line breaks.
+const MAX_NAME_CHARS = 80;
+// Global cap on approver emails: at most this many per rolling hour.
+const GLOBAL_EMAILS_PER_HOUR = 20;
 function oneLine(s: string) {
   return String(s ?? "").replace(/[\r\n]+/g, " ").trim();
 }
@@ -68,7 +71,23 @@ async function emailApprover(
     name = fromParts || (typeof md.full_name === "string" ? md.full_name : "") ||
       (typeof md.name === "string" ? md.name : "");
   }
-  name = oneLine(name);
+  // Cap the requester-controlled name so it cannot flood the subject or body.
+  name = oneLine(name).slice(0, MAX_NAME_CHARS);
+
+  // Global cap: count approver emails confirmed sent in the last hour. Over the
+  // cap (or on a count error, fail closed) send nothing; the row stays pending
+  // and the "unconfirmed after 10 minutes" rule re-sends on a later visit.
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count: sentLastHour, error: capErr } = await admin
+    .from("focusos_account_approvals")
+    .select("user_id", { count: "exact", head: true })
+    .gte("last_emailed_at", since);
+  if (capErr || (sentLastHour ?? 0) >= GLOBAL_EMAILS_PER_HOUR) {
+    console.error(capErr
+      ? "focusos-request-approval: cap check failed; not sending"
+      : "focusos-request-approval: hourly approver-email cap reached; not sending");
+    return false;
+  }
 
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
   if (!RESEND_API_KEY) {
@@ -82,7 +101,7 @@ async function emailApprover(
 
   try {
     const resend = new Resend(RESEND_API_KEY);
-    const who = name || email;
+    const who = (name || email).slice(0, MAX_NAME_CHARS);
     const { error: sendErr } = await resend.emails.send({
       from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
       to: [approverEmail],

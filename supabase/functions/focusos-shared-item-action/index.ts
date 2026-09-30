@@ -36,6 +36,10 @@ serve(async (req) => {
     // own shared-item row (any sender_email), so without this check the link
     // would let them send mail from our domain. Refuse before ANY update or email.
     if (!(await isApprovedUserId(si.sender_user_id))) return invalidLinkResponse(corsHeaders);
+    // When the recipient is a Focus OS account, it must be approved too.
+    if (si.recipient_user_id && !(await isApprovedUserId(si.recipient_user_id))) {
+      return invalidLinkResponse(corsHeaders);
+    }
 
     // O12 finding 1: cancelled rows are kept as history (no DELETE policy) —
     // without this check, an Accept/Decline link from an email sent BEFORE
@@ -56,11 +60,19 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (RESEND_API_KEY) {
       try {
+        // Notify the sender's REAL auth email, looked up by sender_user_id. The row's
+        // sender_email column is written by the client and is never trusted.
+        const { data: senderAuth, error: senderErr } = await admin.auth.admin.getUserById(si.sender_user_id);
+        const senderRealEmail = senderErr ? "" : String(senderAuth?.user?.email ?? "").trim();
+        if (!senderRealEmail) {
+          console.error("notify sender skipped: no auth email for sender");
+          throw new Error("no sender auth email");
+        }
         const resend = new Resend(RESEND_API_KEY);
         const verb = action === "accept" ? "accepted" : "declined";
         await resend.emails.send({
           from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
-          to: [si.sender_email],
+          to: [senderRealEmail],
           subject: `Your shared ${si.item_type} was ${verb}`,
           html: `<p>${escapeHtml(si.recipient_email)} has ${verb} the ${escapeHtml(si.item_type)} "${escapeHtml(si.item_title)}" you shared.</p>`,
         });

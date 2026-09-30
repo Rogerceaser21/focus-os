@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { requireServiceRole } from "../_shared/approval.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,10 +11,6 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-
-  // One-off / internal: only a caller holding the service-role key may run this.
-  const denied = await requireServiceRole(req, corsHeaders);
-  if (denied) return denied;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
