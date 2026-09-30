@@ -317,6 +317,213 @@ export type Database = {
         }
         Relationships: []
       }
+      att_password_attempts: {
+        Row: {
+          attempt_key: string
+          fail_count: number
+          locked_until: string | null
+          window_start: string
+        }
+        Insert: {
+          attempt_key: string
+          fail_count?: number
+          locked_until?: string | null
+          window_start?: string
+        }
+        Update: {
+          attempt_key?: string
+          fail_count?: number
+          locked_until?: string | null
+          window_start?: string
+        }
+        Relationships: []
+      }
+      att_pupil_emails: {
+        Row: {
+          forename: string
+          form: string
+          id: number
+          pupil_email: string
+          school_id: string
+          surname: string
+          uploaded_at: string
+          username: string
+          year_code: string
+        }
+        Insert: {
+          forename?: string
+          form?: string
+          id?: never
+          pupil_email?: string
+          school_id?: string
+          surname?: string
+          uploaded_at?: string
+          username?: string
+          year_code?: string
+        }
+        Update: {
+          forename?: string
+          form?: string
+          id?: never
+          pupil_email?: string
+          school_id?: string
+          surname?: string
+          uploaded_at?: string
+          username?: string
+          year_code?: string
+        }
+        Relationships: []
+      }
+      att_students: {
+        Row: {
+          c1_email: string
+          c1_forename: string
+          c1_mobile: string
+          c1_relation: string
+          c1_surname: string
+          c2_email: string
+          c2_forename: string
+          c2_mobile: string
+          c2_relation: string
+          c2_surname: string
+          days_open_term: number
+          days_open_year: number
+          early_leave_7d: number
+          early_leave_term: number
+          early_leave_year: number
+          forename: string
+          form: string
+          invalid_abs_7d: number
+          invalid_abs_term: number
+          invalid_abs_year: number
+          late_7d: number
+          late_minutes_7d: number
+          late_minutes_term: number
+          late_minutes_year: number
+          late_term: number
+          late_year: number
+          school_id: string
+          surname: string
+          uploaded_at: string
+          username: string
+          valid_abs_7d: number
+          valid_abs_term: number
+          valid_abs_year: number
+          year_code: string
+        }
+        Insert: {
+          c1_email?: string
+          c1_forename?: string
+          c1_mobile?: string
+          c1_relation?: string
+          c1_surname?: string
+          c2_email?: string
+          c2_forename?: string
+          c2_mobile?: string
+          c2_relation?: string
+          c2_surname?: string
+          days_open_term?: number
+          days_open_year?: number
+          early_leave_7d?: number
+          early_leave_term?: number
+          early_leave_year?: number
+          forename?: string
+          form?: string
+          invalid_abs_7d?: number
+          invalid_abs_term?: number
+          invalid_abs_year?: number
+          late_7d?: number
+          late_minutes_7d?: number
+          late_minutes_term?: number
+          late_minutes_year?: number
+          late_term?: number
+          late_year?: number
+          school_id: string
+          surname?: string
+          uploaded_at?: string
+          username?: string
+          valid_abs_7d?: number
+          valid_abs_term?: number
+          valid_abs_year?: number
+          year_code?: string
+        }
+        Update: {
+          c1_email?: string
+          c1_forename?: string
+          c1_mobile?: string
+          c1_relation?: string
+          c1_surname?: string
+          c2_email?: string
+          c2_forename?: string
+          c2_mobile?: string
+          c2_relation?: string
+          c2_surname?: string
+          days_open_term?: number
+          days_open_year?: number
+          early_leave_7d?: number
+          early_leave_term?: number
+          early_leave_year?: number
+          forename?: string
+          form?: string
+          invalid_abs_7d?: number
+          invalid_abs_term?: number
+          invalid_abs_year?: number
+          late_7d?: number
+          late_minutes_7d?: number
+          late_minutes_term?: number
+          late_minutes_year?: number
+          late_term?: number
+          late_year?: number
+          school_id?: string
+          surname?: string
+          uploaded_at?: string
+          username?: string
+          valid_abs_7d?: number
+          valid_abs_term?: number
+          valid_abs_year?: number
+          year_code?: string
+        }
+        Relationships: []
+      }
+      att_sync_log: {
+        Row: {
+          finished_at: string | null
+          id: number
+          message: string | null
+          missing_from_pupil_emails: number | null
+          missing_from_students: number | null
+          pupil_email_count: number | null
+          source: string | null
+          started_at: string
+          status: string
+          student_count: number | null
+        }
+        Insert: {
+          finished_at?: string | null
+          id?: never
+          message?: string | null
+          missing_from_pupil_emails?: number | null
+          missing_from_students?: number | null
+          pupil_email_count?: number | null
+          source?: string | null
+          started_at?: string
+          status: string
+          student_count?: number | null
+        }
+        Update: {
+          finished_at?: string | null
+          id?: never
+          message?: string | null
+          missing_from_pupil_emails?: number | null
+          missing_from_students?: number | null
+          pupil_email_count?: number | null
+          source?: string | null
+          started_at?: string
+          status?: string
+          student_count?: number | null
+        }
+        Relationships: []
+      }
       focusos_api_tokens: {
         Row: {
           created_at: string
@@ -996,6 +1203,24 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_allow_list: {
+        Row: {
+          added_at: string
+          email: string
+          note: string | null
+        }
+        Insert: {
+          added_at?: string
+          email: string
+          note?: string | null
+        }
+        Update: {
+          added_at?: string
+          email?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       student_access_tokens: {
         Row: {
           access_token: string
@@ -1019,24 +1244,6 @@ export type Database = {
           id?: string
           school_id?: string
           school_type?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      student_display_settings: {
-        Row: {
-          school_id: string
-          show_hidden: boolean
-          updated_at: string
-        }
-        Insert: {
-          school_id: string
-          show_hidden?: boolean
-          updated_at?: string
-        }
-        Update: {
-          school_id?: string
-          show_hidden?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -1165,12 +1372,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      att_register_password_attempt: {
+        Args: { p_key: string }
+        Returns: string
+      }
+      att_replace_attendance_data: {
+        Args: { p_pupil_emails: Json; p_students: Json }
+        Returns: undefined
+      }
       dreamlit_auth_admin_executor: {
         Args: { command: string }
         Returns: undefined
       }
       focusos_can_access_task_image: {
         Args: { _file_owner_id: string; _user_id: string }
+        Returns: boolean
+      }
+      focusos_can_view_profile: {
+        Args: { _owner: string; _viewer: string }
         Returns: boolean
       }
       focusos_get_project_role: {
@@ -1182,6 +1401,7 @@ export type Database = {
         Returns: boolean
       }
       get_app_configuration: { Args: never; Returns: Json }
+      is_allowed_staff: { Args: never; Returns: boolean }
     }
     Enums: {
       ais_attendance_app_role: "admin"
