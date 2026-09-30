@@ -6,6 +6,7 @@ import {
   type ServiceAccount,
 } from "../_shared/gcs.ts";
 import { generateSummary } from "../_shared/gemini.ts";
+import { requireApprovedUser } from "../_shared/approval.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,20 +83,17 @@ serve(async (req) => {
   }
 
   try {
-    // Auth
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing authorization header");
-    const token = authHeader.replace("Bearer ", "");
+    // Auth (signed in AND approved)
+    const gate = await requireApprovedUser(req, corsHeaders);
+    if (gate instanceof Response) return gate;
+    const { user } = gate;
+    const authHeader = `Bearer ${gate.token}`;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const {
-      data: { user },
-    } = await supabase.auth.getUser(token);
-    if (!user) throw new Error("Unauthorized");
 
     // Parse request
     const body = await req.json();

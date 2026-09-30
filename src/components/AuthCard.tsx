@@ -121,7 +121,7 @@ const AuthCard = ({
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -135,6 +135,11 @@ const AuthCard = ({
     setLoading(false);
     if (error) {
       toast.error(error.message);
+    } else if (!data?.session) {
+      // Email confirmation is on: no session until the link in the inbox is
+      // clicked, so do not log in or navigate; send them back to sign-in.
+      toast.success('Check your inbox to confirm your email, then sign in.', { duration: 8000 });
+      onModeChange('signin');
     } else {
       toast.success('Account created! Logging you in...', { duration: 1500 });
       onAuthed();

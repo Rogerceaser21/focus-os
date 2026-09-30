@@ -7,6 +7,7 @@ import { McpServer, StreamableHttpTransport } from "mcp-lite";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { isApprovedUserId } from "../_shared/approval.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -933,6 +934,14 @@ app.all("/*", async (c) => {
   if (!userId) userId = await resolveUserIdFromToken(token);
   if (!userId) {
     return unauthorized("Invalid or revoked token");
+  }
+  // Account-approval gate: refuse accounts the owner has not approved yet.
+  // Applies to both the WorkOS OAuth path and the API-token path. Fails closed.
+  if (!(await isApprovedUserId(userId))) {
+    return new Response(JSON.stringify({ error: "awaiting_approval" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
   }
   // Pass userId to every tool handler via authInfo.extra.
   return await httpHandler(c.req.raw, {

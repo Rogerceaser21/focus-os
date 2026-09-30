@@ -17,6 +17,8 @@ import GoogleConnected from "./pages/GoogleConnected";
 import SharedAction from "./pages/SharedAction";
 import Preview from "./pages/Preview";
 import PreviewApp from "./pages/PreviewApp";
+import Approve from "./pages/Approve";
+import ApprovalGate from "./components/ApprovalGate";
 // DEV-ONLY reproduction harnesses (routes gated by import.meta.env.DEV below).
 import DrawerRepro from "./pages/DrawerRepro";
 import BrainDumpRepro from "./pages/BrainDumpRepro";
@@ -60,14 +62,20 @@ const App = () => (
             render and Landing never mounts in the shell; the URL flip itself
             is react-router's own effect. */}
         <Route path="/" element={IS_SHELL ? <Navigate to={hasStoredSession() ? "/home" : "/auth"} replace /> : <Landing />} />
-        <Route path="/home" element={<Home />} />
-        <Route path="/app" element={<Index />} />
+        {/* Account-approval gate: a layout route around the signed-in app
+            pages. Signed-out visitors pass straight through to each page's own
+            /auth redirect; unapproved accounts get the waiting screen. */}
+        <Route element={<ApprovalGate />}>
+          <Route path="/home" element={<Home />} />
+          <Route path="/app" element={<Index />} />
+          <Route path="/meetings" element={<Meetings />} />
+          <Route path="/meetings/:id" element={<MeetingDetail />} />
+          <Route path="/import-tasks" element={<ImportTasks />} />
+        </Route>
         <Route path="/auth" element={<Auth />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/intro" element={<Intro />} />
-        <Route path="/meetings" element={<Meetings />} />
-        <Route path="/meetings/:id" element={<MeetingDetail />} />
-        <Route path="/import-tasks" element={<ImportTasks />} />
+        <Route path="/approve" element={<Approve />} />
         <Route path="/google-connected" element={<GoogleConnected />} />
         <Route path="/respond" element={<SharedAction />} />
         <Route path="/preview" element={<Preview />} />

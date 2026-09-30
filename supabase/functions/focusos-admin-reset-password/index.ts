@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.3';
+import { clientKey, registerAttempt, recordSuccess } from '../_shared/passwordThrottle.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,9 +35,19 @@ serve(async (req) => {
     const { data: cfg, error: cfgError } = await supabase
       .from('app_configuration').select('settings_password').limit(1).single();
     if (cfgError || !cfg) return json(500, { success: false, error: 'Server configuration error' });
+    // Count this attempt BEFORE comparing, so every attempt counts against the
+    // cap, not just failures. Fails closed: an RPC error or an already-tripped
+    // lock both turn into 429, and the compare below never runs.
+    const key = clientKey(req);
+    if (!(await registerAttempt(supabase, key))) {
+      return json(429, { success: false, error: 'Too many attempts. Try again in 15 minutes.' });
+    }
     if (!safeEqual(adminPassword, cfg.settings_password ?? '')) {
+      // Slow down guessing on a mismatch.
+      await new Promise(r => setTimeout(r, 500));
       return json(403, { success: false, error: 'Invalid admin password' });
     }
+    await recordSuccess(supabase, key);
     if (verifyOnly) return json(200, { success: true, verified: true });
 
     if (!userEmail || !newPassword) {

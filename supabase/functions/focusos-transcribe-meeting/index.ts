@@ -40,6 +40,7 @@ import {
   segmentsPrefix,
   type SegmentsState,
 } from "../_shared/segments.ts";
+import { isApprovedUserId } from "../_shared/approval.ts";
 import {
   BUDGET_MS,
   canFinalize,
@@ -386,6 +387,12 @@ serve(async (req) => {
           `(${callerErr?.message ?? "not the owner of this meeting"})`
         );
         return json({ error: "Forbidden" }, 403);
+      }
+      // Account-approval gate: the owner must also be an approved account. The
+      // service-role path above (poller and self-kick) is not user-facing and
+      // is deliberately not gated.
+      if (!(await isApprovedUserId(caller.user.id))) {
+        return json({ error: "awaiting_approval" }, 403);
       }
     }
 

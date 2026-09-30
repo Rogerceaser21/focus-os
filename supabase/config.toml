@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.focusos-shared-item-action]
 verify_jwt = false
+
+[functions.focusos-decide-approval]
+verify_jwt = false

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireApprovedUser } from "../_shared/approval.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,6 +24,11 @@ serve(async (req) => {
   }
 
   try {
+    // Signed in AND approved (the gateway alone lets any valid JWT through,
+    // including the public anon key).
+    const gate = await requireApprovedUser(req, corsHeaders);
+    if (gate instanceof Response) return gate;
+
     const { text } = await req.json();
     if (!text || typeof text !== "string" || !text.trim()) {
       return new Response(JSON.stringify({ error: "text is required" }), {
