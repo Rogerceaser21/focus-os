@@ -77,10 +77,10 @@ test.describe('approval gate', () => {
     // The app itself is not on screen.
     await expect(page.getByRole('button', { name: 'Projects', exact: true })).toHaveCount(0);
     expect(requested).toBe(1);
-    // Check again re-reads the row but does not re-request.
+    // Check again asks the server again (it re-sends a lost request), then re-reads.
     await page.getByRole('button', { name: 'Check again' }).click();
     await expect(gate.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible();
-    expect(requested).toBe(1);
+    await expect.poll(() => requested).toBe(2);
     await page.getByRole('button', { name: 'Sign out' }).click();
     await page.waitForURL('**/auth', { timeout: 15000 });
     await expect(page.getByTestId('auth-card')).toBeVisible();
@@ -358,5 +358,35 @@ test.describe('remembered approval', () => {
     await page.goto(`${BASE}/home`);
     // supabase-js retries a failed GET with backoff before it reports the error.
     await expect(page.getByRole('heading', { name: "Couldn't check your account" })).toBeVisible({ timeout: 25_000 });
+  });
+});
+
+test.describe('Check again', () => {
+  test('(j) pressing "Check again" sends a second focusos-request-approval call before re-reading', async ({ page }) => {
+    const order: string[] = [];
+    await page.route('**/functions/v1/focusos-request-approval*', (route) => {
+      order.push('request');
+      return route.fulfill(json({ status: 'pending' }));
+    });
+    await mockAuth(page);
+    await page.route('**/rest/v1/**', (route) => route.fulfill(json([])));
+    // registered last so it wins over the generic REST answer above
+    await page.route('**/rest/v1/focusos_account_approvals*', (route) => {
+      order.push('read');
+      return route.fulfill(json([]));
+    });
+    await page.goto(`${BASE}/auth`);
+    expect(await signInAs(page, 'b@approval-test.example')).toBe('ok');
+    await page.goto(`${BASE}/home`);
+    await expect(page.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible();
+    // First render: one read, one (deduped, automatic) request.
+    expect(order.filter((o) => o === 'request')).toHaveLength(1);
+    const before = order.length;
+    await page.getByRole('button', { name: 'Check again' }).click();
+    await expect.poll(() => order.filter((o) => o === 'request').length).toBe(2);
+    await expect.poll(() => order.length).toBeGreaterThan(before + 1);
+    // Request goes out first, then the row is re-read.
+    expect(order.slice(before)).toEqual(['request', 'read']);
+    await expect(page.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible();
   });
 });

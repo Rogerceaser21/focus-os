@@ -1,44 +1,36 @@
 -- DRAFT (Lovable applies and renames this file)
 --
--- ONE MIGRATION, ONE ORDER. Do not split this file. Its three parts must run
--- together, in this order, in a single transaction:
---   (a) the approvals table, its RLS, grants and helper functions;
---   (b) the seed that marks every account that already uses Focus OS as approved;
---   (c) the RESTRICTIVE policies that lock unapproved accounts out of every
---       Focus OS table and out of the focusos-task-images bucket.
--- If (c) ran before (b), every existing user would be locked out.
+-- Step 1 of 2. Apply first. Safe on its own: nothing reads this table until the new functions and front end are live.
+-- Step 2 (draft_focusos_account_approvals_2_lock.sql) is applied LAST and refuses to run unless this step is already in place.
 --
--- What this does, in plain words:
---   Adds a table that records, for each Focus OS account, whether the owner has
---   approved it yet. A new account has NO row until it first uses Focus OS; the
---   edge function focusos-request-approval then creates a 'pending' row and
---   emails the approver. Every server function that acts for a signed-in user
---   checks this table and refuses accounts that are not 'approved'. Part (c)
---   closes the same door at the database: an UNAPPROVED account can read or
---   write NOTHING in Focus OS tables (its own rows included), so it cannot reach
---   the data through the REST API either.
+-- What this step does, in plain words:
+--   (a) adds a table that records, for each Focus OS account, whether the owner
+--       has approved it yet, plus two helper functions;
+--   (b) seeds it: every account that already uses Focus OS is marked 'approved',
+--       so nobody who uses the app today is locked out when the gate goes live.
+--   It changes no existing policy and restricts nothing: an unapproved account
+--   keeps exactly the access it has today until step 2.
+--
+--   A new account has NO row until it first uses Focus OS; the edge function
+--   focusos-request-approval then creates a 'pending' row and emails the
+--   approver. Every server function that acts for a signed-in user checks this
+--   table and refuses accounts that are not 'approved'.
 --
 --   Approval is deliberately NOT decided by a trigger on auth.users: this
 --   Supabase project is shared with other apps, and every sign-up in any of them
---   already fires triggers on auth.users. This file does not touch those. The
---   three Focus OS triggers (focusos_handle_new_user_profile / _onboarding /
---   _registration) are SECURITY DEFINER, run as the function owner and never as
---   the authenticated role, so sign-ups still get their rows.
+--   already fires triggers on auth.users. This file does not touch those.
 --
 -- Access rules for focusos_account_approvals:
 --   * a signed-in user may READ only their own row (their own status);
 --   * nobody except the server (service_role) can insert, update or delete;
 --   * anon can read nothing.
 --
--- Part (c) uses RESTRICTIVE policies, which AND with the existing permissive
--- ones. No existing policy is changed. Only role "authenticated" is affected:
--- service_role bypasses RLS, and the storage policy applies to the
--- focusos-task-images bucket only, so other apps' buckets are untouched.
---
--- SEED: the rule is documented in part (b). RUN THIS MIGRATION ONCE, AT THE SAME
--- TIME AS THE GATE GOES LIVE: after go-live a pending account can create some of
--- the seed's traces, so re-applying it later could approve people the owner has
--- not approved. It never changes an existing approvals row.
+-- SEED: the rule is documented in part (b). Apply this step ONCE, before the new
+-- front end is published. Re-applying it later can approve accounts the owner has
+-- not approved (a pending account can create some of the seed's traces, for
+-- example a preferences row). It never changes an existing approvals row. Any
+-- real user the seed missed can still ask for access through the new gate before
+-- step 2 locks the tables.
 --
 -- Safe to run more than once (idempotent).
 
@@ -208,59 +200,3 @@ where u.id in (
 )
    or lower(u.email) in ('apple.review@focusos.tech', 'igor.sesar@ais.ae')
 on conflict (user_id) do nothing;
-
--- ===== (c) restrictive policies: unapproved accounts get NO access =====
---
--- One RESTRICTIVE policy per Focus OS table, for role authenticated, all
--- commands. It ANDs with the existing permissive policies, so an approved user
--- behaves exactly as before and an unapproved user sees and changes nothing.
--- Each table is guarded with to_regclass so a missing table cannot fail the
--- migration. focusos_account_approvals is deliberately NOT restricted (an
--- unapproved user must be able to read their own status).
-
-do $$
-declare
-  t text;
-begin
-  foreach t in array array[
-    'focusos_projects',
-    'focusos_tasks',
-    'focusos_user_preferences',
-    'focusos_meetings',
-    'focusos_profiles',
-    'focusos_recording_sessions',
-    'focusos_users',
-    'focusos_shared_items',
-    'focusos_project_members',
-    'focusos_google_tokens',
-    'focusos_api_tokens'
-  ] loop
-    if to_regclass('public.' || t) is not null then
-      execute format('drop policy if exists %I on public.%I', 'focusos_require_approved', t);
-      execute format(
-        'create policy %I on public.%I as restrictive for all to authenticated '
-        'using ((select public.focusos_me_approved())) '
-        'with check ((select public.focusos_me_approved()))',
-        'focusos_require_approved', t
-      );
-    end if;
-  end loop;
-end
-$$;
-
--- Storage: only the focusos-task-images bucket is restricted. Every other
--- bucket (other apps share storage) passes the first branch untouched.
-do $$
-begin
-  if to_regclass('storage.objects') is not null then
-    drop policy if exists "focusos_require_approved_task_images" on storage.objects;
-    create policy "focusos_require_approved_task_images"
-      on storage.objects
-      as restrictive
-      for all
-      to authenticated
-      using (bucket_id <> 'focusos-task-images' or (select public.focusos_me_approved()))
-      with check (bucket_id <> 'focusos-task-images' or (select public.focusos_me_approved()));
-  end if;
-end
-$$;

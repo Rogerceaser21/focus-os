@@ -26,7 +26,19 @@ export default function SharedAction() {
         if (error) throw error;
         setResult(data as Result);
       } catch (e: any) {
-        setResult({ ok: false, title: "Something went wrong", message: "Please try again later." });
+        // The link functions answer an invalid link with HTTP 403 and a JSON body
+        // ({ error, title, message }); invoke() surfaces that as an error whose
+        // `context` is the Response. Show its title and message when it has them.
+        let shown: Result | null = null;
+        try {
+          const body = await e?.context?.json?.();
+          if (body && typeof body.title === "string" && typeof body.message === "string") {
+            shown = { ok: false, title: body.title, message: body.message };
+          }
+        } catch {
+          /* not JSON: fall through to the generic message */
+        }
+        setResult(shown ?? { ok: false, title: "Something went wrong", message: "Please try again later." });
       } finally {
         setLoading(false);
       }

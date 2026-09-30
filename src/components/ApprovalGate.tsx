@@ -102,7 +102,10 @@ const ApprovalGate = () => {
   });
   const runRef = useRef(0);
 
-  const check = useCallback(async (id: string) => {
+  // `resend` is the "Check again" button: ask the server again BEFORE re-reading
+  // (the function is idempotent and rate-capped; it is what re-sends a lost request).
+  // The automatic first-render check stays deduped to once per session.
+  const check = useCallback(async (id: string, resend = false) => {
     const run = ++runRef.current;
     const settle = (next: GateState) => {
       if (run !== runRef.current) return;
@@ -122,6 +125,14 @@ const ApprovalGate = () => {
     // A remembered approval keeps the app on screen while the row is re-read.
     const remembered = readCachedApproval(id);
     if (!remembered) setGate({ id, value: 'checking' });
+    if (resend) {
+      try {
+        await requestApproval(id);
+      } catch (err) {
+        // Best effort: a refused or failed resend must not stop the re-read.
+        console.error('[ApprovalGate] resend failed:', err);
+      }
+    }
     try {
       // focusos_account_approvals is not in the generated types file yet.
       const { data, error } = await supabase
@@ -199,7 +210,7 @@ const ApprovalGate = () => {
         Thanks for signing up. Igor will be asked to approve your account. You'll get an email when
         it's done.
       </p>
-      <GateActions onCheck={() => void check(userId)} checkLabel="Check again" />
+      <GateActions onCheck={() => void check(userId, true)} checkLabel="Check again" />
     </GateShell>
   );
 };
