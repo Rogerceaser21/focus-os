@@ -12,6 +12,10 @@
 // Run: PW_PORT=8080 npx playwright test tests/approval-gate.spec.ts
 import { test, expect, type Page } from '@playwright/test';
 
+// These specs exercise the REAL gate, so they cannot run against a server started
+// with E2E_SKIP_APPROVAL=1 (the gate is a pass-through there): run them without it.
+test.skip(process.env.E2E_SKIP_APPROVAL === '1', 'approval gate is bypassed by E2E_SKIP_APPROVAL=1');
+
 test.use({ viewport: { width: 1280, height: 900 }, isMobile: false, hasTouch: false, actionTimeout: 15000 });
 
 const BASE = process.env.WAVE_BASE_URL ?? '';
@@ -65,7 +69,7 @@ test.describe('approval gate', () => {
     await expect(gate.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible();
     await expect(
       gate.getByText(
-        "Thanks for signing up. Igor has been sent your request and will approve your account soon. You'll get an email when it's done.",
+        "Thanks for signing up. Igor will be asked to approve your account. You'll get an email when it's done.",
       ),
     ).toBeVisible();
     await expect(gate.getByText(DEMO_EMAIL)).toBeVisible();
@@ -210,5 +214,83 @@ test.describe('sign-up without a session', () => {
     await expect(page).toHaveURL(/\/auth$/);
     // back on the sign-in tab
     await expect(page.getByRole('tab', { name: 'Sign In' })).toHaveAttribute('data-state', 'active');
+  });
+});
+
+// A second user on the same device (no unmount between them) must never inherit
+// the first user's approval. Sessions are faked at the auth endpoint; the
+// approvals read answers per user id.
+test.describe('user switch', () => {
+  const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const USERS = {
+    'a@approval-test.example': '0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a',
+    'b@approval-test.example': '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b',
+  } as Record<string, string>;
+  const tokenFor = (id: string) =>
+    `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: id, role: 'authenticated', aud: 'authenticated', exp: 4102444800 })}.sig`;
+
+  test('(f) approved user A signs out, unapproved user B signs in: waiting screen, never the app', async ({ page }) => {
+    const appReadsWithBToken: string[] = [];
+    await page.route('**/auth/v1/token*', async (route) => {
+      const { email } = route.request().postDataJSON() as { email: string };
+      const id = USERS[email];
+      await route.fulfill(
+        json({
+          access_token: tokenFor(id),
+          token_type: 'bearer',
+          expires_in: 3600,
+          expires_at: 4102444800,
+          refresh_token: `r-${id}`,
+          user: {
+            id, aud: 'authenticated', role: 'authenticated', email,
+            app_metadata: {}, user_metadata: {}, created_at: '2026-09-30T00:00:00Z',
+          },
+        }),
+      );
+    });
+    await page.route('**/auth/v1/logout*', (route) => route.fulfill({ status: 204, body: '' }));
+    await page.route('**/rest/v1/**', (route) => {
+      const req = route.request();
+      const url = decodeURIComponent(req.url());
+      if (url.includes('/rest/v1/focusos_account_approvals')) {
+        return route.fulfill(json(url.includes(USERS['a@approval-test.example']) ? [{ status: 'approved' }] : []));
+      }
+      if ((req.headers()['authorization'] ?? '').includes(tokenFor(USERS['b@approval-test.example']))) {
+        appReadsWithBToken.push(url);
+      }
+      return route.fulfill(json(req.method() === 'GET' ? [] : {}));
+    });
+    await page.route('**/functions/v1/focusos-request-approval*', (route) => route.fulfill(json({ status: 'pending' })));
+    // Everything else the app might call answers empty so the fake sessions stay quiet.
+    await page.route('**/functions/v1/focusos-*', (route) => {
+      if (route.request().url().includes('focusos-request-approval')) return route.fallback();
+      return route.fulfill(json({}));
+    });
+
+    // Sign A in through the app's own client, then load the app as A.
+    await page.goto(`${BASE}/auth`);
+    const signInAs = (email: string) =>
+      page.evaluate(async (e) => {
+        const { supabase } = await import('/src/integrations/supabase/client.ts');
+        const r = await supabase.auth.signInWithPassword({ email: e, password: 'x' });
+        return r.error?.message ?? 'ok';
+      }, email);
+    expect(await signInAs('a@approval-test.example')).toBe('ok');
+    await page.goto(`${BASE}/home`);
+    await expect(page.getByTestId('approval-gate')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/home$/);
+
+    // Same page, no unmount: A out, B in.
+    await page.evaluate(async () => {
+      const { supabase } = await import('/src/integrations/supabase/client.ts');
+      await supabase.auth.signOut();
+    });
+    // Signing out sends the pages to /auth; B then signs in and goes to /home.
+    expect(await signInAs('b@approval-test.example')).toBe('ok');
+    await page.goto(`${BASE}/home`);
+    await expect(page.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible();
+    await expect(page.getByTestId('approval-gate').getByText('b@approval-test.example')).toBeVisible();
+    // The app never rendered for B: no app data read carried B's token.
+    expect(appReadsWithBToken).toEqual([]);
   });
 });

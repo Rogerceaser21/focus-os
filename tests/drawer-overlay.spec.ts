@@ -16,6 +16,7 @@
  */
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { USER_ID, USER_EMAIL, seedSession } from './helpers/braindumpEnv';
+import { fulfillApprovedAccount } from './helpers/approvedAccount';
 
 const PROJECT_ID = '88888888-8888-4888-8888-888888888888';
 const PROJECT_NAME = 'Overlay probe project';
@@ -160,6 +161,7 @@ async function installIntercepts(context: BrowserContext, h: Harness): Promise<v
   });
 
   await context.route('**/rest/v1/**', async (route) => {
+    if (fulfillApprovedAccount(route)) return;
     const req = route.request();
     const url = decodeURIComponent(req.url());
     const method = req.method();

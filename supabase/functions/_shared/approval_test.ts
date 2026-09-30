@@ -96,3 +96,57 @@ Deno.test("isApprovedUserId: approved true, pending false, empty id false", asyn
   assertEquals(await isApprovedUserId("u1", { makeAdminClient: adminClient({ data: { status: "pending" }, error: null }) }), false);
   assertEquals(await isApprovedUserId("", { makeAdminClient: adminClient({ data: { status: "approved" }, error: null }) }), false);
 });
+
+// ---- fix round 2 helpers ----
+import { approvedUserIds, constantTimeEqual, invalidLinkResponse, requireServiceRole } from "./approval.ts";
+
+function inListClient(rows: { user_id: string }[] | null, error: unknown = null) {
+  const calls: { in?: string[]; status?: string } = {};
+  const client = {
+    from: (_t: string) => ({
+      select: (_c: string) => ({
+        eq: (_k: string, v: string) => {
+          calls.status = v;
+          return { in: (_c2: string, ids: string[]) => { calls.in = ids; return Promise.resolve({ data: rows, error }); } };
+        },
+      }),
+    }),
+  };
+  return { make: () => client, calls };
+}
+
+Deno.test("approvedUserIds: one query, dedupes ids, returns the approved subset", async () => {
+  const { make, calls } = inListClient([{ user_id: "a" }]);
+  const set = await approvedUserIds(["a", "b", "a", ""], { makeAdminClient: make });
+  assertEquals([...set], ["a"]);
+  assertEquals(calls.status, "approved");
+  assertEquals(calls.in, ["a", "b"]);
+});
+
+Deno.test("approvedUserIds: empty input makes no query; error fails closed to an empty set", async () => {
+  assertEquals((await approvedUserIds([], { makeAdminClient: () => { throw new Error("must not be called"); } })).size, 0);
+  const { make } = inListClient(null, { message: "db down" });
+  assertEquals((await approvedUserIds(["a"], { makeAdminClient: make })).size, 0);
+});
+
+Deno.test("constantTimeEqual: equal, different, different length", async () => {
+  assertEquals(await constantTimeEqual("secret", "secret"), true);
+  assertEquals(await constantTimeEqual("secret", "secreT"), false);
+  assertEquals(await constantTimeEqual("secret", "secret-longer"), false);
+});
+
+Deno.test("requireServiceRole: only the exact service key passes; anon key, none, or unset key -> 401", async () => {
+  const mk = (h?: string) => new Request("https://x.test", { headers: h ? { Authorization: h } : {} });
+  assertEquals(await requireServiceRole(mk("Bearer SVC"), cors, "SVC"), null);
+  assertEquals((await requireServiceRole(mk("Bearer anon-key"), cors, "SVC"))!.status, 401);
+  assertEquals((await requireServiceRole(mk(), cors, "SVC"))!.status, 401);
+  assertEquals((await requireServiceRole(mk("Bearer "), cors, "SVC"))!.status, 401);
+  assertEquals((await requireServiceRole(mk("Bearer SVC"), cors, ""))!.status, 401);
+});
+
+Deno.test("invalidLinkResponse: 403 with the agreed message and CORS", async () => {
+  const r = invalidLinkResponse(cors);
+  assertEquals(r.status, 403);
+  assertEquals((await r.json()).error, "This link is no longer valid.");
+  assertEquals(r.headers.get("Access-Control-Allow-Origin"), "*");
+});

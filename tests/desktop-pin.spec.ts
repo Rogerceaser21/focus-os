@@ -31,6 +31,7 @@
 //
 // Run: PW_PORT=8091 npx playwright test tests/desktop-pin.spec.ts --project=desktop-mouse
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { fulfillApprovedAccount } from './helpers/approvedAccount';
 
 test.use({ actionTimeout: 15000 });
 
@@ -138,6 +139,7 @@ async function installIntercepts(
   });
 
   await context.route('**/rest/v1/**', async (route) => {
+    if (fulfillApprovedAccount(route)) return;
     const req = route.request();
     const url = decodeURIComponent(req.url());
     const method = req.method();

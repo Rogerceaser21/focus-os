@@ -10,6 +10,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fulfillApprovedAccount } from './helpers/approvedAccount';
 
 test.skip(!process.env.PADAUDIT, 'padding audit harness — run with PADAUDIT=1');
 
@@ -82,6 +83,7 @@ const knobs = { userId: 'unknown' };
 
 async function installRestIntercepts(context: BrowserContext) {
   await context.route('**/rest/v1/**', async (route) => {
+    if (fulfillApprovedAccount(route)) return;
     const req = route.request();
     const url = req.url();
     const method = req.method();

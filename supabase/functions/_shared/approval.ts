@@ -126,3 +126,68 @@ export async function requireApprovedUser(
   }
   return signedIn;
 }
+
+// One query: which of these user ids are approved. Fails CLOSED: on any error
+// it returns an empty set (nobody counts as approved). Used by the poller so it
+// never does a lookup per row.
+export async function approvedUserIds(
+  userIds: string[],
+  deps: ApprovalDeps = {},
+): Promise<Set<string>> {
+  const ids = [...new Set(userIds.filter(Boolean))];
+  if (ids.length === 0) return new Set();
+  try {
+    const admin = (deps.makeAdminClient ?? defaultAdminClient)();
+    const { data, error } = await admin
+      .from("focusos_account_approvals")
+      .select("user_id")
+      .eq("status", "approved")
+      .in("user_id", ids);
+    if (error) {
+      console.error("approval batch lookup failed:", error.message ?? "unknown error");
+      return new Set();
+    }
+    return new Set((data ?? []).map((r: { user_id: string }) => r.user_id));
+  } catch (e) {
+    console.error("approval batch lookup threw:", (e as Error)?.message ?? "unknown error");
+    return new Set();
+  }
+}
+
+// Constant-time string compare: both sides are hashed first, so the compare
+// time depends on neither the content nor the length of the secret.
+export async function constantTimeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const x = new Uint8Array(ha);
+  const y = new Uint8Array(hb);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+// For one-off / internal functions: only a caller whose Bearer equals the
+// service-role key gets through. Returns null when allowed, or a 401 Response.
+export async function requireServiceRole(
+  req: Request,
+  corsHeaders: Record<string, string> = {},
+  serviceKey: string | undefined = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+): Promise<Response | null> {
+  const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!serviceKey || !bearer || !(await constantTimeEqual(bearer, serviceKey))) {
+    return jsonResponse(401, { error: "Unauthorized" }, corsHeaders);
+  }
+  return null;
+}
+
+// Link/token functions: the row's OWNER must be approved, or the link is dead.
+export function invalidLinkResponse(corsHeaders: Record<string, string> = {}): Response {
+  return jsonResponse(
+    403,
+    { error: "This link is no longer valid.", ok: false, title: "Link not valid", message: "This link is no longer valid." },
+    corsHeaders,
+  );
+}

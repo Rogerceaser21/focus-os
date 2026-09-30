@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@4.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.78.0";
+import { invalidLinkResponse, isApprovedUserId } from "../_shared/approval.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +31,11 @@ serve(async (req) => {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: si } = await admin.from("focusos_shared_items").select("*").eq("action_token", token).single();
     if (!si) return json({ ok: false, title: "Link not valid", message: "This link has expired or does not exist." });
+
+    // The sender must be an approved account. An unapproved user can insert their
+    // own shared-item row (any sender_email), so without this check the link
+    // would let them send mail from our domain. Refuse before ANY update or email.
+    if (!(await isApprovedUserId(si.sender_user_id))) return invalidLinkResponse(corsHeaders);
 
     // O12 finding 1: cancelled rows are kept as history (no DELETE policy) —
     // without this check, an Accept/Decline link from an email sent BEFORE

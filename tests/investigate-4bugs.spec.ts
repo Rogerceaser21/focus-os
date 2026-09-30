@@ -18,6 +18,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fulfillApprovedAccount } from './helpers/approvedAccount';
 
 test.skip(!process.env.PROBE4BUGS, 'investigation harness — run with PROBE4BUGS=1');
 
@@ -99,6 +100,7 @@ const knobs = {
 
 async function installRestIntercepts(context: BrowserContext) {
   await context.route('**/rest/v1/**', async (route) => {
+    if (fulfillApprovedAccount(route)) return;
     const req = route.request();
     const url = req.url();
     const method = req.method();

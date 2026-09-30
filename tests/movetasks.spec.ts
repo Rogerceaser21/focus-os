@@ -30,6 +30,7 @@
  */
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { USER_ID, USER_EMAIL, seedSession } from './helpers/braindumpEnv';
+import { fulfillApprovedAccount } from './helpers/approvedAccount';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const PROJECT_NAME = 'Move probe project';
@@ -128,6 +129,7 @@ async function installIntercepts(context: BrowserContext, writes: Write[]): Prom
   });
 
   await context.route('**/rest/v1/**', (route) => {
+    if (fulfillApprovedAccount(route)) return;
     const req = route.request();
     const url = req.url();
     const method = req.method();

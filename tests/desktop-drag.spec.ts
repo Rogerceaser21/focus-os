@@ -54,6 +54,7 @@
 // So Igor's symptom is real but its mechanism is NOT reproducible from a
 // scripted pointer: see the residuals in the G2 report.
 import { test, expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import { fulfillApprovedAccount } from './helpers/approvedAccount';
 
 test.use({ actionTimeout: 15000 });
 
@@ -184,6 +185,7 @@ async function installIntercepts(context: BrowserContext, rows: ProjectRow[], wr
   });
 
   await context.route('**/rest/v1/**', async (route) => {
+    if (fulfillApprovedAccount(route)) return;
     const req = route.request();
     const url = decodeURIComponent(req.url());
     const method = req.method();

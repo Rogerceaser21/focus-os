@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { invalidLinkResponse, isApprovedUserId } from "../_shared/approval.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -78,11 +79,14 @@ serve(async (req) => {
 
     const { data: meeting, error } = await supabase
       .from("focusos_meetings")
-      .select("recording_gcs_path, title")
+      .select("recording_gcs_path, title, user_id")
       .eq("share_token", token)
       .single();
 
     if (error || !meeting) throw new Error("Recording not found");
+    // The meeting's owner must be an approved account, or the link is dead and
+    // no audio is served.
+    if (!(await isApprovedUserId(meeting.user_id))) return invalidLinkResponse(corsHeaders);
     if (!meeting.recording_gcs_path) throw new Error("No recording available");
 
     // Parse GCS path

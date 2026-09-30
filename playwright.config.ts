@@ -41,6 +41,10 @@ export default defineConfig({
   webServer: {
     command: `npm run dev -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
+    // E2E_SKIP_APPROVAL=1 in the shell turns the approval gate into a
+    // pass-through for THIS throwaway server only (the live approvals table
+    // does not exist yet). A normal run exercises the real gate.
+    env: process.env.E2E_SKIP_APPROVAL === '1' ? { VITE_E2E_SKIP_APPROVAL: '1' } : {},
     reuseExistingServer: true,
     timeout: 120_000,
   },

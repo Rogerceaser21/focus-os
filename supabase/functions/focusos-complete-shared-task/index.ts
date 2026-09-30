@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.78.0";
+import { invalidLinkResponse, isApprovedUserId } from "../_shared/approval.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,10 @@ serve(async (req) => {
     if (fetchError || !task) {
       return json({ ok: false, title: "Task not found", message: "This link may have expired or the task was deleted." });
     }
+
+    // The task's owner must be an approved account, or the link is dead and
+    // nothing is updated.
+    if (!(await isApprovedUserId(task.user_id))) return invalidLinkResponse(corsHeaders);
 
     if (task.status === "completed") {
       return json({ ok: true, title: "Already completed", message: "This task has already been marked as completed." });

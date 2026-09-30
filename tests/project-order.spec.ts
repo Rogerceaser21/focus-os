@@ -32,6 +32,7 @@
 //
 // Run: WAVE_BASE_URL=http://localhost:8091 npx playwright test tests/project-order.spec.ts
 import { test, expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import { fulfillApprovedAccount } from './helpers/approvedAccount';
 
 // actionTimeout bounds every bare locator action in THIS file only. The shared
 // playwright.config.ts leaves it unset (0 = unbounded), which lets a zero-match
@@ -178,6 +179,7 @@ async function installIntercepts(context: BrowserContext, rows: ProjectRow[], wr
   });
 
   await context.route('**/rest/v1/**', async (route) => {
+    if (fulfillApprovedAccount(route)) return;
     const req = route.request();
     const url = decodeURIComponent(req.url());
     const method = req.method();

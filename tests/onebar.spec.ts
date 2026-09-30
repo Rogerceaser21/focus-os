@@ -20,6 +20,7 @@
  */
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { PROJECT_REF, USER_ID, USER_EMAIL, seedSession } from './helpers/braindumpEnv';
+import { fulfillApprovedAccount } from './helpers/approvedAccount';
 
 const PROJECT_ID = '77777777-7777-4777-8777-777777777777';
 const PROJECT_NAME = 'Onebar probe project';
@@ -122,6 +123,7 @@ async function installIntercepts(context: BrowserContext): Promise<void> {
   });
 
   await context.route('**/rest/v1/**', (route) => {
+    if (fulfillApprovedAccount(route)) return;
     const req = route.request();
     const url = req.url();
     const method = req.method();

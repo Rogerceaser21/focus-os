@@ -44,9 +44,12 @@ const asStatus = (v: unknown): Status | null =>
 const ApprovalGate = () => {
   const { user, loading } = useAuth();
   const userId = user?.id ?? null;
-  const [state, setState] = useState<GateState>(() =>
-    userId && approvedUsers.has(userId) ? 'approved' : 'checking',
-  );
+  // Gate state is keyed by user id: a different user (sign-out then another
+  // sign-in on the same device, no unmount) never inherits the last one's state.
+  const [gate, setGate] = useState<{ id: string | null; value: GateState }>({
+    id: userId,
+    value: userId && approvedUsers.has(userId) ? 'approved' : 'checking',
+  });
   const runRef = useRef(0);
 
   const check = useCallback(async (id: string) => {
@@ -54,13 +57,13 @@ const ApprovalGate = () => {
     const settle = (next: GateState) => {
       if (run !== runRef.current) return;
       if (next === 'approved') approvedUsers.add(id);
-      setState(next);
+      setGate({ id, value: next });
     };
     if (approvedUsers.has(id)) {
       settle('approved');
       return;
     }
-    setState('checking');
+    setGate({ id, value: 'checking' });
     try {
       // focusos_account_approvals is not in the generated types file yet.
       const { data, error } = await supabase
@@ -95,11 +98,24 @@ const ApprovalGate = () => {
     void check(userId);
   }, [userId, check]);
 
-  if (loading || !userId) return <Outlet />;
-  // The effect flips a user change to 'checking' one commit late; a cached
-  // approval is honoured immediately so navigation never blinks.
-  if (approvedUsers.has(userId) || state === 'approved') return <Outlet />;
-  if (state === 'checking') return <AppBootSkeleton />;
+  // Signed out (or auth still resolving with no known user): the pages' own
+  // redirect to /auth runs. A user is present: the app shows only once THIS
+  // user is approved; until then the boot skeleton, never the app.
+  if (import.meta.env.VITE_E2E_SKIP_APPROVAL === '1') return <Outlet />;
+  if (!userId) return <Outlet />;
+  const state: GateState = approvedUsers.has(userId)
+    ? 'approved'
+    : gate.id === userId
+      ? gate.value
+      : 'checking';
+  if (state === 'approved') return <Outlet />;
+  if (state === 'checking') {
+    return (
+      <div data-testid="approval-check">
+        <AppBootSkeleton />
+      </div>
+    );
+  }
   if (state === 'error') {
     return (
       <GateShell title="Couldn't check your account" email={user?.email}>
@@ -121,8 +137,8 @@ const ApprovalGate = () => {
   return (
     <GateShell title="Waiting for approval" email={user?.email}>
       <p className="text-sm text-muted-foreground">
-        Thanks for signing up. Igor has been sent your request and will approve your account soon.
-        You'll get an email when it's done.
+        Thanks for signing up. Igor will be asked to approve your account. You'll get an email when
+        it's done.
       </p>
       <GateActions onCheck={() => void check(userId)} checkLabel="Check again" />
     </GateShell>

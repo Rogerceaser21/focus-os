@@ -71,7 +71,11 @@ test('brain dump save lands in the /app caches (no refetch, no skeleton)', async
     const tick = () => {
       if (
         location.pathname.endsWith('/app') &&
-        document.querySelector('[aria-label="Loading tasks"]')
+        document.querySelector('[aria-label="Loading tasks"]') &&
+        // The approval gate's own one-time account check (first gated mount in
+        // this session) paints the boot skeleton too; it is not the app's task-list
+        // loader, which is what this guard is about.
+        !document.querySelector('[data-testid="approval-check"]')
       ) {
         w.__skeletonFrames.push({ t: Math.round(performance.now()), search: location.search });
       }

@@ -8,6 +8,7 @@
  * throwaway signup). Not a *.spec.ts, so Playwright never collects it.
  */
 import type { BrowserContext, Page } from '@playwright/test';
+import { fulfillApprovedAccount } from './approvedAccount';
 
 export const PROJECT_REF = 'mshlbsgsyzzfxyxramjj';
 export const USER_ID = '11111111-1111-4111-8111-111111111111';
@@ -170,6 +171,7 @@ export async function installIntercepts(context: BrowserContext, counts: Counts)
   });
 
   await context.route('**/rest/v1/**', async (route) => {
+    if (fulfillApprovedAccount(route)) return;
     const req = route.request();
     const url = req.url();
     const method = req.method();
