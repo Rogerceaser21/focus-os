@@ -1203,24 +1203,6 @@ export type Database = {
         }
         Relationships: []
       }
-      staff_allow_list: {
-        Row: {
-          added_at: string
-          email: string
-          note: string | null
-        }
-        Insert: {
-          added_at?: string
-          email: string
-          note?: string | null
-        }
-        Update: {
-          added_at?: string
-          email?: string
-          note?: string | null
-        }
-        Relationships: []
-      }
       student_access_tokens: {
         Row: {
           access_token: string
@@ -1384,6 +1366,7 @@ export type Database = {
         Args: { command: string }
         Returns: undefined
       }
+      feedback_grant_access: { Args: { p_email: string }; Returns: boolean }
       focusos_can_access_task_image: {
         Args: { _file_owner_id: string; _user_id: string }
         Returns: boolean
