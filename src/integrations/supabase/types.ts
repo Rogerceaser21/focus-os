@@ -524,6 +524,39 @@ export type Database = {
         }
         Relationships: []
       }
+      focusos_account_approvals: {
+        Row: {
+          decided_at: string | null
+          email: string
+          last_emailed_at: string | null
+          requested_at: string
+          status: string
+          token_expires_at: string | null
+          token_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          decided_at?: string | null
+          email: string
+          last_emailed_at?: string | null
+          requested_at?: string
+          status: string
+          token_expires_at?: string | null
+          token_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          decided_at?: string | null
+          email?: string
+          last_emailed_at?: string | null
+          requested_at?: string
+          status?: string
+          token_expires_at?: string | null
+          token_hash?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       focusos_api_tokens: {
         Row: {
           created_at: string
@@ -1379,10 +1412,12 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: string
       }
+      focusos_is_approved: { Args: { p_user_id: string }; Returns: boolean }
       focusos_is_project_member: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      focusos_me_approved: { Args: never; Returns: boolean }
       get_app_configuration: { Args: never; Returns: Json }
       is_allowed_staff: { Args: never; Returns: boolean }
     }
