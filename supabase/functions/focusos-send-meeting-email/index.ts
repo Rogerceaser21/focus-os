@@ -185,7 +185,7 @@ serve(async (req) => {
     const resend = new Resend(RESEND_API_KEY);
 
     const { error: emailError } = await resend.emails.send({
-      from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
+      from: "AIS Apps <noreply@focusos.thefeedbackapp.net>",
       to: [recipientEmail],
       subject: `Meeting Notes: ${meeting.title}`,
       html: buildMeetingEmailHtml(meeting, summary, senderName, recordingUrl, "https://focusos.tech/brand/focusos-email-logo.png", userNote),

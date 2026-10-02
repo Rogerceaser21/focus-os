@@ -71,7 +71,7 @@ serve(async (req) => {
         const resend = new Resend(RESEND_API_KEY);
         const verb = action === "accept" ? "accepted" : "declined";
         await resend.emails.send({
-          from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
+          from: "AIS Apps <noreply@focusos.thefeedbackapp.net>",
           to: [senderRealEmail],
           subject: `Your shared ${si.item_type} was ${verb}`,
           html: `<p>${escapeHtml(si.recipient_email)} has ${verb} the ${escapeHtml(si.item_type)} "${escapeHtml(si.item_title)}" you shared.</p>`,

@@ -122,7 +122,7 @@ serve(async (req) => {
         try {
           const resend = new Resend(RESEND_API_KEY);
           const { error: sendErr } = await resend.emails.send({
-            from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
+            from: "AIS Apps <noreply@focusos.thefeedbackapp.net>",
             to: [row.email],
             subject: "You're in: Focus OS access approved",
             html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px">

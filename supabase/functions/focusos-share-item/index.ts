@@ -391,7 +391,7 @@ serve(async (req) => {
     const typeLabel = itemType.charAt(0).toUpperCase() + itemType.slice(1);
 
     const { error: emailError } = await resend.emails.send({
-      from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
+      from: "AIS Apps <noreply@focusos.thefeedbackapp.net>",
       to: [recipientEmail.trim()],
       subject: `${typeLabel} shared with you: ${itemTitle}`,
       html: buildShareEmailHtml({

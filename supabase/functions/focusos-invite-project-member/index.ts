@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${resendApiKey}`,
         },
         body: JSON.stringify({
-          from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
+          from: "AIS Apps <noreply@focusos.thefeedbackapp.net>",
           to: [recipientEmail],
           subject: `${senderName} invited you to collaborate on "${project.name}"`,
           html: `

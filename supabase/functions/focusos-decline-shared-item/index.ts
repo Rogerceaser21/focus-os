@@ -96,7 +96,7 @@ serve(async (req) => {
       try {
         const resend = new Resend(RESEND_API_KEY);
         await resend.emails.send({
-          from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
+          from: "AIS Apps <noreply@focusos.thefeedbackapp.net>",
           to: [sharedItem.sender_email],
           subject: `Your shared ${sharedItem.item_type} was declined`,
           html: `<p>${declinerName} has declined the ${sharedItem.item_type} "<strong>${sharedItem.item_title}</strong>" that you shared.</p>`,

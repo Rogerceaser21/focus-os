@@ -103,7 +103,7 @@ async function emailApprover(
     const resend = new Resend(RESEND_API_KEY);
     const who = (name || email).slice(0, MAX_NAME_CHARS);
     const { error: sendErr } = await resend.emails.send({
-      from: "Focus OS <noreply@focusos.thefeedbackapp.net>",
+      from: "AIS Apps <noreply@focusos.thefeedbackapp.net>",
       to: [approverEmail],
       subject: `Focus OS: ${oneLine(who)} wants access`,
       html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px">
@@ -152,6 +152,12 @@ serve(async (req) => {
     const signedIn = await requireSignedInUser(req, corsHeaders);
     if (signedIn instanceof Response) return signedIn;
     const { user } = signedIn;
+
+    // Igor is only asked once the person has proved they own the address: an
+    // unconfirmed sign-up never reaches him (Google sign-ins arrive confirmed).
+    if (!user.email_confirmed_at) {
+      return json(403, { status: "unconfirmed", error: "Confirm your email first" });
+    }
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
