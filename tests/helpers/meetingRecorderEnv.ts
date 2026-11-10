@@ -26,6 +26,8 @@ export interface RecorderRig {
   transcribeBodies: any[];
   /** First N upload invokes fail with HTTP 500 (set before starting). */
   failFirstUploads: number;
+  /** While true EVERY upload invoke fails with HTTP 500 (the wifi is down). */
+  offline: boolean;
 }
 
 export async function bootRig(
@@ -39,6 +41,7 @@ export async function bootRig(
     processBodies: [],
     transcribeBodies: [],
     failFirstUploads: opts?.failFirstUploads ?? 0,
+    offline: false,
   };
   await seedSession(page);
   if (opts?.tuning) {
@@ -60,7 +63,7 @@ export async function bootRig(
     }
     if (url.includes('focusos-upload-audio-chunk')) {
       const body = req.postDataJSON();
-      const failing = rig.uploads.length < rig.failFirstUploads;
+      const failing = rig.offline || rig.uploads.length < rig.failFirstUploads;
       rig.uploads.push({
         sessionId: body.sessionId,
         chunkIndex: body.chunkIndex,
@@ -105,3 +108,28 @@ export function parseTimer(text: string): number {
   const parts = text.trim().split(':').map(Number);
   return parts.reduce((acc, n) => acc * 60 + n, 0);
 }
+
+/** Per-session record map the recorder keeps in localStorage. */
+export const RECORDS_KEY = 'focusos-meeting-recording-sessions';
+
+export const readRecords = (page: Page) =>
+  page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}'), RECORDS_KEY);
+
+/** Number of unsent chunks the recorder holds in IndexedDB (for the given session). */
+export const idbChunkCount = (page: Page, sessionId: string) =>
+  page.evaluate(
+    (sid) =>
+      new Promise<number>((resolve) => {
+        const req = indexedDB.open('focusos-meeting-chunks', 1);
+        req.onerror = () => resolve(-1);
+        req.onupgradeneeded = () => resolve(0);
+        req.onsuccess = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('chunks')) return resolve(0);
+          const r = db.transaction('chunks').objectStore('chunks').index('sessionId').count(sid);
+          r.onsuccess = () => resolve(r.result);
+          r.onerror = () => resolve(-1);
+        };
+      }),
+    sessionId,
+  );

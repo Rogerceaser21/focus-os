@@ -16,8 +16,16 @@
  *    its place at the head of an ordered queue and is retried with the SAME index
  *    (bounded retries, exponential backoff), so later chunks never overtake it
  *    and the sequence the server composes from never has a hole;
- *  - {sessionId, startedAt, title, pausedMs, ...} is mirrored to localStorage while
- *    recording, so the orphan-recovery banner can show the real title and duration.
+ *  - {sessionId, startedAt, title, pausedMs, ...} is mirrored to localStorage (one
+ *    record PER session) while recording, so the orphan-recovery banner can show
+ *    the real title and duration;
+ *  - Stop never gives up on the network: the save stays alive in a "waiting for
+ *    connection" state, retries (backoff capped at 30 s, immediately on `online` and
+ *    on visible) and calls process-meeting only once the queue is EMPTY. Unsent
+ *    chunks are mirrored to IndexedDB, so a reload or a closed tab loses nothing;
+ *    on the next start they are uploaded in order and the save is finished.
+ *  - Sign-out stops the mic at once and keeps the unsent chunks for that user id;
+ *    they are never uploaded under another account.
  *
  * The chunk transport (base64 through focusos-upload-audio-chunk) is unchanged.
  */
@@ -25,6 +33,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { isCapturing as brainDumpCapturing } from '@/lib/brainDumpAudio';
+import { putChunk, deleteChunk, getSessionChunks, listChunkSessionIds } from '@/lib/meetingChunkStore';
 
 export interface MeetingParticipant {
   name: string;
@@ -57,6 +66,12 @@ export interface RecorderSnapshot {
   pausedAt: number | null;
   /** Wall-clock ms the recording was stopped; elapsed freezes here while saving. */
   endedAt: number | null;
+  /** Saves still running in the background (offline Stop, resumed after reload). */
+  saveJobs: number;
+  /** Chunks still to upload across those saves. */
+  savePending: number;
+  /** True while a save is retrying because uploads are failing. */
+  saveWaiting: boolean;
   /** Bumped each time a save completes; `saved` is that save's meeting. */
   savedSeq: number;
   saved: SavedMeeting | null;
@@ -65,10 +80,14 @@ export interface RecorderSnapshot {
   failedSessionId: string | null;
 }
 
-export const RECORDING_SESSION_STORAGE_KEY = 'focusos-meeting-recording-session';
+export const RECORDING_SESSION_STORAGE_KEY = 'focusos-meeting-recording-sessions';
 
 export interface PersistedRecording {
   sessionId: string;
+  userId?: string | null;
+  projectId?: string | null;
+  participants?: MeetingParticipant[];
+  mimeType?: string;
   startedAt: number;
   title: string;
   pausedMs: number;
@@ -91,36 +110,45 @@ const TICK_MAX_ATTEMPTS = 4;
 const FINAL_MAX_ATTEMPTS = 8;
 const BACKOFF_CAP_MS = 15_000;
 
-/* ─── localStorage mirror ─────────────────────────────── */
+/* ─── localStorage mirror (one record per session) ───── */
 
-export function readPersistedRecording(): PersistedRecording | null {
+type RecordMap = Record<string, PersistedRecording>;
+
+function readMap(): RecordMap {
   try {
     const raw = localStorage.getItem(RECORDING_SESSION_STORAGE_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw);
-    if (!p || typeof p.sessionId !== 'string' || typeof p.startedAt !== 'number') return null;
-    return p as PersistedRecording;
+    const m = raw ? JSON.parse(raw) : null;
+    return m && typeof m === 'object' ? (m as RecordMap) : {};
   } catch {
-    return null;
+    return {};
   }
 }
 
-function writePersisted(patch: Partial<PersistedRecording> & { sessionId: string }) {
+function writeMap(m: RecordMap) {
   try {
-    const prev = readPersistedRecording();
-    const base = prev && prev.sessionId === patch.sessionId ? prev : ({} as Partial<PersistedRecording>);
-    localStorage.setItem(RECORDING_SESSION_STORAGE_KEY, JSON.stringify({ ...base, ...patch }));
+    if (Object.keys(m).length === 0) localStorage.removeItem(RECORDING_SESSION_STORAGE_KEY);
+    else localStorage.setItem(RECORDING_SESSION_STORAGE_KEY, JSON.stringify(m));
   } catch {
     /* storage blocked: recovery just falls back to its estimate */
   }
 }
 
-export function clearPersistedRecording() {
-  try {
-    localStorage.removeItem(RECORDING_SESSION_STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
+export function readPersistedRecording(sessionId: string): PersistedRecording | null {
+  const p = readMap()[sessionId];
+  return p && typeof p.startedAt === 'number' ? p : null;
+}
+
+function writePersisted(patch: Partial<PersistedRecording> & { sessionId: string }) {
+  const m = readMap();
+  m[patch.sessionId] = { ...(m[patch.sessionId] || {}), ...patch } as PersistedRecording;
+  writeMap(m);
+}
+
+export function clearPersistedRecording(sessionId: string) {
+  const m = readMap();
+  if (!(sessionId in m)) return;
+  delete m[sessionId];
+  writeMap(m);
 }
 
 /** Real duration in whole seconds for a persisted record, or null when unknown. */
@@ -133,21 +161,33 @@ export function persistedDurationSeconds(p: PersistedRecording): number | null {
 /* ─── module state ────────────────────────────────────── */
 
 interface QueueItem {
+  index: number;
   blob: Blob;
   b64?: string;
+  persisted?: Promise<void>;
+}
+
+/** Everything the save path needs; outlives the MediaRecorder. */
+interface Job {
+  sessionId: string;
+  userId: string | null;
+  mimeType: string;
+  projectId: string | null;
+  participants: MeetingParticipant[];
+  title: string;
+  queue: QueueItem[];
+  /** Next chunk index to hand out; spent for good only when the upload succeeds. */
+  nextAssign: number;
+  drainPromise: Promise<boolean> | null;
+  waiting: boolean;
+  halted: boolean;
 }
 
 interface Active {
+  job: Job;
   stream: MediaStream;
   recorder: MediaRecorder;
-  mimeType: string;
-  sessionId: string;
-  projectId: string | null;
-  participants: MeetingParticipant[];
   buffer: Blob[];
-  queue: QueueItem[];
-  nextIndex: number;
-  drainPromise: Promise<boolean> | null;
   flushRequested: boolean;
   flushTimer: ReturnType<typeof setInterval> | null;
 }
@@ -155,6 +195,9 @@ interface Active {
 let active: Active | null = null;
 let starting = false;
 let wakeLock: any = null;
+let wakeGen = 0;
+let currentUserId: string | null = null;
+const jobs = new Set<Job>();
 
 const initial: RecorderSnapshot = {
   phase: 'idle',
@@ -164,6 +207,9 @@ const initial: RecorderSnapshot = {
   pausedMs: 0,
   pausedAt: null,
   endedAt: null,
+  saveJobs: 0,
+  savePending: 0,
+  saveWaiting: false,
   savedSeq: 0,
   saved: null,
   failedSeq: 0,
@@ -178,6 +224,17 @@ function setSnapshot(patch: Partial<RecorderSnapshot>) {
   listeners.forEach((l) => l());
 }
 
+function refreshSaveStats() {
+  let pending = 0;
+  let waiting = false;
+  jobs.forEach((j) => {
+    pending += j.queue.length;
+    if (j.waiting) waiting = true;
+  });
+  if (jobs.size === snapshot.saveJobs && pending === snapshot.savePending && waiting === snapshot.saveWaiting) return;
+  setSnapshot({ saveJobs: jobs.size, savePending: pending, saveWaiting: waiting });
+}
+
 export function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
@@ -188,6 +245,11 @@ export function subscribe(listener: () => void): () => void {
 /** Stable between changes: the same object is returned until the next setSnapshot. */
 export function getSnapshot(): RecorderSnapshot {
   return snapshot;
+}
+
+/** True while this session is recording or its save is still running (never an orphan). */
+export function isSessionInFlight(sessionId: string): boolean {
+  return active?.job.sessionId === sessionId || Array.from(jobs).some((j) => j.sessionId === sessionId);
 }
 
 /** True while a recording is live OR paused: the mic is held either way. */
@@ -204,7 +266,21 @@ export function elapsedMs(s: RecorderSnapshot, now: number): number {
 
 /* ─── helpers ─────────────────────────────────────────── */
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const wakers = new Set<() => void>();
+/** Wake every sleeping retry now (network came back, tab visible again, halt). */
+function wakeAll() {
+  Array.from(wakers).forEach((w) => w());
+}
+const sleepOrWake = (ms: number) =>
+  new Promise<void>((resolve) => {
+    const done = () => {
+      clearTimeout(t);
+      wakers.delete(done);
+      resolve();
+    };
+    const t = setTimeout(done, ms);
+    wakers.add(done);
+  });
 
 async function blobToBase64(blob: Blob): Promise<string> {
   const u8 = new Uint8Array(await blob.arrayBuffer());
@@ -217,17 +293,29 @@ async function blobToBase64(blob: Blob): Promise<string> {
 }
 
 async function acquireWakeLock() {
+  const gen = wakeGen;
   try {
     const nav = navigator as any;
     if (!nav.wakeLock?.request) return;
     if (wakeLock && !wakeLock.released) return;
-    wakeLock = await nav.wakeLock.request('screen');
+    const lock = await nav.wakeLock.request('screen');
+    if (gen !== wakeGen) {
+      // Stop landed while the request was pending: give it straight back.
+      try {
+        lock?.release?.();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    wakeLock = lock;
   } catch {
     /* unsupported, denied or page hidden: never fatal */
   }
 }
 
 function releaseWakeLock() {
+  wakeGen += 1;
   try {
     wakeLock?.release?.();
   } catch {
@@ -238,56 +326,77 @@ function releaseWakeLock() {
 
 /* ─── upload queue ────────────────────────────────────── */
 
+const BACKOFF_CAP_TICK_MS = 15_000;
+const BACKOFF_CAP_FINAL_MS = 30_000;
+
 /**
  * Upload the head of the queue until it is empty. A chunk's index is only
  * consumed when its upload succeeded; on failure the SAME item is retried with the
- * SAME index after a backoff, so the server never sees a gap. Returns false when
- * the attempts ran out (the queue keeps its items for the next flush).
+ * SAME index after a backoff, so the server never sees a gap. `maxAttempts`
+ * Infinity (the save path) never gives up: it flags the job as waiting, sleeps
+ * with a capped backoff and is woken at once by `online` / visible. Returns false
+ * when the attempts ran out or the job was halted (the queue keeps its items).
  */
-function drain(a: Active, maxAttempts: number): Promise<boolean> {
+function drain(job: Job, maxAttempts: number): Promise<boolean> {
   const run = async (): Promise<boolean> => {
-    while (a.drainPromise) await a.drainPromise;
-    if (a.queue.length === 0) return true;
+    while (job.drainPromise) await job.drainPromise;
+    if (job.queue.length === 0) return true;
     const p = (async () => {
       let attempts = 0;
-      while (a.queue.length > 0) {
-        const item = a.queue[0];
-        const index = a.nextIndex;
+      while (job.queue.length > 0) {
+        if (job.halted) return false;
+        const item = job.queue[0];
         try {
+          if (item.persisted) await item.persisted;
           if (item.b64 === undefined) item.b64 = await blobToBase64(item.blob);
           const { error } = await supabase.functions.invoke('focusos-upload-audio-chunk', {
-            body: { sessionId: a.sessionId, chunkIndex: index, audioBase64: item.b64 },
+            body: { sessionId: job.sessionId, chunkIndex: item.index, audioBase64: item.b64 },
           });
           if (error) throw error;
-          a.queue.shift();
-          a.nextIndex = index + 1;
+          if (job.halted) return false;
+          job.queue.shift();
+          void deleteChunk(job.sessionId, item.index);
           attempts = 0;
-          writePersisted({ sessionId: a.sessionId, lastChunkAt: Date.now() });
+          job.waiting = false;
+          writePersisted({ sessionId: job.sessionId, lastChunkAt: Date.now() });
+          refreshSaveStats();
         } catch (err) {
           attempts += 1;
-          console.error(`Chunk ${index} upload failed (attempt ${attempts}):`, err);
-          if (attempts >= maxAttempts) return false;
-          await sleep(Math.min(tuning().backoffMs * 2 ** (attempts - 1), BACKOFF_CAP_MS));
+          console.error(`Chunk ${item.index} upload failed (attempt ${attempts}):`, err);
+          if (maxAttempts === Infinity) {
+            job.waiting = true;
+            refreshSaveStats();
+          }
+          if (job.halted || attempts >= maxAttempts) return false;
+          const cap = maxAttempts === Infinity ? BACKOFF_CAP_FINAL_MS : BACKOFF_CAP_TICK_MS;
+          await sleepOrWake(Math.min(tuning().backoffMs * 2 ** (attempts - 1), cap));
+          if (job.halted) return false;
         }
       }
       return true;
     })();
-    a.drainPromise = p;
+    job.drainPromise = p;
     try {
       return await p;
     } finally {
-      a.drainPromise = null;
+      job.drainPromise = null;
     }
   };
   return run();
 }
 
 function enqueueBuffer(a: Active, drainAfter: boolean) {
+  const job = a.job;
   if (a.buffer.length > 0) {
-    a.queue.push({ blob: new Blob(a.buffer, { type: a.mimeType }) });
+    const item: QueueItem = {
+      index: job.nextAssign++,
+      blob: new Blob(a.buffer, { type: job.mimeType }),
+    };
+    item.persisted = putChunk(job.sessionId, item.index, item.blob);
+    job.queue.push(item);
     a.buffer = [];
   }
-  if (drainAfter && a.queue.length > 0) void drain(a, TICK_MAX_ATTEMPTS);
+  if (drainAfter && !job.halted && job.queue.length > 0) void drain(job, 4);
 }
 
 /** Cut the current buffer into a chunk now and upload it. */
@@ -311,7 +420,8 @@ function flush() {
 /* ─── lifecycle ───────────────────────────────────────── */
 
 export async function start(opts: StartOptions): Promise<boolean> {
-  if (starting || snapshot.phase !== 'idle') return false;
+  // A save still running in the background (offline Stop) never blocks a new meeting.
+  if (starting || (snapshot.phase !== 'idle' && snapshot.phase !== 'saving')) return false;
   if (brainDumpCapturing()) {
     toast.error('Brain dump is using the microphone. Finish it first.', { id: 'meeting-mic-lockout' });
     return false;
@@ -335,21 +445,30 @@ export async function start(opts: StartOptions): Promise<boolean> {
     );
     if (sessionError || !sessionData?.sessionId) throw new Error('Failed to start recording session');
 
+    let userId = currentUserId;
+    if (!userId) {
+      try {
+        userId = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
+      } catch {
+        userId = null;
+      }
+    }
+
     const recorder = new MediaRecorder(stream, { mimeType });
-    const a: Active = {
-      stream,
-      recorder,
-      mimeType,
+    const job: Job = {
       sessionId: sessionData.sessionId,
+      userId,
+      mimeType: mimeType.split(';')[0],
       projectId: opts.projectId ?? null,
       participants: (opts.participants ?? []).filter((p) => p.name.trim()),
-      buffer: [],
+      title: opts.title,
       queue: [],
-      nextIndex: 0,
+      nextAssign: 0,
       drainPromise: null,
-      flushRequested: false,
-      flushTimer: null,
+      waiting: false,
+      halted: false,
     };
+    const a: Active = { job, stream, recorder, buffer: [], flushRequested: false, flushTimer: null };
 
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) a.buffer.push(e.data);
@@ -365,7 +484,11 @@ export async function start(opts: StartOptions): Promise<boolean> {
     a.flushTimer = setInterval(flush, tuning().flushMs);
 
     writePersisted({
-      sessionId: a.sessionId,
+      sessionId: job.sessionId,
+      userId,
+      projectId: job.projectId,
+      participants: job.participants,
+      mimeType: job.mimeType,
       startedAt,
       title: opts.title,
       pausedMs: 0,
@@ -374,7 +497,7 @@ export async function start(opts: StartOptions): Promise<boolean> {
 
     setSnapshot({
       phase: 'recording',
-      sessionId: a.sessionId,
+      sessionId: job.sessionId,
       title: opts.title,
       startedAt,
       pausedMs: 0,
@@ -413,7 +536,7 @@ export function resume() {
   a.recorder.resume();
   const pausedMs = snapshot.pausedMs + (Date.now() - (snapshot.pausedAt ?? Date.now()));
   setSnapshot({ phase: 'recording', pausedMs, pausedAt: null });
-  writePersisted({ sessionId: a.sessionId, pausedMs });
+  writePersisted({ sessionId: a.job.sessionId, pausedMs });
   void acquireWakeLock();
 }
 
@@ -428,68 +551,76 @@ export function stop() {
     a.flushTimer = null;
   }
   releaseWakeLock();
-  writePersisted({ sessionId: a.sessionId, pausedMs, endedAt });
+  a.job.title = snapshot.title;
+  writePersisted({ sessionId: a.job.sessionId, pausedMs, endedAt });
   setSnapshot({ phase: 'saving', pausedMs, pausedAt: null, endedAt });
 
+  const finish = () => {
+    a.stream.getTracks().forEach((t) => t.stop());
+    enqueueBuffer(a, false);
+    if (active === a) active = null;
+    void runSave(a.job, durationSeconds);
+  };
   if (a.recorder.state === 'inactive') {
-    void finalize(a, durationSeconds);
+    finish();
     return;
   }
-  a.recorder.onstop = () => void finalize(a, durationSeconds);
+  a.recorder.onstop = finish;
   try {
     a.recorder.stop();
   } catch {
-    void finalize(a, durationSeconds);
+    finish();
   }
 }
 
-async function finalize(a: Active, durationSeconds: number) {
-  a.stream.getTracks().forEach((t) => t.stop());
-  enqueueBuffer(a, false);
-  const drained = await drain(a, FINAL_MAX_ATTEMPTS);
+/** Foreground bookkeeping: the pill / banner leave "saving" when THIS save ends. */
+function leaveSaving(job: Job, patch: Partial<RecorderSnapshot>) {
+  const foreground = snapshot.phase === 'saving' && snapshot.sessionId === job.sessionId;
+  setSnapshot(foreground ? { phase: 'idle', ...patch } : patch);
+}
 
-  const fail = (message: string) => {
-    toast.error(message);
-    active = null;
-    setSnapshot({
-      phase: 'idle',
-      failedSeq: snapshot.failedSeq + 1,
-      failedSessionId: a.sessionId,
-    });
-  };
-
-  if (a.nextIndex === 0) {
-    fail('Failed to upload the recording. It is saved on this device only if the page stays open; try again.');
+/**
+ * Finish a save: upload EVERYTHING still queued (never giving up, waiting for the
+ * connection as long as it takes), and only then call process-meeting and clear
+ * the record. A halted job (sign-out) leaves its record and its IndexedDB chunks
+ * for the same user's next session.
+ */
+async function runSave(job: Job, durationSeconds: number) {
+  jobs.add(job);
+  refreshSaveStats();
+  if (job.queue.length > 0) toast.info('Uploading your meeting...', { id: `save-${job.sessionId}` });
+  const drained = await drain(job, Infinity);
+  jobs.delete(job);
+  job.waiting = false;
+  if (!drained || job.halted) {
+    refreshSaveStats();
+    if (snapshot.phase === 'saving' && snapshot.sessionId === job.sessionId) setSnapshot({ phase: 'idle' });
     return;
   }
-  if (!drained) {
-    toast.warning('Some of the last audio could not be uploaded. The rest of the meeting is being saved.');
-  }
+  refreshSaveStats();
 
-  toast.info('Uploading and processing your meeting...');
   try {
     const { data, error } = await supabase.functions.invoke('focusos-process-meeting', {
       body: {
-        sessionId: a.sessionId,
-        mimeType: a.mimeType.split(';')[0],
-        projectId: a.projectId,
+        sessionId: job.sessionId,
+        mimeType: job.mimeType,
+        projectId: job.projectId,
         title:
-          snapshot.title.trim() ||
+          job.title.trim() ||
           `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
         durationSeconds,
-        participants: a.participants,
+        participants: job.participants,
       },
     });
     if (error) throw error;
 
-    clearPersistedRecording();
-    active = null;
+    clearPersistedRecording(job.sessionId);
     const status: string | null = data?.processing_status ?? null;
-    setSnapshot({
-      phase: 'idle',
+    leaveSaving(job, {
       savedSeq: snapshot.savedSeq + 1,
       saved: { id: data?.id, processingStatus: status },
     });
+    toast.dismiss(`save-${job.sessionId}`);
     if (status && status !== 'done' && data?.id) {
       triggerTranscription(data.id);
       toast.success('Meeting saved. Transcribing now.');
@@ -499,7 +630,8 @@ async function finalize(a: Active, durationSeconds: number) {
   } catch (error) {
     console.error('Process meeting error:', error);
     // The persisted record stays so the recovery banner can show the real title.
-    fail('Failed to process meeting. Your recording is saved. Use the recovery banner to retry.');
+    toast.error('Failed to process meeting. Your recording is saved. Use the recovery banner to retry.');
+    leaveSaving(job, { failedSeq: snapshot.failedSeq + 1, failedSessionId: job.sessionId });
   }
 }
 
@@ -522,20 +654,126 @@ export function triggerTranscription(meetingId: string, opts?: { retry?: boolean
   }
 }
 
+/* ─── resume after reload / sign-out ──────────────────── */
+
+let resumedFor: string | null = null;
+
+/**
+ * Called once per signed-in user: any session of THIS user that still holds unsent
+ * chunks in IndexedDB is uploaded in index order. A session the user had already
+ * stopped is then saved (process-meeting); one that was cut off mid-recording is
+ * only uploaded, and the recovery banner offers it from the server's own session.
+ */
+export async function resumePendingSessions(userId: string): Promise<void> {
+  if (resumedFor === userId) return;
+  resumedFor = userId;
+  let ids: string[] = [];
+  try {
+    ids = await listChunkSessionIds();
+  } catch {
+    return;
+  }
+  for (const sessionId of ids) {
+    if (active?.job.sessionId === sessionId) continue;
+    if (Array.from(jobs).some((j) => j.sessionId === sessionId)) continue;
+    const meta = readPersistedRecording(sessionId);
+    if (!meta || meta.userId !== userId) continue;
+    const stored = await getSessionChunks(sessionId);
+    if (stored.length === 0) continue;
+    const job: Job = {
+      sessionId,
+      userId,
+      mimeType: meta.mimeType || 'audio/webm',
+      projectId: meta.projectId ?? null,
+      participants: meta.participants ?? [],
+      title: meta.title || '',
+      queue: stored.map((c) => ({
+        index: c.chunkIndex,
+        blob: new Blob([c.data], { type: c.mime || meta.mimeType || 'audio/webm' }),
+      })),
+      nextAssign: stored[stored.length - 1].chunkIndex + 1,
+      drainPromise: null,
+      waiting: false,
+      halted: false,
+    };
+    if (typeof meta.endedAt === 'number') {
+      toast.info('Finishing a meeting that was not fully saved...');
+      void runSave(job, persistedDurationSeconds(meta) ?? 0);
+    } else {
+      jobs.add(job);
+      refreshSaveStats();
+      void drain(job, Infinity).then(() => {
+        jobs.delete(job);
+        refreshSaveStats();
+      });
+    }
+  }
+}
+
+/** Sign-out: stop the mic now, never upload these chunks under another account. */
+function haltForSignOut() {
+  jobs.forEach((j) => {
+    j.halted = true;
+  });
+  wakeAll();
+  const a = active;
+  if (a) {
+    a.job.halted = true;
+    if (a.flushTimer) clearInterval(a.flushTimer);
+    a.flushTimer = null;
+    releaseWakeLock();
+    const endedAt = Date.now();
+    const pausedMs = snapshot.pausedMs + (snapshot.pausedAt ? endedAt - snapshot.pausedAt : 0);
+    writePersisted({ sessionId: a.job.sessionId, pausedMs, endedAt, title: snapshot.title });
+    // The last slice still reaches the buffer: persist it to IndexedDB for next time.
+    a.recorder.onstop = () => enqueueBuffer(a, false);
+    try {
+      if (a.recorder.state !== 'inactive') a.recorder.stop();
+    } catch {
+      /* ignore */
+    }
+    a.stream.getTracks().forEach((t) => t.stop());
+    active = null;
+  }
+  jobs.clear();
+  resumedFor = null;
+  setSnapshot({
+    phase: 'idle',
+    sessionId: null,
+    pausedAt: null,
+    endedAt: null,
+    saveJobs: 0,
+    savePending: 0,
+    saveWaiting: false,
+  });
+}
+
 /* ─── page-lifecycle listeners (module level) ─────────── */
 
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
-    if (!isRecording()) return;
     if (document.visibilityState === 'hidden') {
-      flush();
+      if (isRecording()) flush();
     } else {
-      void acquireWakeLock();
+      wakeAll();
+      if (isRecording()) void acquireWakeLock();
     }
   });
   window.addEventListener('pagehide', () => {
     if (isRecording()) flush();
   });
+  window.addEventListener('online', () => wakeAll());
+  try {
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) currentUserId = session.user.id;
+      if (event === 'SIGNED_OUT') {
+        currentUserId = null;
+        haltForSignOut();
+      }
+    });
+  } catch {
+    /* auth client unavailable: recorder still works without sign-out handling */
+  }
 }
 
 /* ─── React binding ───────────────────────────────────── */

@@ -64,8 +64,10 @@ export async function pillSurvivesNavigationAndStopsFromAnywhere(page: Page, rig
   });
   expect(geo.pill.x).toBeGreaterThanOrEqual(0);
   expect(geo.pill.x + geo.pill.width).toBeLessThanOrEqual(geo.vw);
-  if (geo.dock) expect(overlaps(geo.pill, geo.dock), 'pill must not cover the dock').toBe(false);
-  if (geo.fab) expect(overlaps(geo.pill, geo.fab), 'pill must not cover the record FAB').toBe(false);
+  expect(geo.dock, 'the dock must exist on /app for the overlap check to mean anything').not.toBeNull();
+  expect(geo.fab, 'the record FAB must exist on /app for the overlap check to mean anything').not.toBeNull();
+  expect(overlaps(geo.pill, geo.dock), 'pill must not cover the dock').toBe(false);
+  expect(overlaps(geo.pill, geo.fab), 'pill must not cover the record FAB').toBe(false);
 
   // ---- /home: pill still there; the brain-dump orb is locked with a hint ----
   await spaGo(page, '/home');
@@ -82,8 +84,10 @@ export async function pillSurvivesNavigationAndStopsFromAnywhere(page: Page, rig
       dock: r(document.querySelector('.lg-dock')),
     };
   });
-  if (homeGeo.orb) expect(overlaps(homeGeo.pill, homeGeo.orb), 'pill must not cover the orb').toBe(false);
-  if (homeGeo.dock) expect(overlaps(homeGeo.pill, homeGeo.dock), 'pill must not cover the dock').toBe(false);
+  expect(homeGeo.orb, 'the brain-dump orb must exist on /home').not.toBeNull();
+  expect(homeGeo.dock, 'the dock must exist on /home').not.toBeNull();
+  expect(overlaps(homeGeo.pill, homeGeo.orb), 'pill must not cover the orb').toBe(false);
+  expect(overlaps(homeGeo.pill, homeGeo.dock), 'pill must not cover the dock').toBe(false);
 
   // ---- pause on the pill freezes the elapsed time; resume continues ----
   await spaGo(page, '/app');
@@ -153,4 +157,47 @@ export async function reverseLockoutRefusesMeetingWhileBrainDumpCapturing(page: 
   expect(rig.startCalls, 'no recording session may be started').toBe(0);
   await expect(page.getByTestId('recording-pill')).toHaveCount(0);
   await page.evaluate(async () => (await import(/* @vite-ignore */ '/src/lib/brainDumpAudio.ts')).stopCapture());
+}
+
+/** Phone: the projects drawer (z 50/51) must cover the pill and own every tap. */
+export async function drawerCoversPill(page: Page) {
+  await startMeetingRecording(page, 'Drawer check');
+  await spaGo(page, '/app');
+  const pill = page.getByTestId('recording-pill');
+  await expect(pill).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Projects' }).tap();
+  await expect(page.locator('.lg-side').first()).toBeVisible({ timeout: 10_000 });
+  await page.waitForTimeout(600); // drawer slide-in
+
+  const probe = await page.evaluate(() => {
+    const pillEl = document.querySelector('[data-testid="recording-pill"]') as HTMLElement;
+    const r = pillEl.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    const side = document.querySelector('.lg-side') as HTMLElement;
+    return {
+      pillCaught: !!hit && pillEl.contains(hit),
+      insideDrawer: !!hit && side.contains(hit),
+    };
+  });
+  expect(probe.pillCaught, 'the pill must not catch taps meant for the open drawer').toBe(false);
+  expect(probe.insideDrawer, 'the drawer must own the point where the pill sits').toBe(true);
+
+  // Tap the drawer's bottom-most interactive row by coordinates.
+  const row = await page.evaluate(() => {
+    const side = document.querySelector('.lg-side') as HTMLElement;
+    const els = Array.from(side.querySelectorAll('button, a, [role="button"]')) as HTMLElement[];
+    const vis = els
+      .map((e) => ({ e, r: e.getBoundingClientRect() }))
+      .filter(({ r }) => r.width > 8 && r.height > 8 && r.bottom <= window.innerHeight && r.top >= 0);
+    vis.sort((a, b) => b.r.bottom - a.r.bottom);
+    const t = vis[0];
+    const x = t.r.x + t.r.width / 2;
+    const y = t.r.y + t.r.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    return { x, y, hits: !!hit && t.e.contains(hit) };
+  });
+  expect(row.hits, 'the bottom-most drawer row must be what a tap at its centre hits').toBe(true);
+  await page.touchscreen.tap(row.x, row.y);
+  // The recording is untouched by the tap.
+  await expect(pill).toHaveAttribute('data-phase', 'recording');
 }

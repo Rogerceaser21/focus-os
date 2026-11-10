@@ -16,6 +16,7 @@ import {
   pillSurvivesNavigationAndStopsFromAnywhere,
   reverseLockoutRefusesMeetingWhileBrainDumpCapturing,
   touchTap,
+  drawerCoversPill,
 } from './helpers/pillScenario';
 
 test.use({
@@ -35,4 +36,10 @@ test('starting a meeting recording is refused while the brain dump holds the mic
   test.setTimeout(60_000);
   const rig = await bootRig(page, context);
   await reverseLockoutRefusesMeetingWhileBrainDumpCapturing(page, rig);
+});
+
+test('the open projects drawer covers the pill and owns its taps', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  await bootRig(page, context);
+  await drawerCoversPill(page);
 });

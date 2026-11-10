@@ -3,11 +3,13 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Mic, Pause, Play, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 import {
   useMeetingRecorder,
   pause as pauseMeetingRecording,
   resume as resumeMeetingRecording,
   stop as stopMeetingRecording,
+  resumePendingSessions,
 } from '@/lib/meetingRecorder';
 
 const formatTimer = (seconds: number) => {
@@ -24,6 +26,8 @@ const formatTimer = (seconds: number) => {
  * the handle that follows Igor around the app: elapsed time, Pause/Resume, Stop,
  * and a tap on the body goes back to /meetings.
  *
+ * z-30: above the dock (20) but BELOW the projects drawer, sheets (50) and dialogs
+ * (110), so those cover it and never lose taps to it.
  * Sits just above the bottom dock (left on phones so the record FAB stays clear,
  * centred on wide screens), so it never covers the top bar. Plain div, no Radix
  * layer, pixel radii. Hidden on /meetings itself, where the
@@ -36,6 +40,14 @@ const RecordingPill: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Unsent chunks left in IndexedDB by an earlier page life (reload, closed tab,
+  // sign-out) are uploaded once per signed-in user.
+  const userId = user?.id;
+  useEffect(() => {
+    if (userId) void resumePendingSessions(userId);
+  }, [userId]);
 
   // A save that finished while the Meetings page was not mounted leaves its list
   // cache stale: drop it so the new row shows the moment /meetings is opened.
@@ -47,9 +59,13 @@ const RecordingPill: React.FC = () => {
   }, [snap.savedSeq, queryClient]);
 
   const live = snap.phase === 'recording' || snap.phase === 'paused';
-  const saving = snap.phase === 'saving';
+  const saving = !live && (snap.phase === 'saving' || snap.saveJobs > 0);
+  // Only for a signed-in user (the pill is mounted outside the auth gates).
+  if (!user) return null;
   if (!live && !saving) return null;
   if (location.pathname === '/meetings') return null;
+  const left = snap.savePending === 1 ? '1 piece left' : `${snap.savePending} pieces left`;
+  const savingLabel = snap.saveWaiting ? 'Saving: waiting for connection' : 'Saving...';
 
   const paused = snap.phase === 'paused';
 
@@ -58,8 +74,9 @@ const RecordingPill: React.FC = () => {
       role="status"
       aria-live="off"
       data-testid="recording-pill"
-      data-phase={snap.phase}
-      className={`fixed left-3 sm:left-1/2 sm:-translate-x-1/2 z-[80] flex items-center gap-2 border pl-3 pr-2 py-1.5 ${
+      data-phase={saving ? 'saving' : snap.phase}
+      data-waiting={saving && snap.saveWaiting ? 'true' : undefined}
+      className={`fixed left-3 sm:left-1/2 sm:-translate-x-1/2 z-[30] flex items-center gap-2 border pl-3 pr-2 py-1.5 ${
         paused ? 'border-amber-500/40' : 'border-destructive/40'
       }`}
       style={{
@@ -95,10 +112,10 @@ const RecordingPill: React.FC = () => {
         </span>
         <span className="flex flex-col leading-tight min-w-0">
           <span className={`text-[11px] font-semibold truncate ${paused ? 'text-amber-500' : 'text-destructive'}`}>
-            {saving ? 'Saving...' : paused ? 'Paused' : 'Recording'}
+            {saving ? savingLabel : paused ? 'Paused' : 'Recording'}
           </span>
           <span data-testid="recording-pill-time" className="text-xs text-muted-foreground font-mono">
-            {formatTimer(elapsedSeconds)}
+            {saving && snap.savePending > 0 ? left : formatTimer(elapsedSeconds)}
           </span>
         </span>
       </button>

@@ -40,7 +40,7 @@ import {
   readPersistedRecording,
   clearPersistedRecording,
   persistedDurationSeconds,
-  getSnapshot as getRecorderSnapshot,
+  isSessionInFlight,
 } from '@/lib/meetingRecorder';
 
 interface Participant {
@@ -163,10 +163,21 @@ const Meetings = () => {
   const { snap: recSnap, elapsedSeconds: recordingSeconds } = useMeetingRecorder();
   const [localRecordingState, setRecordingState] = useState<RecordingState>('idle');
   const isPaused = recSnap.phase === 'paused';
+  // A save that just finished and is still processing server-side is ADOPTED by
+  // this page (banner + status poll). The displayed state is derived from the
+  // recorder snapshot DURING RENDER, so the saving -> processing hand-over never
+  // paints an idle frame (render-phase law); the effect below only records that
+  // the save has been handled and starts the poll.
+  const [handledSavedSeq, setHandledSavedSeq] = useState(recSnap.savedSeq);
+  const adoptingSave =
+    recSnap.savedSeq !== handledSavedSeq &&
+    !!recSnap.saved?.id &&
+    !!recSnap.saved.processingStatus &&
+    recSnap.saved.processingStatus !== 'done';
   const recordingState: RecordingState =
     recSnap.phase === 'recording' || recSnap.phase === 'paused'
       ? 'recording'
-      : recSnap.phase === 'saving'
+      : recSnap.phase === 'saving' || adoptingSave
       ? 'processing'
       : localRecordingState;
 
@@ -526,8 +537,7 @@ const Meetings = () => {
       if (sessions && sessions.length > 0) {
         const session = sessions[0];
         // Never offer recovery for the recording that is live (or being saved) right now.
-        const liveSnap = getRecorderSnapshot();
-        if (liveSnap.phase !== 'idle' && liveSnap.sessionId === session.id) return;
+        if (isSessionInFlight(session.id)) return;
         // Only show recovery if session has chunks and is older than 2 minutes
         const ageMs = Date.now() - new Date(session.created_at).getTime();
         if (session.chunk_count > 0 && ageMs > 120000) {
@@ -555,8 +565,7 @@ const Meetings = () => {
       // The recorder mirrors {sessionId, startedAt, title, pausedMs, ...} to
       // localStorage; when it is THIS session, recover with the real title and
       // the real duration instead of the old "chunks x 30 s" guess.
-      const saved = readPersistedRecording();
-      const mine = saved && saved.sessionId === orphanedSession.id ? saved : null;
+      const mine = readPersistedRecording(orphanedSession.id);
       const realDuration = mine ? persistedDurationSeconds(mine) : null;
       const fallbackTitle = `Recovered Meeting ${new Date(orphanedSession.createdAt).toLocaleDateString()} ${new Date(orphanedSession.createdAt).toLocaleTimeString()}`;
 
@@ -573,7 +582,7 @@ const Meetings = () => {
 
       if (error) throw error;
 
-      if (mine) clearPersistedRecording();
+      if (mine) clearPersistedRecording(orphanedSession.id);
       setOrphanedSession(null);
 
       if (data.processing_status && data.processing_status !== 'done') {
@@ -600,7 +609,7 @@ const Meetings = () => {
         .from('focusos_recording_sessions')
         .update({ status: 'failed' })
         .eq('id', orphanedSession.id);
-    if (readPersistedRecording()?.sessionId === orphanedSession.id) clearPersistedRecording();
+    clearPersistedRecording(orphanedSession.id);
     setOrphanedSession(null);
   };
 
@@ -764,10 +773,9 @@ const Meetings = () => {
   // the same processing banner + status poll this page always had. A save that
   // finished while this page was NOT mounted is picked up by the list fetch,
   // which adopts any row already transcribing.
-  const handledSavedSeqRef = useRef(recSnap.savedSeq);
   useEffect(() => {
-    if (recSnap.savedSeq === handledSavedSeqRef.current) return;
-    handledSavedSeqRef.current = recSnap.savedSeq;
+    if (recSnap.savedSeq === handledSavedSeq) return;
+    setHandledSavedSeq(recSnap.savedSeq);
     const saved = recSnap.saved;
     if (!saved?.id) return;
     if (saved.processingStatus && saved.processingStatus !== 'done') {
@@ -778,7 +786,7 @@ const Meetings = () => {
       navigate(`/meetings/${saved.id}`);
       setRecordingState('idle');
     }
-  }, [recSnap.savedSeq, recSnap.saved, navigate]);
+  }, [recSnap.savedSeq, recSnap.saved, handledSavedSeq, navigate]);
 
   // A failed save leaves the session on the server: re-check for the recovery banner.
   const handledFailedSeqRef = useRef(recSnap.failedSeq);
@@ -787,11 +795,6 @@ const Meetings = () => {
     handledFailedSeqRef.current = recSnap.failedSeq;
     checkOrphanedSessions();
   }, [recSnap.failedSeq]);
-
-  // While the save is in flight the banner starts at "Uploading".
-  useEffect(() => {
-    if (recSnap.phase === 'saving') setProcessingStatus('uploading');
-  }, [recSnap.phase]);
 
   /**
    * Kick the segmented transcriber. Its whole contract is the meeting id: the worker
@@ -901,11 +904,24 @@ const Meetings = () => {
     );
   }
 
-  const processingInfo = PROCESSING_LABELS[processingStatus] || PROCESSING_LABELS.uploading;
+  // Displayed status derived from the recorder while it is saving / being adopted,
+  // never corrected after paint.
+  const displayedStatus =
+    recSnap.phase === 'saving'
+      ? 'uploading'
+      : adoptingSave
+      ? (recSnap.saved?.processingStatus as string)
+      : processingStatus;
+  const processingInfo = PROCESSING_LABELS[displayedStatus] || PROCESSING_LABELS.uploading;
   // "Transcribing 3/8" the moment the worker has a segment plan, the count-less
   // label until then. Every other status keeps its own wording.
+  const piecesLeft = recSnap.savePending === 1 ? '1 piece left' : `${recSnap.savePending} pieces left`;
   const processingBannerLabel =
-    processingStatus === 'transcribing' && processingProgress
+    recSnap.phase === 'saving' && recSnap.saveWaiting
+      ? `Saving: waiting for connection (${piecesLeft})`
+      : recSnap.phase === 'saving' && recSnap.savePending > 0
+      ? `Uploading audio (${piecesLeft})`
+      : displayedStatus === 'transcribing' && processingProgress
       ? `Transcribing ${processingProgress.done}/${processingProgress.total}`
       : processingInfo.label;
 
@@ -1106,7 +1122,7 @@ const Meetings = () => {
                 </p>
               </div>
             </div>
-            {processingStatus !== 'error' && (
+            {displayedStatus !== 'error' && (
               <Progress value={processingInfo.progress} className="h-2" />
             )}
           </div>
@@ -1128,8 +1144,7 @@ const Meetings = () => {
                   {(() => {
                     // Real title + duration from the recorder's localStorage mirror
                     // when it is this very session; otherwise the old chunk-count guess.
-                    const saved = readPersistedRecording();
-                    const mine = saved && saved.sessionId === orphanedSession.id ? saved : null;
+                    const mine = readPersistedRecording(orphanedSession.id);
                     const secs = mine ? persistedDurationSeconds(mine) : null;
                     const dur = secs !== null ? formatDuration(secs) : `${orphanedSession.chunkCount * 30}s`;
                     const name = mine?.title?.trim();
