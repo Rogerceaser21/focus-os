@@ -28,6 +28,10 @@ export interface RecorderRig {
   failFirstUploads: number;
   /** While true EVERY upload invoke fails with HTTP 500 (the wifi is down). */
   offline: boolean;
+  /** When set, every upload is refused with this server message (HTTP 500 {error}). */
+  refuse: string | null;
+  /** processing_status the process-meeting stub answers with. */
+  processStatus: string;
 }
 
 export async function bootRig(
@@ -42,6 +46,8 @@ export async function bootRig(
     transcribeBodies: [],
     failFirstUploads: opts?.failFirstUploads ?? 0,
     offline: false,
+    refuse: null,
+    processStatus: 'transcribing',
   };
   await seedSession(page);
   if (opts?.tuning) {
@@ -59,10 +65,14 @@ export async function bootRig(
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
     if (url.includes('focusos-start-recording-session')) {
       rig.startCalls += 1;
-      return json(200, { sessionId: SESSION_ID });
+      return json(200, { sessionId: rig.startCalls === 1 ? SESSION_ID : `${SESSION_ID}-${rig.startCalls}` });
     }
     if (url.includes('focusos-upload-audio-chunk')) {
       const body = req.postDataJSON();
+      if (rig.refuse) {
+        rig.uploads.push({ sessionId: body.sessionId, chunkIndex: body.chunkIndex, ok: false, bytes: 0 });
+        return json(500, { error: rig.refuse });
+      }
       const failing = rig.offline || rig.uploads.length < rig.failFirstUploads;
       rig.uploads.push({
         sessionId: body.sessionId,
@@ -74,7 +84,7 @@ export async function bootRig(
     }
     if (url.includes('focusos-process-meeting')) {
       rig.processBodies.push(req.postDataJSON());
-      return json(200, { id: MEETING_ID, processing_status: 'transcribing' });
+      return json(200, { id: MEETING_ID, processing_status: rig.processStatus });
     }
     if (url.includes('focusos-transcribe-meeting')) {
       rig.transcribeBodies.push(req.postDataJSON());

@@ -33,7 +33,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { isCapturing as brainDumpCapturing } from '@/lib/brainDumpAudio';
-import { putChunk, deleteChunk, getSessionChunks, listChunkSessionIds } from '@/lib/meetingChunkStore';
+import { putChunk, deleteChunk, getSessionChunks, listChunkSessionIds, deleteSessionChunks, deleteStaleChunks } from '@/lib/meetingChunkStore';
 
 export interface MeetingParticipant {
   name: string;
@@ -50,6 +50,8 @@ export type RecorderPhase = 'idle' | 'recording' | 'paused' | 'saving';
 
 export interface SavedMeeting {
   id: string;
+  /** The recording session this save belongs to. */
+  sessionId: string;
   /** processing_status the server returned, or null when it did not say. */
   processingStatus: string | null;
 }
@@ -138,7 +140,11 @@ export function readPersistedRecording(sessionId: string): PersistedRecording | 
   return p && typeof p.startedAt === 'number' ? p : null;
 }
 
+/** Sessions the server permanently refused: their record must never be re-created. */
+const retired = new Set<string>();
+
 function writePersisted(patch: Partial<PersistedRecording> & { sessionId: string }) {
+  if (retired.has(patch.sessionId)) return;
   const m = readMap();
   m[patch.sessionId] = { ...(m[patch.sessionId] || {}), ...patch } as PersistedRecording;
   writeMap(m);
@@ -181,6 +187,8 @@ interface Job {
   drainPromise: Promise<boolean> | null;
   waiting: boolean;
   halted: boolean;
+  /** Releases this tab's save lease for the session (held from start/resume to the end of the save). */
+  release?: (() => void) | null;
 }
 
 interface Active {
@@ -324,7 +332,112 @@ function releaseWakeLock() {
   wakeLock = null;
 }
 
+/* ─── one tab owns a session's save ────────────────────── */
+
+const LEASE_TTL_MS = 15_000;
+const LEASE_BEAT_MS = 5_000;
+const TAB_ID = Math.random().toString(36).slice(2);
+
+/**
+ * Take ownership of a session's upload + save so two tabs of the same browser can
+ * never both run it (process-meeting has no status guard and would duplicate the
+ * meeting). Web Locks where available (auto-released if the tab dies); otherwise a
+ * localStorage lease with a heartbeat. Resolves null when another tab owns it.
+ */
+async function acquireSessionLease(sessionId: string): Promise<(() => void) | null> {
+  const locks = (typeof navigator !== 'undefined' ? (navigator as any).locks : undefined) as
+    | { request: (name: string, opts: any, cb: (lock: unknown) => Promise<void> | void) => Promise<unknown> }
+    | undefined;
+  if (locks?.request) {
+    return new Promise((resolve) => {
+      void locks
+        .request(`focusos-meeting-save-${sessionId}`, { ifAvailable: true }, (lock) => {
+          if (!lock) {
+            resolve(null);
+            return;
+          }
+          return new Promise<void>((held) => resolve(() => held()));
+        })
+        .catch(() => resolve(() => {}));
+    });
+  }
+  const key = `focusos-meeting-lease-${sessionId}`;
+  try {
+    const cur = JSON.parse(localStorage.getItem(key) || 'null');
+    if (cur && cur.owner !== TAB_ID && Date.now() - cur.ts < LEASE_TTL_MS) return null;
+    const beat = () => localStorage.setItem(key, JSON.stringify({ owner: TAB_ID, ts: Date.now() }));
+    beat();
+    const timer = setInterval(beat, LEASE_BEAT_MS);
+    return () => {
+      clearInterval(timer);
+      try {
+        const now = JSON.parse(localStorage.getItem(key) || 'null');
+        if (now?.owner === TAB_ID) localStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+    };
+  } catch {
+    return () => {};
+  }
+}
+
+/** Remove a session's chunks + record (Discard, a server-side permanent refusal). */
+export async function discardSessionData(sessionId: string) {
+  clearPersistedRecording(sessionId);
+  await deleteSessionChunks(sessionId);
+}
+
 /* ─── upload queue ────────────────────────────────────── */
+
+type UploadFailure = 'network' | 'permanent' | 'server';
+
+/**
+ * Read the edge function's own refusal. It answers HTTP 500 {error: message} even
+ * for permanent refusals, so the MESSAGE decides: "Session not found" and
+ * "Session is not in recording state" (the session was processed or discarded) and
+ * a 403 (approval/forbidden) can never succeed on retry. A thrown fetch / relay
+ * error has no response and is plain connectivity.
+ */
+async function classifyUploadError(err: any): Promise<UploadFailure> {
+  const res: Response | undefined = err?.context;
+  if (!res || typeof res.status !== 'number') return 'network';
+  if (res.status === 403) return 'permanent';
+  let message = '';
+  try {
+    const body = await res.clone().json();
+    message = String(body?.error ?? body?.message ?? '');
+  } catch {
+    /* no JSON body */
+  }
+  if (/session not found|not in recording state|recording session not found/i.test(message)) return 'permanent';
+  return 'server';
+}
+
+const SERVER_ERRORS_BEFORE_STUCK = 5;
+
+/** A session the server will never accept chunks for: stop, keep nothing, point to recovery. */
+function retireJob(job: Job, why: 'permanent' | 'stuck') {
+  job.halted = true;
+  jobs.delete(job);
+  job.waiting = false;
+  wakeAll();
+  if (why === 'permanent') {
+    retired.add(job.sessionId);
+    void discardSessionData(job.sessionId);
+  }
+  toast.error(
+    why === 'permanent'
+      ? 'This recording was already closed on the server, so the leftover audio was dropped. Check the recovery banner on Meetings.'
+      : 'The server keeps refusing this recording. It is kept on this device and will be retried the next time the app opens.',
+    { id: `retire-${job.sessionId}` },
+  );
+  refreshSaveStats();
+  if (snapshot.phase === 'saving' && snapshot.sessionId === job.sessionId) setSnapshot({ phase: 'idle' });
+  setSnapshot({ failedSeq: snapshot.failedSeq + 1, failedSessionId: job.sessionId });
+  job.release?.();
+  job.release = null;
+}
 
 const BACKOFF_CAP_TICK_MS = 15_000;
 const BACKOFF_CAP_FINAL_MS = 30_000;
@@ -343,6 +456,7 @@ function drain(job: Job, maxAttempts: number): Promise<boolean> {
     if (job.queue.length === 0) return true;
     const p = (async () => {
       let attempts = 0;
+      let serverErrors = 0;
       while (job.queue.length > 0) {
         if (job.halted) return false;
         const item = job.queue[0];
@@ -357,14 +471,29 @@ function drain(job: Job, maxAttempts: number): Promise<boolean> {
           job.queue.shift();
           void deleteChunk(job.sessionId, item.index);
           attempts = 0;
+          serverErrors = 0;
           job.waiting = false;
           writePersisted({ sessionId: job.sessionId, lastChunkAt: Date.now() });
           refreshSaveStats();
         } catch (err) {
           attempts += 1;
           console.error(`Chunk ${item.index} upload failed (attempt ${attempts}):`, err);
+          const kind = await classifyUploadError(err);
+          if (kind === 'permanent') {
+            retireJob(job, 'permanent');
+            return false;
+          }
+          serverErrors = kind === 'server' ? serverErrors + 1 : 0;
+          if (serverErrors >= SERVER_ERRORS_BEFORE_STUCK) {
+            retireJob(job, 'stuck');
+            return false;
+          }
           if (maxAttempts === Infinity) {
             job.waiting = true;
+            // A save that is waiting for the connection becomes a BACKGROUND save:
+            // the page and pill leave the foreground "saving" state so a new
+            // meeting can start while this one keeps retrying.
+            if (snapshot.phase === 'saving' && snapshot.sessionId === job.sessionId) setSnapshot({ phase: 'idle' });
             refreshSaveStats();
           }
           if (job.halted || attempts >= maxAttempts) return false;
@@ -387,6 +516,10 @@ function drain(job: Job, maxAttempts: number): Promise<boolean> {
 
 function enqueueBuffer(a: Active, drainAfter: boolean) {
   const job = a.job;
+  if (retired.has(job.sessionId)) {
+    a.buffer = []; // the server closed this session: nothing more to keep
+    return;
+  }
   if (a.buffer.length > 0) {
     const item: QueueItem = {
       index: job.nextAssign++,
@@ -468,6 +601,7 @@ export async function start(opts: StartOptions): Promise<boolean> {
       waiting: false,
       halted: false,
     };
+    job.release = await acquireSessionLease(job.sessionId);
     const a: Active = { job, stream, recorder, buffer: [], flushRequested: false, flushTimer: null };
 
     recorder.ondataavailable = (e) => {
@@ -586,6 +720,21 @@ function leaveSaving(job: Job, patch: Partial<RecorderSnapshot>) {
  * for the same user's next session.
  */
 async function runSave(job: Job, durationSeconds: number) {
+  // Only the tab that owns the session's lease uploads and saves it.
+  if (job.release === undefined) job.release = await acquireSessionLease(job.sessionId);
+  if (job.release === null) {
+    if (snapshot.phase === 'saving' && snapshot.sessionId === job.sessionId) setSnapshot({ phase: 'idle' });
+    return; // another tab owns this save
+  }
+  try {
+    await runSaveOwned(job, durationSeconds);
+  } finally {
+    job.release?.();
+    job.release = null;
+  }
+}
+
+async function runSaveOwned(job: Job, durationSeconds: number) {
   jobs.add(job);
   refreshSaveStats();
   if (job.queue.length > 0) toast.info('Uploading your meeting...', { id: `save-${job.sessionId}` });
@@ -598,6 +747,25 @@ async function runSave(job: Job, durationSeconds: number) {
     return;
   }
   refreshSaveStats();
+
+  // Another tab (or Recover) may have processed this session already: never run
+  // process-meeting twice. Skip only on a status we can positively read.
+  try {
+    const { data: row } = await (supabase as any)
+      .from('focusos_recording_sessions')
+      .select('status')
+      .eq('id', job.sessionId)
+      .maybeSingle();
+    if (row && typeof row.status === 'string' && row.status !== 'recording') {
+      void discardSessionData(job.sessionId);
+      toast.dismiss(`save-${job.sessionId}`);
+      toast.info('This meeting was already saved elsewhere.');
+      leaveSaving(job, {});
+      return;
+    }
+  } catch {
+    /* unreadable: carry on, the server call below is the authority */
+  }
 
   try {
     const { data, error } = await supabase.functions.invoke('focusos-process-meeting', {
@@ -618,7 +786,7 @@ async function runSave(job: Job, durationSeconds: number) {
     const status: string | null = data?.processing_status ?? null;
     leaveSaving(job, {
       savedSeq: snapshot.savedSeq + 1,
-      saved: { id: data?.id, processingStatus: status },
+      saved: { id: data?.id, sessionId: job.sessionId, processingStatus: status },
     });
     toast.dismiss(`save-${job.sessionId}`);
     if (status && status !== 'done' && data?.id) {
@@ -656,7 +824,7 @@ export function triggerTranscription(meetingId: string, opts?: { retry?: boolean
 
 /* ─── resume after reload / sign-out ──────────────────── */
 
-let resumedFor: string | null = null;
+let resuming = false;
 
 /**
  * Called once per signed-in user: any session of THIS user that still holds unsent
@@ -665,8 +833,16 @@ let resumedFor: string | null = null;
  * only uploaded, and the recovery banner offers it from the server's own session.
  */
 export async function resumePendingSessions(userId: string): Promise<void> {
-  if (resumedFor === userId) return;
-  resumedFor = userId;
+  if (resuming) return;
+  resuming = true;
+  try {
+    await resumeScan(userId);
+  } finally {
+    resuming = false;
+  }
+}
+
+async function resumeScan(userId: string): Promise<void> {
   let ids: string[] = [];
   try {
     ids = await listChunkSessionIds();
@@ -678,8 +854,14 @@ export async function resumePendingSessions(userId: string): Promise<void> {
     if (Array.from(jobs).some((j) => j.sessionId === sessionId)) continue;
     const meta = readPersistedRecording(sessionId);
     if (!meta || meta.userId !== userId) continue;
+    // Another tab of this browser may already own this session's save.
+    const release = await acquireSessionLease(sessionId);
+    if (release === null) continue;
     const stored = await getSessionChunks(sessionId);
-    if (stored.length === 0) continue;
+    if (stored.length === 0) {
+      release();
+      continue;
+    }
     const job: Job = {
       sessionId,
       userId,
@@ -695,6 +877,7 @@ export async function resumePendingSessions(userId: string): Promise<void> {
       drainPromise: null,
       waiting: false,
       halted: false,
+      release,
     };
     if (typeof meta.endedAt === 'number') {
       toast.info('Finishing a meeting that was not fully saved...');
@@ -705,6 +888,8 @@ export async function resumePendingSessions(userId: string): Promise<void> {
       void drain(job, Infinity).then(() => {
         jobs.delete(job);
         refreshSaveStats();
+        job.release?.();
+        job.release = null;
       });
     }
   }
@@ -736,7 +921,6 @@ function haltForSignOut() {
     active = null;
   }
   jobs.clear();
-  resumedFor = null;
   setSnapshot({
     phase: 'idle',
     sessionId: null,
@@ -757,12 +941,26 @@ if (typeof document !== 'undefined') {
     } else {
       wakeAll();
       if (isRecording()) void acquireWakeLock();
+      if (currentUserId) void resumePendingSessions(currentUserId);
     }
   });
   window.addEventListener('pagehide', () => {
     if (isRecording()) flush();
   });
-  window.addEventListener('online', () => wakeAll());
+  window.addEventListener('online', () => {
+    wakeAll();
+    if (currentUserId) void resumePendingSessions(currentUserId);
+  });
+  // Housekeeping: the first build used a single-record key; chunks older than 7 days
+  // whose record is gone can never be resumed.
+  try {
+    localStorage.removeItem('focusos-meeting-recording-session');
+  } catch {
+    /* ignore */
+  }
+  setTimeout(() => {
+    void deleteStaleChunks(7 * 24 * 3600 * 1000, (sid) => !!readPersistedRecording(sid));
+  }, 10_000);
   try {
     supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) currentUserId = session.user.id;

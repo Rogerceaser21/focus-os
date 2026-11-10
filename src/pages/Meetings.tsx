@@ -41,6 +41,8 @@ import {
   clearPersistedRecording,
   persistedDurationSeconds,
   isSessionInFlight,
+  discardSessionData,
+  getSnapshot as getRecorderSnapshot,
 } from '@/lib/meetingRecorder';
 
 interface Participant {
@@ -168,12 +170,17 @@ const Meetings = () => {
   // recorder snapshot DURING RENDER, so the saving -> processing hand-over never
   // paints an idle frame (render-phase law); the effect below only records that
   // the save has been handled and starts the poll.
+  // Only the save THIS page's own Stop started is adopted, and only while no new
+  // recording is live: a background or resumed save finishing later never hijacks
+  // the page (or navigates away from a recording in progress).
+  const ownStopSessionRef = useRef<string | null>(null);
   const [handledSavedSeq, setHandledSavedSeq] = useState(recSnap.savedSeq);
   const adoptingSave =
     recSnap.savedSeq !== handledSavedSeq &&
     !!recSnap.saved?.id &&
-    !!recSnap.saved.processingStatus &&
-    recSnap.saved.processingStatus !== 'done';
+    recSnap.saved.sessionId === ownStopSessionRef.current &&
+    recSnap.phase !== 'recording' &&
+    recSnap.phase !== 'paused';
   const recordingState: RecordingState =
     recSnap.phase === 'recording' || recSnap.phase === 'paused'
       ? 'recording'
@@ -609,7 +616,7 @@ const Meetings = () => {
         .from('focusos_recording_sessions')
         .update({ status: 'failed' })
         .eq('id', orphanedSession.id);
-    clearPersistedRecording(orphanedSession.id);
+    await discardSessionData(orphanedSession.id); // record + any unsent chunks
     setOrphanedSession(null);
   };
 
@@ -767,7 +774,10 @@ const Meetings = () => {
 
   const handlePauseRecording = useCallback(() => pauseMeetingRecording(), []);
   const handleResumeRecording = useCallback(() => resumeMeetingRecording(), []);
-  const handleStopRecording = useCallback(() => stopMeetingRecording(), []);
+  const handleStopRecording = useCallback(() => {
+    ownStopSessionRef.current = getRecorderSnapshot().sessionId;
+    stopMeetingRecording();
+  }, []);
 
   // A save that finished (from this page's Stop or the floating pill's) adopts
   // the same processing banner + status poll this page always had. A save that
@@ -778,6 +788,9 @@ const Meetings = () => {
     setHandledSavedSeq(recSnap.savedSeq);
     const saved = recSnap.saved;
     if (!saved?.id) return;
+    const live = recSnap.phase === 'recording' || recSnap.phase === 'paused';
+    if (saved.sessionId !== ownStopSessionRef.current || live) return; // not this page's save
+    ownStopSessionRef.current = null;
     if (saved.processingStatus && saved.processingStatus !== 'done') {
       setProcessingMeetingId(saved.id);
       setProcessingStatus(saved.processingStatus);
@@ -786,7 +799,7 @@ const Meetings = () => {
       navigate(`/meetings/${saved.id}`);
       setRecordingState('idle');
     }
-  }, [recSnap.savedSeq, recSnap.saved, handledSavedSeq, navigate]);
+  }, [recSnap.savedSeq, recSnap.saved, recSnap.phase, handledSavedSeq, navigate]);
 
   // A failed save leaves the session on the server: re-check for the recovery banner.
   const handledFailedSeqRef = useRef(recSnap.failedSeq);
@@ -1125,6 +1138,21 @@ const Meetings = () => {
             {displayedStatus !== 'error' && (
               <Progress value={processingInfo.progress} className="h-2" />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Background saves (a Stop that is waiting for the connection): a small status
+          line, never the full processing screen, so New Meeting stays usable. */}
+      {recSnap.saveJobs > 0 && recordingState !== 'processing' && (
+        <div className="max-w-4xl mx-auto lg-gutter pt-2" data-bg-save-status>
+          <div className="flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500 shrink-0" />
+            <span>
+              {recSnap.saveWaiting
+                ? `${recSnap.saveJobs} meeting${recSnap.saveJobs === 1 ? '' : 's'} waiting for connection, ${piecesLeft}`
+                : `Saving ${recSnap.saveJobs} meeting${recSnap.saveJobs === 1 ? '' : 's'} in the background, ${piecesLeft}`}
+            </span>
           </div>
         </div>
       )}

@@ -16,6 +16,7 @@ export interface StoredChunk {
   chunkIndex: number;
   data: ArrayBuffer;
   mime: string;
+  createdAt?: number;
 }
 
 const keyOf = (sessionId: string, chunkIndex: number) =>
@@ -64,7 +65,7 @@ function wrap<T>(fn: (store: IDBObjectStore) => IDBRequest<T> | null, mode: IDBT
 export async function putChunk(sessionId: string, chunkIndex: number, blob: Blob): Promise<void> {
   try {
     const data = await blob.arrayBuffer();
-    const rec: StoredChunk = { key: keyOf(sessionId, chunkIndex), sessionId, chunkIndex, data, mime: blob.type };
+    const rec: StoredChunk = { key: keyOf(sessionId, chunkIndex), sessionId, chunkIndex, data, mime: blob.type, createdAt: Date.now() };
     await wrap((s) => s.put(rec), 'readwrite', undefined as unknown as IDBValidKey);
   } catch {
     /* in-memory behaviour only */
@@ -89,4 +90,38 @@ export async function listChunkSessionIds(): Promise<string[]> {
   return Array.from(
     new Set((keys || []).map((k) => String(k)).map((k) => k.slice(0, k.lastIndexOf(':')))),
   );
+}
+
+/** Drop every stored chunk of one session (Discard, a permanent server refusal). */
+export async function deleteSessionChunks(sessionId: string): Promise<void> {
+  const keys = await wrap((s) => s.getAllKeys(), 'readonly', [] as IDBValidKey[]);
+  const mine = (keys || []).map(String).filter((k) => k.slice(0, k.lastIndexOf(':')) === sessionId);
+  await Promise.all(mine.map((k) => wrap((s) => s.delete(k), 'readwrite', undefined as unknown as undefined)));
+}
+
+/**
+ * Housekeeping: delete chunks older than `maxAgeMs` whose session has no record left
+ * (`hasRecord` says so). A chunk without a createdAt stamp counts as old.
+ */
+export async function deleteStaleChunks(maxAgeMs: number, hasRecord: (sessionId: string) => boolean): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  await new Promise<void>((resolve) => {
+    try {
+      const tx = db.transaction(STORE, 'readwrite');
+      const req = tx.objectStore(STORE).openCursor();
+      req.onsuccess = () => {
+        const cur = req.result;
+        if (!cur) return;
+        const v = cur.value as StoredChunk;
+        if (!hasRecord(v.sessionId) && Date.now() - (v.createdAt ?? 0) > maxAgeMs) cur.delete();
+        cur.continue();
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+      tx.onabort = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
 }

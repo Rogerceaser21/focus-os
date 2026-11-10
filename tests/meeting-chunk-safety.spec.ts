@@ -12,6 +12,7 @@
  *       recovery invoke carries them.
  */
 import { test, expect } from '@playwright/test';
+import { seedSession } from './helpers/braindumpEnv';
 import {
   FAKE_MIC_ARGS,
   bootRig,
@@ -149,8 +150,9 @@ test('(e) offline at Stop: nothing lost, process-meeting once after the queue dr
   await page.getByRole('button', { name: 'Stop' }).click();
 
   // Honest state on the Meetings banner AND on the pill, never "saved".
-  await expect(page.locator('[data-processing-banner-label]')).toContainText('waiting for connection', { timeout: 15_000 });
-  await expect(page.locator('[data-processing-banner-label]')).toContainText('left');
+  // A waiting save becomes a BACKGROUND save: a small status line, not the full screen.
+  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting for connection', { timeout: 15_000 });
+  await expect(page.locator('[data-bg-save-status]')).toContainText('left');
   await spaGo(page, '/app');
   const pill = page.getByTestId('recording-pill');
   await expect(pill).toHaveAttribute('data-waiting', 'true', { timeout: 15_000 });
@@ -182,7 +184,7 @@ test('(f) reload while chunks are unsent: IndexedDB chunks upload in order and t
   await startMeetingRecording(page, 'Reload me');
   await page.waitForTimeout(3500);
   await page.getByRole('button', { name: 'Stop' }).click();
-  await expect(page.locator('[data-processing-banner-label]')).toContainText('waiting for connection', { timeout: 15_000 });
+  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting for connection', { timeout: 15_000 });
   await expect.poll(() => idbChunkCount(page, SESSION_ID), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
   const stored = await idbChunkCount(page, SESSION_ID);
   expect(rig.processBodies.length).toBe(0);
@@ -243,4 +245,112 @@ test('(g) sign-out while recording: mic stopped, pill gone, nothing uploaded aft
   const rec = (await readRecords(page))[SESSION_ID];
   expect(rec, 'the session is kept for the same user to resume').toBeTruthy();
   expect(typeof rec.endedAt).toBe('number');
+});
+
+test('(h) a permanent server refusal stops the loop and clears the session storage', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  const rig = await bootRig(page, context, { tuning: { flushMs: 1000, backoffMs: 200 } });
+  rig.refuse = 'Session is not in recording state'; // the edge function's real refusal shape
+  await startMeetingRecording(page, 'Closed elsewhere');
+  await expect.poll(() => rig.uploads.length, { timeout: 15_000 }).toBeGreaterThanOrEqual(1);
+  await page.getByRole('button', { name: 'Stop' }).click();
+  await expect(page.getByText('already closed on the server').first()).toBeVisible({ timeout: 15_000 });
+  await expect.poll(async () => Object.keys(await readRecords(page)), { timeout: 10_000 }).toEqual([]);
+  await expect.poll(() => idbChunkCount(page, SESSION_ID), { timeout: 10_000 }).toBe(0);
+  const n = rig.uploads.length;
+  await page.waitForTimeout(3000);
+  expect(rig.uploads.length, 'the retry loop must have stopped').toBe(n);
+  expect(rig.processBodies.length).toBe(0);
+  await expect(page.locator('[data-bg-save-status]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /New Meeting/ })).toBeVisible();
+});
+
+test('(i) two tabs, one session: process-meeting runs exactly once', async ({ page, context }) => {
+  test.setTimeout(90_000);
+  const tuning = { flushMs: 1000, backoffMs: 200 };
+  const rig = await bootRig(page, context, { tuning });
+  await startMeetingRecording(page, 'Two tabs');
+  await page.waitForTimeout(500);
+  rig.offline = true;
+  await page.waitForTimeout(3000);
+  await page.getByRole('button', { name: 'Stop' }).click();
+  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting for connection', { timeout: 15_000 });
+
+  // A second tab of the same browser opens while the first still owns the save.
+  const page2 = await context.newPage();
+  await seedSession(page2);
+  await page2.addInitScript((t) => ((window as any).__meetingRecorderTuning = t), tuning);
+  await page2.goto('/home');
+  await page2.waitForTimeout(2500);
+  await expect(page2.getByTestId('recording-pill'), 'tab 2 must not show tab 1 save as its own').toHaveCount(0);
+
+  rig.offline = false;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await page2.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect.poll(() => rig.processBodies.length, { timeout: 30_000 }).toBe(1);
+  await page.waitForTimeout(3500);
+  expect(rig.processBodies.length, 'exactly one process-meeting call').toBe(1);
+  expect(rig.transcribeBodies.length).toBe(1);
+});
+
+test('(j) a waiting save is a background save: New Meeting works, a second recording starts, and the first finishing does not navigate', async ({ page, context }) => {
+  test.setTimeout(90_000);
+  const rig = await bootRig(page, context, { tuning: { flushMs: 1000, backoffMs: 200 } });
+  rig.processStatus = 'done'; // the legacy sync flow, which used to navigate to the detail page
+  await startMeetingRecording(page, 'First');
+  await page.waitForTimeout(500);
+  rig.offline = true;
+  await page.waitForTimeout(2500);
+  await page.getByRole('button', { name: 'Stop' }).click();
+  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting for connection', { timeout: 15_000 });
+  await expect(page.locator('[data-processing-banner-label]')).toHaveCount(0);
+
+  // New Meeting is usable and a second recording can start while the first waits.
+  await page.getByRole('button', { name: /New Meeting/ }).click();
+  const input = page.getByPlaceholder('Enter meeting name (required)');
+  await input.fill('Second');
+  await page.getByRole('button', { name: 'Start Recording' }).click();
+  await expect(page.getByText('Recording...').first()).toBeVisible({ timeout: 15_000 });
+  expect(rig.startCalls).toBe(2);
+  expect(Object.keys(await readRecords(page)).length).toBe(2);
+
+  // The first save finishes while the second recording runs: no navigation, no hijack.
+  rig.offline = false;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect.poll(() => rig.processBodies.length, { timeout: 30_000 }).toBe(1);
+  expect(rig.processBodies[0].sessionId).toBe(SESSION_ID);
+  await page.waitForTimeout(1500);
+  expect(page.url(), 'must not jump to the finished meeting').not.toContain('/meetings/meeting-pill');
+  await expect(page.getByText('Recording...').first()).toBeVisible();
+});
+
+test('(k) Discard clears the session record and its unsent chunks', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  await bootRig(page, context);
+  const startedAt = Date.now() - 40 * 60_000;
+  await page.addInitScript(
+    ({ k, rec }) => localStorage.setItem(k, JSON.stringify({ 'orphan-0002': rec })),
+    { k: KEY, rec: { sessionId: 'orphan-0002', startedAt, title: 'Drop me', pausedMs: 0 } },
+  );
+  await context.route('**/rest/v1/focusos_recording_sessions**', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            { id: 'orphan-0002', chunk_count: 2, created_at: new Date(startedAt).toISOString(), gcs_folder_path: 'zz/o2', mime_type: 'audio/webm', status: 'recording' },
+          ]),
+        })
+      : route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+  );
+  await page.goto('/meetings');
+  await expect(page.locator('[data-orphan-summary]')).toBeVisible({ timeout: 20_000 });
+  await page.evaluate(async () => {
+    const store = await import(/* @vite-ignore */ '/src/lib/meetingChunkStore.ts');
+    await store.putChunk('orphan-0002', 0, new Blob(['leftover']));
+  });
+  expect(await idbChunkCount(page, 'orphan-0002')).toBe(1);
+  await page.getByRole('button', { name: 'Dismiss' }).click();
+  await expect.poll(() => idbChunkCount(page, 'orphan-0002'), { timeout: 10_000 }).toBe(0);
+  expect(Object.keys(await readRecords(page))).toEqual([]);
 });
