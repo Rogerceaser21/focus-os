@@ -1323,7 +1323,13 @@ const Home = () => {
           /* Idle row: Record Meeting + the tour button share the line (step-1
              Dynamic Bar prep). Both ride the same rec-flip swap as before —
              the pattern the stage transition was device-proven with. */
-          <div className="lg-idlerow">
+          /* While a meeting records, the floating RecordingPill sits on this
+             line and stands in for it: the row keeps its space (no layout jump)
+             but is hidden, so the pill never overlaps a live button. */
+          <div
+            className="lg-idlerow"
+            style={meetingRecording ? { visibility: 'hidden' } : undefined}
+            aria-hidden={meetingRecording || undefined}>
               <button
               data-home-tour-step="record-meeting"
               onClick={() => navigate('/meetings')}
