@@ -151,7 +151,7 @@ test('(e) offline at Stop: nothing lost, process-meeting once after the queue dr
 
   // Honest state on the Meetings banner AND on the pill, never "saved".
   // A waiting save becomes a BACKGROUND save: a small status line, not the full screen.
-  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting for connection', { timeout: 15_000 });
+  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting to upload', { timeout: 15_000 });
   await expect(page.locator('[data-bg-save-status]')).toContainText('left');
   await spaGo(page, '/app');
   const pill = page.getByTestId('recording-pill');
@@ -184,7 +184,7 @@ test('(f) reload while chunks are unsent: IndexedDB chunks upload in order and t
   await startMeetingRecording(page, 'Reload me');
   await page.waitForTimeout(3500);
   await page.getByRole('button', { name: 'Stop' }).click();
-  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting for connection', { timeout: 15_000 });
+  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting to upload', { timeout: 15_000 });
   await expect.poll(() => idbChunkCount(page, SESSION_ID), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
   const stored = await idbChunkCount(page, SESSION_ID);
   expect(rig.processBodies.length).toBe(0);
@@ -247,22 +247,82 @@ test('(g) sign-out while recording: mic stopped, pill gone, nothing uploaded aft
   expect(typeof rec.endedAt).toBe('number');
 });
 
-test('(h) a permanent server refusal stops the loop and clears the session storage', async ({ page, context }) => {
+test('(h) 403 then 500 "Session not found" mid-recording: recording continues, nothing deleted, one save', async ({ page, context }) => {
   test.setTimeout(60_000);
   const rig = await bootRig(page, context, { tuning: { flushMs: 1000, backoffMs: 200 } });
-  rig.refuse = 'Session is not in recording state'; // the edge function's real refusal shape
+  // The approval gate fails closed (403) and a db hiccup reads as "Session not found".
+  rig.refuseSequence = [
+    { status: 403, error: 'awaiting_approval' },
+    { status: 500, error: 'Session not found' },
+  ];
+  await startMeetingRecording(page, 'Hiccup');
+  await expect.poll(() => rig.uploads.filter((u) => u.ok).length, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
+  // Recording was never interrupted and the session was never retired.
+  await expect(page.getByText('Recording...').first()).toBeVisible();
+  expect(rig.uploads[0]).toMatchObject({ chunkIndex: 0, ok: false });
+  expect(rig.uploads[1]).toMatchObject({ chunkIndex: 0, ok: false });
+  expect(rig.uploads[2]).toMatchObject({ chunkIndex: 0, ok: true }); // same index, retried
+  expect((await readRecords(page))[SESSION_ID]?.closed).toBeFalsy();
+  await page.getByRole('button', { name: 'Stop' }).click();
+  await expect.poll(() => rig.processBodies.length, { timeout: 30_000 }).toBe(1);
+  assertGapFree(rig);
+  await page.waitForTimeout(1500);
+  expect(rig.processBodies.length).toBe(1);
+  await expect.poll(() => idbChunkCount(page, SESSION_ID), { timeout: 10_000 }).toBe(0);
+});
+
+test('(h2) a session row showing status completed stops the loop and keeps the chunks', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  const rig = await bootRig(page, context, { tuning: { flushMs: 1000, backoffMs: 200 } });
+  rig.refuse = 'Session is not in recording state';
+  await context.route('**/rest/v1/focusos_recording_sessions**', (route) => {
+    const object = (route.request().headers()['accept'] || '').includes('vnd.pgrst.object');
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(object ? { status: 'completed' } : [{ status: 'completed' }]),
+    });
+  });
   await startMeetingRecording(page, 'Closed elsewhere');
   await expect.poll(() => rig.uploads.length, { timeout: 15_000 }).toBeGreaterThanOrEqual(1);
   await page.getByRole('button', { name: 'Stop' }).click();
-  await expect(page.getByText('already closed on the server').first()).toBeVisible({ timeout: 15_000 });
-  await expect.poll(async () => Object.keys(await readRecords(page)), { timeout: 10_000 }).toEqual([]);
-  await expect.poll(() => idbChunkCount(page, SESSION_ID), { timeout: 10_000 }).toBe(0);
+  await expect(page.getByText('kept on this device').first()).toBeVisible({ timeout: 20_000 });
   const n = rig.uploads.length;
   await page.waitForTimeout(3000);
-  expect(rig.uploads.length, 'the retry loop must have stopped').toBe(n);
+  expect(rig.uploads.length, 'the loop must have stopped').toBe(n);
   expect(rig.processBodies.length).toBe(0);
-  await expect(page.locator('[data-bg-save-status]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /New Meeting/ })).toBeVisible();
+  expect(await idbChunkCount(page, SESSION_ID), 'chunks are kept').toBeGreaterThanOrEqual(1);
+  expect((await readRecords(page))[SESSION_ID]?.closed).toBe(true);
+});
+
+test('(h3) Stop on the pill, then open /meetings while it saves: banner shown and the meeting appears in the list', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  const rig = await bootRig(page, context, { tuning: { flushMs: 1000, backoffMs: 200 } });
+  rig.processDelayMs = 4000;
+  const meetings: any[] = [];
+  await context.route('**/rest/v1/focusos_meetings**', (route) => {
+    if (route.request().method() !== 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    const object = (route.request().headers()['accept'] || '').includes('vnd.pgrst.object');
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(object ? meetings[0] ?? null : meetings),
+    });
+  });
+  await startMeetingRecording(page, 'Pill stop');
+  await page.waitForTimeout(1500);
+  await spaGo(page, '/app');
+  await expect(page.getByTestId('recording-pill')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('recording-pill-stop').click();
+  await spaGo(page, '/meetings');
+  await expect(page.locator('[data-processing-banner-label]')).toBeVisible({ timeout: 10_000 });
+  // The save finishes: the row now exists server-side and the page must refetch it.
+  await expect.poll(() => rig.processBodies.length, { timeout: 20_000 }).toBe(1);
+  meetings.push({
+    id: 'meeting-pill-0001', title: 'Pill stop', duration_seconds: 5, summary: null, action_items: [],
+    project_id: null, created_at: new Date().toISOString(), processing_status: 'transcribing', processing_error: null,
+  });
+  await expect(page.getByText('Pill stop').first()).toBeVisible({ timeout: 20_000 });
 });
 
 test('(i) two tabs, one session: process-meeting runs exactly once', async ({ page, context }) => {
@@ -274,7 +334,7 @@ test('(i) two tabs, one session: process-meeting runs exactly once', async ({ pa
   rig.offline = true;
   await page.waitForTimeout(3000);
   await page.getByRole('button', { name: 'Stop' }).click();
-  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting for connection', { timeout: 15_000 });
+  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting to upload', { timeout: 15_000 });
 
   // A second tab of the same browser opens while the first still owns the save.
   const page2 = await context.newPage();
@@ -302,7 +362,7 @@ test('(j) a waiting save is a background save: New Meeting works, a second recor
   rig.offline = true;
   await page.waitForTimeout(2500);
   await page.getByRole('button', { name: 'Stop' }).click();
-  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting for connection', { timeout: 15_000 });
+  await expect(page.locator('[data-bg-save-status]')).toContainText('waiting to upload', { timeout: 15_000 });
   await expect(page.locator('[data-processing-banner-label]')).toHaveCount(0);
 
   // New Meeting is usable and a second recording can start while the first waits.

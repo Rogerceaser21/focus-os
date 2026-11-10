@@ -41,6 +41,7 @@ import {
   clearPersistedRecording,
   persistedDurationSeconds,
   isSessionInFlight,
+  hasUnsentChunks,
   discardSessionData,
   getSnapshot as getRecorderSnapshot,
 } from '@/lib/meetingRecorder';
@@ -173,7 +174,9 @@ const Meetings = () => {
   // Only the save THIS page's own Stop started is adopted, and only while no new
   // recording is live: a background or resumed save finishing later never hijacks
   // the page (or navigates away from a recording in progress).
-  const ownStopSessionRef = useRef<string | null>(null);
+  // A save already in the foreground when the page mounts (Stop pressed on the pill,
+  // then /meetings opened) counts as this page's to adopt too.
+  const ownStopSessionRef = useRef<string | null>(recSnap.phase === 'saving' ? recSnap.sessionId : null);
   const [handledSavedSeq, setHandledSavedSeq] = useState(recSnap.savedSeq);
   const adoptingSave =
     recSnap.savedSeq !== handledSavedSeq &&
@@ -544,7 +547,9 @@ const Meetings = () => {
       if (sessions && sessions.length > 0) {
         const session = sessions[0];
         // Never offer recovery for the recording that is live (or being saved) right now.
-        if (isSessionInFlight(session.id)) return;
+        // A session that still has unsent audio on this device is being finished by
+        // the recorder (the status line shows it): Recover would save half and close it.
+        if (isSessionInFlight(session.id) || (await hasUnsentChunks(session.id))) return;
         // Only show recovery if session has chunks and is older than 2 minutes
         const ageMs = Date.now() - new Date(session.created_at).getTime();
         if (session.chunk_count > 0 && ageMs > 120000) {
@@ -788,6 +793,8 @@ const Meetings = () => {
     setHandledSavedSeq(recSnap.savedSeq);
     const saved = recSnap.saved;
     if (!saved?.id) return;
+    // ANY finished save (own, background or resumed) puts a new meeting in the list.
+    fetchMeetings({ quiet: true, fresh: true });
     const live = recSnap.phase === 'recording' || recSnap.phase === 'paused';
     if (saved.sessionId !== ownStopSessionRef.current || live) return; // not this page's save
     ownStopSessionRef.current = null;
@@ -1150,7 +1157,7 @@ const Meetings = () => {
             <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500 shrink-0" />
             <span>
               {recSnap.saveWaiting
-                ? `${recSnap.saveJobs} meeting${recSnap.saveJobs === 1 ? '' : 's'} waiting for connection, ${piecesLeft}`
+                ? `${recSnap.saveJobs} meeting${recSnap.saveJobs === 1 ? '' : 's'} waiting to upload, ${piecesLeft}`
                 : `Saving ${recSnap.saveJobs} meeting${recSnap.saveJobs === 1 ? '' : 's'} in the background, ${piecesLeft}`}
             </span>
           </div>

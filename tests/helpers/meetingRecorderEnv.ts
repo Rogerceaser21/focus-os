@@ -30,6 +30,10 @@ export interface RecorderRig {
   offline: boolean;
   /** When set, every upload is refused with this server message (HTTP 500 {error}). */
   refuse: string | null;
+  /** Scripted refusals consumed by the first uploads (status + edge-function {error}). */
+  refuseSequence: { status: number; error: string }[];
+  /** Milliseconds process-meeting takes to answer. */
+  processDelayMs: number;
   /** processing_status the process-meeting stub answers with. */
   processStatus: string;
 }
@@ -47,6 +51,8 @@ export async function bootRig(
     failFirstUploads: opts?.failFirstUploads ?? 0,
     offline: false,
     refuse: null,
+    refuseSequence: [],
+    processDelayMs: 0,
     processStatus: 'transcribing',
   };
   await seedSession(page);
@@ -69,6 +75,11 @@ export async function bootRig(
     }
     if (url.includes('focusos-upload-audio-chunk')) {
       const body = req.postDataJSON();
+      const scripted = rig.refuseSequence.shift();
+      if (scripted) {
+        rig.uploads.push({ sessionId: body.sessionId, chunkIndex: body.chunkIndex, ok: false, bytes: 0 });
+        return json(scripted.status, { error: scripted.error });
+      }
       if (rig.refuse) {
         rig.uploads.push({ sessionId: body.sessionId, chunkIndex: body.chunkIndex, ok: false, bytes: 0 });
         return json(500, { error: rig.refuse });
@@ -84,6 +95,7 @@ export async function bootRig(
     }
     if (url.includes('focusos-process-meeting')) {
       rig.processBodies.push(req.postDataJSON());
+      if (rig.processDelayMs) await new Promise((r) => setTimeout(r, rig.processDelayMs));
       return json(200, { id: MEETING_ID, processing_status: rig.processStatus });
     }
     if (url.includes('focusos-transcribe-meeting')) {
