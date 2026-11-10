@@ -42,6 +42,7 @@ import {
   persistedDurationSeconds,
   isSessionInFlight,
   hasUnsentChunks,
+  isLiveInAnotherTab,
   discardSessionData,
   getSnapshot as getRecorderSnapshot,
 } from '@/lib/meetingRecorder';
@@ -549,7 +550,12 @@ const Meetings = () => {
         // Never offer recovery for the recording that is live (or being saved) right now.
         // A session that still has unsent audio on this device is being finished by
         // the recorder (the status line shows it): Recover would save half and close it.
-        if (isSessionInFlight(session.id) || (await hasUnsentChunks(session.id))) return;
+        if (
+          isSessionInFlight(session.id) ||
+          isLiveInAnotherTab(session.id) ||
+          (await hasUnsentChunks(session.id))
+        )
+          return;
         // Only show recovery if session has chunks and is older than 2 minutes
         const ageMs = Date.now() - new Date(session.created_at).getTime();
         if (session.chunk_count > 0 && ageMs > 120000) {

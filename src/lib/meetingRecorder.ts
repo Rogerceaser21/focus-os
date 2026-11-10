@@ -968,12 +968,15 @@ if (typeof document !== 'undefined') {
     /* ignore */
   }
   setTimeout(() => {
+    // Only audio the server already closed (or whose record is gone) is cleaned up by
+    // age. A meeting that never uploaded keeps its chunks and record until it uploads
+    // or the user presses Discard: "nothing lost".
     const maxAge = 7 * 24 * 3600 * 1000;
-    void deleteStaleChunks(maxAge);
     const m = readMap();
+    void deleteStaleChunks(maxAge, (sessionId) => !m[sessionId] || m[sessionId].closed === true);
     let changed = false;
     for (const id of Object.keys(m)) {
-      if (Date.now() - m[id].startedAt > maxAge) {
+      if (m[id].closed === true && Date.now() - m[id].startedAt > maxAge) {
         delete m[id];
         changed = true;
       }
@@ -1031,6 +1034,18 @@ export function useMeetingRecordingActive(): boolean {
 export const MEETING_MIC_HINT = 'Meeting recording in progress';
 
 /** Unsent chunks for this session still sit on this device (and the save is not abandoned). */
+/**
+ * True when this session's record says it is still recording in some tab right now
+ * (no Stop, not closed, a chunk or start within the last 90 s). The recovery banner
+ * must not offer Recover for it: that would close a live recording in another tab.
+ */
+export function isLiveInAnotherTab(sessionId: string, now = Date.now()): boolean {
+  const r = readMap()[sessionId];
+  if (!r || r.endedAt || r.closed) return false;
+  const last = r.lastChunkAt ?? r.startedAt;
+  return now - last < 90_000;
+}
+
 export async function hasUnsentChunks(sessionId: string): Promise<boolean> {
   if (isSessionInFlight(sessionId)) return true;
   if (readPersistedRecording(sessionId)?.closed) return false;

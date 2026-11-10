@@ -100,10 +100,14 @@ export async function deleteSessionChunks(sessionId: string): Promise<void> {
 }
 
 /**
- * Housekeeping: delete chunks older than `maxAgeMs`, record or not. A chunk without
- * a createdAt stamp counts as old.
+ * Housekeeping: delete chunks older than `maxAgeMs` whose session `canDelete` allows
+ * (no live record, or a record the server closed). A never-uploaded meeting is never
+ * deleted by age alone. A chunk without a createdAt stamp counts as old.
  */
-export async function deleteStaleChunks(maxAgeMs: number): Promise<void> {
+export async function deleteStaleChunks(
+  maxAgeMs: number,
+  canDelete: (sessionId: string) => boolean,
+): Promise<void> {
   const db = await openDb();
   if (!db) return;
   await new Promise<void>((resolve) => {
@@ -114,7 +118,7 @@ export async function deleteStaleChunks(maxAgeMs: number): Promise<void> {
         const cur = req.result;
         if (!cur) return;
         const v = cur.value as StoredChunk;
-        if (Date.now() - (v.createdAt ?? 0) > maxAgeMs) cur.delete();
+        if (Date.now() - (v.createdAt ?? 0) > maxAgeMs && canDelete(v.sessionId)) cur.delete();
         cur.continue();
       };
       tx.oncomplete = () => resolve();
