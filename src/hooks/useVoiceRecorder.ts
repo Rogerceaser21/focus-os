@@ -17,6 +17,8 @@ const getSupportedMimeType = (): string | undefined => {
   return undefined; // Let browser choose default
 };
 
+import { isRecording as isMeetingRecording, MEETING_MIC_HINT } from '@/lib/meetingRecorder';
+
 export const useVoiceRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -25,6 +27,12 @@ export const useVoiceRecorder = () => {
   const chunksRef = useRef<Blob[]>([]);
 
   const startRecording = useCallback(async () => {
+    // Mic lockout: a meeting recording holds the microphone (paused included).
+    if (isMeetingRecording()) {
+      const err = new Error(MEETING_MIC_HINT);
+      err.name = 'MeetingRecordingActive';
+      throw err;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       

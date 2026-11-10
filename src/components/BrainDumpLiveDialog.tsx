@@ -6,6 +6,7 @@ import { saveBrainDumpTasks } from '@/lib/brainDumpSave';
 import { toast } from 'sonner';
 import { TaskListItem } from '@/components/TaskListItem';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { useMeetingRecordingActive, isRecording as isMeetingRecording, MEETING_MIC_HINT } from '@/lib/meetingRecorder';
 import { useBrainDumpLive, BrainDumpTask, ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Task, TaskPriority } from '@/types/task';
@@ -38,6 +39,7 @@ export const BrainDumpLiveDialog = ({
   const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const meetingRecording = useMeetingRecordingActive();
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const hasLoadedInitialTasks = React.useRef(false);
 
@@ -263,9 +265,9 @@ export const BrainDumpLiveDialog = ({
               {/* Left Card: Controls */}
               <div className="lg-review-card flex flex-col justify-center gap-3">
                 {connectionState === 'idle' && (
-                  <button type="button" onClick={handleStart} className="lg-btn acc w-full">
+                  <button type="button" onClick={handleStart} disabled={meetingRecording} className="lg-btn acc w-full">
                     <Mic className="mr-2 h-4 w-4" />
-                    I'm Ready
+                    {meetingRecording ? MEETING_MIC_HINT : "I'm Ready"}
                   </button>
                 )}
                 {isConnecting && (

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useMeetingRecordingActive, MEETING_MIC_HINT } from '@/lib/meetingRecorder';
 
 interface RecordFABProps {
   onBrainDump?: () => void;
@@ -14,6 +15,7 @@ const DOUBLE_TAP_DELAY = 300;
 
 const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact = false }) => {
   const [fabExpanded, setFabExpanded] = useState(false);
+  const meetingRecording = useMeetingRecordingActive();
   const navigate = useNavigate();
   const lastTapRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,7 +76,9 @@ const RecordFAB: React.FC<RecordFABProps> = ({ onBrainDump, onMeeting, compact =
               animate={{ opacity: 1, y: -66, scale: 1 }}
               exit={{ opacity: 0, y: 0, scale: 0.8, transition: { duration: 0.15, ease: 'easeOut' } }}
               transition={{ type: 'spring', duration: 0.45, bounce: 0.25 }}
-              className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+              className="absolute bottom-[6px] right-[6px] w-[44px] h-[44px] rounded-full bg-card border-2 border-border shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-40 disabled:hover:scale-100"
+              disabled={meetingRecording}
+              title={meetingRecording ? MEETING_MIC_HINT : undefined}
               onClick={() => {
                 setFabExpanded(false);
                 onBrainDump();

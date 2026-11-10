@@ -30,6 +30,18 @@ import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
+import {
+  useMeetingRecorder,
+  start as startMeetingRecording,
+  pause as pauseMeetingRecording,
+  resume as resumeMeetingRecording,
+  stop as stopMeetingRecording,
+  triggerTranscription as triggerMeetingTranscription,
+  readPersistedRecording,
+  clearPersistedRecording,
+  persistedDurationSeconds,
+  getSnapshot as getRecorderSnapshot,
+} from '@/lib/meetingRecorder';
 
 interface Participant {
   name: string;
@@ -145,25 +157,22 @@ const Meetings = () => {
   const [loading, setLoading] = useState(warmMeetings === null);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
 
-  // Recording state
-  const [recordingState, setRecordingState] = useState<RecordingState>('idle');
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  // Recording state. The recorder itself is the module-level singleton in
+  // src/lib/meetingRecorder.ts (it outlives this page); this page only reads it.
+  // localRecordingState covers what happens AFTER the save: processing / idle.
+  const { snap: recSnap, elapsedSeconds: recordingSeconds } = useMeetingRecorder();
+  const [localRecordingState, setRecordingState] = useState<RecordingState>('idle');
+  const isPaused = recSnap.phase === 'paused';
+  const recordingState: RecordingState =
+    recSnap.phase === 'recording' || recSnap.phase === 'paused'
+      ? 'recording'
+      : recSnap.phase === 'saving'
+      ? 'processing'
+      : localRecordingState;
 
-  // Chunked upload state
-  const sessionIdRef = useRef<string | null>(null);
-  const chunkIndexRef = useRef(0);
-  const chunkUploadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isUploadingChunkRef = useRef(false);
-
-  // Refs for values needed inside recorder.onstop closure
+  // Refs for values needed inside async closures
   const meetingNameRef = useRef('');
   const participantsRef = useRef<Participant[]>([{ name: '', email: '' }, { name: '', email: '' }]);
-  const recordingSecondsRef = useRef(0);
 
   // Participants
   const [participants, setParticipants] = useState<Participant[]>([
@@ -188,7 +197,6 @@ const Meetings = () => {
   // Orphaned session recovery
   const [orphanedSession, setOrphanedSession] = useState<{ id: string; chunkCount: number; createdAt: string; gcsFolder: string; mimeType: string } | null>(null);
   const [recoveringSession, setRecoveringSession] = useState(false);
-  const failedSessionRef = useRef<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // The status poll asks for transcript_segments, which the live table does not carry
   // until the server half of this wave migrates it. PostgREST answers an unknown
@@ -225,7 +233,6 @@ const Meetings = () => {
   // Keep refs in sync with state
   useEffect(() => { meetingNameRef.current = meetingName; }, [meetingName]);
   useEffect(() => { participantsRef.current = participants; }, [participants]);
-  useEffect(() => { recordingSecondsRef.current = recordingSeconds; }, [recordingSeconds]);
   useEffect(() => { processingMeetingIdRef.current = processingMeetingId; }, [processingMeetingId]);
 
   useEffect(() => {
@@ -359,15 +366,12 @@ const Meetings = () => {
     }
   };
 
-  // Cleanup on unmount
+  // Cleanup on unmount (page-local polling only)
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (chunkUploadIntervalRef.current) clearInterval(chunkUploadIntervalRef.current);
+      // The recording itself is NOT stopped here: it lives in the module-level
+      // recorder and keeps going across routes.
       if (pollingRef.current) clearInterval(pollingRef.current);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
     };
   }, []);
 
@@ -521,6 +525,9 @@ const Meetings = () => {
 
       if (sessions && sessions.length > 0) {
         const session = sessions[0];
+        // Never offer recovery for the recording that is live (or being saved) right now.
+        const liveSnap = getRecorderSnapshot();
+        if (liveSnap.phase !== 'idle' && liveSnap.sessionId === session.id) return;
         // Only show recovery if session has chunks and is older than 2 minutes
         const ageMs = Date.now() - new Date(session.created_at).getTime();
         if (session.chunk_count > 0 && ageMs > 120000) {
@@ -545,20 +552,28 @@ const Meetings = () => {
 
     try {
       const validParticipants = participantsRef.current.filter(p => p.name.trim());
+      // The recorder mirrors {sessionId, startedAt, title, pausedMs, ...} to
+      // localStorage; when it is THIS session, recover with the real title and
+      // the real duration instead of the old "chunks x 30 s" guess.
+      const saved = readPersistedRecording();
+      const mine = saved && saved.sessionId === orphanedSession.id ? saved : null;
+      const realDuration = mine ? persistedDurationSeconds(mine) : null;
+      const fallbackTitle = `Recovered Meeting ${new Date(orphanedSession.createdAt).toLocaleDateString()} ${new Date(orphanedSession.createdAt).toLocaleTimeString()}`;
 
       const { data, error } = await supabase.functions.invoke('focusos-process-meeting', {
         body: {
           sessionId: orphanedSession.id,
           mimeType: orphanedSession.mimeType.split(';')[0],
           projectId: projectId || null,
-          title: meetingNameRef.current.trim() || `Recovered Meeting ${new Date(orphanedSession.createdAt).toLocaleDateString()} ${new Date(orphanedSession.createdAt).toLocaleTimeString()}`,
-          durationSeconds: orphanedSession.chunkCount * 30, // approximate
+          title: meetingNameRef.current.trim() || mine?.title?.trim() || fallbackTitle,
+          durationSeconds: realDuration ?? orphanedSession.chunkCount * 30, // approximate when unknown
           participants: validParticipants,
         },
       });
 
       if (error) throw error;
 
+      if (mine) clearPersistedRecording();
       setOrphanedSession(null);
 
       if (data.processing_status && data.processing_status !== 'done') {
@@ -585,6 +600,7 @@ const Meetings = () => {
         .from('focusos_recording_sessions')
         .update({ status: 'failed' })
         .eq('id', orphanedSession.id);
+    if (readPersistedRecording()?.sessionId === orphanedSession.id) clearPersistedRecording();
     setOrphanedSession(null);
   };
 
@@ -730,231 +746,63 @@ const Meetings = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  /* ─── Chunk upload helper ──────────────────────────────── */
-
-  const flushChunksToGcs = useCallback(async () => {
-    if (isUploadingChunkRef.current || chunksRef.current.length === 0 || !sessionIdRef.current) return;
-    isUploadingChunkRef.current = true;
-
-    try {
-      const blob = new Blob(chunksRef.current, { type: mediaRecorderRef.current?.mimeType || 'audio/webm' });
-      chunksRef.current = [];
-
-      const arrayBuffer = await blob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      let binary = '';
-      const batchSize = 8192;
-      for (let i = 0; i < uint8Array.length; i += batchSize) {
-        const slice = uint8Array.subarray(i, i + batchSize);
-        binary += String.fromCharCode(...slice);
-      }
-      const audioBase64 = btoa(binary);
-
-      const currentIndex = chunkIndexRef.current;
-      chunkIndexRef.current += 1;
-
-      const { error } = await supabase.functions.invoke('focusos-upload-audio-chunk', {
-        body: { sessionId: sessionIdRef.current, chunkIndex: currentIndex, audioBase64 },
-      });
-
-      if (error) {
-        console.error(`Chunk ${currentIndex} upload failed:`, error);
-      } else {
-        console.log(`Chunk ${currentIndex} uploaded (${uint8Array.length} bytes)`);
-      }
-    } catch (err) {
-      console.error('Chunk flush error:', err);
-    } finally {
-      isUploadingChunkRef.current = false;
-    }
-  }, []);
-
-  /* ─── Recording ────────────────────────────────────────── */
+  /* ─── Recording (singleton in src/lib/meetingRecorder.ts) ─── */
 
   const handleStartRecording = useCallback(async () => {
-    try {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
+    await startMeetingRecording({
+      title: meetingNameRef.current.trim(),
+      projectId: projectId || null,
+      participants: participantsRef.current,
+    });
+  }, [projectId]);
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          sampleRate: 44100,
-        },
-      });
+  const handlePauseRecording = useCallback(() => pauseMeetingRecording(), []);
+  const handleResumeRecording = useCallback(() => resumeMeetingRecording(), []);
+  const handleStopRecording = useCallback(() => stopMeetingRecording(), []);
 
-      streamRef.current = stream;
-
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : 'audio/mp4';
-
-      const { data: sessionData, error: sessionError } = await supabase.functions.invoke('focusos-start-recording-session', {
-        body: { mimeType: mimeType.split(';')[0] },
-      });
-
-      if (sessionError || !sessionData?.sessionId) {
-        throw new Error('Failed to start recording session');
-      }
-
-      sessionIdRef.current = sessionData.sessionId;
-      chunkIndexRef.current = 0;
-      console.log('Recording session started:', sessionData.sessionId);
-
-      const recorder = new MediaRecorder(stream, { mimeType });
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        if (chunkUploadIntervalRef.current) {
-          clearInterval(chunkUploadIntervalRef.current);
-          chunkUploadIntervalRef.current = null;
-        }
-
-        stream.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-
-        await flushChunksToGcs();
-
-        await processSessionMeeting(mimeType);
-      };
-
-      mediaRecorderRef.current = recorder;
-      recorder.start(1000);
-
-      setRecordingState('recording');
-      setRecordingSeconds(0);
-      setIsPaused(false);
-
-      chunkUploadIntervalRef.current = setInterval(() => {
-        flushChunksToGcs();
-      }, 30000);
-
-      timerRef.current = setInterval(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          setRecordingSeconds(s => s + 1);
-        }
-      }, 1000);
-
-      toast.success('Recording started');
-    } catch (error) {
-      if (error instanceof Error && error.name === 'NotAllowedError') {
-        toast.error('Microphone access denied. Check browser permissions.');
-      } else {
-        toast.error('Failed to start recording. Check your microphone.');
-        console.error('Recording error:', error);
-      }
-    }
-  }, [flushChunksToGcs]);
-
-  const handlePauseRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.pause();
-      setIsPaused(true);
-      flushChunksToGcs();
-    }
-  }, [flushChunksToGcs]);
-
-  const handleResumeRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
-      mediaRecorderRef.current.resume();
-      setIsPaused(false);
-    }
-  }, []);
-
-  const handleStopRecording = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setIsPaused(false);
-
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-  }, []);
-
-  const processSessionMeeting = async (mimeType: string) => {
-    setRecordingState('processing');
-    setProcessingStatus('uploading');
-    toast.info('Uploading and processing your meeting...');
-
-    try {
-      const validParticipants = participantsRef.current.filter(p => p.name.trim());
-
-      const { data, error } = await supabase.functions.invoke('focusos-process-meeting', {
-        body: {
-          sessionId: sessionIdRef.current,
-          mimeType: mimeType.split(';')[0],
-          projectId: projectId || null,
-          title: meetingNameRef.current.trim() || `Meeting ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
-          durationSeconds: recordingSecondsRef.current,
-          participants: validParticipants,
-        },
-      });
-
-      if (error) throw error;
-
-      sessionIdRef.current = null;
-
-      // Check if this is the new async flow
-      if (data.processing_status && data.processing_status !== 'done') {
-        // Start polling
-        setProcessingMeetingId(data.id);
-        setProcessingStatus(data.processing_status);
-
-        // Frontend triggers transcribe-meeting directly (no more fire-and-forget)
-        triggerTranscription(data);
-      } else {
-        // Legacy sync flow - navigate directly
-        toast.success('Meeting processed successfully!');
-        navigate(`/meetings/${data.id}`);
-        setRecordingState('idle');
-      }
-    } catch (error) {
-      console.error('Process meeting error:', error);
-      // Save sessionId so we can offer recovery
-      if (sessionIdRef.current) {
-        failedSessionRef.current = sessionIdRef.current;
-        // Re-check for orphaned sessions to show the recovery banner
-        checkOrphanedSessions();
-      }
-      toast.error('Failed to process meeting. Your recording is saved — use the recovery banner to retry.');
+  // A save that finished (from this page's Stop or the floating pill's) adopts
+  // the same processing banner + status poll this page always had. A save that
+  // finished while this page was NOT mounted is picked up by the list fetch,
+  // which adopts any row already transcribing.
+  const handledSavedSeqRef = useRef(recSnap.savedSeq);
+  useEffect(() => {
+    if (recSnap.savedSeq === handledSavedSeqRef.current) return;
+    handledSavedSeqRef.current = recSnap.savedSeq;
+    const saved = recSnap.saved;
+    if (!saved?.id) return;
+    if (saved.processingStatus && saved.processingStatus !== 'done') {
+      setProcessingMeetingId(saved.id);
+      setProcessingStatus(saved.processingStatus);
+      setRecordingState('processing');
+    } else {
+      navigate(`/meetings/${saved.id}`);
       setRecordingState('idle');
     }
-  };
+  }, [recSnap.savedSeq, recSnap.saved, navigate]);
+
+  // A failed save leaves the session on the server: re-check for the recovery banner.
+  const handledFailedSeqRef = useRef(recSnap.failedSeq);
+  useEffect(() => {
+    if (recSnap.failedSeq === handledFailedSeqRef.current) return;
+    handledFailedSeqRef.current = recSnap.failedSeq;
+    checkOrphanedSessions();
+  }, [recSnap.failedSeq]);
+
+  // While the save is in flight the banner starts at "Uploading".
+  useEffect(() => {
+    if (recSnap.phase === 'saving') setProcessingStatus('uploading');
+  }, [recSnap.phase]);
 
   /**
    * Kick the segmented transcriber. Its whole contract is the meeting id: the worker
    * reads the recording path, the participants and the segment plan off the row
-   * itself, and ignores every other field. `retry: true` is the only extra — it tells
-   * the worker this is a Retry, not a fresh run.
+   * itself, and ignores every other field. `retry: true` is the only extra.
    */
-  const triggerTranscription = async (
+  const triggerTranscription = (
     meetingData: { id: string },
     opts?: { retry?: boolean },
   ) => {
-    try {
-      console.log('Frontend triggering transcribe-meeting for:', meetingData.id);
-      // Don't await - let it run in background while we poll
-      supabase.functions.invoke('focusos-transcribe-meeting', {
-        body: opts?.retry
-          ? { meetingId: meetingData.id, retry: true }
-          : { meetingId: meetingData.id },
-      }).catch(err => {
-        // This may "fail" due to timeout but the function keeps running server-side
-        console.log('transcribe-meeting invoke completed or timed out (expected):', err?.message);
-      });
-    } catch (err) {
-      console.error('Failed to trigger transcription:', err);
-    }
+    triggerMeetingTranscription(meetingData.id, opts);
   };
 
   const handleRetryMeeting = async (e: React.MouseEvent, meeting: Meeting) => {
@@ -1276,8 +1124,17 @@ const Meetings = () => {
                   <RefreshCw className="h-4 w-4 text-amber-500" />
                   Unprocessed Recording Found
                 </h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  A {orphanedSession.chunkCount * 30}s recording from {new Date(orphanedSession.createdAt).toLocaleString()} wasn't fully processed. Your audio is safe.
+                <p className="text-xs text-muted-foreground mt-1" data-orphan-summary>
+                  {(() => {
+                    // Real title + duration from the recorder's localStorage mirror
+                    // when it is this very session; otherwise the old chunk-count guess.
+                    const saved = readPersistedRecording();
+                    const mine = saved && saved.sessionId === orphanedSession.id ? saved : null;
+                    const secs = mine ? persistedDurationSeconds(mine) : null;
+                    const dur = secs !== null ? formatDuration(secs) : `${orphanedSession.chunkCount * 30}s`;
+                    const name = mine?.title?.trim();
+                    return `A ${dur} recording${name ? ` "${name}"` : ''} from ${new Date(orphanedSession.createdAt).toLocaleString()} wasn't fully processed. Your audio is safe.`;
+                  })()}
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">

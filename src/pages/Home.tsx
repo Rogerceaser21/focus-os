@@ -32,6 +32,7 @@ import BottomNav from '@/components/BottomNav';
 import { ProjectsDrawerHost } from '@/components/ProjectsDrawerHost';
 import { HomeTour } from '@/components/HomeTour';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
+import { useMeetingRecordingActive, isRecording as isMeetingRecording, MEETING_MIC_HINT } from '@/lib/meetingRecorder';
 import { useBrainDumpLive, type BrainDumpTask, type ProjectInfo } from '@/hooks/useBrainDumpLive';
 import { BrainDumpDebugOverlay } from '@/components/BrainDumpDebugOverlay';
 import { BrainDumpVoiceBars } from '@/components/BrainDumpVoiceBars';
@@ -308,6 +309,7 @@ const Home = () => {
   const colRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const orbRef = useRef<HTMLButtonElement>(null);
+  const meetingRecording = useMeetingRecordingActive();
   const coreRef = useRef<HTMLDivElement>(null);
   const pulseRef = useRef<gsap.core.Tween | null>(null);
 
@@ -985,6 +987,11 @@ const Home = () => {
     }
     if (fakeDump) return; // demo stage: the orb presses, nothing is captured
     if (isSaving) return; // a direct save is already in flight
+    // Mic lockout: a meeting recording holds the microphone.
+    if (isMeetingRecording()) {
+      toast.error(MEETING_MIC_HINT, { id: 'bd-meeting-lockout' });
+      return;
+    }
     // Starting (or reviewing) closes the Undo window — see handleDiscard.
     toast.dismiss('bd-discard-undo');
     // Still live -> the orb reviews. Auto-stopped on silence -> the orb resumes,
@@ -1278,12 +1285,17 @@ const Home = () => {
             className="lg-orb"
             aria-label="Brain dump"
             data-home-tour-step="brain-dump"
+            disabled={meetingRecording}
+            title={meetingRecording ? MEETING_MIC_HINT : undefined}
+            style={meetingRecording ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
             onClick={handleOrbTap}>
 
             <div className="lg-orb-core" ref={coreRef} />
           </button>
           <span className="text-sm font-medium text-center text-muted-foreground lg-onbg">
-            {rec
+            {meetingRecording
+            ? MEETING_MIC_HINT
+            : rec
             ? idleStaged ? 'Paused — tap the orb to keep talking, or pick below' : 'Listening… tap the orb to review, or pick below'
             : 'Tap to capture your thoughts into tasks'}
           </span>

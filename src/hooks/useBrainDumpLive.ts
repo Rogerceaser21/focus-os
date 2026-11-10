@@ -4,6 +4,7 @@ import {
 } from '@google/genai';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { isRecording as isMeetingRecording, MEETING_MIC_HINT } from '@/lib/meetingRecorder';
 import { startCapture as engineStartCapture, stopCapture as engineStopCapture, getDebugSnapshot as getAudioDebugSnapshot, resetEngine as engineReset, AudioEngineError } from '@/lib/brainDumpAudio';
 import type { TaskPriority } from '@/types/task';
 
@@ -1427,6 +1428,12 @@ SILENT MODE:
   }, [handleAudioChunk, failDeadAudio, clearAudioWatchdog]);
 
   const start = useCallback(async (projects: ProjectInfo[], options?: { preserveTasks?: boolean }) => {
+    // Mic lockout: a meeting recording holds the microphone (paused included).
+    if (isMeetingRecording()) {
+      const err = new Error(MEETING_MIC_HINT);
+      err.name = 'MeetingRecordingActive';
+      throw err;
+    }
     // Safety: release any leftover mic/session before starting fresh
     intentionalStopRef.current = true;
     activeRef.current = false;

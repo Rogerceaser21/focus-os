@@ -24,6 +24,7 @@ import DrawerRepro from "./pages/DrawerRepro";
 import BrainDumpRepro from "./pages/BrainDumpRepro";
 import MotionTweaks from "./components/dev/MotionTweaks";
 import { IS_SHELL } from "./lib/shell";
+import RecordingPill from "@/components/RecordingPill";
 
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       {showMotionTweaks && <MotionTweaks />}
+      <RecordingPill />
       <Routes>
         {/* The iOS shell is the app, not the marketing site: "/" (cold start,
             any legacy link back to root) goes straight to auth, or to /home

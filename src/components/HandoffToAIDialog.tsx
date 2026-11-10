@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { Mic, Square, Loader2, Image as ImageIcon, Copy, ExternalLink } from 'lucide-react';
 import { Task } from '@/types/task';
+import { useMeetingRecordingActive, isRecording as isMeetingRecording, MEETING_MIC_HINT } from '@/lib/meetingRecorder';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -66,6 +67,7 @@ export const HandoffToAIDialog = ({
   const [showImageModeHelp, setShowImageModeHelp] = useState(false);
 
   const { isRecording, audioBlob, startRecording, stopRecording, reset } = useVoiceRecorder();
+  const meetingRecording = useMeetingRecordingActive();
   const transcribedRef = useRef<Blob | null>(null);
 
   // Reset state when (re)opened
@@ -281,7 +283,8 @@ export const HandoffToAIDialog = ({
                 variant={isRecording ? 'destructive' : 'outline'}
                 size="sm"
                 onClick={toggleRecording}
-                disabled={isTranscribing || isCleaningUp}
+                disabled={isTranscribing || isCleaningUp || (meetingRecording && !isRecording)}
+                title={meetingRecording ? MEETING_MIC_HINT : undefined}
                 className="h-8"
               >
                 {isRecording ? (
@@ -291,7 +294,7 @@ export const HandoffToAIDialog = ({
                 ) : isCleaningUp ? (
                   <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Cleaning up</>
                 ) : (
-                  <><Mic className="h-3 w-3 mr-1" /> Dictate</>
+                  <><Mic className="h-3 w-3 mr-1" /> {meetingRecording ? MEETING_MIC_HINT : 'Dictate'}</>
                 )}
               </Button>
             </div>
