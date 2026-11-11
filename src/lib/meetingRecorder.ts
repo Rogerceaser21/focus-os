@@ -1007,6 +1007,9 @@ interface NativeEvent {
   [k: string]: any;
 }
 
+/** Native rotates a chunk every 157 AAC frames at 16 kHz = 10.048 s (NativeRecorder.swift). */
+const NATIVE_CHUNK_MS = 10_048;
+
 interface NativePendingSession {
   sessionId: string;
   status: string;
@@ -1279,6 +1282,15 @@ async function processNativePending(userId: string) {
     }
     if (!meta || meta.userId !== userId || meta.closed) continue;
     setNativePending(s.sessionId, s.pending);
+    // The app was swiped away (force quit) mid-recording: native marks it 'killed'.
+    // Treat it as stopped at its last saved piece, so reopening the app finishes the
+    // meeting instead of leaving it for a recovery banner (Igor, 2026-11-11).
+    if (s.status === 'killed' && typeof meta.endedAt !== 'number') {
+      const pieces = Math.max(0, (s.lastIndex ?? -1) + 1);
+      const endedAt = meta.startedAt + (meta.pausedMs || 0) + pieces * NATIVE_CHUNK_MS;
+      writePersisted({ sessionId: s.sessionId, endedAt });
+      meta.endedAt = endedAt;
+    }
     const job = nativeJobFromRecord(s.sessionId);
     job.nativePending = s.pending;
     if (typeof meta.endedAt === 'number') {

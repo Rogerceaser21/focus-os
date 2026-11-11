@@ -54,7 +54,18 @@ async function installFakeNative(page: import('@playwright/test').Page) {
         recorder: {
           postMessage(b: any) {
             w.__recMsgs.push(JSON.parse(JSON.stringify(b)));
-            if (b.cmd === 'ready' && st.recording) {
+            if (b.cmd === 'ready' && sessionStorage.getItem('__fakeKilled')) {
+              // The app was force-quit mid-recording: relaunched native reports it 'killed',
+              // every piece already uploaded, and is no longer recording.
+              setTimeout(() => {
+                emit({ type: 'state', state: 'idle' });
+                emit({
+                  type: 'pending',
+                  sessions: [{ sessionId: st.sessionId, status: 'killed', lastIndex: 2, uploadedUpTo: 2, pending: 0,
+                    allUploaded: true, startedAt: st.startedAt, pausedMs: 0 }],
+                });
+              }, 10);
+            } else if (b.cmd === 'ready' && st.recording) {
               setTimeout(
                 () => emit({ type: 'state', state: 'recording', sessionId: st.sessionId, startedAt: st.startedAt, pausedMs: st.pausedMs }),
                 10,
@@ -280,4 +291,29 @@ test('native recorder: a page reload while native records re-attaches to the liv
   // and it can still be stopped from the pill
   await mouseClick(page, page.getByTestId('recording-pill-stop'));
   expect((await msgs(page)).some((x) => x.cmd === 'stop')).toBe(true);
+});
+
+test('native recorder: a force-quit recording is finished when the app reopens (no recovery banner needed)', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  await installFakeNative(page);
+  const rig = await bootRig(page, context);
+  await startMeetingRecording(page, 'Swiped away');
+  await page.waitForTimeout(1000);
+  for (const i of [0, 1, 2]) {
+    await emit(page, { type: 'chunkSaved', sessionId: SESSION_ID, index: i });
+    await emit(page, { type: 'chunkUploaded', sessionId: SESSION_ID, index: i });
+  }
+  expect(rig.processBodies.length).toBe(0);
+
+  // Force quit + reopen: the page reloads and native reports the session as killed.
+  await page.evaluate(() => sessionStorage.setItem('__fakeKilled', '1'));
+  await page.reload();
+  await expect.poll(() => rig.processBodies.length, { timeout: 20_000 }).toBe(1);
+  expect(rig.processBodies[0].sessionId).toBe(SESSION_ID);
+  expect(rig.processBodies[0].title).toBe('Swiped away');
+  // three native pieces of ~10 s: the saved length is about 30 s, never 0
+  expect(rig.processBodies[0].durationSeconds).toBeGreaterThanOrEqual(25);
+  expect(rig.processBodies[0].durationSeconds).toBeLessThanOrEqual(35);
+  await page.waitForTimeout(1500);
+  expect(rig.processBodies.length).toBe(1);
 });
