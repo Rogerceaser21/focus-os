@@ -74,3 +74,15 @@ targets:
         UIViewControllerBasedStatusBarAppearance: true
         ITSAppUsesNonExemptEncryption: false
         FOSStartURL: "https://rogerceaser21.github.io/focus-os/preview/"
+
+  # Device-free unit tests (R3): ADTS bytes, upload queue policy, relaunch recovery.
+  # Run: xcodebuild test -scheme FocusOSShellTests -destination 'id=<sim udid>'
+  FocusOSShellTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [FocusOSShellTests]
+    dependencies:
+      - target: FocusOSShell
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES

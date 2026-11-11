@@ -43,15 +43,26 @@ async function installFakeNative(page: import('@playwright/test').Page) {
       }
     };
     const emit = (e: any) => w.__focusosNativeRecorder?.onEvent({ at: Date.now(), ...e });
-    let st = { sessionId: '', startedAt: 0, pausedMs: 0, pausedAt: 0 as number | null };
+    // The fake keeps its "native" state across page reloads, like real native does.
+    const load = () => JSON.parse(sessionStorage.getItem('__fakeNative') || 'null');
+    const save = (v: any) => sessionStorage.setItem('__fakeNative', JSON.stringify(v));
+    let st: { sessionId: string; startedAt: number; pausedMs: number; pausedAt: number | null; recording?: boolean } =
+      load() || { sessionId: '', startedAt: 0, pausedMs: 0, pausedAt: null };
     w.__nativeEmit = emit;
     w.webkit = {
       messageHandlers: {
         recorder: {
           postMessage(b: any) {
             w.__recMsgs.push(JSON.parse(JSON.stringify(b)));
-            if (b.cmd === 'start') {
-              st = { sessionId: b.sessionId, startedAt: Date.now(), pausedMs: 0, pausedAt: null };
+            if (b.cmd === 'ready' && st.recording) {
+              setTimeout(
+                () => emit({ type: 'state', state: 'recording', sessionId: st.sessionId, startedAt: st.startedAt, pausedMs: st.pausedMs }),
+                10,
+              );
+            } else if (b.cmd === 'start') {
+              if (localStorage.getItem('__fakeNoStart')) return; // the mic prompt never answers
+              st = { sessionId: b.sessionId, startedAt: Date.now(), pausedMs: 0, pausedAt: null, recording: true };
+              save(st);
               setTimeout(() => {
                 emit({ type: 'started', sessionId: st.sessionId, startedAt: st.startedAt, pausedMs: 0 });
                 emit({ type: 'state', state: 'recording', sessionId: st.sessionId, startedAt: st.startedAt, pausedMs: 0 });
@@ -69,6 +80,10 @@ async function installFakeNative(page: import('@playwright/test').Page) {
                 () => emit({ type: 'state', state: 'recording', sessionId: st.sessionId, startedAt: st.startedAt, pausedMs: st.pausedMs }),
                 10,
               );
+            }
+            else if (b.cmd === 'stop' || b.cmd === 'discard') {
+              st.recording = false;
+              save(st);
             }
             // stop: native answers later, driven by the test.
           },
@@ -175,4 +190,94 @@ test('native recorder: start posts auth, pill survives routes, interruption show
   await page.waitForTimeout(800);
   expect(rig.processBodies.length).toBe(1);
   expect((await msgs(page)).some((x) => x.cmd === 'forget' && x.sessionId === SESSION_ID)).toBe(true);
+});
+
+test('native recorder: a microphone failure shows as Interrupted with its reason, resume clears it', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  await installFakeNative(page);
+  await bootRig(page, context);
+  await startMeetingRecording(page, 'Mic fails');
+  await spaGo(page, '/app');
+  const pill = page.getByTestId('recording-pill');
+  await expect(pill).toHaveAttribute('data-phase', 'recording', { timeout: 15_000 });
+
+  // native's watchdog: no audio for 5 s -> paused + interrupted {reason}
+  await emit(page, { type: 'interrupted', sessionId: SESSION_ID, reason: 'noAudio' });
+  await expect(pill).toHaveAttribute('data-phase', 'paused');
+  await expect(pill).toHaveAttribute('data-interrupted', 'true');
+  await expect(pill).toHaveAttribute('data-interrupt-reason', 'noAudio');
+  await expect(pill).toContainText('mic stopped');
+  await expect(page.getByText('Recording paused: the microphone stopped.').first()).toBeVisible();
+
+  // native restarted the engine by itself
+  await emit(page, { type: 'resumed', sessionId: SESSION_ID });
+  await expect(pill).toHaveAttribute('data-phase', 'recording');
+  await expect(pill).not.toHaveAttribute('data-interrupt-reason', /.+/);
+});
+
+test('native recorder: a parked session shows the honest message and is never processed', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  await installFakeNative(page);
+  const rig = await bootRig(page, context);
+  await startMeetingRecording(page, 'Parked');
+  await spaGo(page, '/app');
+  const pill = page.getByTestId('recording-pill');
+  await expect(pill).toBeVisible({ timeout: 15_000 });
+  await emit(page, { type: 'chunkSaved', sessionId: SESSION_ID, index: 0 });
+  await mouseClick(page, page.getByTestId('recording-pill-stop'));
+  await emit(page, { type: 'state', state: 'idle' });
+  await emit(page, { type: 'uploadWaiting', pending: 1, reason: 'network' });
+  await expect(pill).toHaveAttribute('data-waiting', 'true');
+
+  // native read the session row, saw it is no longer recording, stopped retrying
+  await emit(page, { type: 'parked', sessionId: SESSION_ID });
+  await expect(page.getByText('Part of this meeting could not be uploaded; it is kept on this device.').first()).toBeVisible();
+  await expect(pill).toHaveCount(0);
+  await page.waitForTimeout(800);
+  expect(rig.processBodies.length).toBe(0);
+  const rec = await page.evaluate(() => JSON.parse(localStorage.getItem('focusos-meeting-recording-sessions') || '{}'));
+  expect(rec[SESSION_ID].closed).toBe(true);
+});
+
+test('native recorder: a start that times out sends discard and records nothing', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  await installFakeNative(page);
+  await page.addInitScript(() => localStorage.setItem('__fakeNoStart', '1'));
+  await bootRig(page, context, { tuning: { nativeStartMs: 1500 } });
+  await page.goto('/meetings?new=true');
+  const input = page.getByPlaceholder('Enter meeting name (required)');
+  await input.waitFor({ state: 'visible', timeout: 20_000 });
+  await input.fill('Slow prompt');
+  await page.getByRole('button', { name: 'Start Recording' }).click();
+
+  await expect.poll(async () => (await msgs(page)).some((x) => x.cmd === 'discard' && x.sessionId === SESSION_ID), {
+    timeout: 15_000,
+  }).toBe(true);
+  await expect(page.getByText('Failed to start recording').first()).toBeVisible();
+  await spaGo(page, '/app');
+  await expect(page.getByTestId('recording-pill')).toHaveCount(0);
+});
+
+test('native recorder: a page reload while native records re-attaches to the live recording', async ({ page, context }) => {
+  test.setTimeout(60_000);
+  await installFakeNative(page);
+  await bootRig(page, context);
+  await startMeetingRecording(page, 'Reload me');
+  await page.waitForTimeout(1500);
+
+  await page.reload();
+  // native replays its state on "ready"; the page rebuilds the snapshot from its own record
+  await expect(page.getByText('Recording...').first()).toBeVisible({ timeout: 20_000 });
+  await spaGo(page, '/app');
+  const pill = page.getByTestId('recording-pill');
+  await expect(pill).toBeVisible({ timeout: 15_000 });
+  await expect(pill).toHaveAttribute('data-phase', 'recording');
+  const m = await msgs(page);
+  expect(m.filter((x) => x.cmd === 'ready').length).toBeGreaterThan(0);
+  // the elapsed time is the whole recording, not restarted at the reload
+  const parts = (await page.getByTestId('recording-pill-time').innerText()).split(':').map(Number);
+  expect(parts.reduce((a, n) => a * 60 + n, 0)).toBeGreaterThanOrEqual(1);
+  // and it can still be stopped from the pill
+  await mouseClick(page, page.getByTestId('recording-pill-stop'));
+  expect((await msgs(page)).some((x) => x.cmd === 'stop')).toBe(true);
 });

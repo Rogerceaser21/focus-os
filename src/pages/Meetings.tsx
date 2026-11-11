@@ -1092,7 +1092,7 @@ const Meetings = () => {
               </div>
               <div>
                 <p className={`font-semibold ${isPaused ? 'text-amber-500' : 'text-destructive'}`}>
-                  {isPaused ? (recSnap.interrupted ? 'Interrupted (call or alarm)' : 'Paused') : 'Recording...'}
+                  {isPaused ? (recSnap.interrupted ? (recSnap.interruptReason === 'call' || !recSnap.interruptReason ? 'Interrupted (call or alarm)' : 'Interrupted (microphone stopped)') : 'Paused') : 'Recording...'}
                 </p>
                 <p className="text-sm text-muted-foreground font-mono">
                   {formatDuration(recordingSeconds)}

@@ -80,6 +80,7 @@ const RecordingPill: React.FC = () => {
       data-testid="recording-pill"
       data-phase={saving ? 'saving' : snap.phase}
       data-interrupted={snap.interrupted ? 'true' : undefined}
+      data-interrupt-reason={snap.interrupted && snap.interruptReason ? snap.interruptReason : undefined}
       data-waiting={saving && snap.saveWaiting ? 'true' : undefined}
       className={`fixed left-3 sm:left-1/2 sm:-translate-x-1/2 z-[30] flex items-center gap-2 border pl-3 pr-2 py-1.5 ${
         paused ? 'border-amber-500/40' : 'border-destructive/40'
@@ -117,7 +118,7 @@ const RecordingPill: React.FC = () => {
         </span>
         <span className="flex flex-col leading-tight min-w-0">
           <span className={`text-[11px] font-semibold truncate ${paused ? 'text-amber-500' : 'text-destructive'}`}>
-            {saving ? savingLabel : paused ? (snap.interrupted ? 'Interrupted' : 'Paused') : 'Recording'}
+            {saving ? savingLabel : paused ? (snap.interrupted ? (snap.interruptReason === 'call' || !snap.interruptReason ? 'Interrupted' : 'Interrupted: mic stopped') : 'Paused') : 'Recording'}
           </span>
           <span data-testid="recording-pill-time" className="text-xs text-muted-foreground font-mono">
             {saving && snap.savePending > 0 ? left : formatTimer(elapsedSeconds)}

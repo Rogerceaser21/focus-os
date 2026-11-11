@@ -77,8 +77,10 @@ export interface RecorderSnapshot {
   saveWaiting: boolean;
   /** Why uploads wait: no connection, or (native recorder) the sign-in token needs refreshing. */
   saveWaitReason: 'network' | 'signin' | null;
-  /** Native recorder only: paused by a call, alarm or Siri; Resume continues. */
+  /** Native recorder only: paused by a call, alarm, Siri or a microphone/route failure; Resume continues. */
   interrupted: boolean;
+  /** Why: 'call' | 'route' | 'mediaReset' | 'noAudio' | 'engine' (null when not interrupted). */
+  interruptReason: string | null;
   /** Bumped each time a save completes; `saved` is that save's meeting. */
   savedSeq: number;
   saved: SavedMeeting | null;
@@ -233,6 +235,7 @@ const initial: RecorderSnapshot = {
   saveWaiting: false,
   saveWaitReason: null,
   interrupted: false,
+  interruptReason: null,
   savedSeq: 0,
   saved: null,
   failedSeq: 0,
@@ -1021,6 +1024,12 @@ const nativeSaves = new Map<string, { job: Job; durationSeconds: number }>();
 /** Pieces still on the phone per session, from native events (drives the recovery banner). */
 const nativePendingBySession = new Map<string, number>();
 let nativePendingList: NativePendingSession[] = [];
+const NATIVE_START_TIMEOUT_MS = 60_000;
+/** Test hook only: window.__meetingRecorderTuning.nativeStartMs shortens the start wait. */
+const nativeStartTimeoutMs = (): number => {
+  const t = (typeof window !== 'undefined' && (window as any).__meetingRecorderTuning) || {};
+  return typeof t.nativeStartMs === 'number' ? t.nativeStartMs : NATIVE_START_TIMEOUT_MS;
+};
 let nativeStartWaiter: { resolve: (e: NativeEvent) => void; reject: (e: Error) => void } | null = null;
 
 function nativeBridge(): { postMessage: (body: object) => void } | null {
@@ -1092,6 +1101,7 @@ function setNativePending(sessionId: string, n: number) {
 function startNative(opts: StartOptions): Promise<boolean> {
   return (async () => {
     starting = true;
+    let startedSessionId: string | null = null;
     try {
       const { data: sessionData, error: sessionError } = await supabase.functions.invoke(
         'focusos-start-recording-session',
@@ -1102,11 +1112,13 @@ function startNative(opts: StartOptions): Promise<boolean> {
       const s = auth.session;
       if (!s) throw new Error('Not signed in');
       const sessionId: string = sessionData.sessionId;
+      startedSessionId = sessionId;
       const started = new Promise<NativeEvent>((resolve, reject) => {
+        // The microphone permission prompt can take a while: wait up to 60 s.
         const t = setTimeout(() => {
           nativeStartWaiter = null;
           reject(new Error('Native recorder did not start'));
-        }, 15_000);
+        }, nativeStartTimeoutMs());
         nativeStartWaiter = {
           resolve: (e) => {
             clearTimeout(t);
@@ -1164,11 +1176,15 @@ function startNative(opts: StartOptions): Promise<boolean> {
         pausedAt: null,
         endedAt: null,
         interrupted: false,
+        interruptReason: null,
       });
+      startedSessionId = null; // started: a later failure is a normal stop, not a discard
       toast.success('Recording started');
       return true;
     } catch (error) {
       nativeStartWaiter = null;
+      // The page gives up on this start: native must never record a session the page considers failed.
+      if (startedSessionId) nativePost({ cmd: 'discard', sessionId: startedSessionId });
       const msg = error instanceof Error ? error.message : '';
       if (/denied/i.test(msg)) toast.error('Microphone access denied. Check Settings > Focus OS > Microphone.');
       else {
@@ -1191,7 +1207,7 @@ function pauseNative() {
 function resumeNative() {
   if (!nativeJob || snapshot.phase !== 'paused') return;
   const pausedMs = snapshot.pausedMs + (Date.now() - (snapshot.pausedAt ?? Date.now()));
-  setSnapshot({ phase: 'recording', pausedMs, pausedAt: null, interrupted: false });
+  setSnapshot({ phase: 'recording', pausedMs, pausedAt: null, interrupted: false, interruptReason: null });
   writePersisted({ sessionId: nativeJob.sessionId, pausedMs });
   nativePost({ cmd: 'resume' });
 }
@@ -1204,7 +1220,7 @@ function stopNative() {
   const durationSeconds = Math.max(0, Math.round((endedAt - snapshot.startedAt - pausedMs) / 1000));
   job.title = snapshot.title;
   writePersisted({ sessionId: job.sessionId, pausedMs, endedAt });
-  setSnapshot({ phase: 'saving', pausedMs, pausedAt: null, endedAt, interrupted: false });
+  setSnapshot({ phase: 'saving', pausedMs, pausedAt: null, endedAt, interrupted: false, interruptReason: null });
   nativeSaves.set(job.sessionId, { job, durationSeconds });
   job.nativePending = nativePendingBySession.get(job.sessionId) ?? 0;
   jobs.add(job);
@@ -1233,12 +1249,34 @@ async function nativeFinish(sessionId: string) {
   }
 }
 
+/** Native stopped retrying a session the server closed. Files and record are KEPT. */
+function nativeParked(sessionId: string) {
+  const entry = nativeSaves.get(sessionId);
+  nativeSaves.delete(sessionId);
+  Array.from(jobs).forEach((j) => {
+    if (j.sessionId === sessionId) {
+      j.halted = true;
+      jobs.delete(j);
+    }
+  });
+  if (entry) entry.job.halted = true;
+  setNativePending(sessionId, 0);
+  writePersisted({ sessionId, closed: true });
+  toast.error('Part of this meeting could not be uploaded; it is kept on this device.', { id: `closed-${sessionId}` });
+  refreshSaveStats();
+  if (snapshot.phase === 'saving' && snapshot.sessionId === sessionId) setSnapshot({ phase: 'idle' });
+}
+
 /** Sessions native still holds from an earlier page life or app launch. */
 async function processNativePending(userId: string) {
   await pushNativeAuth();
   for (const s of nativePendingList) {
     if (nativeJob?.sessionId === s.sessionId || nativeSaves.has(s.sessionId)) continue;
     const meta = readPersistedRecording(s.sessionId);
+    if ((s as { parked?: boolean }).parked) {
+      if (meta && meta.userId === userId && !meta.closed) writePersisted({ sessionId: s.sessionId, closed: true });
+      continue;
+    }
     if (!meta || meta.userId !== userId || meta.closed) continue;
     setNativePending(s.sessionId, s.pending);
     const job = nativeJobFromRecord(s.sessionId);
@@ -1286,7 +1324,7 @@ function onNativeEvent(e: NativeEvent) {
         // was lost (the page keeps its files for the recovery banner).
         if (!starting && nativeJob && (snapshot.phase === 'recording' || snapshot.phase === 'paused')) {
           nativeJob = null;
-          setSnapshot({ phase: 'idle', interrupted: false, pausedAt: null });
+          setSnapshot({ phase: 'idle', interrupted: false, interruptReason: null, pausedAt: null });
           toast.error('The recording stopped unexpectedly. What was captured is kept.');
         }
         break;
@@ -1308,6 +1346,7 @@ function onNativeEvent(e: NativeEvent) {
         pausedMs: typeof e.pausedMs === 'number' ? e.pausedMs : snapshot.pausedMs,
         pausedAt: paused ? (typeof e.pausedAt === 'number' ? e.pausedAt : snapshot.pausedAt ?? Date.now()) : null,
         interrupted: e.interrupted === true,
+        interruptReason: e.interrupted === true ? (typeof e.interruptReason === 'string' ? e.interruptReason : snapshot.interruptReason ?? 'call') : null,
       };
       setSnapshot(patch);
       writePersisted({ sessionId: sid, pausedMs: snapshot.pausedMs });
@@ -1316,8 +1355,14 @@ function onNativeEvent(e: NativeEvent) {
     case 'interrupted':
       if (nativeJob && (!sid || sid === nativeJob.sessionId)) {
         if (snapshot.phase === 'recording') setSnapshot({ phase: 'paused', pausedAt: e.at ?? Date.now() });
-        setSnapshot({ interrupted: true });
-        toast.info('Recording paused: a call or alarm took the microphone.', { id: 'native-interrupted' });
+        const reason = typeof e.reason === 'string' ? e.reason : 'call';
+        setSnapshot({ interrupted: true, interruptReason: reason });
+        toast.info(
+          reason === 'call'
+            ? 'Recording paused: a call or alarm took the microphone.'
+            : 'Recording paused: the microphone stopped. Resume to continue.',
+          { id: 'native-interrupted' },
+        );
       }
       break;
     case 'resumed':
@@ -1326,7 +1371,7 @@ function onNativeEvent(e: NativeEvent) {
           const pausedMs = snapshot.pausedMs + ((e.at ?? Date.now()) - (snapshot.pausedAt ?? e.at ?? Date.now()));
           setSnapshot({ phase: 'recording', pausedMs: Math.max(snapshot.pausedMs, pausedMs), pausedAt: null });
         }
-        setSnapshot({ interrupted: false });
+        setSnapshot({ interrupted: false, interruptReason: null });
         toast.success('Recording resumed', { id: 'native-interrupted' });
       }
       break;
@@ -1375,6 +1420,9 @@ function onNativeEvent(e: NativeEvent) {
           nativePost({ cmd: 'forget', sessionId: sid });
         }
       }
+      break;
+    case 'parked':
+      if (sid) nativeParked(sid);
       break;
     case 'pending': {
       nativePendingList = Array.isArray(e.sessions) ? (e.sessions as NativePendingSession[]) : [];

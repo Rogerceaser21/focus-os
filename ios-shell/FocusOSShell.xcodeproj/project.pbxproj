@@ -7,24 +7,43 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		162ED1F604578EF191B10744 /* ChunkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29EAE195EE962096ABE52AA /* ChunkStore.swift */; };
 		26AB254EA6295D851A83BA9E /* ShellWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */; };
 		40DCE7BC5A84304383161A5F /* ShellWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */; };
+		4166F3B7055FA9A97092B917 /* UploadQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2069DC27C5F897E08CE5D7 /* UploadQueue.swift */; };
+		56E16B40C13BA8C421E65E3E /* UploadQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2069DC27C5F897E08CE5D7 /* UploadQueue.swift */; };
 		6D385F27CD270A6F6551772A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */; };
+		7FA5CF646D0FD4690BE3FB6E /* ChunkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29EAE195EE962096ABE52AA /* ChunkStore.swift */; };
 		935814E3924B73347F1FFD79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */; };
 		9A20A0A473124C0C0EE284E8 /* FocusOSShellApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30DC28D12373418B01347AE /* FocusOSShellApp.swift */; };
 		A3B6F8F87C30D943D1F5E8F9 /* NativeRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5A63922FF6EB044D227995 /* NativeRecorder.swift */; };
 		E03612FEE9DC8A9278AFCC92 /* NativeRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5A63922FF6EB044D227995 /* NativeRecorder.swift */; };
 		E4286A0A9DCFC9200550C34B /* FocusOSShellApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30DC28D12373418B01347AE /* FocusOSShellApp.swift */; };
+		F8D4835A6B7579EC927BBFC4 /* NativeRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51A320871A7C4DA66A648833 /* NativeRecorderTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		EC917E9AEB56CEAC4689B339 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 861D335652CF42179229E330 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DB369BF227D81CC9AAC164C1;
+			remoteInfo = FocusOSShell;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		09535CCC4511D88B046CC9EE /* FocusOSShell.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FocusOSShell.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36ECB147F2F18BC91531E35C /* FocusOSShellPreview.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FocusOSShellPreview.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		51A320871A7C4DA66A648833 /* NativeRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRecorderTests.swift; sourceTree = "<group>"; };
+		5A2069DC27C5F897E08CE5D7 /* UploadQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueue.swift; sourceTree = "<group>"; };
 		6A5A63922FF6EB044D227995 /* NativeRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRecorder.swift; sourceTree = "<group>"; };
 		6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A29EAE195EE962096ABE52AA /* ChunkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChunkStore.swift; sourceTree = "<group>"; };
 		B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellWebView.swift; sourceTree = "<group>"; };
 		C30DC28D12373418B01347AE /* FocusOSShellApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusOSShellApp.swift; sourceTree = "<group>"; };
 		C4528235173579BECBDDDD1E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C75F45AA7FDB62006763AFA5 /* FocusOSShellTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FocusOSShellTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -33,18 +52,29 @@
 			children = (
 				09535CCC4511D88B046CC9EE /* FocusOSShell.app */,
 				36ECB147F2F18BC91531E35C /* FocusOSShellPreview.app */,
+				C75F45AA7FDB62006763AFA5 /* FocusOSShellTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		93C60A64CA6F39068FEC1B50 /* FocusOSShellTests */ = {
+			isa = PBXGroup;
+			children = (
+				51A320871A7C4DA66A648833 /* NativeRecorderTests.swift */,
+			);
+			path = FocusOSShellTests;
 			sourceTree = "<group>";
 		};
 		BF16F411EF4673E434D65712 /* FocusOSShell */ = {
 			isa = PBXGroup;
 			children = (
 				6C8A4C85E799CBDA3F155A19 /* Assets.xcassets */,
+				A29EAE195EE962096ABE52AA /* ChunkStore.swift */,
 				C30DC28D12373418B01347AE /* FocusOSShellApp.swift */,
 				C4528235173579BECBDDDD1E /* Info.plist */,
 				6A5A63922FF6EB044D227995 /* NativeRecorder.swift */,
 				B4EC1193334300D5A0EF6A68 /* ShellWebView.swift */,
+				5A2069DC27C5F897E08CE5D7 /* UploadQueue.swift */,
 			);
 			path = FocusOSShell;
 			sourceTree = "<group>";
@@ -53,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				BF16F411EF4673E434D65712 /* FocusOSShell */,
+				93C60A64CA6F39068FEC1B50 /* FocusOSShellTests */,
 				2BDA42205D2180B945BD7632 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -96,6 +127,24 @@
 			productReference = 36ECB147F2F18BC91531E35C /* FocusOSShellPreview.app */;
 			productType = "com.apple.product-type.application";
 		};
+		E0DCB851840E05DEF2C66832 /* FocusOSShellTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DEC4DBF59B2B09058D97385E /* Build configuration list for PBXNativeTarget "FocusOSShellTests" */;
+			buildPhases = (
+				AF35B0064A87CBE90AEF599D /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9B9348B3862618A7A11C4555 /* PBXTargetDependency */,
+			);
+			name = FocusOSShellTests;
+			packageProductDependencies = (
+			);
+			productName = FocusOSShellTests;
+			productReference = C75F45AA7FDB62006763AFA5 /* FocusOSShellTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -110,6 +159,10 @@
 						ProvisioningStyle = Automatic;
 					};
 					DD1F589FF2CF743A240BB36A = {
+						DevelopmentTeam = 3V9TZC8UU4;
+						ProvisioningStyle = Automatic;
+					};
+					E0DCB851840E05DEF2C66832 = {
 						DevelopmentTeam = 3V9TZC8UU4;
 						ProvisioningStyle = Automatic;
 					};
@@ -131,6 +184,7 @@
 			targets = (
 				DB369BF227D81CC9AAC164C1 /* FocusOSShell */,
 				DD1F589FF2CF743A240BB36A /* FocusOSShellPreview */,
+				E0DCB851840E05DEF2C66832 /* FocusOSShellTests */,
 			);
 		};
 /* End PBXProject section */
@@ -155,13 +209,23 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		AF35B0064A87CBE90AEF599D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F8D4835A6B7579EC927BBFC4 /* NativeRecorderTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CCEA7F7F658E36B10EECFD6A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				162ED1F604578EF191B10744 /* ChunkStore.swift in Sources */,
 				E4286A0A9DCFC9200550C34B /* FocusOSShellApp.swift in Sources */,
 				A3B6F8F87C30D943D1F5E8F9 /* NativeRecorder.swift in Sources */,
 				26AB254EA6295D851A83BA9E /* ShellWebView.swift in Sources */,
+				4166F3B7055FA9A97092B917 /* UploadQueue.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -169,15 +233,42 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7FA5CF646D0FD4690BE3FB6E /* ChunkStore.swift in Sources */,
 				9A20A0A473124C0C0EE284E8 /* FocusOSShellApp.swift in Sources */,
 				E03612FEE9DC8A9278AFCC92 /* NativeRecorder.swift in Sources */,
 				40DCE7BC5A84304383161A5F /* ShellWebView.swift in Sources */,
+				56E16B40C13BA8C421E65E3E /* UploadQueue.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		9B9348B3862618A7A11C4555 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DB369BF227D81CC9AAC164C1 /* FocusOSShell */;
+			targetProxy = EC917E9AEB56CEAC4689B339 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		051FB37706A32A2C62E2E88C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = tech.focusos.FocusOSShellTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FocusOSShell.app/FocusOSShell";
+			};
+			name = Debug;
+		};
 		1DB9CDA72075F08A0CE77266 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -191,6 +282,23 @@
 				PRODUCT_BUNDLE_IDENTIFIER = tech.focusos.FocusOSShell;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		423E7EFE381E1285FA2BD0A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = tech.focusos.FocusOSShellTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FocusOSShell.app/FocusOSShell";
 			};
 			name = Release;
 		};
@@ -394,6 +502,15 @@
 			buildConfigurations = (
 				F43DF81FD56EDD216A9A92A3 /* Debug */,
 				8E7B5DFDDBCD563DFEBC8733 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DEC4DBF59B2B09058D97385E /* Build configuration list for PBXNativeTarget "FocusOSShellTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				051FB37706A32A2C62E2E88C /* Debug */,
+				423E7EFE381E1285FA2BD0A8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

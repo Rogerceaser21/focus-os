@@ -37,6 +37,26 @@ enum ShellConfig {
         return hosts
     }()
 
+    /// Hosts that serve more than the app: the page must also sit under this base path.
+    static let appBasePaths: [String: String] = [
+        "rogerceaser21.github.io": "/focus-os/",
+    ]
+
+    /// Trust check for the native recorder bridge: https, an app host and (where the
+    /// host is shared) the app's base path. Debug builds also trust the local dev server.
+    static func isTrustedAppURL(_ url: URL?) -> Bool {
+        guard let url, let host = url.host, appHosts.contains(host) else { return false }
+        #if DEBUG
+        if host == "localhost" { return url.scheme == "http" || url.scheme == "https" }
+        #endif
+        guard url.scheme == "https" else { return false }
+        if let base = appBasePaths[host] {
+            let path = url.path.isEmpty ? "/" : url.path
+            return path.hasPrefix(base) || path == String(base.dropLast())
+        }
+        return true
+    }
+
     /// The only hosts the native OAuth bridge will open. The page posts the URL,
     /// so anything wider would make the shell an open redirector for injected
     /// script. accounts.google.com is the Calendar consent hop after the
@@ -223,10 +243,10 @@ struct ShellWebView: UIViewRepresentable {
         // script can never drive the session at an arbitrary origin.
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "recorder" {
-                // Only the app's own main frame may drive the recorder (same rule
-                // as the host allowlist for navigation).
+                // Only the app's own main frame may drive the recorder: https, an app host
+                // AND the app's base path (the frame URL, not just the host).
                 guard message.frameInfo.isMainFrame,
-                      ShellConfig.appHosts.contains(message.frameInfo.securityOrigin.host),
+                      ShellConfig.isTrustedAppURL(message.frameInfo.request.url),
                       let body = message.body as? [String: Any] else { return }
                 NativeRecorder.shared.handle(body)
                 return

@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import UIKit
 import WebKit
+import UserNotifications
 
 /// Native meeting recorder (R3, 2026-11-11).
 ///
@@ -14,17 +15,24 @@ import WebKit
 /// AUDIO: mono, 16 kHz, AAC-LC, ~32 kbps, written as ADTS frames. A chunk is a
 /// run of whole ADTS frames; chunk N+1 continues chunk N's stream, so the server
 /// composes the recording by plain byte concatenation. A chunk rotates after 157
-/// frames (1024 samples each = 10.05 s).
+/// frames (1024 samples each = 10.05 s). Encoders are flushed on pause and stop so
+/// the tail of the audio is never dropped.
 ///
 /// FILES: Application Support/meeting-chunks/<sessionId>/{manifest.json,
-/// 00000.aac, ...}. The chunk being written is `<index>.part` and is renamed on
-/// rotation; a killed app leaves the .part behind and relaunch recovers it.
-/// A chunk file is deleted ONLY after its upload returned HTTP 2xx.
+/// 00000.aac, ...} (ChunkStore.swift). The chunk being written is `<index>.part`;
+/// a killed app leaves it behind and relaunch recovers it.
+///
+/// UPLOAD: UploadQueue.swift (per-session round-robin, files deleted only after
+/// 2xx, parking only after a successful status read).
 ///
 /// TOKENS: native never refreshes the Supabase session (that would rotate the
 /// refresh token and log the web app out). The web passes {accessToken,
 /// expiresAt} at start and again on every refresh; an expired token means the
 /// chunks wait on disk and the backlog drains once the web pushes a fresh one.
+///
+/// HONESTY: never "recording" while capturing nothing. A failed engine restart or
+/// 5 s without audio buffers switches to paused + `interrupted {reason}`, retries
+/// with backoff, and posts a local notification when the app is not in front.
 final class NativeRecorder: NSObject {
     static let shared = NativeRecorder()
 
@@ -34,6 +42,9 @@ final class NativeRecorder: NSObject {
     static let chunkPackets = 157
     /// Tokens only ever go to the project's own Supabase host.
     static let allowedSupabaseHost = "mshlbsgsyzzfxyxramjj.supabase.co"
+    static let silenceLimit: TimeInterval = 5
+    static let parkedMaxAge: TimeInterval = 7 * 24 * 3600
+    static let noticeID = "focusos-recording-paused"
 
     weak var webView: WKWebView?
 
@@ -42,28 +53,21 @@ final class NativeRecorder: NSObject {
     private var webReady = false
     private var eventQueue: [[String: Any]] = []
 
-    struct Manifest: Codable {
-        var sessionId: String
-        var userId: String?
-        var nextIndex: Int = 0
-        var uploadedUpTo: Int = -1
-        var startedAt: Double
-        var pausedMs: Double = 0
-        var pausedAt: Double?
-        /// recording | paused | stopped | killed
-        var status: String
-        var sampleRate: Int = 16_000
-    }
-
     private final class Rec {
         var m: Manifest
         var handle: FileHandle?
         var packets = 0
         var userPaused = false
         var interrupted = false
+        var interruptReason: String?
+        /// Engine stopped, queued buffers still being written (pause/stop in progress).
+        var draining = false
+        var lastBufferAt = Date()
+        var resumeLoop = 0
         init(_ m: Manifest) { self.m = m }
     }
 
+    let store = ChunkStore(root: NativeRecorder.rootDir)
     private var rec: Rec?
     private var engine = AVAudioEngine()
     private var pcmFmt: AVAudioFormat?
@@ -71,22 +75,33 @@ final class NativeRecorder: NSObject {
     private var pcmConv: AVAudioConverter?
     private var aacConv: AVAudioConverter?
     private var observersInstalled = false
+    private var watchdog: DispatchSourceTimer?
 
     // Upload state.
-    private var supabaseURL: URL?
-    private var anonKey: String?
-    private var accessToken: String?
+    private let transport = SupabaseTransport()
+    private var queue: UploadQueue!
     private var tokenExpiresAt: Double = 0   // epoch seconds
-    private var authUserId: String?
     private var tokenRejected = false
-    private var uploading = false
+    private var pumping = false
     private var retryScheduled = false
-    private var attempts = 0
-    private var lastWaiting: String = ""
+    private var lastWaiting = ""
     /// Sessions whose `stopped {allUploaded}` the web already heard.
     private var reportedDone = Set<String>()
+    /// A start waiting on the mic prompt; `discard` for it cancels the start.
+    private var pendingStartId: String?
+    private var cancelledStarts = Set<String>()
+    private var notifAllowed = false
 
-    private override init() { super.init() }
+    private override init() {
+        super.init()
+        transport.callbackQueue = q
+        queue = UploadQueue(store: store, transport: transport)
+        queue.tokenUsable = { [weak self] in
+            guard let self else { return false }
+            return self.transport.accessToken != nil && !self.tokenRejected
+                && self.tokenExpiresAt > Date().timeIntervalSince1970 + 5
+        }
+    }
 
     // MARK: - Entry points
 
@@ -95,25 +110,26 @@ final class NativeRecorder: NSObject {
         return base.appendingPathComponent("meeting-chunks", isDirectory: true)
     }
 
-    private func dir(_ sessionId: String) -> URL {
-        NativeRecorder.rootDir.appendingPathComponent(sessionId, isDirectory: true)
-    }
-
     private func nowMs() -> Double { (Date().timeIntervalSince1970 * 1000).rounded() }
 
-    /// App launch: repair files left by a killed app. Safe to call once.
+    /// App launch: repair files left by a killed app, drop old parked sessions. Safe to call once.
     func recoverOnLaunch() {
         q.async { [self] in
             installObservers()
-            try? FileManager.default.createDirectory(at: NativeRecorder.rootDir, withIntermediateDirectories: true)
-            for m in loadAllManifests() {
+            for m in store.loadAll() {
                 var man = m
-                recoverFiles(&man)
-                if man.status == "recording" || man.status == "paused" {
+                store.recover(&man)
+                if ["recording", "paused", "stopping"].contains(man.status) {
                     man.status = "killed"
                     man.pausedAt = nil
                 }
-                saveManifest(man)
+                store.save(man)
+            }
+            store.cleanupParked(olderThan: NativeRecorder.parkedMaxAge, now: Date())
+            if UserDefaults.standard.bool(forKey: "focusos.recorder.notifAsked") {
+                UNUserNotificationCenter.current().getNotificationSettings { [weak self] s in
+                    self?.q.async { self?.notifAllowed = (s.authorizationStatus == .authorized) }
+                }
             }
         }
     }
@@ -123,19 +139,19 @@ final class NativeRecorder: NSObject {
         q.async { [self] in webReady = false; reportedDone.removeAll() }
     }
 
-    /// Validated by the caller (ShellWebView) to come from an app-host main frame.
+    /// Validated by the caller (ShellWebView) to come from a trusted app-origin main frame.
     func handle(_ body: [String: Any]) {
         q.async { [self] in
             guard let cmd = body["cmd"] as? String else { return }
             switch cmd {
             case "ready": onReady()
             case "start": onStart(body)
-            case "pause": onPause(byInterruption: false)
+            case "pause": onPause(reason: nil)
             case "resume": onResume()
             case "stop": onStop()
-            case "setAuth": applyAuth(body); kickUpload()
+            case "setAuth": applyAuth(body); queue.resetBackoff(); pump()
             case "clearAuth":
-                accessToken = nil; tokenExpiresAt = 0; authUserId = nil
+                transport.accessToken = nil; tokenExpiresAt = 0; queue.authUserId = nil
             case "status": onReady(replayOnly: true)
             case "forget": onForget(body, onlyIfDone: true)
             case "discard": onForget(body, onlyIfDone: false)
@@ -181,7 +197,7 @@ final class NativeRecorder: NSObject {
         emitState()
         emit(["type": "pending", "sessions": pendingSessions()])
         emitWaiting(force: true)
-        kickUpload()
+        pump()
     }
 
     private func emitState() {
@@ -198,47 +214,68 @@ final class NativeRecorder: NSObject {
             "interrupted": r.interrupted,
         ]
         if let p = r.m.pausedAt { e["pausedAt"] = p }
+        if let why = r.interruptReason { e["interruptReason"] = why }
         emit(e)
     }
-
-    // MARK: - Start / pause / resume / stop
 
     private func fail(_ message: String) {
         emit(["type": "error", "message": message])
     }
 
+    private func persist(_ r: Rec) {
+        // The upload queue owns uploadedUpTo / parked: never clobber them with a stale copy.
+        if let disk = store.load(r.m.sessionId) {
+            r.m.uploadedUpTo = max(disk.uploadedUpTo, r.m.uploadedUpTo)
+            r.m.parked = disk.parked
+            r.m.parkedAt = disk.parkedAt
+        }
+        store.save(r.m)
+    }
+
+    // MARK: - Start / pause / resume / stop
+
     private func applyAuth(_ body: [String: Any]) {
         if let u = body["supabaseUrl"] as? String, let url = URL(string: u),
            url.scheme == "https", url.host == NativeRecorder.allowedSupabaseHost {
-            supabaseURL = url
+            transport.supabaseURL = url
         }
-        if let k = body["anonKey"] as? String, !k.isEmpty { anonKey = k }
+        if let k = body["anonKey"] as? String, !k.isEmpty { transport.anonKey = k }
         if let t = body["accessToken"] as? String, !t.isEmpty {
-            accessToken = t
+            transport.accessToken = t
             tokenRejected = false
         }
         if let e = body["expiresAt"] as? Double { tokenExpiresAt = e }
         else if let e = body["expiresAt"] as? Int { tokenExpiresAt = Double(e) }
-        if let uid = body["userId"] as? String, !uid.isEmpty { authUserId = uid }
-    }
-
-    private func validSession(_ id: String) -> Bool {
-        !id.isEmpty && id.count <= 80 && id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil
+        if let uid = body["userId"] as? String, !uid.isEmpty { queue.authUserId = uid }
     }
 
     private func onStart(_ body: [String: Any]) {
-        guard rec == nil else { fail("Already recording"); return }
-        guard let sid = body["sessionId"] as? String, validSession(sid) else { fail("Bad session id"); return }
+        guard rec == nil, pendingStartId == nil else { fail("Already recording"); return }
+        guard let sid = body["sessionId"] as? String, ChunkStore.isValidSessionId(sid) else { fail("Bad session id"); return }
         applyAuth(body)
-        guard supabaseURL != nil, anonKey != nil else { fail("Missing sign-in details"); return }
+        guard transport.supabaseURL != nil, transport.anonKey != nil else { fail("Missing sign-in details"); return }
         let userId = body["userId"] as? String
+        pendingStartId = sid
+        cancelledStarts.remove(sid)
 
         AVAudioApplication.requestRecordPermission { [weak self] granted in
             guard let self else { return }
             self.q.async {
+                self.pendingStartId = nil
+                // The page gave up on this start (permission prompt took too long): never record it.
+                if self.cancelledStarts.remove(sid) != nil { return }
                 guard granted else { self.fail("Microphone access denied"); return }
                 self.beginRecording(sessionId: sid, userId: userId)
             }
+        }
+    }
+
+    private func requestNotificationsOnce() {
+        let key = "focusos.recorder.notifAsked"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
+            self?.q.async { self?.notifAllowed = granted }
         }
     }
 
@@ -246,16 +283,16 @@ final class NativeRecorder: NSObject {
         guard rec == nil else { fail("Already recording"); return }
         do {
             try activateSession()
-            try FileManager.default.createDirectory(at: dir(sessionId), withIntermediateDirectories: true)
             var m = Manifest(sessionId: sessionId, userId: userId, startedAt: nowMs(), status: "recording")
             // A session id reused after a crash keeps its numbering.
-            if let old = loadManifest(sessionId) { m.nextIndex = old.nextIndex; m.uploadedUpTo = old.uploadedUpTo }
+            if let old = store.load(sessionId) { m.nextIndex = old.nextIndex; m.uploadedUpTo = old.uploadedUpTo }
             try buildEncoder()
             let r = Rec(m)
             rec = r
-            saveManifest(m)
+            store.save(m)
             try startEngine()
             reportedDone.remove(sessionId)
+            requestNotificationsOnce()
             emit(["type": "started", "sessionId": sessionId, "startedAt": m.startedAt, "pausedMs": 0])
             emitState()
         } catch {
@@ -266,19 +303,32 @@ final class NativeRecorder: NSObject {
         }
     }
 
-    private func onPause(byInterruption: Bool) {
-        guard let r = rec, r.m.status == "recording" else { return }
+    /// Pause (user) or interruption (reason != nil). The engine stops first; buffers
+    /// already queued are still written before the chunk is closed.
+    private func onPause(reason: String?) {
+        guard let r = rec, r.m.status == "recording", !r.draining else { return }
         engine.pause()
-        finishChunk(r)
-        r.m.status = "paused"
-        r.m.pausedAt = nowMs()
-        if byInterruption { r.interrupted = true } else { r.userPaused = true }
-        saveManifest(r.m)
-        emitState()
+        r.draining = true
+        if let reason { r.interrupted = true; r.interruptReason = reason } else { r.userPaused = true }
+        q.async { [self] in
+            guard rec === r else { return }
+            r.draining = false
+            flushEncoders(r)
+            finishChunk(r)
+            r.m.status = "paused"
+            r.m.pausedAt = nowMs()
+            persist(r)
+            emitState()
+            if let reason {
+                emit(["type": "interrupted", "sessionId": r.m.sessionId, "reason": reason])
+                scheduleResumeNotice()
+            }
+        }
     }
 
     private func onResume() {
         guard let r = rec, r.m.status == "paused" else { return }
+        r.resumeLoop += 1   // cancels any retry loop in flight
         do {
             try activateSession()
             try startEngine()
@@ -286,13 +336,20 @@ final class NativeRecorder: NSObject {
             fail("Could not resume recording: \(error.localizedDescription)")
             return
         }
+        commitResume(r)
+    }
+
+    private func commitResume(_ r: Rec) {
         if let p = r.m.pausedAt { r.m.pausedMs += max(0, nowMs() - p) }
         r.m.pausedAt = nil
         r.m.status = "recording"
         r.userPaused = false
         let wasInterrupted = r.interrupted
         r.interrupted = false
-        saveManifest(r.m)
+        r.interruptReason = nil
+        r.lastBufferAt = Date()
+        persist(r)
+        cancelResumeNotice()
         emitState()
         if wasInterrupted { emit(["type": "resumed", "sessionId": r.m.sessionId]) }
     }
@@ -302,23 +359,50 @@ final class NativeRecorder: NSObject {
             emit(["type": "state", "state": "idle"])
             return
         }
+        guard !r.draining else { return }
         emit(["type": "state", "state": "stopping", "sessionId": r.m.sessionId])
+        r.resumeLoop += 1
+        cancelResumeNotice()
+        stopWatchdog()
         teardownEngine()
-        finishChunk(r)
-        if let p = r.m.pausedAt { r.m.pausedMs += max(0, nowMs() - p); r.m.pausedAt = nil }
-        r.m.status = "stopped"
-        saveManifest(r.m)
-        rec = nil
-        deactivateSession()
-        emit(["type": "state", "state": "idle"])
-        kickUpload()
-        checkDone()
+        r.draining = true
+        // Buffers already handed to the queue are written BEFORE the encoders flush.
+        q.async { [self] in
+            guard rec === r else { return }
+            r.draining = false
+            if r.m.status == "recording" { flushEncoders(r) }
+            finishChunk(r)
+            if let p = r.m.pausedAt { r.m.pausedMs += max(0, nowMs() - p); r.m.pausedAt = nil }
+            r.m.status = "stopped"
+            persist(r)
+            rec = nil
+            deactivateSession()
+            emit(["type": "state", "state": "idle"])
+            pump()
+            checkDone()
+        }
     }
 
     private func onForget(_ body: [String: Any], onlyIfDone: Bool) {
-        guard let sid = body["sessionId"] as? String, validSession(sid), rec?.m.sessionId != sid else { return }
-        if onlyIfDone, let m = loadManifest(sid), pendingCount(m) > 0 { return }
-        try? FileManager.default.removeItem(at: dir(sid))
+        guard let sid = body["sessionId"] as? String, ChunkStore.isValidSessionId(sid) else { return }
+        if !onlyIfDone {
+            if pendingStartId == sid { cancelledStarts.insert(sid) }
+            if let r = rec, r.m.sessionId == sid {
+                // The page considers this session failed: stop without keeping anything.
+                r.resumeLoop += 1
+                stopWatchdog()
+                teardownEngine()
+                try? r.handle?.close()
+                r.handle = nil
+                rec = nil
+                deactivateSession()
+                cancelResumeNotice()
+                emit(["type": "state", "state": "idle"])
+            }
+        }
+        guard rec?.m.sessionId != sid else { return }
+        if onlyIfDone, let m = store.load(sid), store.pendingCount(m) > 0 { return }
+        store.remove(sid)
         reportedDone.remove(sid)
     }
 
@@ -326,7 +410,9 @@ final class NativeRecorder: NSObject {
 
     private func activateSession() throws {
         let s = AVAudioSession.sharedInstance()
-        try s.setCategory(.playAndRecord, mode: .default, options: [.allowBluetooth, .defaultToSpeaker])
+        var options: AVAudioSession.CategoryOptions = [.defaultToSpeaker]
+        if #available(iOS 26.0, *) { options.insert(.allowBluetoothHFP) } else { options.insert(.allowBluetooth) }
+        try s.setCategory(.playAndRecord, mode: .default, options: options)
         try s.setActive(true)
     }
 
@@ -356,6 +442,14 @@ final class NativeRecorder: NSObject {
         aacConv = conv
     }
 
+    /// A fresh engine: after a route change, a media-services reset or a failed start the
+    /// old one is not trusted.
+    private func rebuildEngine() {
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        engine = AVAudioEngine()
+    }
+
     /// (Re)install the input tap against the CURRENT hardware format (it changes on
     /// a route change) and start the engine.
     private func startEngine() throws {
@@ -373,6 +467,8 @@ final class NativeRecorder: NSObject {
         }
         engine.prepare()
         try engine.start()
+        rec?.lastBufferAt = Date()
+        startWatchdog()
     }
 
     private func teardownEngine() {
@@ -380,11 +476,83 @@ final class NativeRecorder: NSObject {
         engine.stop()
     }
 
+    // MARK: - Watchdog + honest failure
+
+    private func startWatchdog() {
+        guard watchdog == nil else { return }
+        let t = DispatchSource.makeTimerSource(queue: q)
+        t.schedule(deadline: .now() + 2, repeating: 2)
+        t.setEventHandler { [weak self] in
+            guard let self, let r = self.rec, r.m.status == "recording", !r.draining else { return }
+            if Date().timeIntervalSince(r.lastBufferAt) > NativeRecorder.silenceLimit {
+                self.engineFailed("noAudio")
+            }
+        }
+        t.resume()
+        watchdog = t
+    }
+
+    private func stopWatchdog() {
+        watchdog?.cancel()
+        watchdog = nil
+    }
+
+    /// The engine died or went silent: say so (paused + interrupted {reason}), then keep
+    /// trying to restart with backoff; `resumed` follows a success.
+    private func engineFailed(_ reason: String) {
+        guard let r = rec, r.m.status == "recording", !r.draining else { return }
+        onPause(reason: reason)
+        // The pause finishes on the queue; the restart loop starts right behind it.
+        q.async { [self] in startResumeLoop(r, attempt: 0) }
+    }
+
+    private func startResumeLoop(_ r: Rec, attempt: Int, token: Int? = nil) {
+        let id: Int
+        if let token { id = token } else { r.resumeLoop += 1; id = r.resumeLoop }
+        guard rec === r, r.interrupted, r.m.status == "paused", !r.userPaused, r.resumeLoop == id else { return }
+        do {
+            rebuildEngine()
+            try activateSession()
+            try startEngine()
+            commitResume(r)
+        } catch {
+            guard attempt < 4 else { return }   // stays paused + notified; foreground auto-resumes
+            let delay = Double(1 << attempt)
+            q.asyncAfter(deadline: .now() + delay) { [self] in startResumeLoop(r, attempt: attempt + 1, token: id) }
+        }
+    }
+
+    // MARK: - Local notification
+
+    private func appIsActive() -> Bool {
+        var active = true
+        DispatchQueue.main.sync { active = UIApplication.shared.applicationState == .active }
+        return active
+    }
+
+    private func scheduleResumeNotice() {
+        guard notifAllowed, !appIsActive() else { return }
+        let c = UNMutableNotificationContent()
+        c.title = "Focus OS"
+        c.body = "Meeting recording paused. Open Focus OS to resume."
+        c.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 15, repeats: false)
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: NativeRecorder.noticeID, content: c, trigger: trigger))
+    }
+
+    private func cancelResumeNotice() {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [NativeRecorder.noticeID])
+        center.removeDeliveredNotifications(withIdentifiers: [NativeRecorder.noticeID])
+    }
+
     // MARK: - Encode + write
 
     private func process(_ buf: AVAudioPCMBuffer) {
-        guard let r = rec, r.m.status == "recording",
-              let pcmConv, let pcmFmt, let aacConv, let aacFmt else { return }
+        guard let r = rec, r.m.status == "recording" || r.draining,
+              let pcmConv, let pcmFmt else { return }
+        r.lastBufferAt = Date()
         let ratio = pcmFmt.sampleRate / buf.format.sampleRate
         let cap = AVAudioFrameCount(Double(buf.frameLength) * ratio) + 64
         guard let pcmOut = AVAudioPCMBuffer(pcmFormat: pcmFmt, frameCapacity: cap) else { return }
@@ -397,23 +565,52 @@ final class NativeRecorder: NSObject {
             return buf
         }
         guard st != .error, pcmOut.frameLength > 0 else { return }
+        encode(pcm: pcmOut, flush: false, to: r)
+    }
 
+    /// Feed PCM (or nothing) to the AAC encoder and write every packet it yields.
+    /// `flush` ends the stream so the encoder releases its buffered tail.
+    private func encode(pcm: AVAudioPCMBuffer?, flush: Bool, to r: Rec) {
+        guard let aacConv, let aacFmt else { return }
         let comp = AVAudioCompressedBuffer(format: aacFmt, packetCapacity: 16,
                                            maximumPacketSize: aacConv.maximumOutputPacketSize)
         var fed = false
         while true {
-            var e2: NSError?
-            let s2 = aacConv.convert(to: comp, error: &e2) { _, status in
-                if fed { status.pointee = .noDataNow; return nil }
+            var e: NSError?
+            let st = aacConv.convert(to: comp, error: &e) { _, status in
+                if !fed, let pcm {
+                    fed = true
+                    status.pointee = .haveData
+                    return pcm
+                }
                 fed = true
-                status.pointee = .haveData
-                return pcmOut
+                status.pointee = flush ? .endOfStream : .noDataNow
+                return nil
             }
-            if s2 == .error { break }
+            if st == .error { break }
             writePackets(comp, to: r)
-            if s2 == .inputRanDry || s2 == .endOfStream { break }
+            if st == .inputRanDry || st == .endOfStream { break }
             if comp.packetCount == 0 { break }
         }
+    }
+
+    /// Drain the resampler and the encoder so the last captured audio reaches the file,
+    /// then reset both for the next stretch of audio.
+    private func flushEncoders(_ r: Rec) {
+        if let pcmConv, let pcmFmt {
+            let tail = AVAudioPCMBuffer(pcmFormat: pcmFmt, frameCapacity: 4096)
+            var err: NSError?
+            if let tail {
+                _ = pcmConv.convert(to: tail, error: &err) { _, status in
+                    status.pointee = .endOfStream
+                    return nil
+                }
+                if tail.frameLength > 0 { encode(pcm: tail, flush: false, to: r) }
+            }
+            pcmConv.reset()
+        }
+        encode(pcm: nil, flush: true, to: r)
+        aacConv?.reset()
     }
 
     private func writePackets(_ comp: AVAudioCompressedBuffer, to r: Rec) {
@@ -422,7 +619,7 @@ final class NativeRecorder: NSObject {
             let d = descs[i]
             let size = Int(d.mDataByteSize)
             if size == 0 { continue }
-            var frame = NativeRecorder.adtsHeader(payload: size)
+            var frame = ADTS.header(payload: size)
             frame.append(Data(bytes: comp.data.advanced(by: Int(d.mStartOffset)), count: size))
             guard let h = ensureHandle(r) else { return }
             h.write(frame)
@@ -431,17 +628,10 @@ final class NativeRecorder: NSObject {
         }
     }
 
-    private func partURL(_ sid: String, _ index: Int) -> URL {
-        dir(sid).appendingPathComponent(String(format: "%05d.part", index))
-    }
-
-    private func chunkURL(_ sid: String, _ index: Int) -> URL {
-        dir(sid).appendingPathComponent(String(format: "%05d.aac", index))
-    }
-
     private func ensureHandle(_ r: Rec) -> FileHandle? {
         if let h = r.handle { return h }
-        let url = partURL(r.m.sessionId, r.m.nextIndex)
+        let url = store.partURL(r.m.sessionId, r.m.nextIndex)
+        try? FileManager.default.createDirectory(at: store.dir(r.m.sessionId), withIntermediateDirectories: true)
         if !FileManager.default.fileExists(atPath: url.path) {
             FileManager.default.createFile(atPath: url.path, contents: nil)
         }
@@ -460,8 +650,8 @@ final class NativeRecorder: NSObject {
         try? r.handle?.close()
         r.handle = nil
         guard r.packets > 0 else { return }
-        let from = partURL(r.m.sessionId, r.m.nextIndex)
-        let to = chunkURL(r.m.sessionId, r.m.nextIndex)
+        let from = store.partURL(r.m.sessionId, r.m.nextIndex)
+        let to = store.chunkURL(r.m.sessionId, r.m.nextIndex)
         try? FileManager.default.removeItem(at: to)
         do { try FileManager.default.moveItem(at: from, to: to) } catch {
             fail("Could not save a recording piece")
@@ -470,130 +660,38 @@ final class NativeRecorder: NSObject {
         let index = r.m.nextIndex
         r.m.nextIndex += 1
         r.packets = 0
-        saveManifest(r.m)
+        persist(r)
         emit(["type": "chunkSaved", "sessionId": r.m.sessionId, "index": index])
-        kickUpload()
+        pump()
     }
 
-    /// 7-byte ADTS header for one raw AAC-LC frame at 16 kHz mono.
-    /// profile = objectType - 1 = 1 (LC); sampling index 8 = 16000 Hz; channels 1.
-    static func adtsHeader(payload: Int) -> Data {
-        let len = payload + 7
-        let profile = 1, freqIdx = 8, chan = 1
-        var h = [UInt8](repeating: 0, count: 7)
-        h[0] = 0xFF
-        h[1] = 0xF1   // MPEG-4, layer 0, no CRC
-        h[2] = UInt8((profile << 6) | (freqIdx << 2) | ((chan >> 2) & 1))
-        h[3] = UInt8(((chan & 3) << 6) | ((len >> 11) & 3))
-        h[4] = UInt8((len >> 3) & 0xFF)
-        h[5] = UInt8(((len & 7) << 5) | 0x1F)
-        h[6] = 0xFC
-        return Data(h)
-    }
-
-    /// Keep only whole ADTS frames (a kill can tear the last write).
-    static func completeFrames(_ data: Data) -> Data {
-        let b = [UInt8](data)
-        var pos = 0
-        while pos + 7 <= b.count {
-            guard b[pos] == 0xFF, (b[pos + 1] & 0xF0) == 0xF0 else { break }
-            let len = (Int(b[pos + 3] & 3) << 11) | (Int(b[pos + 4]) << 3) | Int(b[pos + 5] >> 5)
-            if len < 7 || pos + len > b.count { break }
-            pos += len
-        }
-        return Data(b[0..<pos])
-    }
-
-    // MARK: - Manifests + recovery
-
-    private func manifestURL(_ sid: String) -> URL { dir(sid).appendingPathComponent("manifest.json") }
-
-    private func saveManifest(_ m: Manifest) {
-        guard let data = try? JSONEncoder().encode(m) else { return }
-        try? data.write(to: manifestURL(m.sessionId), options: .atomic)
-    }
-
-    private func loadManifest(_ sid: String) -> Manifest? {
-        guard let data = try? Data(contentsOf: manifestURL(sid)) else { return nil }
-        return try? JSONDecoder().decode(Manifest.self, from: data)
-    }
-
-    private func loadAllManifests() -> [Manifest] {
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: NativeRecorder.rootDir.path)) ?? []
-        return names.compactMap { validSession($0) ? loadManifest($0) : nil }
-            .sorted { $0.startedAt < $1.startedAt }
-    }
-
-    private func existingChunkIndexes(_ sid: String) -> [Int] {
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: dir(sid).path)) ?? []
-        return names.compactMap { n in
-            n.hasSuffix(".aac") ? Int(n.dropLast(4)) : nil
-        }.sorted()
-    }
-
-    /// Turn a leftover .part into a whole chunk and repair the counters.
-    private func recoverFiles(_ m: inout Manifest) {
-        let sid = m.sessionId
-        let part = partURL(sid, m.nextIndex)
-        if let data = try? Data(contentsOf: part) {
-            let whole = NativeRecorder.completeFrames(data)
-            if !whole.isEmpty {
-                try? whole.write(to: chunkURL(sid, m.nextIndex), options: .atomic)
-                m.nextIndex += 1
-            }
-            try? FileManager.default.removeItem(at: part)
-        }
-        if let top = existingChunkIndexes(sid).last, top >= m.nextIndex { m.nextIndex = top + 1 }
-    }
-
-    private func pendingCount(_ m: Manifest) -> Int {
-        existingChunkIndexes(m.sessionId).filter { $0 > m.uploadedUpTo }.count
-    }
+    // MARK: - Pending report
 
     private func pendingSessions() -> [[String: Any]] {
-        loadAllManifests().filter { $0.sessionId != rec?.m.sessionId }.map { m in
+        store.loadAll().filter { $0.sessionId != rec?.m.sessionId }.map { m in
             var d: [String: Any] = [
                 "sessionId": m.sessionId,
                 "status": m.status,
                 "lastIndex": m.nextIndex - 1,
                 "uploadedUpTo": m.uploadedUpTo,
-                "pending": pendingCount(m),
+                "pending": store.pendingCount(m),
                 "startedAt": m.startedAt,
                 "pausedMs": m.pausedMs,
-                "allUploaded": pendingCount(m) == 0,
+                "allUploaded": store.pendingCount(m) == 0,
+                "parked": m.parked == true,
             ]
             if let u = m.userId { d["userId"] = u }
             return d
         }
     }
 
-    // MARK: - Upload
-
-    private func tokenUsable() -> Bool {
-        accessToken != nil && !tokenRejected && tokenExpiresAt > Date().timeIntervalSince1970 + 5
-    }
-
-    private func totalPending() -> Int {
-        loadAllManifests().filter { $0.userId == nil || $0.userId == authUserId }
-            .reduce(0) { $0 + pendingCount($1) }
-    }
-
-    private func nextChunk() -> (Manifest, Int)? {
-        for m in loadAllManifests() {
-            if let u = m.userId, u != authUserId { continue }   // never upload under another account
-            let idx = m.uploadedUpTo + 1
-            if idx < m.nextIndex, FileManager.default.fileExists(atPath: chunkURL(m.sessionId, idx).path) {
-                return (m, idx)
-            }
-        }
-        return nil
-    }
+    // MARK: - Upload pump
 
     private func emitWaiting(force: Bool = false) {
-        let pending = totalPending()
+        let pending = queue.pendingTotal()
         var reason = ""
-        if pending > 0 && !tokenUsable() { reason = "signin" }
-        else if pending > 0 && attempts > 0 { reason = "network" }
+        if pending > 0 && !queue.tokenUsable() { reason = "signin" }
+        else if pending > 0 && queue.earliestRetry().map({ $0 > Date() }) == true { reason = "network" }
         let key = "\(reason):\(pending)"
         if reason.isEmpty { lastWaiting = key; return }
         if !force && key == lastWaiting { return }
@@ -601,92 +699,57 @@ final class NativeRecorder: NSObject {
         emit(["type": "uploadWaiting", "pending": pending, "reason": reason])
     }
 
-    func kickUpload() {
-        q.async { [self] in uploadNext() }
-    }
+    func kickUpload() { q.async { [self] in pump() } }
 
-    private func uploadNext() {
-        guard !uploading, !retryScheduled else { return }
-        guard let (m, idx) = nextChunk() else {
-            attempts = 0
-            checkDone()
-            return
-        }
-        guard tokenUsable(), let base = supabaseURL, let anon = anonKey, let token = accessToken else {
-            emitWaiting()
-            return
-        }
-        guard let bytes = try? Data(contentsOf: chunkURL(m.sessionId, idx)) else { return }
-        let payload: [String: Any] = [
-            "sessionId": m.sessionId,
-            "chunkIndex": idx,
-            "audioBase64": bytes.base64EncodedString(),
-        ]
-        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
-        var req = URLRequest(url: base.appendingPathComponent("functions/v1/focusos-upload-audio-chunk"))
-        req.httpMethod = "POST"
-        req.timeoutInterval = 45
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue(anon, forHTTPHeaderField: "apikey")
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.httpBody = body
-
-        uploading = true
-        var bg = UIBackgroundTaskIdentifier.invalid
-        DispatchQueue.main.sync {
-            bg = UIApplication.shared.beginBackgroundTask(withName: "focusos-chunk-upload") {}
-        }
-        URLSession.shared.dataTask(with: req) { [weak self] _, resp, err in
-            guard let self else { return }
-            self.q.async {
-                self.uploading = false
-                DispatchQueue.main.async {
-                    if bg != .invalid { UIApplication.shared.endBackgroundTask(bg) }
-                }
-                let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-                if err == nil, (200..<300).contains(code) {
-                    self.chunkUploaded(m.sessionId, idx)
-                } else {
-                    if code == 401 { self.tokenRejected = true }
-                    self.attempts += 1
-                    self.emitWaiting(force: true)
-                    self.scheduleRetry()
-                }
+    private func pump() {
+        guard !pumping, !retryScheduled else { return }
+        pumping = true
+        let bg = BackgroundTaskBox()
+        // The audio mode keeps a recording app alive; this covers a backlog drain after
+        // Stop. When iOS ends the time, the in-flight request is cancelled (the chunk stays
+        // queued for the next attempt) and the task is released.
+        bg.begin { [weak self] in self?.q.async { self?.transport.cancelCurrent() } }
+        queue.step { [self] result in
+            // Transport calls back on `q`.
+            pumping = false
+            bg.end()
+            switch result {
+            case .idle:
+                lastWaiting = ""
+                checkDone()
+            case .uploaded(let sid, let idx):
+                lastWaiting = ""
+                emit(["type": "chunkUploaded", "sessionId": sid, "index": idx])
+                pump()
+            case .parked(let sid):
+                emit(["type": "parked", "sessionId": sid])
+                pump()
+            case .waitingAuth:
+                if transport.lastUnauthorized { tokenRejected = true }
+                emitWaiting(force: true)
+            case .blocked(let until):
+                emitWaiting(force: true)
+                scheduleRetry(at: until)
+            case .failed:
+                emitWaiting(force: true)
+                scheduleRetry(at: queue.earliestRetry() ?? Date().addingTimeInterval(2))
             }
-        }.resume()
-    }
-
-    private func chunkUploaded(_ sid: String, _ idx: Int) {
-        try? FileManager.default.removeItem(at: chunkURL(sid, idx))   // only after a confirmed 2xx
-        if rec?.m.sessionId == sid {
-            rec?.m.uploadedUpTo = idx
-            if let r = rec { saveManifest(r.m) }
-        } else if var m = loadManifest(sid) {
-            m.uploadedUpTo = idx
-            saveManifest(m)
         }
-        attempts = 0
-        lastWaiting = ""
-        emit(["type": "chunkUploaded", "sessionId": sid, "index": idx])
-        uploadNext()
     }
 
-    private func scheduleRetry() {
-        // A rejected or missing token waits for the web's next setAuth instead of polling.
-        if tokenRejected { return }
+    private func scheduleRetry(at date: Date) {
         retryScheduled = true
-        let delay = min(60.0, pow(2.0, Double(min(attempts, 6))))
-        q.asyncAfter(deadline: .now() + delay) { [self] in
+        q.asyncAfter(deadline: .now() + max(0.5, date.timeIntervalSinceNow)) { [self] in
             retryScheduled = false
-            uploadNext()
+            pump()
         }
     }
 
     /// Tell the web about every finished (stopped or killed) session whose chunks all uploaded.
     private func checkDone() {
-        for m in loadAllManifests() where m.status == "stopped" || m.status == "killed" {
-            if let u = m.userId, u != authUserId { continue }
-            guard m.sessionId != rec?.m.sessionId, pendingCount(m) == 0,
+        for m in store.loadAll() where (m.status == "stopped" || m.status == "killed") && m.parked != true {
+            if let u = m.userId, u != queue.authUserId { continue }
+            guard m.sessionId != rec?.m.sessionId, store.pendingCount(m) == 0,
                   !reportedDone.contains(m.sessionId) else { continue }
             reportedDone.insert(m.sessionId)
             emit(["type": "stopped", "sessionId": m.sessionId, "lastIndex": m.nextIndex - 1,
@@ -704,8 +767,6 @@ final class NativeRecorder: NSObject {
                        name: AVAudioSession.interruptionNotification, object: nil)
         nc.addObserver(self, selector: #selector(onMediaReset(_:)),
                        name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
-        nc.addObserver(self, selector: #selector(onRouteChange(_:)),
-                       name: AVAudioSession.routeChangeNotification, object: nil)
         nc.addObserver(self, selector: #selector(onEngineConfig(_:)),
                        name: .AVAudioEngineConfigurationChange, object: nil)
         nc.addObserver(self, selector: #selector(onActive(_:)),
@@ -715,19 +776,19 @@ final class NativeRecorder: NSObject {
     @objc private func onInterruption(_ note: Notification) {
         guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        let optRaw = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
         q.async { [self] in
             guard let r = rec else { return }
             switch type {
             case .began:
-                guard r.m.status == "recording" else { return }
-                onPause(byInterruption: true)
-                emit(["type": "interrupted", "sessionId": r.m.sessionId])
+                onPause(reason: "call")
             case .ended:
-                guard r.interrupted else { return }
-                let opts = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)
-                    .map { AVAudioSession.InterruptionOptions(rawValue: $0) } ?? []
-                if opts.contains(.shouldResume), !r.userPaused { onResume() }
-                // Otherwise stay paused and interrupted: the web's Resume button calls onResume.
+                guard r.interrupted, !r.userPaused else { return }
+                if AVAudioSession.InterruptionOptions(rawValue: optRaw).contains(.shouldResume) {
+                    // May fail in the background (cannotStartRecording): the loop retries,
+                    // and the notice + foreground auto-resume cover the rest.
+                    q.async { [self] in startResumeLoop(r, attempt: 0) }
+                }
             @unknown default: break
             }
         }
@@ -735,33 +796,121 @@ final class NativeRecorder: NSObject {
 
     @objc private func onMediaReset(_ note: Notification) {
         q.async { [self] in
-            guard let r = rec else { return }
-            // The audio daemon restarted: every engine object is dead. Rebuild.
-            engine = AVAudioEngine()
-            guard r.m.status == "recording" else { return }
+            guard let r = rec, r.m.status == "recording" else { return }
+            rebuildEngine()
             do { try activateSession(); try startEngine() }
-            catch { fail("Recording stopped: audio restarted (\(error.localizedDescription))") }
+            catch { engineFailed("mediaReset") }
+            _ = r
         }
-    }
-
-    @objc private func onRouteChange(_ note: Notification) {
-        // The engine posts its own configuration-change; that handler rebuilds the tap.
-        // Nothing to do here except make sure a paused recording stays paused.
     }
 
     @objc private func onEngineConfig(_ note: Notification) {
         q.async { [self] in
-            guard let r = rec, r.m.status == "recording" else { return }
+            guard let r = rec, r.m.status == "recording", !r.draining else { return }
             do { try startEngine() }
-            catch { fail("Microphone changed and recording could not continue: \(error.localizedDescription)") }
+            catch { engineFailed("route") }
         }
     }
 
     @objc private func onActive(_ note: Notification) {
         q.async { [self] in
+            // Back in front with a recording paused by an interruption: resume at once.
+            if let r = rec, r.interrupted, !r.userPaused, r.m.status == "paused" {
+                startResumeLoop(r, attempt: 0)
+            }
             emitState()
             emitWaiting(force: true)
-            uploadNext()
+            queue.resetBackoff()
+            pump()
         }
+    }
+}
+
+/// One iOS background task around an upload step, ended exactly once (also from the
+/// expiry handler, which must never be empty).
+final class BackgroundTaskBox {
+    private var id = UIBackgroundTaskIdentifier.invalid
+    private let lock = NSLock()
+
+    func begin(onExpire: @escaping () -> Void) {
+        DispatchQueue.main.sync {
+            self.id = UIApplication.shared.beginBackgroundTask(withName: "focusos-chunk-upload") { [weak self] in
+                onExpire()
+                self?.end()
+            }
+        }
+    }
+
+    func end() {
+        lock.lock()
+        let current = id
+        id = .invalid
+        lock.unlock()
+        guard current != .invalid else { return }
+        DispatchQueue.main.async { UIApplication.shared.endBackgroundTask(current) }
+    }
+}
+
+/// URLSession transport for the Supabase edge function + the status read.
+/// All completions are delivered on `callbackQueue`.
+final class SupabaseTransport: UploadTransport {
+    var supabaseURL: URL?
+    var anonKey: String?
+    var accessToken: String?
+    var callbackQueue: DispatchQueue = .main
+    private(set) var lastUnauthorized = false
+    private var current: URLSessionDataTask?
+
+    func cancelCurrent() { current?.cancel() }
+
+    private func request(_ path: String, method: String) -> URLRequest? {
+        guard let base = supabaseURL, let anon = anonKey, let token = accessToken,
+              let url = URL(string: path, relativeTo: base)?.absoluteURL else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        req.timeoutInterval = 45
+        req.setValue(anon, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return req
+    }
+
+    func upload(sessionId: String, index: Int, data: Data, completion: @escaping (UploadOutcome) -> Void) {
+        let payload: [String: Any] = ["sessionId": sessionId, "chunkIndex": index, "audioBase64": data.base64EncodedString()]
+        guard var req = request("functions/v1/focusos-upload-audio-chunk", method: "POST"),
+              let body = try? JSONSerialization.data(withJSONObject: payload) else {
+            callbackQueue.async { completion(.network) }
+            return
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = body
+        lastUnauthorized = false
+        let task = URLSession.shared.dataTask(with: req) { [weak self] _, resp, err in
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            self?.callbackQueue.async {
+                if err != nil { completion(.network) }
+                else if (200..<300).contains(code) { completion(.ok) }
+                else if code == 401 { self?.lastUnauthorized = true; completion(.unauthorized) }
+                else { completion(.server(code)) }
+            }
+        }
+        current = task
+        task.resume()
+    }
+
+    func readStatus(sessionId: String, completion: @escaping (StatusRead) -> Void) {
+        guard let req = request("rest/v1/focusos_recording_sessions?id=eq.\(sessionId)&select=status", method: "GET") else {
+            callbackQueue.async { completion(.failed) }
+            return
+        }
+        URLSession.shared.dataTask(with: req) { [weak self] data, resp, err in
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            var result = StatusRead.failed
+            if err == nil, (200..<300).contains(code), let data,
+               let rows = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] {
+                if rows.isEmpty { result = .empty }
+                else if let st = rows[0]["status"] as? String { result = .status(st) }
+            }
+            self?.callbackQueue.async { completion(result) }
+        }.resume()
     }
 }

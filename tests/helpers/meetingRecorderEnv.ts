@@ -43,7 +43,7 @@ export interface RecorderRig {
 export async function bootRig(
   page: Page,
   context: BrowserContext,
-  opts?: { tuning?: { flushMs?: number; backoffMs?: number }; failFirstUploads?: number },
+  opts?: { tuning?: { flushMs?: number; backoffMs?: number; nativeStartMs?: number }; failFirstUploads?: number },
 ): Promise<RecorderRig> {
   const rig: RecorderRig = {
     startCalls: 0,
