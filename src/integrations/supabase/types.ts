@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "12.2.3"
   }
   public: {
     Tables: {
@@ -296,6 +296,189 @@ export type Database = {
         }
         Relationships: []
       }
+      att_2526_codes: {
+        Row: {
+          code: string | null
+          description: string | null
+          government_code: string | null
+          id: number
+          is_absence: boolean | null
+          is_authorised: boolean | null
+          is_statistic: boolean | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          description?: string | null
+          government_code?: string | null
+          id: number
+          is_absence?: boolean | null
+          is_authorised?: boolean | null
+          is_statistic?: boolean | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          description?: string | null
+          government_code?: string | null
+          id?: number
+          is_absence?: boolean | null
+          is_authorised?: boolean | null
+          is_statistic?: boolean | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      att_2526_marks: {
+        Row: {
+          code_id: number | null
+          late: boolean
+          mark_date: string
+          minutes_late: number
+          present_code: number | null
+          pupil_id: string
+          reason: string
+          registered: boolean
+          source_tab: string
+        }
+        Insert: {
+          code_id?: number | null
+          late?: boolean
+          mark_date: string
+          minutes_late?: number
+          present_code?: number | null
+          pupil_id: string
+          reason?: string
+          registered: boolean
+          source_tab: string
+        }
+        Update: {
+          code_id?: number | null
+          late?: boolean
+          mark_date?: string
+          minutes_late?: number
+          present_code?: number | null
+          pupil_id?: string
+          reason?: string
+          registered?: boolean
+          source_tab?: string
+        }
+        Relationships: []
+      }
+      att_2526_students: {
+        Row: {
+          archived_at: string
+          c1_email: string
+          c1_forename: string
+          c1_mobile: string
+          c1_relation: string
+          c1_surname: string
+          c2_email: string
+          c2_forename: string
+          c2_mobile: string
+          c2_relation: string
+          c2_surname: string
+          days_open_term: number
+          days_open_year: number
+          early_leave_7d: number
+          early_leave_term: number
+          early_leave_year: number
+          forename: string
+          form: string
+          invalid_abs_7d: number
+          invalid_abs_term: number
+          invalid_abs_year: number
+          late_7d: number
+          late_minutes_7d: number
+          late_minutes_term: number
+          late_minutes_year: number
+          late_term: number
+          late_year: number
+          school_id: string
+          surname: string
+          uploaded_at: string
+          username: string
+          valid_abs_7d: number
+          valid_abs_term: number
+          valid_abs_year: number
+          year_code: string
+        }
+        Insert: {
+          archived_at?: string
+          c1_email?: string
+          c1_forename?: string
+          c1_mobile?: string
+          c1_relation?: string
+          c1_surname?: string
+          c2_email?: string
+          c2_forename?: string
+          c2_mobile?: string
+          c2_relation?: string
+          c2_surname?: string
+          days_open_term?: number
+          days_open_year?: number
+          early_leave_7d?: number
+          early_leave_term?: number
+          early_leave_year?: number
+          forename?: string
+          form?: string
+          invalid_abs_7d?: number
+          invalid_abs_term?: number
+          invalid_abs_year?: number
+          late_7d?: number
+          late_minutes_7d?: number
+          late_minutes_term?: number
+          late_minutes_year?: number
+          late_term?: number
+          late_year?: number
+          school_id: string
+          surname?: string
+          uploaded_at?: string
+          username?: string
+          valid_abs_7d?: number
+          valid_abs_term?: number
+          valid_abs_year?: number
+          year_code?: string
+        }
+        Update: {
+          archived_at?: string
+          c1_email?: string
+          c1_forename?: string
+          c1_mobile?: string
+          c1_relation?: string
+          c1_surname?: string
+          c2_email?: string
+          c2_forename?: string
+          c2_mobile?: string
+          c2_relation?: string
+          c2_surname?: string
+          days_open_term?: number
+          days_open_year?: number
+          early_leave_7d?: number
+          early_leave_term?: number
+          early_leave_year?: number
+          forename?: string
+          form?: string
+          invalid_abs_7d?: number
+          invalid_abs_term?: number
+          invalid_abs_year?: number
+          late_7d?: number
+          late_minutes_7d?: number
+          late_minutes_term?: number
+          late_minutes_year?: number
+          late_term?: number
+          late_year?: number
+          school_id?: string
+          surname?: string
+          uploaded_at?: string
+          username?: string
+          valid_abs_7d?: number
+          valid_abs_term?: number
+          valid_abs_year?: number
+          year_code?: string
+        }
+        Relationships: []
+      }
       att_app_display_settings: {
         Row: {
           created_at: string
@@ -313,6 +496,57 @@ export type Database = {
           created_at?: string
           hide_early_leave_card?: boolean
           id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      att_flags: {
+        Row: {
+          detail: string
+          id: number
+          kind: string
+          school_id: string
+          source_tab: string
+          uploaded_at: string
+          username: string
+        }
+        Insert: {
+          detail?: string
+          id?: never
+          kind: string
+          school_id?: string
+          source_tab?: string
+          uploaded_at?: string
+          username?: string
+        }
+        Update: {
+          detail?: string
+          id?: never
+          kind?: string
+          school_id?: string
+          source_tab?: string
+          uploaded_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      att_note_overrides: {
+        Row: {
+          new_note: string
+          note_key: string
+          original_note: string
+          updated_at: string
+        }
+        Insert: {
+          new_note: string
+          note_key: string
+          original_note: string
+          updated_at?: string
+        }
+        Update: {
+          new_note?: string
+          note_key?: string
+          original_note?: string
           updated_at?: string
         }
         Relationships: []
@@ -521,6 +755,270 @@ export type Database = {
           started_at?: string
           status?: string
           student_count?: number | null
+        }
+        Relationships: []
+      }
+      att_total_days: {
+        Row: {
+          school_id: string
+          term1: number | null
+          term2: number | null
+          term3: number | null
+          uploaded_at: string
+          ytd: number
+        }
+        Insert: {
+          school_id: string
+          term1?: number | null
+          term2?: number | null
+          term3?: number | null
+          uploaded_at?: string
+          ytd?: number
+        }
+        Update: {
+          school_id?: string
+          term1?: number | null
+          term2?: number | null
+          term3?: number | null
+          uploaded_at?: string
+          ytd?: number
+        }
+        Relationships: []
+      }
+      att_weekly: {
+        Row: {
+          absent_invalid: number
+          absent_valid: number
+          award_categories: string
+          award_notes: string
+          award_teachers: string
+          bathroom_visits: number
+          clinic_visits: number
+          days_open: number
+          early_leave: number
+          first_name: string
+          form: string
+          gender: string
+          grade: string
+          late_to_class: number
+          late_to_class_minutes: number
+          late_to_school: number
+          late_to_school_minutes: number
+          p1_email: string
+          p1_first_name: string
+          p1_mobile: string
+          p1_relation: string
+          p1_surname: string
+          p2_email: string
+          p2_first_name: string
+          p2_mobile: string
+          p2_relation: string
+          p2_surname: string
+          pass_or_ban: string
+          recognition_awards: number
+          school: string
+          school_id: string
+          student_email: string
+          surname: string
+          uploaded_at: string
+          username: string
+          week_ending: string
+        }
+        Insert: {
+          absent_invalid?: number
+          absent_valid?: number
+          award_categories?: string
+          award_notes?: string
+          award_teachers?: string
+          bathroom_visits?: number
+          clinic_visits?: number
+          days_open?: number
+          early_leave?: number
+          first_name?: string
+          form?: string
+          gender?: string
+          grade?: string
+          late_to_class?: number
+          late_to_class_minutes?: number
+          late_to_school?: number
+          late_to_school_minutes?: number
+          p1_email?: string
+          p1_first_name?: string
+          p1_mobile?: string
+          p1_relation?: string
+          p1_surname?: string
+          p2_email?: string
+          p2_first_name?: string
+          p2_mobile?: string
+          p2_relation?: string
+          p2_surname?: string
+          pass_or_ban?: string
+          recognition_awards?: number
+          school?: string
+          school_id: string
+          student_email?: string
+          surname?: string
+          uploaded_at?: string
+          username?: string
+          week_ending: string
+        }
+        Update: {
+          absent_invalid?: number
+          absent_valid?: number
+          award_categories?: string
+          award_notes?: string
+          award_teachers?: string
+          bathroom_visits?: number
+          clinic_visits?: number
+          days_open?: number
+          early_leave?: number
+          first_name?: string
+          form?: string
+          gender?: string
+          grade?: string
+          late_to_class?: number
+          late_to_class_minutes?: number
+          late_to_school?: number
+          late_to_school_minutes?: number
+          p1_email?: string
+          p1_first_name?: string
+          p1_mobile?: string
+          p1_relation?: string
+          p1_surname?: string
+          p2_email?: string
+          p2_first_name?: string
+          p2_mobile?: string
+          p2_relation?: string
+          p2_surname?: string
+          pass_or_ban?: string
+          recognition_awards?: number
+          school?: string
+          school_id?: string
+          student_email?: string
+          surname?: string
+          uploaded_at?: string
+          username?: string
+          week_ending?: string
+        }
+        Relationships: []
+      }
+      att_weekly_notes_backup_20261109: {
+        Row: {
+          award_notes: string
+          backed_up_at: string
+          new_notes: string
+          school_id: string
+          week_ending: string
+        }
+        Insert: {
+          award_notes: string
+          backed_up_at?: string
+          new_notes: string
+          school_id: string
+          week_ending: string
+        }
+        Update: {
+          award_notes?: string
+          backed_up_at?: string
+          new_notes?: string
+          school_id?: string
+          week_ending?: string
+        }
+        Relationships: []
+      }
+      att_weekly_state: {
+        Row: {
+          flags_file_date: string | null
+          singleton: boolean
+          total_days_file_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          flags_file_date?: string | null
+          singleton?: boolean
+          total_days_file_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          flags_file_date?: string | null
+          singleton?: boolean
+          total_days_file_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      att_weekly_sync_log: {
+        Row: {
+          file_date: string | null
+          flags_replaced: boolean | null
+          flags_rows: number | null
+          id: number
+          message: string | null
+          results_file: string | null
+          source: string | null
+          status: string
+          synced_at: string
+          total_days_replaced: boolean | null
+          total_days_rows: number | null
+          weeks: Json | null
+        }
+        Insert: {
+          file_date?: string | null
+          flags_replaced?: boolean | null
+          flags_rows?: number | null
+          id?: never
+          message?: string | null
+          results_file?: string | null
+          source?: string | null
+          status: string
+          synced_at?: string
+          total_days_replaced?: boolean | null
+          total_days_rows?: number | null
+          weeks?: Json | null
+        }
+        Update: {
+          file_date?: string | null
+          flags_replaced?: boolean | null
+          flags_rows?: number | null
+          id?: never
+          message?: string | null
+          results_file?: string | null
+          source?: string | null
+          status?: string
+          synced_at?: string
+          total_days_replaced?: boolean | null
+          total_days_rows?: number | null
+          weeks?: Json | null
+        }
+        Relationships: []
+      }
+      att_weekly_weeks: {
+        Row: {
+          file_date: string
+          replaced_at: string
+          results_file: string
+          rows: number
+          term: number
+          week_ending: string
+          week_in_term: number
+        }
+        Insert: {
+          file_date: string
+          replaced_at?: string
+          results_file?: string
+          rows: number
+          term: number
+          week_ending: string
+          week_in_term: number
+        }
+        Update: {
+          file_date?: string
+          replaced_at?: string
+          results_file?: string
+          rows?: number
+          term?: number
+          week_ending?: string
+          week_in_term?: number
         }
         Relationships: []
       }
@@ -1113,6 +1611,188 @@ export type Database = {
         }
         Relationships: []
       }
+      note_job_events: {
+        Row: {
+          alert_kind: string | null
+          at: string
+          emailed_at: string | null
+          failures: number | null
+          http_status: number | null
+          id: number
+          job_id: string
+          kind: string
+          message: string
+          step: string | null
+        }
+        Insert: {
+          alert_kind?: string | null
+          at?: string
+          emailed_at?: string | null
+          failures?: number | null
+          http_status?: number | null
+          id?: never
+          job_id: string
+          kind: string
+          message: string
+          step?: string | null
+        }
+        Update: {
+          alert_kind?: string | null
+          at?: string
+          emailed_at?: string | null
+          failures?: number | null
+          http_status?: number | null
+          id?: never
+          job_id?: string
+          kind?: string
+          message?: string
+          step?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_job_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "note_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_jobs: {
+        Row: {
+          alerted_at: string | null
+          attempts: number
+          category: string
+          created_at: string
+          done_at: string | null
+          failures: number
+          form_entry_key: string
+          form_url: string
+          gemini_file_expires_at: string | null
+          gemini_file_name: string | null
+          gemini_file_uri: string | null
+          hub_result: string | null
+          hub_saved_at: string | null
+          id: string
+          kind: string
+          language: string
+          last_error: string | null
+          last_error_at: string | null
+          last_error_step: string | null
+          lease_token: string | null
+          lease_until: string | null
+          media_path: string | null
+          media_source: string | null
+          media_url: string | null
+          next_try_at: string
+          note_line: string | null
+          note_line_hash: string | null
+          note_prefix: string
+          pupils: Json
+          sheet_post_attempts: number
+          sheet_post_started_at: string | null
+          sheet_post_unsure: boolean
+          sheet_posted_at: string | null
+          status: string
+          teacher_email: string | null
+          teacher_id: string
+          test_plan: Json | null
+          transcribed_at: string | null
+          transcript: string | null
+          transcript_mode: string | null
+          typed_line: string | null
+          updated_at: string
+        }
+        Insert: {
+          alerted_at?: string | null
+          attempts?: number
+          category: string
+          created_at?: string
+          done_at?: string | null
+          failures?: number
+          form_entry_key: string
+          form_url: string
+          gemini_file_expires_at?: string | null
+          gemini_file_name?: string | null
+          gemini_file_uri?: string | null
+          hub_result?: string | null
+          hub_saved_at?: string | null
+          id: string
+          kind: string
+          language?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          last_error_step?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          media_path?: string | null
+          media_source?: string | null
+          media_url?: string | null
+          next_try_at?: string
+          note_line?: string | null
+          note_line_hash?: string | null
+          note_prefix: string
+          pupils: Json
+          sheet_post_attempts?: number
+          sheet_post_started_at?: string | null
+          sheet_post_unsure?: boolean
+          sheet_posted_at?: string | null
+          status?: string
+          teacher_email?: string | null
+          teacher_id: string
+          test_plan?: Json | null
+          transcribed_at?: string | null
+          transcript?: string | null
+          transcript_mode?: string | null
+          typed_line?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alerted_at?: string | null
+          attempts?: number
+          category?: string
+          created_at?: string
+          done_at?: string | null
+          failures?: number
+          form_entry_key?: string
+          form_url?: string
+          gemini_file_expires_at?: string | null
+          gemini_file_name?: string | null
+          gemini_file_uri?: string | null
+          hub_result?: string | null
+          hub_saved_at?: string | null
+          id?: string
+          kind?: string
+          language?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          last_error_step?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          media_path?: string | null
+          media_source?: string | null
+          media_url?: string | null
+          next_try_at?: string
+          note_line?: string | null
+          note_line_hash?: string | null
+          note_prefix?: string
+          pupils?: Json
+          sheet_post_attempts?: number
+          sheet_post_started_at?: string | null
+          sheet_post_unsure?: boolean
+          sheet_posted_at?: string | null
+          status?: string
+          teacher_email?: string | null
+          teacher_id?: string
+          test_plan?: Json | null
+          transcribed_at?: string | null
+          transcript?: string | null
+          transcript_mode?: string | null
+          typed_line?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -1208,6 +1888,78 @@ export type Database = {
           fail_count?: number
           last_fail?: string | null
           locked_until?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
+      sfa_notes: {
+        Row: {
+          client_event_id: string | null
+          created_at: string
+          dedupe_hash: string
+          form_id: string | null
+          id: number
+          media_label: string | null
+          media_url: string | null
+          note_at: string
+          note_text: string
+          raw_line: string
+          sheet_matched_at: string | null
+          sheet_occurrence: number | null
+          sheet_row: number | null
+          sheet_ts_raw: string | null
+          source: string
+          student_idx: number
+          student_name: string | null
+          subject: string
+          teacher_email: string | null
+          teacher_user_id: string | null
+          username: string
+        }
+        Insert: {
+          client_event_id?: string | null
+          created_at?: string
+          dedupe_hash: string
+          form_id?: string | null
+          id?: never
+          media_label?: string | null
+          media_url?: string | null
+          note_at: string
+          note_text: string
+          raw_line: string
+          sheet_matched_at?: string | null
+          sheet_occurrence?: number | null
+          sheet_row?: number | null
+          sheet_ts_raw?: string | null
+          source: string
+          student_idx?: number
+          student_name?: string | null
+          subject: string
+          teacher_email?: string | null
+          teacher_user_id?: string | null
+          username: string
+        }
+        Update: {
+          client_event_id?: string | null
+          created_at?: string
+          dedupe_hash?: string
+          form_id?: string | null
+          id?: never
+          media_label?: string | null
+          media_url?: string | null
+          note_at?: string
+          note_text?: string
+          raw_line?: string
+          sheet_matched_at?: string | null
+          sheet_occurrence?: number | null
+          sheet_row?: number | null
+          sheet_ts_raw?: string | null
+          source?: string
+          student_idx?: number
+          student_name?: string | null
+          subject?: string
+          teacher_email?: string | null
+          teacher_user_id?: string | null
           username?: string
         }
         Relationships: []
@@ -1387,6 +2139,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      att_apply_weekly_payload: { Args: { p_payload: Json }; Returns: Json }
+      att_read_2627: {
+        Args: { p_contacts?: boolean; p_ids?: string[]; p_school?: string }
+        Returns: Json
+      }
       att_register_password_attempt: {
         Args: { p_key: string }
         Returns: string
@@ -1395,6 +2152,8 @@ export type Database = {
         Args: { p_pupil_emails: Json; p_students: Json }
         Returns: undefined
       }
+      att_replace_note_overrides: { Args: { p_rows: Json }; Returns: number }
+      att_weekly_counts: { Args: never; Returns: Json }
       dreamlit_auth_admin_executor: {
         Args: { command: string }
         Returns: undefined
@@ -1420,6 +2179,124 @@ export type Database = {
       focusos_me_approved: { Args: never; Returns: boolean }
       get_app_configuration: { Args: never; Returns: Json }
       is_allowed_staff: { Args: never; Returns: boolean }
+      note_job_fail: {
+        Args: {
+          p_error: string
+          p_http?: number
+          p_job: string
+          p_killed?: boolean
+          p_permanent?: boolean
+          p_step: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      note_jobs_claim: {
+        Args: { p_job: string; p_lease_seconds?: number }
+        Returns: {
+          alerted_at: string | null
+          attempts: number
+          category: string
+          created_at: string
+          done_at: string | null
+          failures: number
+          form_entry_key: string
+          form_url: string
+          gemini_file_expires_at: string | null
+          gemini_file_name: string | null
+          gemini_file_uri: string | null
+          hub_result: string | null
+          hub_saved_at: string | null
+          id: string
+          kind: string
+          language: string
+          last_error: string | null
+          last_error_at: string | null
+          last_error_step: string | null
+          lease_token: string | null
+          lease_until: string | null
+          media_path: string | null
+          media_source: string | null
+          media_url: string | null
+          next_try_at: string
+          note_line: string | null
+          note_line_hash: string | null
+          note_prefix: string
+          pupils: Json
+          sheet_post_attempts: number
+          sheet_post_started_at: string | null
+          sheet_post_unsure: boolean
+          sheet_posted_at: string | null
+          status: string
+          teacher_email: string | null
+          teacher_id: string
+          test_plan: Json | null
+          transcribed_at: string | null
+          transcript: string | null
+          transcript_mode: string | null
+          typed_line: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "note_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      note_jobs_ping: {
+        Args: { p_job: string; p_token: string }
+        Returns: boolean
+      }
+      note_jobs_release: {
+        Args: { p_job: string; p_token: string }
+        Returns: boolean
+      }
+      note_jobs_secret_ok: { Args: { p: string }; Returns: boolean }
+      note_jobs_sweep: { Args: never; Returns: Json }
+      sfa_notes_for_users: {
+        Args: { p_after_id: number; p_limit: number; p_usernames: string[] }
+        Returns: {
+          id: number
+          note_at: string
+          note_text: string
+          student_name: string
+          subject: string
+          username: string
+        }[]
+      }
+      sfa_notes_sync_secret_ok: { Args: { p: string }; Returns: boolean }
+      sfa_save_note: {
+        Args: {
+          p_client_event_id: string
+          p_dedupe_hash: string
+          p_form_id: string
+          p_pupils: Json
+          p_raw_line: string
+          p_source: string
+          p_teacher_email: string
+          p_teacher_user_id: string
+        }
+        Returns: Json
+      }
+      sfa_sheet_keys: { Args: never; Returns: Json }
+      sfa_sync_batch: {
+        Args: { p_rows: Json; p_source: string }
+        Returns: Json
+      }
+      sfa_sync_row: {
+        Args: {
+          p_dedupe_hash: string
+          p_note_at: string
+          p_occurrence: number
+          p_pupils: Json
+          p_raw_line: string
+          p_sheet_row: number
+          p_sheet_ts_raw: string
+          p_source: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       ais_attendance_app_role: "admin"
