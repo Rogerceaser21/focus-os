@@ -10,8 +10,10 @@
  * route change and a Stop pressed on any route completes the save.
  *
  * NO LOST AUDIO:
- *  - chunks flush every 10 s (was 30 s), and on visibilitychange -> hidden and
- *    pagehide, so a backgrounded or closed tab loses at most a few seconds;
+ *  - chunks flush every 30 s (the size the server's transcriber was proven on:
+ *    20 pieces = one 10-minute part, a 3-hour meeting = 360 pieces; 10 s pieces
+ *    broke GCS's 32-source compose limit on 2026-11-11), and on visibilitychange ->
+ *    hidden and pagehide, so a backgrounded or closed tab loses at most a few seconds;
  *  - a chunk index is SPENT only when its upload succeeded. A failed chunk keeps
  *    its place at the head of an ordered queue and is retried with the SAME index
  *    (bounded retries, exponential backoff), so later chunks never overtake it
@@ -112,7 +114,7 @@ export interface PersistedRecording {
 const tuning = (): { flushMs: number; backoffMs: number } => {
   const t = (typeof window !== 'undefined' && (window as any).__meetingRecorderTuning) || {};
   return {
-    flushMs: typeof t.flushMs === 'number' ? t.flushMs : 10_000,
+    flushMs: typeof t.flushMs === 'number' ? t.flushMs : 30_000,
     backoffMs: typeof t.backoffMs === 'number' ? t.backoffMs : 1000,
   };
 };
@@ -989,7 +991,7 @@ function haltForSignOut() {
 /**
  * In the iOS shell (window.__FOCUSOS_SHELL_REC__) the recording runs natively
  * (ios-shell NativeRecorder.swift: AVAudioEngine, AAC-LC ADTS 16 kHz mono ~32 kbps,
- * 10 s chunks on disk, native upload) because WKWebView capture stops in the
+ * 30 s chunks on disk, native upload) because WKWebView capture stops in the
  * background. The web side only sends commands and mirrors the events into the
  * SAME snapshot, so RecordingPill and Meetings never learn which engine runs.
  *
@@ -1007,8 +1009,8 @@ interface NativeEvent {
   [k: string]: any;
 }
 
-/** Native rotates a chunk every 157 AAC frames at 16 kHz = 10.048 s (NativeRecorder.swift). */
-const NATIVE_CHUNK_MS = 10_048;
+/** Native rotates a chunk every 469 AAC frames at 16 kHz = 30.016 s (NativeRecorder.swift). */
+const NATIVE_CHUNK_MS = 30_016;
 
 interface NativePendingSession {
   sessionId: string;

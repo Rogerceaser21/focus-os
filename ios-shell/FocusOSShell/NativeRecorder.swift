@@ -14,8 +14,8 @@ import UserNotifications
 ///
 /// AUDIO: mono, 16 kHz, AAC-LC, ~32 kbps, written as ADTS frames. A chunk is a
 /// run of whole ADTS frames; chunk N+1 continues chunk N's stream, so the server
-/// composes the recording by plain byte concatenation. A chunk rotates after 157
-/// frames (1024 samples each = 10.05 s). Encoders are flushed on pause and stop so
+/// composes the recording by plain byte concatenation. A chunk rotates after 469
+/// frames (1024 samples each = 30.02 s, the piece size the server transcriber is sized for). Encoders are flushed on pause and stop so
 /// the tail of the audio is never dropped.
 ///
 /// FILES: Application Support/meeting-chunks/<sessionId>/{manifest.json,
@@ -38,8 +38,8 @@ final class NativeRecorder: NSObject {
 
     static let sampleRate: Double = 16_000
     static let bitRate: Int = 32_000
-    /// 157 AAC frames x 1024 samples / 16 kHz = 10.05 s.
-    static let chunkPackets = 157
+    /// 469 AAC frames x 1024 samples / 16 kHz = 30.02 s (server: 20 pieces = one 10-minute part).
+    static let chunkPackets = 469
     /// Tokens only ever go to the project's own Supabase host.
     static let allowedSupabaseHost = "mshlbsgsyzzfxyxramjj.supabase.co"
     static let silenceLimit: TimeInterval = 5

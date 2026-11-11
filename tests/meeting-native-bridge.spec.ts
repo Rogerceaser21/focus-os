@@ -311,9 +311,9 @@ test('native recorder: a force-quit recording is finished when the app reopens (
   await expect.poll(() => rig.processBodies.length, { timeout: 20_000 }).toBe(1);
   expect(rig.processBodies[0].sessionId).toBe(SESSION_ID);
   expect(rig.processBodies[0].title).toBe('Swiped away');
-  // three native pieces of ~10 s: the saved length is about 30 s, never 0
-  expect(rig.processBodies[0].durationSeconds).toBeGreaterThanOrEqual(25);
-  expect(rig.processBodies[0].durationSeconds).toBeLessThanOrEqual(35);
+  // three native pieces of ~30 s: the saved length is about 90 s, never 0
+  expect(rig.processBodies[0].durationSeconds).toBeGreaterThanOrEqual(85);
+  expect(rig.processBodies[0].durationSeconds).toBeLessThanOrEqual(95);
   await page.waitForTimeout(1500);
   expect(rig.processBodies.length).toBe(1);
 });
