@@ -75,8 +75,15 @@ export interface SegmentsState {
    * Set to "webm" once chunk 00000 has been PROVEN to carry the EBML magic.
    * Absent on a row whose container was never sniffed, which is what makes the
    * worker download chunk 0 once and fail fast on an mp4 recording.
+   * "aac" = raw AAC in ADTS framing (iPhone app): self-contained frames, so a
+   * segment is a plain concatenation of chunks, no init header, no lead.
    */
-  format?: "webm";
+  format?: "webm" | "aac";
+  /**
+   * Real seconds per chunk, from duration_seconds / chunkCount at planning time.
+   * Absent on rows planned before this field existed: readers use 30.
+   */
+  chunkSeconds?: number;
 }
 
 export const DEFAULT_SEGMENT_CHUNKS = 20; // 20 x 30 s = 10 min of audio per Gemini call
@@ -436,4 +443,30 @@ export function scrubSecrets(
     }
   }
   return out;
+}
+
+/** Seconds per chunk: duration / chunkCount when known, else 30; clamped to [1, 120]. */
+export function chunkSecondsFor(durationSeconds: unknown, chunkCount: number): number {
+  let secs = DEFAULT_CHUNK_SECONDS;
+  if (typeof durationSeconds === "number" && Number.isFinite(durationSeconds) && durationSeconds > 0 &&
+      Number.isFinite(chunkCount) && chunkCount > 0) {
+    secs = durationSeconds / chunkCount;
+  }
+  return Math.min(120, Math.max(1, secs));
+}
+
+/** Chunks per segment so each Gemini call covers ~10 minutes (30 s -> 20). */
+export function segmentChunksFor(chunkSeconds: number): number {
+  return Math.max(1, Math.round(600 / chunkSeconds));
+}
+
+/** True for a buffer opening with an ADTS sync word (FF Fx, layer 00). */
+export function isAdts(bytes: Uint8Array | null | undefined): boolean {
+  if (!bytes || bytes.length < 2) return false;
+  return bytes[0] === 0xff && (bytes[1] & 0xf6) === 0xf0;
+}
+
+/** Content type for a sniffed container format. */
+export function mimeForFormat(format: SegmentsState["format"]): string {
+  return format === "aac" ? "audio/aac" : "audio/webm";
 }
