@@ -37,6 +37,10 @@ import {
   scrubSecrets,
   segmentObjectName,
   segmentStartSeconds,
+  chunkSecondsFor,
+  segmentChunksFor,
+  isAdts,
+  mimeForFormat,
   segmentsPrefix,
   type SegmentsState,
 } from "../_shared/segments.ts";
@@ -71,7 +75,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const SEGMENT_CHUNKS = 20;      // 20 x 30 s chunks = 10 min of audio per Gemini call
 // The worker's timing budget (BUDGET_MS, LEASE_MS, FILE_ACTIVE_CAP_MS) and the
 // per-request start / finalize decisions (canStartSegment / canFinalize) live in
 // _shared/timing.ts, sized against the ~150 s gateway kill — the Supabase edge
@@ -469,22 +472,22 @@ serve(async (req) => {
     const sa: ServiceAccount = JSON.parse(gcsKeyJson);
     const gcsToken = await getGcsAccessToken(sa);
 
-    // WebM only, and PROVEN below from chunk 00000's EBML magic. focusos_meetings
-    // has no mime_type column (the read that used to be here was always
-    // undefined) and the init / lead-cluster search is WebM-specific.
-    const mimeType = "audio/webm";
-
     state = (meeting.transcript_segments ?? null) as SegmentsState | null;
     if (!state || typeof state.total !== "number") {
       // No plan yet (a fresh meeting, or a retry of a row whose
       // transcript_segments is null): plan from scratch.
       const chunkCount = await listChunkCount(gcsToken, bucket, folder);
       if (chunkCount === 0) throw new Error("No chunks found in the recording folder");
-      const plans = planSegments(chunkCount, SEGMENT_CHUNKS);
+      // Real chunk length (the web client flushes every 10 s, older ones 30 s),
+      // so each Gemini call still covers ~10 minutes and markers are true.
+      const chunkSeconds = chunkSecondsFor(meeting.duration_seconds, chunkCount);
+      const segmentChunks = segmentChunksFor(chunkSeconds);
+      const plans = planSegments(chunkCount, segmentChunks);
       state = {
         total: plans.length,
         chunkCount,
-        segmentChunks: SEGMENT_CHUNKS,
+        segmentChunks,
+        chunkSeconds,
         initReady: false,
         texts: {},
         attempts: {},
@@ -558,17 +561,20 @@ serve(async (req) => {
      * failure here throws, and the outer catch parks the row as 'error' with
      * this readable cause on the FIRST request instead of after a wasted call. */
     let chunkZeroBytes: Uint8Array | null = null;
-    if (state.format !== "webm") {
+    if (state.format !== "webm" && state.format !== "aac") {
       chunkZeroBytes = await downloadObject(gcsToken, bucket, chunkObjectName(folder, 0));
-      if (!isWebm(chunkZeroBytes)) {
+      let detected: "webm" | "aac";
+      if (isWebm(chunkZeroBytes)) detected = "webm";
+      else if (isAdts(chunkZeroBytes)) detected = "aac";
+      else {
         throw new Error(
-          `Recording is not WebM (first bytes ${hexHead(chunkZeroBytes)}); ` +
-          "segmented transcription supports WebM only"
+          `Recording is not WebM or AAC (first bytes ${hexHead(chunkZeroBytes)}); ` +
+          "segmented transcription supports WebM or AAC (ADTS) only"
         );
       }
-      state = await mergeState({ format: "webm" });
+      state = await mergeState({ format: detected });
       console.log(
-        `[segment ${INSTANCE}] ${meetingId}: chunk 0 is WebM ` +
+        `[segment ${INSTANCE}] ${meetingId}: chunk 0 is ${detected} ` +
         `(${hexHead(chunkZeroBytes)}) — format flagged, later requests skip the sniff`
       );
     }
@@ -578,6 +584,12 @@ serve(async (req) => {
     // else in the server path does this — the client's list read is not a
     // watchdog, it does not happen while a user watches the spinner.
     armPoller(supabaseUrl, serviceKey, 0);
+
+    // Derived from the sniffed container: used for every GCS write of audio,
+    // the compose, the Gemini upload and generateContent.
+    const isAac = state.format === "aac";
+    const mimeType = mimeForFormat(state.format);
+    const chunkSecs = state.chunkSeconds ?? 30;
 
     /* ─── c. Lease check (cheap pre-check only) ────────────────────
      * The AUTHORITY is takeLease()'s conditional UPDATE below; this read just
@@ -604,7 +616,8 @@ serve(async (req) => {
       // and starts on a Cluster. Every later segment needs the header, plus the
       // head of the Cluster that the chunk boundary cut in half.
       const sources: string[] = [];
-      if (i > 0) {
+      // AAC (ADTS) frames are self-contained: no init, no lead.
+      if (i > 0 && !isAac) {
         const initObject = initObjectName(folder);
         if (!state!.initReady) {
           // Reuse the bytes step b2 already downloaded in THIS request; a
@@ -673,7 +686,7 @@ serve(async (req) => {
       const prompt = buildSegmentPrompt(
         i,
         total,
-        formatHMS(segmentStartSeconds(i, state!.segmentChunks)),
+        formatHMS(segmentStartSeconds(i, state!.segmentChunks, chunkSecs)),
         participantNames,
         previousTail
       );
@@ -702,7 +715,7 @@ serve(async (req) => {
     const cleanupSegmentArtifacts = async () => {
       try {
         const names = await listObjectNames(gcsToken, bucket, segmentsPrefix(folder));
-        const targets = [initObjectName(folder), ...names];
+        const targets = isAac ? names : [initObjectName(folder), ...names];
         let deleted = 0;
         for (const name of targets) {
           try {
@@ -800,7 +813,7 @@ serve(async (req) => {
         return json({ processed, handover: "finalize", spentMs });
       }
 
-      const transcript = joinTranscript(state.texts, state.total, state.segmentChunks);
+      const transcript = joinTranscript(state.texts, state.total, state.segmentChunks, chunkSecs);
       if (!transcript.trim()) throw new Error("Joined transcript is empty");
 
       const transcriptGcsPath = await uploadToGcs(

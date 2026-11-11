@@ -405,3 +405,56 @@ Deno.test("scrubSecrets: known secret VALUES are replaced wherever they appear",
   assertEquals(scrubSecrets(new Error("plain")), "plain");
   assertEquals(scrubSecrets(undefined), "");
 });
+
+import {
+  chunkSecondsFor,
+  segmentChunksFor,
+  isAdts,
+  mimeForFormat,
+  planSegments as planSegments2,
+  joinTranscript as joinTranscript2,
+  segmentStartSeconds as segmentStartSeconds2,
+} from "./segments.ts";
+
+Deno.test("chunkSecondsFor: real length, fallback 30, clamped", () => {
+  assertEquals(chunkSecondsFor(1200, 120), 10);
+  assertEquals(chunkSecondsFor(null, 50), 30);
+  assertEquals(chunkSecondsFor(0, 50), 30);
+  assertEquals(chunkSecondsFor(10, 100), 1);
+  assertEquals(chunkSecondsFor(10000, 10), 120);
+});
+
+Deno.test("segmentChunksFor: 10 s -> 60, 30 s -> 20", () => {
+  assertEquals(segmentChunksFor(10), 60);
+  assertEquals(segmentChunksFor(30), 20);
+});
+
+Deno.test("1200 s / 120 chunks: 2 segments, markers 00:00:00 and 00:10:00", () => {
+  const secs = chunkSecondsFor(1200, 120);
+  const sc = segmentChunksFor(secs);
+  assertEquals(planSegments2(120, sc).length, 2);
+  const t = joinTranscript2({ "0": "a", "1": "b" }, 2, sc, secs);
+  assertEquals(t.includes("--- 00:00:00 ---"), true);
+  assertEquals(t.includes("--- 00:10:00 ---"), true);
+});
+
+Deno.test("legacy row (no chunkSeconds) keeps 30 s markers", () => {
+  assertEquals(segmentStartSeconds2(1, 20), 600);
+  assertEquals(segmentStartSeconds2(1, 20, 30), 600);
+});
+
+Deno.test("isAdts: ADTS passes; EBML, mp4, mp3, short fail", () => {
+  assertEquals(isAdts(new Uint8Array([0xff, 0xf1, 0x50])), true);
+  assertEquals(isAdts(new Uint8Array([0xff, 0xf9, 0x50])), true);
+  assertEquals(isAdts(new Uint8Array([0x1a, 0x45, 0xdf, 0xa3])), false);
+  assertEquals(isAdts(new Uint8Array([0, 0, 0, 0x20, 0x66, 0x74, 0x79, 0x70])), false);
+  assertEquals(isAdts(new Uint8Array([0xff, 0xfb, 0x90])), false);
+  assertEquals(isAdts(new Uint8Array([0xff])), false);
+  assertEquals(isAdts(null), false);
+});
+
+Deno.test("mimeForFormat", () => {
+  assertEquals(mimeForFormat("aac"), "audio/aac");
+  assertEquals(mimeForFormat("webm"), "audio/webm");
+  assertEquals(mimeForFormat(undefined), "audio/webm");
+});
