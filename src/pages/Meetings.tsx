@@ -1106,7 +1106,8 @@ const Meetings = () => {
                 <p className={`font-semibold ${isPaused ? 'text-amber-500' : 'text-destructive'}`}>
                   {isPaused ? (recSnap.interrupted ? (recSnap.interruptReason === 'call' || !recSnap.interruptReason ? 'Interrupted (call or alarm)' : 'Interrupted (microphone stopped)') : 'Paused') : 'Recording...'}
                 </p>
-                <p className="text-sm text-muted-foreground font-mono">
+                {/* Same colour as the status line: muted grey vanished into the wallpaper on the phone. */}
+                <p className={`text-sm font-mono font-semibold ${isPaused ? 'text-amber-500' : 'text-destructive'}`}>
                   {formatDuration(recordingSeconds)}
                 </p>
               </div>
