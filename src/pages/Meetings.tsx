@@ -944,7 +944,7 @@ const Meetings = () => {
   const piecesLeft = recSnap.savePending === 1 ? '1 piece left' : `${recSnap.savePending} pieces left`;
   const processingBannerLabel =
     recSnap.phase === 'saving' && recSnap.saveWaiting
-      ? `Saving: waiting for connection (${piecesLeft})`
+      ? `Saving: waiting for ${recSnap.saveWaitReason === 'signin' ? 'sign-in refresh' : 'connection'} (${piecesLeft})`
       : recSnap.phase === 'saving' && recSnap.savePending > 0
       ? `Uploading audio (${piecesLeft})`
       : displayedStatus === 'transcribing' && processingProgress
@@ -1092,7 +1092,7 @@ const Meetings = () => {
               </div>
               <div>
                 <p className={`font-semibold ${isPaused ? 'text-amber-500' : 'text-destructive'}`}>
-                  {isPaused ? 'Paused' : 'Recording...'}
+                  {isPaused ? (recSnap.interrupted ? 'Interrupted (call or alarm)' : 'Paused') : 'Recording...'}
                 </p>
                 <p className="text-sm text-muted-foreground font-mono">
                   {formatDuration(recordingSeconds)}
@@ -1163,7 +1163,7 @@ const Meetings = () => {
             <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500 shrink-0" />
             <span>
               {recSnap.saveWaiting
-                ? `${recSnap.saveJobs} meeting${recSnap.saveJobs === 1 ? '' : 's'} waiting to upload, ${piecesLeft}`
+                ? `${recSnap.saveJobs} meeting${recSnap.saveJobs === 1 ? '' : 's'} waiting to upload${recSnap.saveWaitReason === 'signin' ? ' (open the app to refresh sign-in)' : ''}, ${piecesLeft}`
                 : `Saving ${recSnap.saveJobs} meeting${recSnap.saveJobs === 1 ? '' : 's'} in the background, ${piecesLeft}`}
             </span>
           </div>

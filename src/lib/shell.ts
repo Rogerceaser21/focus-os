@@ -24,3 +24,12 @@ export const SHELL_OAUTH =
 export const SHELL_CAL =
   IS_SHELL &&
   (window as unknown as { __FOCUSOS_SHELL_CAL__?: boolean }).__FOCUSOS_SHELL_CAL__ === true;
+
+// Third CAPABILITY flag (R3): injected only by a shell build that carries the
+// native meeting recorder (NativeRecorder.swift + the "recorder" message
+// handler). With it, meetingRecorder.ts records natively so a meeting keeps
+// recording in the background; older shell builds, Safari and the home-screen
+// web app keep the web (MediaRecorder) recorder.
+export const SHELL_REC =
+  IS_SHELL &&
+  (window as unknown as { __FOCUSOS_SHELL_REC__?: boolean }).__FOCUSOS_SHELL_REC__ === true;

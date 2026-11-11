@@ -33,6 +33,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { isCapturing as brainDumpCapturing } from '@/lib/brainDumpAudio';
+import { SHELL_REC } from '@/lib/shell';
 import { putChunk, deleteChunk, getSessionChunks, listChunkSessionIds, deleteSessionChunks, deleteStaleChunks } from '@/lib/meetingChunkStore';
 
 export interface MeetingParticipant {
@@ -74,6 +75,10 @@ export interface RecorderSnapshot {
   savePending: number;
   /** True while a save is retrying because uploads are failing. */
   saveWaiting: boolean;
+  /** Why uploads wait: no connection, or (native recorder) the sign-in token needs refreshing. */
+  saveWaitReason: 'network' | 'signin' | null;
+  /** Native recorder only: paused by a call, alarm or Siri; Resume continues. */
+  interrupted: boolean;
   /** Bumped each time a save completes; `saved` is that save's meeting. */
   savedSeq: number;
   saved: SavedMeeting | null;
@@ -191,6 +196,12 @@ interface Job {
   lastCheckAt?: number;
   /** First time a clean read found NO row for the session. */
   missingSince?: number;
+  /** Native recorder: chunks still on the phone, counted from native events (queue stays empty). */
+  nativePending?: number;
+  /** Native recorder: the reason uploads are waiting, if they are. */
+  nativeWaitReason?: 'network' | 'signin' | null;
+  /** Native recorder: process-meeting already started for this job. */
+  finalizing?: boolean;
 }
 
 interface Active {
@@ -220,6 +231,8 @@ const initial: RecorderSnapshot = {
   saveJobs: 0,
   savePending: 0,
   saveWaiting: false,
+  saveWaitReason: null,
+  interrupted: false,
   savedSeq: 0,
   saved: null,
   failedSeq: 0,
@@ -237,12 +250,23 @@ function setSnapshot(patch: Partial<RecorderSnapshot>) {
 function refreshSaveStats() {
   let pending = 0;
   let waiting = false;
+  let reason: 'network' | 'signin' | null = null;
   jobs.forEach((j) => {
-    pending += j.queue.length;
-    if (j.waiting) waiting = true;
+    pending += j.queue.length + (j.nativePending ?? 0);
+    if (j.waiting) {
+      waiting = true;
+      reason = j.nativeWaitReason === 'signin' ? 'signin' : reason ?? 'network';
+    }
   });
-  if (jobs.size === snapshot.saveJobs && pending === snapshot.savePending && waiting === snapshot.saveWaiting) return;
-  setSnapshot({ saveJobs: jobs.size, savePending: pending, saveWaiting: waiting });
+  if (!waiting) reason = null;
+  if (
+    jobs.size === snapshot.saveJobs &&
+    pending === snapshot.savePending &&
+    waiting === snapshot.saveWaiting &&
+    reason === snapshot.saveWaitReason
+  )
+    return;
+  setSnapshot({ saveJobs: jobs.size, savePending: pending, saveWaiting: waiting, saveWaitReason: reason });
 }
 
 export function subscribe(listener: () => void): () => void {
@@ -259,7 +283,11 @@ export function getSnapshot(): RecorderSnapshot {
 
 /** True while this session is recording or its save is still running (never an orphan). */
 export function isSessionInFlight(sessionId: string): boolean {
-  return active?.job.sessionId === sessionId || Array.from(jobs).some((j) => j.sessionId === sessionId);
+  return (
+    active?.job.sessionId === sessionId ||
+    nativeJob?.sessionId === sessionId ||
+    Array.from(jobs).some((j) => j.sessionId === sessionId)
+  );
 }
 
 /** True while a recording is live OR paused: the mic is held either way. */
@@ -390,6 +418,8 @@ async function acquireSessionLease(sessionId: string): Promise<(() => void) | nu
 
 /** Remove a session's chunks + record (Discard, a server-side permanent refusal). */
 export async function discardSessionData(sessionId: string) {
+  nativePost({ cmd: 'discard', sessionId });
+  nativePendingBySession.delete(sessionId);
   clearPersistedRecording(sessionId);
   await deleteSessionChunks(sessionId);
 }
@@ -563,6 +593,7 @@ export async function start(opts: StartOptions): Promise<boolean> {
     toast.error('Brain dump is using the microphone. Finish it first.', { id: 'meeting-mic-lockout' });
     return false;
   }
+  if (useNative()) return startNative(opts);
   starting = true;
   let stream: MediaStream | null = null;
   try {
@@ -660,6 +691,7 @@ export async function start(opts: StartOptions): Promise<boolean> {
 }
 
 export function pause() {
+  if (nativeJob) return pauseNative();
   const a = active;
   if (!a || snapshot.phase !== 'recording' || a.recorder.state !== 'recording') return;
   a.recorder.pause();
@@ -669,6 +701,7 @@ export function pause() {
 }
 
 export function resume() {
+  if (nativeJob) return resumeNative();
   const a = active;
   if (!a || snapshot.phase !== 'paused' || a.recorder.state !== 'paused') return;
   a.recorder.resume();
@@ -679,6 +712,7 @@ export function resume() {
 }
 
 export function stop() {
+  if (nativeJob) return stopNative();
   const a = active;
   if (!a || !isRecording()) return;
   const endedAt = Date.now();
@@ -751,6 +785,11 @@ async function runSaveOwned(job: Job, durationSeconds: number) {
     return;
   }
   refreshSaveStats();
+  await finalizeSave(job, durationSeconds);
+}
+
+/** Everything after the last chunk is uploaded: process-meeting, once. */
+async function finalizeSave(job: Job, durationSeconds: number) {
 
   // Another tab (or Recover) may have processed this session already: never run
   // process-meeting twice. Skip only on a status we can positively read.
@@ -847,6 +886,7 @@ export async function resumePendingSessions(userId: string): Promise<void> {
 }
 
 async function resumeScan(userId: string): Promise<void> {
+  if (useNative()) await processNativePending(userId);
   let ids: string[] = [];
   try {
     ids = await listChunkSessionIds();
@@ -907,6 +947,7 @@ function haltForSignOut() {
     j.release = null;
   });
   wakeAll();
+  haltNativeForSignOut();
   const a = active;
   if (a) {
     a.job.halted = true;
@@ -940,6 +981,437 @@ function haltForSignOut() {
   });
 }
 
+/* ─── native engine (iOS shell, R3) ───────────────────── */
+
+/**
+ * In the iOS shell (window.__FOCUSOS_SHELL_REC__) the recording runs natively
+ * (ios-shell NativeRecorder.swift: AVAudioEngine, AAC-LC ADTS 16 kHz mono ~32 kbps,
+ * 10 s chunks on disk, native upload) because WKWebView capture stops in the
+ * background. The web side only sends commands and mirrors the events into the
+ * SAME snapshot, so RecordingPill and Meetings never learn which engine runs.
+ *
+ * Commands (window.webkit.messageHandlers.recorder.postMessage): ready, start,
+ * pause, resume, stop, setAuth, clearAuth, status, forget, discard.
+ * Events (window.__focusosNativeRecorder.onEvent): started, state, chunkSaved,
+ * chunkUploaded, uploadWaiting, interrupted, resumed, stopped, error, pending.
+ * Native owns pausedMs/pausedAt while it runs; the web adopts them from `state`.
+ * Native never refreshes the session: setAuth is pushed on every token change.
+ */
+interface NativeEvent {
+  type: string;
+  at?: number;
+  sessionId?: string;
+  [k: string]: any;
+}
+
+interface NativePendingSession {
+  sessionId: string;
+  status: string;
+  lastIndex: number;
+  uploadedUpTo: number;
+  pending: number;
+  allUploaded: boolean;
+  userId?: string;
+}
+
+/** The session native is recording right now (null otherwise). */
+let nativeJob: Job | null = null;
+/** Sessions native has stopped, waiting for their last piece before process-meeting. */
+const nativeSaves = new Map<string, { job: Job; durationSeconds: number }>();
+/** Pieces still on the phone per session, from native events (drives the recovery banner). */
+const nativePendingBySession = new Map<string, number>();
+let nativePendingList: NativePendingSession[] = [];
+let nativeStartWaiter: { resolve: (e: NativeEvent) => void; reject: (e: Error) => void } | null = null;
+
+function nativeBridge(): { postMessage: (body: object) => void } | null {
+  if (!SHELL_REC || typeof window === 'undefined') return null;
+  return (window as any).webkit?.messageHandlers?.recorder ?? null;
+}
+
+/** True when this page runs inside a shell build that carries the native recorder. */
+function useNative(): boolean {
+  return nativeBridge() !== null;
+}
+
+function nativePost(body: object) {
+  try {
+    nativeBridge()?.postMessage(body);
+  } catch (err) {
+    console.error('native recorder post failed:', err);
+  }
+}
+
+async function pushNativeAuth(sessionArg?: { access_token: string; expires_at?: number; user: { id: string } }) {
+  if (!useNative()) return;
+  try {
+    const s = sessionArg ?? (await supabase.auth.getSession()).data.session;
+    if (!s) return;
+    nativePost({
+      cmd: 'setAuth',
+      supabaseUrl: (supabase as any).supabaseUrl,
+      anonKey: (supabase as any).supabaseKey,
+      accessToken: s.access_token,
+      expiresAt: s.expires_at ?? 0,
+      userId: s.user.id,
+    });
+  } catch {
+    /* no session yet: native keeps waiting */
+  }
+}
+
+function nativeJobFromRecord(sessionId: string, title?: string): Job {
+  const meta = readPersistedRecording(sessionId);
+  return {
+    sessionId,
+    userId: meta?.userId ?? currentUserId,
+    mimeType: 'audio/aac',
+    projectId: meta?.projectId ?? null,
+    participants: meta?.participants ?? [],
+    title: meta?.title || title || '',
+    queue: [],
+    nextAssign: 0,
+    drainPromise: null,
+    waiting: false,
+    halted: false,
+    nativePending: 0,
+    nativeWaitReason: null,
+  };
+}
+
+function setNativePending(sessionId: string, n: number) {
+  const v = Math.max(0, n);
+  if (v === 0) nativePendingBySession.delete(sessionId);
+  else nativePendingBySession.set(sessionId, v);
+  jobs.forEach((j) => {
+    if (j.sessionId === sessionId) j.nativePending = v;
+  });
+  if (nativeJob?.sessionId === sessionId) nativeJob.nativePending = v;
+  refreshSaveStats();
+}
+
+function startNative(opts: StartOptions): Promise<boolean> {
+  return (async () => {
+    starting = true;
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.functions.invoke(
+        'focusos-start-recording-session',
+        { body: { mimeType: 'audio/aac' } },
+      );
+      if (sessionError || !sessionData?.sessionId) throw new Error('Failed to start recording session');
+      const { data: auth } = await supabase.auth.getSession();
+      const s = auth.session;
+      if (!s) throw new Error('Not signed in');
+      const sessionId: string = sessionData.sessionId;
+      const started = new Promise<NativeEvent>((resolve, reject) => {
+        const t = setTimeout(() => {
+          nativeStartWaiter = null;
+          reject(new Error('Native recorder did not start'));
+        }, 15_000);
+        nativeStartWaiter = {
+          resolve: (e) => {
+            clearTimeout(t);
+            resolve(e);
+          },
+          reject: (e) => {
+            clearTimeout(t);
+            reject(e);
+          },
+        };
+      });
+      nativePost({
+        cmd: 'start',
+        sessionId,
+        userId: s.user.id,
+        supabaseUrl: (supabase as any).supabaseUrl,
+        anonKey: (supabase as any).supabaseKey,
+        accessToken: s.access_token,
+        expiresAt: s.expires_at ?? 0,
+      });
+      const ev = await started;
+      const startedAt = typeof ev.startedAt === 'number' ? ev.startedAt : Date.now();
+      const job: Job = {
+        sessionId,
+        userId: s.user.id,
+        mimeType: 'audio/aac',
+        projectId: opts.projectId ?? null,
+        participants: (opts.participants ?? []).filter((p) => p.name.trim()),
+        title: opts.title,
+        queue: [],
+        nextAssign: 0,
+        drainPromise: null,
+        waiting: false,
+        halted: false,
+        nativePending: 0,
+        nativeWaitReason: null,
+      };
+      nativeJob = job;
+      writePersisted({
+        sessionId,
+        userId: job.userId,
+        projectId: job.projectId,
+        participants: job.participants,
+        mimeType: 'audio/aac',
+        startedAt,
+        title: opts.title,
+        pausedMs: 0,
+      });
+      setSnapshot({
+        phase: 'recording',
+        sessionId,
+        title: opts.title,
+        startedAt,
+        pausedMs: 0,
+        pausedAt: null,
+        endedAt: null,
+        interrupted: false,
+      });
+      toast.success('Recording started');
+      return true;
+    } catch (error) {
+      nativeStartWaiter = null;
+      const msg = error instanceof Error ? error.message : '';
+      if (/denied/i.test(msg)) toast.error('Microphone access denied. Check Settings > Focus OS > Microphone.');
+      else {
+        toast.error('Failed to start recording. Check your microphone.');
+        console.error('Recording error:', error);
+      }
+      return false;
+    } finally {
+      starting = false;
+    }
+  })();
+}
+
+function pauseNative() {
+  if (!nativeJob || snapshot.phase !== 'recording') return;
+  setSnapshot({ phase: 'paused', pausedAt: Date.now() });
+  nativePost({ cmd: 'pause' });
+}
+
+function resumeNative() {
+  if (!nativeJob || snapshot.phase !== 'paused') return;
+  const pausedMs = snapshot.pausedMs + (Date.now() - (snapshot.pausedAt ?? Date.now()));
+  setSnapshot({ phase: 'recording', pausedMs, pausedAt: null, interrupted: false });
+  writePersisted({ sessionId: nativeJob.sessionId, pausedMs });
+  nativePost({ cmd: 'resume' });
+}
+
+function stopNative() {
+  const job = nativeJob;
+  if (!job || !isRecording()) return;
+  const endedAt = Date.now();
+  const pausedMs = snapshot.pausedMs + (snapshot.pausedAt ? endedAt - snapshot.pausedAt : 0);
+  const durationSeconds = Math.max(0, Math.round((endedAt - snapshot.startedAt - pausedMs) / 1000));
+  job.title = snapshot.title;
+  writePersisted({ sessionId: job.sessionId, pausedMs, endedAt });
+  setSnapshot({ phase: 'saving', pausedMs, pausedAt: null, endedAt, interrupted: false });
+  nativeSaves.set(job.sessionId, { job, durationSeconds });
+  job.nativePending = nativePendingBySession.get(job.sessionId) ?? 0;
+  jobs.add(job);
+  nativeJob = null;
+  refreshSaveStats();
+  nativePost({ cmd: 'stop' });
+}
+
+/** Native finished the session and every piece is uploaded: save it, once. */
+async function nativeFinish(sessionId: string) {
+  const entry = nativeSaves.get(sessionId);
+  if (!entry || entry.job.finalizing) return;
+  const { job, durationSeconds } = entry;
+  job.finalizing = true;
+  setNativePending(sessionId, 0);
+  job.waiting = false;
+  jobs.delete(job);
+  refreshSaveStats();
+  try {
+    await finalizeSave(job, durationSeconds);
+  } finally {
+    nativeSaves.delete(sessionId);
+    // Saved (or already saved elsewhere): the phone's copy has done its job. On a
+    // failed save the record stays and the files stay for the recovery banner.
+    if (!readPersistedRecording(sessionId)) nativePost({ cmd: 'forget', sessionId });
+  }
+}
+
+/** Sessions native still holds from an earlier page life or app launch. */
+async function processNativePending(userId: string) {
+  await pushNativeAuth();
+  for (const s of nativePendingList) {
+    if (nativeJob?.sessionId === s.sessionId || nativeSaves.has(s.sessionId)) continue;
+    const meta = readPersistedRecording(s.sessionId);
+    if (!meta || meta.userId !== userId || meta.closed) continue;
+    setNativePending(s.sessionId, s.pending);
+    const job = nativeJobFromRecord(s.sessionId);
+    job.nativePending = s.pending;
+    if (typeof meta.endedAt === 'number') {
+      nativeSaves.set(s.sessionId, { job, durationSeconds: persistedDurationSeconds(meta) ?? 0 });
+      if (s.allUploaded) {
+        toast.info('Finishing a meeting that was not fully saved...');
+        void nativeFinish(s.sessionId);
+      } else {
+        jobs.add(job);
+        refreshSaveStats();
+        toast.info('Finishing a meeting that was not fully saved...');
+      }
+    } else if (s.allUploaded) {
+      // Cut off mid-recording and fully uploaded: the recovery banner offers it from the server.
+      nativePost({ cmd: 'forget', sessionId: s.sessionId });
+    } else {
+      // Cut off mid-recording: only upload the rest.
+      jobs.add(job);
+      refreshSaveStats();
+    }
+  }
+  nativePendingList = [];
+}
+
+function onNativeEvent(e: NativeEvent) {
+  const sid = e.sessionId;
+  switch (e.type) {
+    case 'started':
+      nativeStartWaiter?.resolve(e);
+      nativeStartWaiter = null;
+      break;
+    case 'error':
+      if (nativeStartWaiter) {
+        nativeStartWaiter.reject(new Error(String(e.message ?? 'Native recorder error')));
+        nativeStartWaiter = null;
+      } else {
+        toast.error(String(e.message ?? 'The recorder reported a problem.'), { id: 'native-recorder-error' });
+      }
+      break;
+    case 'state': {
+      if (e.state === 'idle') {
+        // Native is not recording. If the page still believes it is, the recording
+        // was lost (the page keeps its files for the recovery banner).
+        if (!starting && nativeJob && (snapshot.phase === 'recording' || snapshot.phase === 'paused')) {
+          nativeJob = null;
+          setSnapshot({ phase: 'idle', interrupted: false, pausedAt: null });
+          toast.error('The recording stopped unexpectedly. What was captured is kept.');
+        }
+        break;
+      }
+      if (e.state !== 'recording' && e.state !== 'paused') break;
+      if (!sid) break;
+      if (!nativeJob) {
+        // The page reloaded while native kept recording: reattach.
+        if (snapshot.phase !== 'idle' && snapshot.phase !== 'saving') break;
+        nativeJob = nativeJobFromRecord(sid);
+        nativeJob.nativePending = nativePendingBySession.get(sid) ?? 0;
+        setSnapshot({ sessionId: sid, title: nativeJob.title, endedAt: null });
+      }
+      if (nativeJob.sessionId !== sid) break;
+      const paused = e.state === 'paused';
+      const patch: Partial<RecorderSnapshot> = {
+        phase: paused ? 'paused' : 'recording',
+        startedAt: typeof e.startedAt === 'number' ? e.startedAt : snapshot.startedAt,
+        pausedMs: typeof e.pausedMs === 'number' ? e.pausedMs : snapshot.pausedMs,
+        pausedAt: paused ? (typeof e.pausedAt === 'number' ? e.pausedAt : snapshot.pausedAt ?? Date.now()) : null,
+        interrupted: e.interrupted === true,
+      };
+      setSnapshot(patch);
+      writePersisted({ sessionId: sid, pausedMs: snapshot.pausedMs });
+      break;
+    }
+    case 'interrupted':
+      if (nativeJob && (!sid || sid === nativeJob.sessionId)) {
+        if (snapshot.phase === 'recording') setSnapshot({ phase: 'paused', pausedAt: e.at ?? Date.now() });
+        setSnapshot({ interrupted: true });
+        toast.info('Recording paused: a call or alarm took the microphone.', { id: 'native-interrupted' });
+      }
+      break;
+    case 'resumed':
+      if (nativeJob && (!sid || sid === nativeJob.sessionId)) {
+        if (snapshot.phase === 'paused') {
+          const pausedMs = snapshot.pausedMs + ((e.at ?? Date.now()) - (snapshot.pausedAt ?? e.at ?? Date.now()));
+          setSnapshot({ phase: 'recording', pausedMs: Math.max(snapshot.pausedMs, pausedMs), pausedAt: null });
+        }
+        setSnapshot({ interrupted: false });
+        toast.success('Recording resumed', { id: 'native-interrupted' });
+      }
+      break;
+    case 'chunkSaved':
+      if (sid) setNativePending(sid, (nativePendingBySession.get(sid) ?? 0) + 1);
+      break;
+    case 'chunkUploaded':
+      if (sid) {
+        setNativePending(sid, (nativePendingBySession.get(sid) ?? 1) - 1);
+        writePersisted({ sessionId: sid, lastChunkAt: Date.now() });
+        jobs.forEach((j) => {
+          if (j.waiting) {
+            j.waiting = false;
+            j.nativeWaitReason = null;
+          }
+        });
+        if (nativeJob) nativeJob.waiting = false;
+        refreshSaveStats();
+      }
+      break;
+    case 'uploadWaiting': {
+      const reason: 'network' | 'signin' = e.reason === 'signin' ? 'signin' : 'network';
+      const apply = (j: Job) => {
+        j.waiting = true;
+        j.nativeWaitReason = reason;
+      };
+      jobs.forEach(apply);
+      if (nativeJob) apply(nativeJob);
+      refreshSaveStats();
+      // A save that is waiting becomes a BACKGROUND save (same as the web path), so
+      // the pill leaves the foreground "saving" state and a new meeting can start.
+      if (snapshot.phase === 'saving' && snapshot.sessionId && nativeSaves.has(snapshot.sessionId)) {
+        setSnapshot({ phase: 'idle' });
+      }
+      break;
+    }
+    case 'stopped':
+      if (sid && e.allUploaded === true) {
+        if (nativeSaves.has(sid)) void nativeFinish(sid);
+        else if (nativeJob?.sessionId !== sid) {
+          // An upload-only session (cut off mid-recording) is fully uploaded: release it.
+          Array.from(jobs).forEach((j) => {
+            if (j.sessionId === sid) jobs.delete(j);
+          });
+          setNativePending(sid, 0);
+          nativePost({ cmd: 'forget', sessionId: sid });
+        }
+      }
+      break;
+    case 'pending': {
+      nativePendingList = Array.isArray(e.sessions) ? (e.sessions as NativePendingSession[]) : [];
+      for (const s of nativePendingList) setNativePending(s.sessionId, s.pending);
+      if (currentUserId) void processNativePending(currentUserId);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+/** Sign-out: stop native recording, keep its files, never upload them under another account. */
+function haltNativeForSignOut() {
+  if (!useNative() && !nativeJob && nativeSaves.size === 0) return;
+  const job = nativeJob;
+  if (job) {
+    job.halted = true;
+    const endedAt = Date.now();
+    const pausedMs = snapshot.pausedMs + (snapshot.pausedAt ? endedAt - snapshot.pausedAt : 0);
+    writePersisted({ sessionId: job.sessionId, pausedMs, endedAt, title: snapshot.title });
+    nativePost({ cmd: 'stop' });
+    nativeJob = null;
+  }
+  nativeSaves.forEach(({ job: j }) => {
+    j.halted = true;
+  });
+  nativeSaves.clear();
+  nativePost({ cmd: 'clearAuth' });
+}
+
+if (typeof window !== 'undefined' && SHELL_REC) {
+  (window as any).__focusosNativeRecorder = { onEvent: onNativeEvent };
+  // Handshake: native flushes anything it queued and replays its state + backlog.
+  nativePost({ cmd: 'ready' });
+}
+
 /* ─── page-lifecycle listeners (module level) ─────────── */
 
 if (typeof document !== 'undefined') {
@@ -951,6 +1423,7 @@ if (typeof document !== 'undefined') {
       leaseBeats.forEach((b) => b());
       if (isRecording()) void acquireWakeLock();
       if (currentUserId) void resumePendingSessions(currentUserId);
+      void pushNativeAuth();
     }
   });
   window.addEventListener('pagehide', () => {
@@ -986,6 +1459,9 @@ if (typeof document !== 'undefined') {
   try {
     supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) currentUserId = session.user.id;
+      if (session && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        void pushNativeAuth(session);
+      }
       if (event === 'SIGNED_OUT') {
         currentUserId = null;
         haltForSignOut();
@@ -1049,6 +1525,7 @@ export function isLiveInAnotherTab(sessionId: string, now = Date.now()): boolean
 export async function hasUnsentChunks(sessionId: string): Promise<boolean> {
   if (isSessionInFlight(sessionId)) return true;
   if (readPersistedRecording(sessionId)?.closed) return false;
+  if ((nativePendingBySession.get(sessionId) ?? 0) > 0) return true;
   try {
     return (await getSessionChunks(sessionId)).length > 0;
   } catch {

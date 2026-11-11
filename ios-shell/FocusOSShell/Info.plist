@@ -25,7 +25,11 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Focus OS uses the microphone for Brain Dump voice capture.</string>
+	<string>Focus OS uses the microphone for Brain Dump voice capture and meeting recordings.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

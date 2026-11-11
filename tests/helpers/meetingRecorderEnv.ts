@@ -20,6 +20,8 @@ export const MEETING_ID = 'meeting-pill-0001';
 
 export interface RecorderRig {
   startCalls: number;
+  /** Bodies of every start-recording-session invoke. */
+  startBodies: any[];
   /** Every upload invoke, in arrival order, with the HTTP outcome the rig returned. */
   uploads: { sessionId: string; chunkIndex: number; ok: boolean; bytes: number }[];
   processBodies: any[];
@@ -45,6 +47,7 @@ export async function bootRig(
 ): Promise<RecorderRig> {
   const rig: RecorderRig = {
     startCalls: 0,
+    startBodies: [],
     uploads: [],
     processBodies: [],
     transcribeBodies: [],
@@ -71,6 +74,7 @@ export async function bootRig(
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
     if (url.includes('focusos-start-recording-session')) {
       rig.startCalls += 1;
+      rig.startBodies.push(req.postDataJSON());
       return json(200, { sessionId: rig.startCalls === 1 ? SESSION_ID : `${SESSION_ID}-${rig.startCalls}` });
     }
     if (url.includes('focusos-upload-audio-chunk')) {

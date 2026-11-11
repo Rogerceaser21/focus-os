@@ -2,6 +2,11 @@ import SwiftUI
 
 @main
 struct FocusOSShellApp: App {
+    init() {
+        // Repair recording files left by a killed app; the web asks for them on "ready".
+        NativeRecorder.shared.recoverOnLaunch()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

@@ -27,9 +27,15 @@ enum ShellConfig {
     /// Hosts treated as "inside the app". Everything else opens in the system browser.
     /// accounts.google.com is deliberately NOT here: Google blocks OAuth in embedded
     /// webviews (disallowed_useragent), so the OAuth leg must leave the shell.
-    static let appHosts: Set<String> = [
-        "rogerceaser21.github.io",
-    ]
+    static let appHosts: Set<String> = {
+        var hosts: Set<String> = ["rogerceaser21.github.io"]
+        #if DEBUG
+        // Debug builds only (local test rig): the dev server. Release and
+        // TestFlight archives never contain this.
+        hosts.insert("localhost")
+        #endif
+        return hosts
+    }()
 
     /// The only hosts the native OAuth bridge will open. The page posts the URL,
     /// so anything wider would make the shell an open redirector for injected
@@ -97,6 +103,9 @@ struct ShellWebView: UIViewRepresentable {
         // __FOCUSOS_SHELL_OAUTH__ is a CAPABILITY flag, separate from the shell
         // flag: only a build carrying the native bridge below may show Google
         // sign-in, because in a plain webview Google answers disallowed_useragent.
+        // __FOCUSOS_SHELL_REC__ (R3): the meeting recorder runs natively (AVAudioEngine,
+        // NativeRecorder.swift) through the "recorder" message handler, so it keeps
+        // recording in the background. Older builds lack it and keep the web recorder.
         // __FOCUSOS_SHELL_CAL__ is the same pattern for the calendar widget:
         // build 2 predates the oauth bridge's accounts.google.com allowance, so
         // it lacks this flag and the web app keeps the widget hidden there.
@@ -104,6 +113,7 @@ struct ShellWebView: UIViewRepresentable {
         window.__FOCUSOS_SHELL__ = true;
         window.__FOCUSOS_SHELL_OAUTH__ = true;
         window.__FOCUSOS_SHELL_CAL__ = true;
+        window.__FOCUSOS_SHELL_REC__ = true;
         document.documentElement.classList.add('standalone', 'shell');
         """
         config.userContentController.addUserScript(WKUserScript(
@@ -120,7 +130,15 @@ struct ShellWebView: UIViewRepresentable {
             name: "oauth"
         )
 
+        // Native meeting recorder bridge (commands in, events out via
+        // window.__focusosNativeRecorder.onEvent). Same weak-proxy rule.
+        config.userContentController.add(
+            WeakScriptMessageHandler(target: context.coordinator),
+            name: "recorder"
+        )
+
         let webView = ShellWKWebView(frame: .zero, configuration: config)
+        NativeRecorder.shared.webView = webView
         #if DEBUG
         // Safari Web Inspector + Appium web-context access (JS census rig).
         webView.isInspectable = true
@@ -193,6 +211,7 @@ struct ShellWebView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            NativeRecorder.shared.webReloaded()
             injectSafeAreaVars(lastInsets, into: webView)
         }
 
@@ -203,6 +222,15 @@ struct ShellWebView: UIViewRepresentable {
         // allowlisted hosts is answered with null rather than opened, so page
         // script can never drive the session at an arbitrary origin.
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "recorder" {
+                // Only the app's own main frame may drive the recorder (same rule
+                // as the host allowlist for navigation).
+                guard message.frameInfo.isMainFrame,
+                      ShellConfig.appHosts.contains(message.frameInfo.securityOrigin.host),
+                      let body = message.body as? [String: Any] else { return }
+                NativeRecorder.shared.handle(body)
+                return
+            }
             guard message.name == "oauth" else { return }
             guard let raw = message.body as? String,
                   let url = URL(string: raw),
