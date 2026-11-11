@@ -359,7 +359,9 @@ final class NativeRecorder: NSObject {
             emit(["type": "state", "state": "idle"])
             return
         }
-        guard !r.draining else { return }
+        // A pause / interruption drain is in flight: its block is already on the
+        // serial queue, so re-enqueue the Stop to run right after it (never drop it).
+        guard !r.draining else { q.async { [self] in onStop() }; return }
         emit(["type": "state", "state": "stopping", "sessionId": r.m.sessionId])
         r.resumeLoop += 1
         cancelResumeNotice()

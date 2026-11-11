@@ -540,7 +540,7 @@ const Meetings = () => {
     try {
       const { data: sessions } = await (supabase as any)
         .from('focusos_recording_sessions')
-        .select('id, chunk_count, created_at, gcs_folder_path, mime_type, status')
+        .select('id, chunk_count, created_at, updated_at, gcs_folder_path, mime_type, status')
         .in('status', ['processing', 'recording'])
         .order('created_at', { ascending: false })
         .limit(1);
@@ -554,6 +554,18 @@ const Meetings = () => {
           isSessionInFlight(session.id) ||
           isLiveInAnotherTab(session.id) ||
           (await hasUnsentChunks(session.id))
+        )
+          return;
+        // Another DEVICE may still be recording it: Recover would close the session
+        // and the phone's remaining audio could never upload. Skip a session that
+        // received audio in the last 10 minutes, and an iPhone-app (AAC) session
+        // younger than 12 hours (a locked phone can hold its pieces until reopened).
+        const nowMs = Date.now();
+        const lastTouchMs = new Date(session.updated_at ?? session.created_at).getTime();
+        if (nowMs - lastTouchMs < 10 * 60_000) return;
+        if (
+          String(session.mime_type || '').startsWith('audio/aac') &&
+          nowMs - new Date(session.created_at).getTime() < 12 * 3600_000
         )
           return;
         // Only show recovery if session has chunks and is older than 2 minutes
