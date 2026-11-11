@@ -457,7 +457,7 @@ export function chunkSecondsFor(durationSeconds: unknown, chunkCount: number): n
 
 /** Chunks per segment so each Gemini call covers ~10 minutes (30 s -> 20). */
 export function segmentChunksFor(chunkSeconds: number): number {
-  return Math.max(1, Math.round(600 / chunkSeconds));
+  return Math.min(MAX_SEGMENT_CHUNKS, Math.max(1, Math.round(600 / chunkSeconds)));
 }
 
 /** True for a buffer opening with an ADTS sync word (FF Fx, layer 00). */
@@ -469,4 +469,16 @@ export function isAdts(bytes: Uint8Array | null | undefined): boolean {
 /** Content type for a sniffed container format. */
 export function mimeForFormat(format: SegmentsState["format"]): string {
   return format === "aac" ? "audio/aac" : "audio/webm";
+}
+
+/** GCS compose accepts at most 32 sources; 30 chunks + init + lead = 32. */
+export const MAX_SEGMENT_CHUNKS = 30;
+export const GCS_COMPOSE_MAX_SOURCES = 32;
+
+/** True when there is no usable plan, or the stored plan exceeds the cap. */
+export function planNeedsReplan(state: SegmentsState | null | undefined): state is null | undefined {
+  const s = state as unknown as { total?: unknown; segmentChunks?: unknown } | null | undefined;
+  if (!s || typeof s.total !== "number") return true;
+  const sc = s.segmentChunks;
+  return typeof sc !== "number" || !Number.isFinite(sc) || sc <= 0 || sc > MAX_SEGMENT_CHUNKS;
 }

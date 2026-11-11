@@ -39,6 +39,8 @@ import {
   segmentStartSeconds,
   chunkSecondsFor,
   segmentChunksFor,
+  planNeedsReplan,
+  GCS_COMPOSE_MAX_SOURCES,
   isAdts,
   mimeForFormat,
   segmentsPrefix,
@@ -473,7 +475,11 @@ serve(async (req) => {
     const gcsToken = await getGcsAccessToken(sa);
 
     state = (meeting.transcript_segments ?? null) as SegmentsState | null;
-    if (!state || typeof state.total !== "number") {
+    const storedPlan = state as SegmentsState | null;
+    if (planNeedsReplan(state)) {
+      if (storedPlan && typeof storedPlan.total === "number") {
+        console.log(`[segment ${INSTANCE}] ${meetingId}: stored plan has segmentChunks ${storedPlan.segmentChunks} — replanning with cap`);
+      }
       // No plan yet (a fresh meeting, or a retry of a row whose
       // transcript_segments is null): plan from scratch.
       const chunkCount = await listChunkCount(gcsToken, bucket, folder);
@@ -661,6 +667,11 @@ serve(async (req) => {
       }
 
       const segmentObject = segmentObjectName(folder, i);
+      if (sources.length > GCS_COMPOSE_MAX_SOURCES) {
+        throw new Error(
+          `Segment ${i + 1}/${total} has ${sources.length} sources; GCS compose allows at most ${GCS_COMPOSE_MAX_SOURCES}`
+        );
+      }
       await composeObjects(gcsToken, bucket, sources, segmentObject, mimeType);
       console.log(
         `[segment ${INSTANCE}] ${meetingId}: composed segment ${i + 1}/${total} ` +
