@@ -424,18 +424,19 @@ Deno.test("chunkSecondsFor: real length, fallback 30, clamped", () => {
   assertEquals(chunkSecondsFor(10000, 10), 120);
 });
 
-Deno.test("segmentChunksFor: 10 s -> 60, 30 s -> 20", () => {
-  assertEquals(segmentChunksFor(10), 60);
+Deno.test("segmentChunksFor: 10 s -> 30 (capped), 30 s -> 20", () => {
+  assertEquals(segmentChunksFor(10), 30);
   assertEquals(segmentChunksFor(30), 20);
 });
 
-Deno.test("1200 s / 120 chunks: 2 segments, markers 00:00:00 and 00:10:00", () => {
+Deno.test("1200 s / 120 chunks: 4 segments, markers every 00:05:00", () => {
   const secs = chunkSecondsFor(1200, 120);
   const sc = segmentChunksFor(secs);
-  assertEquals(planSegments2(120, sc).length, 2);
-  const t = joinTranscript2({ "0": "a", "1": "b" }, 2, sc, secs);
+  assertEquals(planSegments2(120, sc).length, 4);
+  const t = joinTranscript2({ "0": "a", "1": "b", "2": "c", "3": "d" }, 4, sc, secs);
   assertEquals(t.includes("--- 00:00:00 ---"), true);
-  assertEquals(t.includes("--- 00:10:00 ---"), true);
+  assertEquals(t.includes("--- 00:05:00 ---"), true);
+  assertEquals(t.includes("--- 00:15:00 ---"), true);
 });
 
 Deno.test("legacy row (no chunkSeconds) keeps 30 s markers", () => {
@@ -457,4 +458,43 @@ Deno.test("mimeForFormat", () => {
   assertEquals(mimeForFormat("aac"), "audio/aac");
   assertEquals(mimeForFormat("webm"), "audio/webm");
   assertEquals(mimeForFormat(undefined), "audio/webm");
+});
+
+import {
+  segmentChunksFor as _scf,
+  planSegments as _plan,
+  segmentStartSeconds as _sss,
+  formatHMS as _hms,
+  planNeedsReplan as _pnr,
+  GCS_COMPOSE_MAX_SOURCES as _MAX,
+} from "./segments.ts";
+
+Deno.test("segmentChunksFor caps at 30", () => {
+  assertEquals(_scf(10), 30);
+  assertEquals(_scf(9.9), 30);
+  assertEquals(_scf(30), 20);
+});
+
+Deno.test("53-chunk meeting plans 30 + 23, compose within 32", () => {
+  const plans = _plan(53, _scf(10));
+  assertEquals(plans.length, 2);
+  assertEquals([plans[0].firstChunk, plans[0].lastChunk], [0, 29]);
+  assertEquals([plans[1].firstChunk, plans[1].lastChunk], [30, 52]);
+  for (const p of plans) {
+    const n = p.lastChunk - p.firstChunk + 1;
+    assertEquals(n <= _MAX, true); // AAC
+    assertEquals(n + 2 <= _MAX, true); // WebM init + lead
+  }
+});
+
+Deno.test("second segment marker with 10 s chunks reads 00:05:00", () => {
+  assertEquals(_hms(_sss(1, 30, 10)), "00:05:00");
+});
+
+Deno.test("planNeedsReplan", () => {
+  assertEquals(_pnr(null), true);
+  assertEquals(_pnr({ total: 1, segmentChunks: 53 } as any), true);
+  assertEquals(_pnr({ total: 1 } as any), true);
+  assertEquals(_pnr({ total: 2, segmentChunks: 30 } as any), false);
+  assertEquals(_pnr({ total: 2, segmentChunks: 20 } as any), false);
 });
