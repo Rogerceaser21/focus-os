@@ -32,7 +32,7 @@ targets:
       properties:
         CFBundleDisplayName: Focus OS
         CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "4"
+        CFBundleVersion: "5"
         NSMicrophoneUsageDescription: "Focus OS uses the microphone for Brain Dump voice capture and meeting recordings."
         # Native meeting recorder keeps recording with the screen locked / app in background.
         UIBackgroundModes: [audio]
